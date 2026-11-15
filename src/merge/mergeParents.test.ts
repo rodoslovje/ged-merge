@@ -61,6 +61,22 @@ describe("merging parents the way the review shows them", () => {
     expect(parentsAfter(main, compare)).toEqual([["Janez /Novak/", "Marija /Kos/"]]);
   });
 
+  it("grafting ancestors finds each parent in whichever child family holds them", () => {
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Peter /Novak/\n1 SEX M\n"));
+    const compare = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Peter /Novak/\n1 SEX M\n1 FAMC @G1@\n1 FAMC @G2@\n" +
+        "0 @P2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G2@\n" +
+        "0 @G1@ FAM\n1 WIFE @P2@\n1 CHIL @P1@\n" +
+        "0 @G2@ FAM\n1 HUSB @P3@\n1 CHIL @P1@\n",
+    ));
+    const matches = { individuals: [{ mainId: "@I1@", compareId: "@P1@" }] } as never;
+    const { records } = mergeDecisions(main, compare, new Map(), matches, tr, [{ incomingId: "@P1@", direction: "ancestors" }]);
+    const out = records.map((r) => r.children.find((c) => c.tag === "NAME")?.value).filter(Boolean);
+    expect(out).toContain("Marija /Kos/");
+    expect(out).toContain("Janez /Novak/");
+  });
+
   it("finds each parent in whichever child family holds them, and joins them", () => {
     // The incoming person is a child in two families: one names only the
     // mother, the other only the father.

@@ -11,7 +11,7 @@ import { displayName } from "../match/relatives";
 import { datesTooltipOf, lifespanOf } from "../gedcom/lifespan";
 import type { MatchResult } from "../match/types";
 import { defaultChoice, FAM_EVENT_TEXT_SUBS, type FieldChoice, type FieldRow, type ImportDirection } from "../review/types";
-import { pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
+import { incomingParentIds, pairedMainFamilies, relativePersonSimilarity, RELATIVE_PAIR_THRESHOLD } from "../review/fields";
 import { birthYearsApart, identityEvidence, noGivenNameInCommon } from "../match/similarity";
 import { sexConflicts } from "../match/scoreIndividual";
 import { newSourceCitations } from "../gedcom/source";
@@ -1290,9 +1290,10 @@ function importAncestors(
   if (!incIndi) return;
   const mainId = ctx.resolve(incId);
   if (!mainId) return;
-  const childFamId = incIndi.childOf[0];
-  const incFam = childFamId ? compare.families.get(childFamId) : undefined;
-  if (!incFam) return;
+  // Each parent from whichever child family names them, read the way the
+  // review's Parents rows read them (see `incomingParentIds`).
+  const incParents = incomingParentIds(main.individuals.get(mainId), incIndi, main, compare, undefined);
+  if (!incParents.father && !incParents.mother) return;
 
   // The family the person already has, if any; one is created (or the
   // couple's own joined) only once a parent is actually linked, so a walk
@@ -1301,8 +1302,8 @@ function importAncestors(
   const existingNode = existingId ? ctx.famNode(existingId) : undefined;
   let childFam = existingNode ? { id: existingId!, node: existingNode } : undefined;
   const parents: Array<["HUSB" | "WIFE", string | undefined, string]> = [
-    ["HUSB", incFam.husband, "merge.field.father"],
-    ["WIFE", incFam.wife, "merge.field.mother"],
+    ["HUSB", incParents.father, "merge.field.father"],
+    ["WIFE", incParents.mother, "merge.field.mother"],
   ];
   const slots = parents.flatMap(([role, incParentId]) => (incParentId ? [{ role, incParentId }] : []));
   for (const [role, incParentId, labelKey] of parents) {
@@ -1341,9 +1342,10 @@ function importAncestors(
 /** Whether an incoming person has a parent of their own — i.e. whether stopping
  *  the walk at them leaves a further lineage behind, which the message says. */
 function hasIncomingAncestors(incId: string, compare: Dataset): boolean {
-  const famId = compare.individuals.get(incId)?.childOf[0];
-  const fam = famId ? compare.families.get(famId) : undefined;
-  return !!(fam?.husband || fam?.wife);
+  return (compare.individuals.get(incId)?.childOf ?? []).some((famId) => {
+    const fam = compare.families.get(famId);
+    return !!(fam?.husband || fam?.wife);
+  });
 }
 
 /** Recursively import an incoming person's spouses, children, and their descendants. */

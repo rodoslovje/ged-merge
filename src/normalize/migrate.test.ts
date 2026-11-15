@@ -8,6 +8,7 @@ import { normalizeDataset } from "./normalize";
 import { migrateVersion } from "./migrate";
 import { serializeGedcom } from "../gedcom/serialize";
 import { validateConformance } from "../tools/conformance/conformance";
+import { completeStructure, convertVersion } from "../save/outputFile";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -33,12 +34,19 @@ function record(records: GedNode[], xref: string): GedNode {
   return rec!;
 }
 
-/** Conformance findings on media-type lines other than their value's case
- *  (MEDI's 7.0 casing is a separate conversion). */
+/** Conformance findings on media-type lines. */
 function placement(records: GedNode[]) {
-  return validateConformance({ records }).filter(
-    (i) => i.messageKey !== "tools.validate.struct.issue.enumCase" && /TYPE|MEDI/.test(JSON.stringify(i)),
-  );
+  return validateConformance({ records }).filter((i) => /TYPE|MEDI/.test(JSON.stringify(i)));
+}
+
+/** Conformance findings outside the header, with `records` read as a
+ *  `version` file (the fixtures' header is a bare minimum). */
+function findings(records: GedNode[], version: "5.5.1" | "7.0") {
+  const head = records.find((r) => r.tag === "HEAD")!;
+  firstChild(firstChild(head, "GEDC")!, "VERS")!.value = version;
+  return validateConformance({ records })
+    .filter((i) => i.recordTag !== "HEAD" && i.recordTag !== "TRLR")
+    .map((i) => `${i.recordId ?? i.recordTag} ${i.messageKey} ${i.sample ?? ""}`);
 }
 
 describe("migrateVersion 5.5.1 → 7.0", () => {
@@ -225,7 +233,7 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     const m1File = firstChild(record(records, "@M1@"), "FILE")!;
     const m1Form = firstChild(m1File, "FORM")!;
     expect(m1Form.value).toBe("image/jpeg");
-    expect(childValue(m1Form, "MEDI")).toBe("photo");
+    expect(childValue(m1Form, "MEDI")).toBe("PHOTO");
     const m2 = record(records, "@M2@");
     expect(firstChild(m2, "FORM")).toBeUndefined();
     expect(firstChild(m2, "TITL")).toBeUndefined();
@@ -445,7 +453,7 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(firstChild(indi, "_NO")!.value).toBe("MARR");
     const form = firstChild(firstChild(record(records, "@M1@"), "FILE")!, "FORM")!;
     expect(form.value).toBe("jpg");
-    expect(childValue(form, "TYPE")).toBe("PHOTO");
+    expect(childValue(form, "TYPE")).toBe("photo");
   });
 
   it("keeps a note's MIME, LANG and TRAN as extension tags, not as a name variant", () => {
@@ -622,6 +630,157 @@ describe("migrateVersion — vendor tags with a GEDCOM 7 standard form", () => {
   });
 });
 
+describe("convertVersion — structures the conversion must leave valid", () => {
+  const HEAD_551 = "0 HEAD\n1 SOUR GEDMERGE\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n1 SUBM @U1@\n";
+  const HEAD_70 = "0 HEAD\n1 GEDC\n2 VERS 7.0\n1 SOUR GEDMERGE\n1 SUBM @U1@\n";
+
+  /** Convert a whole file the way a save does; its conformance findings in
+   *  the target version, and the conversion report. */
+  function converted(from: "5.5.1" | "7.0", text: string, to: "5.5.1" | "7.0") {
+    const ds = dataset(text);
+    const changes = convertVersion(ds.records, from, to);
+    // The header lines the save adds (5.5.1's CHAR) are not the conversion's.
+    completeStructure(ds.records, to);
+    return { records: ds.records, changes, findings: validateConformance({ records: ds.records }) };
+  }
+
+  it("migrates the submitter record up: shared note, inline media, RIN", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n1 NOTE @N1@\n1 RIN 5\n1 OBJE\n2 FILE a.jpg\n3 FORM jpg\n0 @N1@ NOTE hi\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const subm = record(records, "@U1@");
+    expect(childValue(subm, "SNOTE")).toBe("@N1@");
+    expect(firstChild(subm, "RIN")).toBeUndefined();
+    expect(childValue(subm, "EXID")).toBe("5");
+    expect(childValue(subm, "OBJE")).toMatch(/^@M\d+@$/);
+    expect(changes).toContain("NOTE @N1@ → SNOTE @N1@");
+    expect(changes).toContain("OBJE (inline) → OBJE @M1@");
+  });
+
+  it("migrates the submitter record and a header's shared note down", () => {
+    const { records, changes, findings } = converted(
+      "7.0",
+      HEAD_70 + "1 SNOTE @N1@\n0 @U1@ SUBM\n1 NAME Ana\n1 UID 123e4567-e89b-12d3-a456-426614174000\n" +
+        "1 CREA\n2 DATE 1 JAN 2000\n1 EXID 5\n2 TYPE http://example.com/\n1 REFN 7\n1 SNOTE @N1@\n0 @N1@ SNOTE Header text\n0 TRLR\n",
+      "5.5.1",
+    );
+    expect(findings).toEqual([]);
+    const subm = record(records, "@U1@");
+    expect(subm.children.map((c) => c.tag)).toEqual(["NAME", "_UID", "_CREA", "_REFN", "_REFN", "NOTE"]);
+    const head = records.find((r) => r.tag === "HEAD")!;
+    expect(firstChild(head, "SNOTE")).toBeUndefined();
+    expect(childValue(head, "NOTE")).toBe("Header text");
+    expect(changes).toContain("HEAD.SNOTE @N1@ → HEAD.NOTE (text)");
+    expect(changes).toContain("SUBM.REFN 7 → SUBM._REFN 7");
+  });
+
+  it("gives a generic event or fact the TYPE 7.0 requires", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 EVEN Graduation\n2 DATE 1900\n1 EVEN 3 cows\n1 FACT blue\n" +
+        "1 FACT tall\n2 TYPE Height\n0 @F1@ FAM\n1 EVEN\n1 FACT x\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const types = (rec: GedNode) => rec.children.map((c) => `${c.tag} ${c.value ?? ""}: ${childValue(c, "TYPE")}`);
+    expect(types(record(records, "@I1@"))).toEqual(["EVEN Graduation: Graduation", "EVEN 3 cows: Event", "FACT blue: Fact", "FACT tall: Height"]);
+    expect(types(record(records, "@F1@"))).toEqual(["EVEN : Event", "FACT x: Fact"]);
+    expect(changes).toContain("INDI.EVEN Graduation → INDI.EVEN.TYPE Graduation");
+    expect(changes).toContain("FAM.EVEN → FAM.EVEN.TYPE Event");
+  });
+
+  it("joins a header's shared note to the text note it already has, and drops one to no note", () => {
+    const { records, findings } = converted(
+      "7.0",
+      HEAD_70 + "1 NOTE Own\n1 SNOTE @N1@\n1 SNOTE @N9@\n0 @U1@ SUBM\n1 NAME Ana\n0 @N1@ SNOTE Shared\n0 TRLR\n",
+      "5.5.1",
+    );
+    expect(findings).toEqual([]);
+    const head = records.find((r) => r.tag === "HEAD")!;
+    expect(childrenByTag(head, "NOTE").map((n) => n.value)).toEqual(["Own\nShared"]);
+    expect(head.children.some((c) => c.tag.includes("SNOTE"))).toBe(false);
+  });
+
+  it("moves a calendar escape written before the qualifier after it, onto both ends of a range", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 BIRT\n2 DATE @#DJULIAN@ ABT 1700\n1 CHR\n2 DATE @#DJULIAN@ BET 1700 AND 1710\n" +
+        "1 DEAT\n2 DATE @#DJULIAN@ FROM 1700 TO @#DJULIAN@ 1710\n1 BURI\n2 DATE @#DGREGORIAN@ BEF 1800\n1 RESI\n2 DATE ABT @#DJULIAN@ 1700\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const indi = record(records, "@I1@");
+    expect(["BIRT", "CHR", "DEAT", "BURI", "RESI"].map((tag) => findByPath(indi, [tag, "DATE"])!.value)).toEqual([
+      "ABT JULIAN 1700", "BET JULIAN 1700 AND JULIAN 1710", "FROM JULIAN 1700 TO JULIAN 1710", "BEF 1800", "ABT JULIAN 1700",
+    ]);
+    expect(changes).toContain("DATE @#DJULIAN@ ABT 1700 → DATE ABT JULIAN 1700");
+  });
+
+  it("lifts every inline OBJE into a media record, wherever it stands", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 OBJE\n2 FILE a.jpg\n3 FORM jpg\n1 BIRT\n2 SOUR @S1@\n3 OBJE\n4 FILE c.jpg\n5 FORM jpg\n" +
+        "0 @S1@ SOUR\n1 TITL Register\n1 OBJE\n2 FILE d.png\n3 FORM png\n1 OBJE\n2 TITL A title alone\n0 TRLR\n",
+      "7.0",
+    );
+    const links: GedNode[] = [];
+    for (const rec of records) {
+      if (rec.tag === "OBJE") continue;
+      const visit = (n: GedNode) => n.children.forEach((c) => { if (c.tag === "OBJE") links.push(c); visit(c); });
+      visit(rec);
+    }
+    expect(links).toHaveLength(4);
+    for (const link of links) {
+      expect(link.children).toEqual([]);
+      expect(record(records, link.value!).tag).toBe("OBJE");
+    }
+    expect(changes.filter((c) => c.startsWith("OBJE (inline)"))).toHaveLength(4);
+    // The one with no file says what it says on a record. It lacked its FILE
+    // in 5.5.1 too, and that (with the title it cannot hang under one) is
+    // all that is left to report.
+    const titled = records.find((r) => r.tag === "OBJE" && childValue(r, "TITL") === "A title alone")!;
+    expect(findings.map((i) => [i.recordId, i.messageVars.tag, i.category])).toEqual([
+      [titled.xref, "FILE", "missingLine"], [titled.xref, "TITL", "misplacedTag"],
+    ]);
+  });
+
+  it("names an HTML note's markup with MIME text/html, and leaves a plain one alone", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NOTE <p>Hello <b>x</b></p>\n1 NOTE a <private> remark\n1 NOTE @N1@\n" +
+        "1 BIRT\n2 NOTE <i>born</i>\n0 @N1@ NOTE <p>shared</p>\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const indi = record(records, "@I1@");
+    const notes = childrenByTag(indi, "NOTE");
+    expect(notes.map((n) => childValue(n, "MIME"))).toEqual(["text/html", undefined]);
+    expect(childValue(findByPath(indi, ["BIRT", "NOTE"])!, "MIME")).toBe("text/html");
+    expect(childValue(record(records, "@N1@"), "MIME")).toBe("text/html");
+    expect(firstChild(indi, "SNOTE")!.children).toEqual([]);
+    expect(changes).toContain("SNOTE @N1@ → SNOTE @N1@.MIME text/html");
+    expect(changes).toContain("NOTE → NOTE.MIME text/html");
+  });
+
+  it("keeps a shared-note pointer's citations on the pointer, as _NOTE_SOUR", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NOTE @N1@\n2 SOUR @S1@\n3 PAGE 4\n0 @I2@ INDI\n1 NOTE @N1@\n" +
+        "0 @N1@ NOTE Shared\n0 @S1@ SOUR\n1 TITL Register\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const snote = firstChild(record(records, "@I1@"), "SNOTE")!;
+    expect(snote.children.map((c) => `${c.tag} ${c.value} / ${childValue(c, "PAGE")}`)).toEqual(["_NOTE_SOUR @S1@ / 4"]);
+    // The note record cites nothing: the other person's note is not sourced.
+    expect(record(records, "@N1@").children).toEqual([]);
+    expect(changes).toContain("SNOTE @N1@.SOUR @S1@ → SNOTE @N1@._NOTE_SOUR @S1@");
+  });
+});
+
 describe("normalizeDataset version migration wiring", () => {
   const MAIN7 = head("7.0") + "0 @I1@ INDI\n1 NAME Franc /Novak/\n0 TRLR\n";
   const COMPARE551 =
@@ -736,5 +895,143 @@ describe("migrateVersion — the events lifted as first-class ones", () => {
     expect(findByPath(indi, ["BAPL", "STAT"])!.value).toBe("PRE-1970");
     expect(findByPath(indi, ["CONL", "STAT"])!.value).toBe("Waiting");
     expect(findByPath(record(records, "@F1@"), ["SLGS", "STAT"])!.value).toBe("DNS/CAN");
+  });
+});
+
+describe("migrateVersion — PEDI, FAMC.STAT, MEDI and RESN in the target's spelling", () => {
+  const V551 =
+    "0 @I1@ INDI\n1 RESN privacy\n1 FAMC @F1@\n2 PEDI birth\n2 STAT proven\n1 FAMC @F2@\n2 PEDI foster\n" +
+    "0 @F1@ FAM\n1 CHIL @I1@\n0 @F2@ FAM\n1 CHIL @I1@\n0 @R1@ REPO\n1 NAME Archive\n" +
+    "0 @S1@ SOUR\n1 TITL Register\n1 REPO @R1@\n2 CALN 12/34\n3 MEDI book\n" +
+    "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n3 TYPE photo\n";
+
+  it("upgrades them to 7.0's upper case, valid there, and brings them back", () => {
+    const { records, changes } = migrated("5.5.1", V551, "7.0");
+    const indi = record(records, "@I1@");
+    expect(childValue(indi, "RESN")).toBe("PRIVACY");
+    const [famc1, famc2] = childrenByTag(indi, "FAMC");
+    expect([childValue(famc1, "PEDI"), childValue(famc1, "STAT"), childValue(famc2, "PEDI")]).toEqual(["BIRTH", "PROVEN", "FOSTER"]);
+    expect(findByPath(record(records, "@S1@"), ["REPO", "CALN", "MEDI"])!.value).toBe("BOOK");
+    expect(findByPath(record(records, "@M1@"), ["FILE", "FORM", "MEDI"])!.value).toBe("PHOTO");
+    expect(changes).toContainEqual({ before: "PEDI birth", after: "PEDI BIRTH" });
+    expect(findings(records, "7.0")).toEqual([]);
+
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(findings(records, "5.5.1")).toEqual([]);
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + V551 + "0 TRLR\n");
+  });
+
+  it("keeps a 5.5.1 media type 7.0 does not list as OTHER with a PHRASE", () => {
+    const { records } = migrated("5.5.1", "0 @S1@ SOUR\n1 REPO\n2 CALN 1\n3 MEDI Microfilm\n", "7.0");
+    const medi = findByPath(record(records, "@S1@"), ["REPO", "CALN", "MEDI"])!;
+    expect(medi.value).toBe("OTHER");
+    expect(childValue(medi, "PHRASE")).toBe("Microfilm");
+    expect(findings(records, "7.0")).toEqual([]);
+  });
+
+  it("downgrades a 7.0 file's values to 5.5.1's, narrowing a RESN list to its strongest", () => {
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 RESN PRIVACY, LOCKED\n1 FAMC @F1@\n2 PEDI BIRTH\n2 STAT CHALLENGED\n" +
+        "1 FAMC @F2@\n2 PEDI OTHER\n3 PHRASE Foster\n1 BIRT\n2 RESN LOCKED, CONFIDENTIAL\n" +
+        "0 @F1@ FAM\n1 CHIL @I1@\n0 @F2@ FAM\n1 CHIL @I1@\n0 @R1@ REPO\n1 NAME Archive\n" +
+        "0 @S1@ SOUR\n1 TITL Register\n1 REPO @R1@\n2 CALN 1\n3 MEDI OTHER\n4 PHRASE Film\n2 CALN 2\n3 MEDI ELECTRONIC\n" +
+        "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM image/jpeg\n3 MEDI PHOTO\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(childValue(indi, "RESN")).toBe("privacy");
+    expect(findByPath(indi, ["BIRT", "RESN"])!.value).toBe("confidential");
+    const [famc1, famc2] = childrenByTag(indi, "FAMC");
+    expect([childValue(famc1, "PEDI"), childValue(famc1, "STAT")]).toEqual(["birth", "challenged"]);
+    expect(famc2.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["PEDI foster"]);
+    const calns = childrenByTag(firstChild(record(records, "@S1@"), "REPO")!, "CALN");
+    expect(calns.map((c) => childValue(c, "MEDI"))).toEqual(["film", "electronic"]);
+    expect(findByPath(record(records, "@M1@"), ["FILE", "FORM", "TYPE"])!.value).toBe("photo");
+    expect(changes).toContainEqual({ before: "RESN PRIVACY, LOCKED", after: "RESN privacy" });
+    expect(changes).toContainEqual({ before: "PEDI OTHER", after: "PEDI foster" });
+    expect(findings(records, "5.5.1")).toEqual([]);
+  });
+});
+
+describe("migrateVersion — a 7.0 PHRASE on the way to 5.5.1, which has none", () => {
+  it("gives an age keyword back as it was", () => {
+    const body = "0 @I1@ INDI\n1 DEAT\n2 AGE CHILD\n1 BURI\n2 AGE STILLBORN\n";
+    const { records } = migrated("5.5.1", body, "7.0");
+    expect(findings(records, "7.0")).toEqual([]);
+    const changes: string[] = [];
+    migrateVersion(records, "7.0", "5.5.1", (before, after) => changes.push(`${before} → ${after}`));
+    expect(changes).toContain("AGE < 8y → AGE CHILD");
+    expect(findings(records, "5.5.1")).toEqual([]);
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + body + "0 TRLR\n");
+
+    const own = migrated("7.0", "0 @I1@ INDI\n1 DEAT\n2 AGE <1y\n3 PHRASE infant\n", "5.5.1").records;
+    expect(findByPath(record(own, "@I1@"), ["DEAT", "AGE"])!.value).toBe("INFANT");
+  });
+
+  it("keeps every other PHRASE as a note on the nearest line 5.5.1 lets carry one", () => {
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 FAMC @F1@\n2 PEDI BIRTH\n3 PHRASE natural child\n2 STAT PROVEN\n3 PHRASE baptism record\n" +
+        "1 FAMC @F2@\n2 PEDI OTHER\n3 PHRASE step-child\n1 ALIA @I2@\n2 PHRASE as Johnny\n" +
+        "1 ADOP\n2 FAMC @F2@\n3 ADOP BOTH\n4 PHRASE both parents\n1 ASSO @I2@\n2 PHRASE best friend\n2 ROLE FRIEND\n" +
+        "1 DEAT\n2 AGE 5y\n3 PHRASE about five\n" +
+        "0 @I2@ INDI\n0 @F1@ FAM\n1 HUSB @I2@\n2 PHRASE the groom\n1 CHIL @I1@\n2 PHRASE eldest\n" +
+        "0 @F2@ FAM\n1 CHIL @I1@\n0 @R1@ REPO\n1 NAME Archive\n" +
+        "0 @S1@ SOUR\n1 TITL Register\n1 REPO @R1@\n2 CALN 1\n3 MEDI BOOK\n4 PHRASE ledger\n2 CALN 2\n3 MEDI OTHER\n4 PHRASE Microfiche reel\n",
+      "5.5.1",
+    );
+    const notes = (node: GedNode) => childrenByTag(node, "NOTE").map((n) => n.value);
+    const indi = record(records, "@I1@");
+    const [famc1, famc2] = childrenByTag(indi, "FAMC");
+    expect(famc1.children.map((c) => `${c.tag} ${c.value}`)).toEqual([
+      "PEDI birth", "STAT proven", "NOTE natural child", "NOTE baptism record",
+    ]);
+    expect(famc2.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["NOTE step-child"]);
+    expect(notes(indi)).toEqual(["as Johnny"]);
+    expect(notes(firstChild(indi, "ADOP")!)).toEqual(["both parents"]);
+    expect(notes(firstChild(indi, "ASSO")!)).toEqual(["best friend"]);
+    expect(notes(firstChild(indi, "DEAT")!)).toEqual(["about five"]);
+    expect(notes(record(records, "@F1@"))).toEqual(["the groom", "eldest"]);
+    const repo = firstChild(record(records, "@S1@"), "REPO")!;
+    expect(notes(repo)).toEqual(["ledger", "Microfiche reel"]);
+    expect(childrenByTag(repo, "CALN").map((c) => c.children.map((m) => `${m.tag} ${m.value}`))).toEqual([["MEDI book"], []]);
+    expect(changes).toContainEqual({ before: "PEDI.PHRASE natural child", after: "FAMC.NOTE natural child" });
+    expect(serializeGedcom(records)).not.toContain("PHRASE");
+    expect(findings(records, "5.5.1")).toEqual([]);
+  });
+});
+
+describe("migrateVersion — an event date's TIME", () => {
+  const V70 =
+    "0 @I1@ INDI\n1 BIRT\n2 DATE 1 JAN 1900\n3 TIME 14:30\n" +
+    "1 CHAN\n2 DATE 2 FEB 2020\n3 TIME 08:15:00\n";
+
+  it("is _TIME in 5.5.1, which times only the header and a change stamp, and TIME again in 7.0", () => {
+    const { records, changes } = migrated("7.0", V70, "5.5.1");
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BIRT", "DATE"])!.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["_TIME 14:30"]);
+    expect(findByPath(indi, ["CHAN", "DATE", "TIME"])!.value).toBe("08:15:00");
+    expect(changes).toEqual([{ before: "DATE.TIME 14:30", after: "_TIME 14:30" }]);
+    expect(findings(records, "5.5.1")).toEqual([]);
+
+    migrateVersion(records, "5.5.1", "7.0", () => {});
+    expect(findings(records, "7.0")).toEqual([]);
+    expect(serializeGedcom(records)).toBe(head("7.0") + V70 + "0 TRLR\n");
+  });
+});
+
+describe("migrateVersion — a child's sealing to unrecorded parents", () => {
+  it("is dropped in 5.5.1, whose SLGC must name its family, and reported", () => {
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 SLGC\n2 DATE 1 JAN 1950\n2 TEMP SLAKE\n2 FAMC @VOID@\n3 PHRASE unknown parents\n" +
+        "1 SLGC\n2 TEMP LOGAN\n2 FAMC @F1@\n1 FAMC @F1@\n0 @F1@ FAM\n1 CHIL @I1@\n",
+      "5.5.1",
+    );
+    const sealings = childrenByTag(record(records, "@I1@"), "SLGC");
+    expect(sealings.map((s) => childValue(s, "FAMC"))).toEqual(["@F1@"]);
+    expect(changes).toContainEqual({ before: "INDI.SLGC (FAMC @VOID@)", after: "—" });
+    expect(findings(records, "5.5.1")).toEqual([]);
   });
 });
