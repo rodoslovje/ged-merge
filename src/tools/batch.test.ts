@@ -1266,14 +1266,27 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
     const ds = dataset(file("5.5.1"));
     const all = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@E1@", "@G1@", "@H1@", "@S1@", "@S2@", "@N1@"];
     expect([...previewMarriageEstimates(ds, all)]).toEqual([
-      // ABT 1880 is a guess, so the exact 1885 bounds the marriage; the late BEF is corrected.
-      ["@FA@", "BEF 1885"],
+      // ABT 1880 is a guess, so the exact 12 MAR 1885 bounds the marriage; the late BEF is corrected.
+      ["@FA@", "BEF 12 MAR 1885"],
       ["@FB@", "BEF 1890"],
       // Wife 1852 + 25 = 1877; child ABT 1883 − 2 = 1881 — both rounded to 0 or 5.
       ["@FG@", "ABT 1875"],
       ["@FH@", "ABT 1880"],
       // @FS@ names one parent; @FN@ records no marriage: neither gets one.
     ]);
+  });
+
+  it("corrects an estimate the eldest child was born before, counting born children only", () => {
+    const ds = dataset(`0 HEAD\n1 SOUR TEST\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n` +
+      "0 @H@ INDI\n1 NAME Mož /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @W@ INDI\n1 NAME Žena /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @K@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 BIRT\n2 DATE 3 MAY 1770\n1 FAMC @F1@\n" +
+      "0 @A@ INDI\n1 NAME Posvojenec /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1760\n1 FAMC @F1@\n2 PEDI adopted\n" +
+      "0 @F1@ FAM\n1 HUSB @H@\n1 WIFE @W@\n1 MARR\n2 DATE ABT 1775\n1 CHIL @A@\n1 CHIL @K@\n0 TRLR\n");
+    expect([...previewMarriageEstimates(ds, ["@H@"])]).toEqual([["@F1@", "BEF 3 MAY 1770"]]);
+    applyBatchAction(ds, ["@H@"], { kind: "estimateMarriage" });
+    expect([...previewMarriageEstimates(ds, ["@H@"])]).toEqual([]);
+    expect(validateConformance(ds)).toEqual([]);
   });
 
   it.each(["5.5.1", "7.0"])("writes the estimates as conformant %s", (vers) => {
@@ -1283,7 +1296,7 @@ ${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
     expect(res).toMatchObject({ changed: 5, skipped: 5 });
     expect(res.patches).toHaveLength(4);
     const marr = (id: string) => ds.families.get(id)!.events.find((e) => e.tag === "MARR")?.date?.raw;
-    expect(marr("@FA@")).toBe("BEF 1885");
+    expect(marr("@FA@")).toBe("BEF 12 MAR 1885");
     expect(marr("@FB@")).toBe("BEF 1890");
     expect(marr("@FC@")).toBe("4 FEB 1880");
     expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual(["@D0@", "@D1@"]);
