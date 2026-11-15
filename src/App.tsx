@@ -63,6 +63,7 @@ import { fixSwappedRoles } from "./tools/fixRoleSwap";
 import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
+import { removeBranch } from "./tools/removeBranch";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fixConformance } from "./tools/fixConformance";
 import { nodeAtPath } from "./tools/conformance/conformance";
@@ -3053,6 +3054,14 @@ function AppContent() {
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
               onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only, formatOverrides), true)}
               onFixBatch={runToolBatch}
+              onRemoveBranch={(ids) => {
+                const count = applyToolPatches(removeBranch(mainDataset, ids));
+                // Edit would otherwise show the "no person" empty state for
+                // someone the branch took along; the start person is never in
+                // a detached branch.
+                if (count && editPersonId && ids.includes(editPersonId)) setNavigateToId(startId ?? mainDataset.individuals.keys().next().value);
+                return count;
+              }}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}

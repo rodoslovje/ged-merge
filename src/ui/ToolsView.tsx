@@ -134,6 +134,7 @@ interface Props {
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   /** Run several health-check fixes as one undo step. */
   onFixBatch: (run: () => void) => void;
+  onRemoveBranch: (personIds: string[]) => number;
   onSetPlaceTranslations: (values: ReadonlySet<string>, list: Translation[]) => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Apply a batch action's patches (Normalize & batch → Batch actions) as one
@@ -176,7 +177,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onMarkDeceased, onEstimateBirths, onFixMarriageDates, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange, onOpenRelationship }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onMarkDeceased, onEstimateBirths, onFixMarriageDates, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onRemoveBranch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange, onOpenRelationship }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Statistics leads the tabs: its overview says what the
@@ -236,7 +237,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
       <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onMarkDeceased={onMarkDeceased} onEstimateBirths={onEstimateBirths} onFixMarriageDates={onFixMarriageDates} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFixBatch={onFixBatch} onTagTranslations={onTagTranslations} onEditSource={onEditSource} onEditMediaFile={onEditMediaFile} view={view} onViewChange={onViewChange} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onMarkDeceased={onMarkDeceased} onEstimateBirths={onEstimateBirths} onFixMarriageDates={onFixMarriageDates} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFixBatch={onFixBatch} onRemoveBranch={onRemoveBranch} onTagTranslations={onTagTranslations} onEditSource={onEditSource} onEditMediaFile={onEditMediaFile} view={view} onViewChange={onViewChange} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} startId={startId} />

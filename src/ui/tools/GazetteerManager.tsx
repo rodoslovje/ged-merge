@@ -35,6 +35,7 @@ import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta }
 import type { GeoFailure } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
 import { SelectMenu } from "../DropdownMenu";
+import { TrashIcon } from "../icons/TrashIcon";
 
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
 // OpenStreetMap downloads, the GURS register of Slovenian settlements and the DGU
@@ -283,7 +284,7 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
             title={t("tools.geocode.deleteCountry")}
             aria-label={t("tools.geocode.deleteCountry")}
           >
-            🗑
+            <TrashIcon />
           </button>
         </li>
       ))}
@@ -303,7 +304,7 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
             title={t("tools.geocode.deleteAddresses")}
             aria-label={t("tools.geocode.deleteAddresses")}
           >
-            🗑
+            <TrashIcon />
           </button>
         </li>
       ))}

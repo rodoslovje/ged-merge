@@ -4731,6 +4731,7 @@ button:focus-visible {
 
 /* Delete person — trash icon button in the sex row */
 .edit-delete-btn {
+  display: inline-flex; align-items: center;
   margin-left: auto;
   border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
@@ -9856,6 +9857,22 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    the batch button above would touch. */
 .tools-issue-fix.sets { color: var(--status-diff); }
 .tools-issue-fix.sets:hover { border-color: var(--status-diff); background: none; }
+/* A detached branch's own actions (download, remove), at the row's end. */
+.tools-issue-actions {
+  flex: none; margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tools-issue-icon {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-2); border-radius: var(--radius-pill);
+  background: none; color: var(--accent);
+  font: inherit; font-size: 0.82rem; line-height: 1.5;
+  cursor: pointer; white-space: nowrap;
+}
+.tools-issue-icon:hover { border-color: var(--accent); }
+.tools-issue-iconfix { display: inline-flex; align-items: center; gap: 4px; margin-left: 0; }
+.tools-issue-iconfix.tools-issue-end { margin-left: auto; align-self: center; }
 /* Its aftermath, while the re-run health check is still in flight. */
 .tools-issue-fixed {
   flex: none; margin-left: auto;
@@ -10559,8 +10576,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-geo-country { font-weight: 600; }
 .tools-geo-count { color: var(--muted); font-size: 0.85rem; }
 .tools-geo-delete {
+  display: inline-flex; align-items: center;
   background: none; border: none; cursor: pointer; font-size: 0.9rem;
-  opacity: 0.7; padding: 2px 4px;
+  color: var(--danger); opacity: 0.7; padding: 2px 4px;
 }
 .tools-geo-delete:hover { opacity: 1; }
 /* The one line saying you have to do something before any of this works — the

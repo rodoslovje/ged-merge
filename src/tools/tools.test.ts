@@ -3,7 +3,7 @@ import { validateConformance } from "./conformance/conformance";
 import { fixMarriageDates } from "./fixMarriageDate";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { validateDataset } from "./validate";
+import { branchOf, validateDataset } from "./validate";
 import { KNOWN_TAGS, validateStructure } from "./structure";
 import { countFixableDates, dateFixContext, fixDates, fixNonStandardDates, isUnparseable, proposeDateFix } from "./fixDates";
 import { formatGedDate } from "../normalize/date";
@@ -711,6 +711,40 @@ describe("validateDataset", () => {
     expect(issue?.messageVars?.count).toBe(3);
     // The lone individual stays an orphan; the main tree is nobody's island.
     expect(report.issues.filter((i) => i.category === "orphan").map((i) => i.id)).toEqual(["@I8@"]);
+  });
+
+  it("lists everyone in a person's branch", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 FAMS @F1@
+0 @I2@ INDI
+1 FAMS @F1@
+1 FAMC @F2@
+0 @I3@ INDI
+1 FAMC @F1@
+0 @I4@ INDI
+1 FAMS @F2@
+0 @I5@ INDI
+1 FAMS @F3@
+0 @I6@ INDI
+1 FAMC @F3@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+0 @F2@ FAM
+1 HUSB @I4@
+1 CHIL @I2@
+0 @F3@ FAM
+1 HUSB @I5@
+1 CHIL @I6@
+0 TRLR`);
+    // Through a marriage and up to the wife's father; the other group stays out.
+    expect(branchOf(ds, "@I3@").sort()).toEqual(["@I1@", "@I2@", "@I3@", "@I4@"]);
+    expect(branchOf(ds, "@I3@")[0]).toBe("@I3@");
+    expect(branchOf(ds, "@I6@").sort()).toEqual(["@I5@", "@I6@"]);
+    expect(branchOf(ds, "@I99@")).toEqual([]);
   });
 
   it("leaves the main tree alone, however small the file", () => {

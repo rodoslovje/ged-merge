@@ -134,6 +134,7 @@ import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./Me
 import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
 import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { leftTarget, useDropHighlight } from "./useDropHighlight";
+import { TrashIcon } from "./icons/TrashIcon";
 
 
 interface Props {
@@ -2051,7 +2052,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                   title={t("edit.deletePersonTooltip")}
                   onClick={handleDeletePerson}
                 >
-                  🗑
+                  <TrashIcon />
                 </button>
               }
             />

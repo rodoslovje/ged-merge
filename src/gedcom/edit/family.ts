@@ -484,28 +484,54 @@ export function pointersHeld(node: GedNode, into = new Set<string>()): Set<strin
  */
 export function pruneRecordsLeftBehind(dataset: Dataset, candidates: Iterable<string>): GedNode[] {
   const records = dataset.records;
-  const removed: GedNode[] = [];
-  let pending = new Set(candidates);
-  while (pending.size) {
-    const referenced = new Set<string>();
-    for (const rec of records) for (const v of pointersHeld(rec)) if (v !== rec.xref && pending.has(v)) referenced.add(v);
-    const next = new Set<string>();
-    // Taken out in one walk of the list, reported in the order asked.
-    const order = [...pending].filter((xref) => !referenced.has(xref));
-    const out = removeRecordsByXref(records, order, (r) => LEFT_BEHIND_TAGS.has(r.tag));
-    const rank = new Map(order.map((xref, i) => [xref, i]));
-    out.sort((a, b) => rank.get(a.xref!)! - rank.get(b.xref!)!);
-    for (const rec of out) {
-      removed.push(rec);
-      pointersHeld(rec, next);
-    }
-    pending = next;
-  }
+  const left = recordsLeftBehind(records, candidates);
+  // Taken out in one walk of the list, reported in the order found.
+  const removed = removeRecordsByXref(records, left.map((r) => r.xref!), (r) => LEFT_BEHIND_TAGS.has(r.tag));
+  const rank = new Map(left.map((r, i) => [r, i]));
+  removed.sort((a, b) => (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
   if (removed.length) {
     bumpSourceCacheVersion(records);
     clearObjeNodeCache(records);
   }
   return removed;
+}
+
+/**
+ * The shared NOTE/SNOTE/OBJE/SOUR records among `candidates` that nothing
+ * outside `gone` points at, and in turn those only such a record pointed at —
+ * what {@link pruneRecordsLeftBehind} would take once the records in `gone`
+ * are deleted, asked before anything is (a confirmation counts them). A
+ * record's pointer to itself doesn't keep it. Read-only.
+ */
+export function recordsLeftBehind(
+  records: readonly GedNode[],
+  candidates: Iterable<string>,
+  gone: ReadonlySet<string> = new Set(),
+): GedNode[] {
+  const shared = new Map<string, GedNode>();
+  for (const r of records) if (r.xref && LEFT_BEHIND_TAGS.has(r.tag) && !shared.has(r.xref)) shared.set(r.xref, r);
+  const dropped = new Set<string>();
+  const out: GedNode[] = [];
+  const open = (xrefs: Iterable<string>) =>
+    new Set([...xrefs].filter((x) => shared.has(x) && !dropped.has(x) && !gone.has(x)));
+  let pending = open(candidates);
+  while (pending.size) {
+    const referenced = new Set<string>();
+    for (const rec of records) {
+      if (rec.xref && (gone.has(rec.xref) || dropped.has(rec.xref))) continue;
+      for (const v of pointersHeld(rec)) if (v !== rec.xref && pending.has(v)) referenced.add(v);
+    }
+    const next = new Set<string>();
+    for (const xref of pending) {
+      if (referenced.has(xref)) continue;
+      const rec = shared.get(xref)!;
+      dropped.add(xref);
+      out.push(rec);
+      pointersHeld(rec, next);
+    }
+    pending = open(next);
+  }
+  return out;
 }
 
 /** Families whose HUSB/WIFE/CHIL lines name `indiId`, whether or not the
