@@ -13,6 +13,7 @@ import { normalizeDataset } from "./normalize";
 import { entryDate, formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
 import { validateConformance } from "../tools/conformance/conformance";
+import { applyFormatOverrides } from "./formatOverrides";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -356,6 +357,39 @@ describe("normalizeDataset", () => {
     const famc = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "FAMC")!;
     expect(famc.children.find((c) => c.tag === "PEDI")?.value).toBe("ADOPTED");
     expect(validateConformance(out).filter((f) => /PEDI/.test(JSON.stringify(f)))).toEqual([]);
+  });
+
+  describe("a link on the person record", () => {
+    const compare = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+      "0 @I1@ INDI\n1 NAME Ana /Kos/\n1 WWW https://example.com/ana\n" +
+      "0 @F1@ FAM\n1 WIFE @I1@\n1 URL https://example.com/fam\n0 TRLR\n";
+    const recordLinks = (ds: ReturnType<typeof dataset>) =>
+      ds.records.flatMap((r) => r.children.filter((c) => /^_?(WWW|URL)$/.test(c.tag)).map((c) => `${r.tag}.${c.tag}`));
+
+    for (const version of ["5.5.1", "7.0"] as const) {
+      it(`is written as _URL for a strict ${version} main`, () => {
+        const form = version === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : "";
+        // The main's own habit (`1 WWW`) yields to the strict target.
+        const main = dataset(`0 HEAD\n1 GEDC\n2 VERS ${version}\n${form}1 SOUR t\n0 @I9@ INDI\n1 NAME M /P/\n1 WWW https://example.com/m\n0 TRLR\n`);
+        const profile = applyFormatOverrides(inferMainProfile(main), { standard: version });
+        const { dataset: out, report } = normalizeDataset(dataset(compare), profile);
+        expect(recordLinks(out)).toEqual(["INDI._URL", "FAM._URL"]);
+        expect(report.linksConverted).toBe(2);
+        expect(validateConformance({ records: [main.records[0], ...out.records.slice(1)] })).toEqual([]);
+      });
+    }
+
+    it("keeps the file's own record-link tag in Master file mode", () => {
+      const main = dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I9@ INDI\n1 NAME M /P/\n1 WWW https://example.com/m\n0 TRLR\n`);
+      const { dataset: out } = normalizeDataset(dataset(compare), inferMainProfile(main));
+      expect(recordLinks(out)).toEqual(["INDI.WWW", "FAM.WWW"]);
+    });
+
+    it("writes the extension in Master file mode when the file has no habit", () => {
+      const main = dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I9@ INDI\n1 NAME M /P/\n0 TRLR\n`);
+      const { dataset: out } = normalizeDataset(dataset(compare), inferMainProfile(main));
+      expect(recordLinks(out)).toEqual(["INDI._URL", "FAM._URL"]);
+    });
   });
 
   it("does not mutate the input dataset", () => {

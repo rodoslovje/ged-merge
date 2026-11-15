@@ -24,7 +24,7 @@ import type {
   PlaceLayout,
   PlaceTargetFormat,
 } from "./types";
-import { detectLinkLangs } from "./links";
+import { detectLinkLangs, recordLinksOf } from "./links";
 import { inferNameVariants } from "./nameVariants";
 import { analyzeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
@@ -97,6 +97,7 @@ export function inferMainProfile(main: Dataset): MainProfile {
     unknownName: analyzeUnknownNames(main).target,
     privacyStyle: detectPrivacyStyleIfAny(main.records),
     sourceTags: { FILN: keepsSourceTag(main.records, "FILN"), PERI: keepsSourceTag(main.records, "PERI") },
+    recordLinks: recordLinksOf(main.records),
   };
 }
 

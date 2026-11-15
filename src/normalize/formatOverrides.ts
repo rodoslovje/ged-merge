@@ -1,4 +1,5 @@
 import { placeSeparatorText } from "./profile";
+import { RECORD_LINK_EXTENSION } from "../gedcom/edit/records";
 import type { DateFormatProfile, MainProfile, NameProfile, PlaceLayout, PlaceTargetFormat, SourceLayout } from "./types";
 
 /**
@@ -199,6 +200,8 @@ export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | 
   if (o.standard) {
     out.sourceTags = { FILN: false, PERI: false };
     out.standard = o.standard;
+    // …nor a bare link tag on a person or family record.
+    out.recordLinks = { tag: RECORD_LINK_EXTENSION, keep: [] };
   }
   return out;
 }

@@ -35,6 +35,12 @@ export interface MainProfile {
    *  target format by `applyFormatOverrides`): the standard form is then
    *  preferred over an extension. Absent in Master file mode. */
   standard?: "5.5.1" | "7.0";
+  /** How the main writes a link on a person or family record — neither
+   *  version has one there (see `recordLinkTag`). `tag` is what an incoming
+   *  bare `WWW`/`URL` there is rewritten to, unless the main writes that very
+   *  tag itself (`keep`, its dialect). A strict target writes `_URL` and keeps
+   *  nothing bare. Absent: incoming record links pass through unchanged. */
+  recordLinks?: { tag: string; keep: readonly string[] };
 }
 
 /**
