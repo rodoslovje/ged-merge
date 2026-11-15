@@ -1021,6 +1021,28 @@ describe("migrateVersion — an event date's TIME", () => {
   });
 });
 
+describe("migrateVersion — a media record's RESN", () => {
+  const V70 =
+    "0 @O1@ OBJE\n1 FILE photo.jpg\n2 FORM image/jpeg\n1 RESN CONFIDENTIAL, LOCKED\n" +
+    "0 @I1@ INDI\n1 RESN PRIVACY\n1 OBJE @O1@\n";
+
+  it("is _RESN in 5.5.1, which restricts no media record, and RESN again in 7.0", () => {
+    const { records, changes } = migrated("7.0", V70, "5.5.1");
+    const obje = record(records, "@O1@");
+    expect(obje.children.filter((c) => /RESN/.test(c.tag)).map((c) => `${c.tag} ${c.value}`)).toEqual([
+      "_RESN CONFIDENTIAL, LOCKED",
+    ]);
+    // A person's RESN is 5.5.1's too: only spelled the 5.5.1 way.
+    expect(firstChild(record(records, "@I1@"), "RESN")!.value).toBe("privacy");
+    expect(changes).toContainEqual({ before: "OBJE.RESN CONFIDENTIAL, LOCKED", after: "_RESN CONFIDENTIAL, LOCKED" });
+    expect(findings(records, "5.5.1")).toEqual([]);
+
+    migrateVersion(records, "5.5.1", "7.0", () => {});
+    expect(findings(records, "7.0")).toEqual([]);
+    expect(serializeGedcom(records)).toBe(head("7.0") + V70 + "0 TRLR\n");
+  });
+});
+
 describe("migrateVersion — a child's sealing to unrecorded parents", () => {
   it("is dropped in 5.5.1, whose SLGC must name its family, and reported", () => {
     const { records, changes } = migrated(

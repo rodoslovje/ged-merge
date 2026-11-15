@@ -61,6 +61,7 @@ import { walkNodes } from "./walk";
  *                                        `@VOID@` pointers (see below),
  *                                        `SEX X` → `SEX U` + `_SEX X` (and back),
  *                                        an event date's `TIME` → `_TIME` (and back),
+ *                                        a media record's `RESN` → `_RESN` (and back),
  *                                        any other `PHRASE` → a `NOTE`
  *
  * A vendor line the upgrade turns into its standard form remembers what it was
@@ -301,6 +302,10 @@ function migrateEnums(records: GedNode[], ctx: MigrateCtx, to: VersionFamily): v
 /** 5.5.1's stand-in for an event date's 7.0 `TIME`. */
 const TIME_EXTENSION = "_TIME";
 
+/** 5.5.1's stand-in for a media record's 7.0 `RESN`, which 5.5.1 allows on
+ *  people, families and events but not on a media record. */
+const OBJE_RESN_EXTENSION = "_RESN";
+
 /**
  * The last 7.0 lines a 5.5.1 file cannot hold, once every other conversion
  * has run: an event date's `TIME` (see {@link TIME_EXTENSION}). A `PHRASE` the conversions did not fold into their own 5.5.1 form
@@ -535,6 +540,14 @@ function upgradeExtensionNode(node: GedNode, ctx: MigrateCtx): boolean {
     for (const c of node.children) {
       const up = NOTE_UPGRADES[c.tag];
       if (up) report(ctx, retag(c, up), `${node.tag}.${describe(c)}`);
+    }
+    return false;
+  }
+  // A media record's restriction, which the downgrade kept as `_RESN`.
+  if (node.tag === "OBJE" && node.level === 0) {
+    for (const c of childrenByTag(node, OBJE_RESN_EXTENSION)) {
+      const before = `OBJE.${describe(c)}`;
+      report(ctx, retag(c, "RESN"), before);
     }
     return false;
   }
@@ -1147,6 +1160,15 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
   for (const rec of records) {
     if (rec.tag === "SNOTE" && rec.xref) {
       report(ctx, retag(rec, "NOTE"), `SNOTE ${rec.xref}`);
+    }
+    // 5.5.1 restricts no media record: the restriction is kept as `_RESN`,
+    // its 7.0 value as written (before the enumeration pass narrows a RESN
+    // list), and the upgrade restores it.
+    if (rec.tag === "OBJE") {
+      for (const resn of childrenByTag(rec, "RESN")) {
+        const before = `OBJE.${describe(resn)}`;
+        report(ctx, retag(resn, OBJE_RESN_EXTENSION), before);
+      }
     }
   }
 

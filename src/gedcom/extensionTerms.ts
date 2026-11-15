@@ -92,6 +92,7 @@ export const STANDARD_FORMS: Record<string, StandardForm> = {
   _NO: { form: "NO", converted: true },
   _SDATE: { form: "SDATE", converted: true },
   _TIME: { form: "DATE.TIME", converted: true },
+  _RESN: { form: "RESN on a media record", converted: true },
   _MIME: { form: "NOTE.MIME", converted: true },
   _LANG: { form: "NOTE.LANG", converted: true },
   _TRAN: { form: "NOTE.TRAN", converted: true },
@@ -203,6 +204,14 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
       sl: "ura dogodka (DATE.TIME iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
     },
     context: "under an event's DATE",
+  },
+  {
+    tag: "_RESN",
+    meaning: {
+      en: "a restriction notice on a media record (GEDCOM 7.0 OBJE.RESN), kept in a GEDCOM 5.5.1 file",
+      sl: "omejitev dostopa do medijskega zapisa (RESN pri OBJE iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+    },
+    context: "on a media record (OBJE)",
   },
   {
     tag: "_MIME",
