@@ -10027,6 +10027,11 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    or colour of its own and lets .tools-tree-meta / .gm-data dress it. */
 .tools-place-coord { background: none; border: 0; padding: 0; cursor: pointer; }
 .tools-place-coord:hover { color: var(--accent); }
+/* A phone: the pin alone says the place is placed; the numbers take the
+   name's room. A tap opens the panel with them. */
+@media (max-width: 560px) {
+  .tools-place-coord-text { display: none; }
+}
 /* The file puts this place in two spots — one of them is wrong. */
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
 /* The coordinate and the panel it opens are one control, so the panel is

@@ -937,7 +937,7 @@ function PlaceTreeRow({
                 title={t(disputed ? "tools.places.coord.disputed" : "tools.places.coord")}
                 onClick={() => setCoordOpen((v) => !v)}
               >
-                {formatCoord(spots[0].coord)}
+                <span className="tools-place-coord-text">{formatCoord(spots[0].coord)}</span>
                 {disputed && <span className="tools-place-coord-warn">⚠ {t("tools.places.coord.spots", { count: spots.length })}</span>}
               </button>
             ) : (
