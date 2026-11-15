@@ -930,7 +930,13 @@ export function enrichEditReport(
  */
 export function sharedRecordLabel(id: string, node: GedNode | undefined): string {
   if (!node) return xrefLabel(id);
-  const icon = node.tag === "SOUR" ? "📖" : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼") : node.tag === "REPO" ? "🏛" : undefined;
+  // A shared note is headed by its own text, which reads like a person's name
+  // ("Kmalu umrla.") without its mark.
+  const icon = node.tag === "SOUR" ? "📖"
+    : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼")
+    : node.tag === "REPO" ? "🏛"
+    : NOTE_TAGS.includes(node.tag) ? "📝"
+    : undefined;
   const label = sharedRecordTitle(id, node);
   return icon ? `${icon} ${label}` : label;
 }
