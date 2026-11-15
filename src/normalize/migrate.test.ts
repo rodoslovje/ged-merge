@@ -747,6 +747,24 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     ]);
   });
 
+  it("names an HTML note's markup with MIME text/html, and leaves a plain one alone", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NOTE <p>Hello <b>x</b></p>\n1 NOTE a <private> remark\n1 NOTE @N1@\n" +
+        "1 BIRT\n2 NOTE <i>born</i>\n0 @N1@ NOTE <p>shared</p>\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const indi = record(records, "@I1@");
+    const notes = childrenByTag(indi, "NOTE");
+    expect(notes.map((n) => childValue(n, "MIME"))).toEqual(["text/html", undefined]);
+    expect(childValue(findByPath(indi, ["BIRT", "NOTE"])!, "MIME")).toBe("text/html");
+    expect(childValue(record(records, "@N1@"), "MIME")).toBe("text/html");
+    expect(firstChild(indi, "SNOTE")!.children).toEqual([]);
+    expect(changes).toContain("SNOTE @N1@ → SNOTE @N1@.MIME text/html");
+    expect(changes).toContain("NOTE → NOTE.MIME text/html");
+  });
+
   it("keeps a shared-note pointer's citations on the pointer, as _NOTE_SOUR", () => {
     const { records, changes, findings } = converted(
       "5.5.1",

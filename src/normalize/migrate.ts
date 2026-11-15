@@ -7,6 +7,7 @@ import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
 import { allowsChild, enumValuesAt } from "../tools/conformance/allows";
+import { isHtmlNote } from "../gedcom/noteHtml";
 import { walkNodes } from "./walk";
 
 /**
@@ -438,6 +439,7 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
 
   walkNodes(records, (node) => {
     if (upgradeExtensionNode(node, ctx)) return;
+    upgradeHtmlNote(node, ctx);
     if (node.tag === "NOTE" && isPointer(node.value) && noteXrefs.has(node.value)) {
       report(ctx, retag(node, "SNOTE"), `NOTE ${node.value}`);
       keepNoteCitations(node, ctx);
@@ -480,6 +482,18 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       migrateNameType(node, ctx, "7.0");
     }
   });
+}
+
+/** 5.5.1 recognizes a note's markup from its text; 7.0 names it on a
+ *  `MIME text/html` line, which a note whose text is HTML (by the editor's
+ *  own test, `isHtmlNote`) gets. */
+function upgradeHtmlNote(node: GedNode, ctx: MigrateCtx): void {
+  if ((node.tag !== "NOTE" && node.tag !== "SNOTE") || isPointer(node.value)) return;
+  if (firstChild(node, "MIME") || !isHtmlNote(node.value ?? "")) return;
+  node.children.unshift({ level: node.level + 1, tag: "MIME", value: "text/html", children: [] });
+  const id = node.xref ? `${node.tag} ${node.xref}` : node.tag;
+  ctx.changed++;
+  ctx.onChange(id, `${id}.MIME text/html`);
 }
 
 /** The extension a shared-note pointer's own citations are kept under in 7.0
