@@ -1177,6 +1177,19 @@ describe("mergeDecisions — links", () => {
     expect(report.changes).toHaveLength(0);
   });
 
+  it("writes a strict target's record link as _URL even when the main uses _WEBTAG", () => {
+    const main = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _WEBTAG\n2 URL https://example.com/old\n"),
+    );
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ links: "both" }), NO_MATCHES, tr, [], { standard: "5.5.1" });
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 _URL https://example.com/new");
+    expect(out).not.toContain("2 URL https://example.com/new");
+  });
+
   it("adds a new incoming link as a _WEBTAG block when the main uses that format", () => {
     const main = dataset(
       wrap(
