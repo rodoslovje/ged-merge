@@ -168,6 +168,38 @@ describe("scanPlaceCoords", () => {
     expect(conflicts[0]).toMatchObject({ value: "Kranj, Slovenija", address: "Kidričeva cesta 38" });
   });
 
+  it("marks the coordinate that is the place's own position", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 BIRT
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+1 RESI
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.24137
+4 LONG E14.35580
+2 ADDR Kidričeva cesta 38
+1 CENS
+2 PLAC Kranj, Slovenija
+3 MAP
+4 LATI N46.23887
+4 LONG E14.35561
+2 ADDR Kidričeva cesta 38
+0 TRLR
+`;
+    const { conflicts } = scanPlaceCoords(buildFromText(text));
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].coords.map((c) => [c.coord.lat, !!c.placeOwn])).toEqual([
+      [46.24137, false],
+      [46.23887, true],
+    ]);
+  });
+
   it("is empty when nothing is split", () => {
     const text = `0 HEAD
 1 GEDC
