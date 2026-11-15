@@ -1,0 +1,422 @@
+/**
+ * Video 15 (SCENARIJI.md, "Pregled"): finding and fixing errors with the
+ * health check — most with a button in the check itself, two in Edit, and all
+ * the fixable ones at once.
+ *
+ * Data: demo/preseren-hawlina-pregled.ged, a copy of the Prešeren pedigree
+ * (demo/preseren-hawlina.ged) with errors put in on purpose; its HEAD note says
+ * so, and so does the narration. The errors (table in SCENARIJI.md):
+ *   - Mina Prešeren's death 1823 typed as 1723 — death before birth, and with
+ *     it an event outside her lifespan and her son Šimen born after her death;
+ *   - Terezija Jelovšek detached from her parents France Prešeren and Ana;
+ *   - a FAMS to a family that is gone, Ernestina's CHIL twice, Šimen and Mina
+ *     Svetina in two families, a citation of a source that is not there;
+ *   - Simon Muhovec and Marija Legat in swapped roles, Ana Jelovšek's sex
+ *     removed;
+ *   - Marija (Matija Prešeren's wife) without her birth, Jernej and Mina
+ *     Prešeren's marriage without its date (~1761 in the original);
+ *   - Jožef Prešeren's birth written 1. 3. 1698.
+ * Real, as in the original: four people born in the 17th–18th century with no
+ * death record, and 14 dates written ~1665, <1687, >1835.
+ */
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Director } from "../lib/director.ts";
+import { seriesSettings } from "../lib/series.ts";
+import type { Scenario, Text } from "../lib/types.ts";
+
+const MAIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo", "preseren-hawlina-pregled.ged");
+
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** A filter by its exact label: the chip reads "<label> <count>". */
+const chip = (d: Director, label: Text) =>
+  d.page.locator(".tools-chips .tools-chip").filter({ hasText: new RegExp(`^${escape(d.t(label))}\\s*\\d`) }).first();
+const row = (d: Director, text: string) => d.page.locator(".tools-issues .tools-issue").filter({ hasText: text }).first();
+/** The row of the person named exactly `name` ("Marija", not "Marija Prešeren"). */
+const personRow = (d: Director, name: string) =>
+  d.page.locator(".tools-issues .tools-issue").filter({ has: d.page.locator(".tools-issue-link", { hasText: new RegExp(`^${escape(name)}\\s*\\d`) }) }).first();
+const groupTab = (d: Director, i: number) => d.page.locator(".batch-section-tab").nth(i);
+const rerun = (d: Director) => d.page.locator(".tools-fix-item .tools-run").first();
+
+/** Open a category's rows. */
+async function openChip(d: Director, label: Text): Promise<void> {
+  await d.click(chip(d, label));
+  await d.wait(600);
+}
+
+/** Run one row's own fix and wait until the check has read the file again. */
+async function fixRow(d: Director, text: string): Promise<void> {
+  const r = row(d, text);
+  await d.highlight(r, 4);
+  await d.wait(1200);
+  await d.click(r.locator(".tools-issue-fix"));
+  await d.highlight(null);
+  await d.wait(1200);
+}
+
+/** Back to Tools (the health check stays open) and read the file again. */
+async function backAndRerun(d: Director): Promise<void> {
+  await d.click(d.page.locator(".seg-btn").nth(2));
+  await d.wait(700);
+  const btn = rerun(d);
+  await d.highlight(btn, 4);
+  await d.wait(700);
+  await d.click(btn);
+  await d.highlight(null);
+  await d.page.locator(".tools-chips").first().waitFor();
+  await d.wait(900);
+}
+
+/** Pick every fixable row of the open half and run them in one step. */
+async function fixAll(d: Director): Promise<void> {
+  await d.click(chip(d, { sl: "Popravljivo", en: "Fixable" }));
+  await d.wait(500);
+  await d.click(d.page.locator(".tools-pick-bar .tools-issue-link").first());
+  await d.wait(500);
+  await d.click(d.page.locator(".tools-pick-bar .tools-run").first());
+  const dialog = d.page.locator(".confirm-dialog");
+  await dialog.waitFor();
+  await d.highlight(dialog, 4);
+  await d.wait(3500);
+  await d.highlight(null);
+  await d.click(dialog.locator(".confirm-dialog-confirm"));
+  await dialog.waitFor({ state: "detached" });
+  await d.page.locator(".tools-clean--ok").first().waitFor();
+  await d.wait(900);
+}
+
+/** Fill an empty parent slot with a person already in the file. */
+async function pickParent(d: Director, slot: Text, name: string, full: string): Promise<void> {
+  await d.click(d.page.locator(".edit-parents .person-card-add").filter({ hasText: d.t(slot) }).first());
+  const picker = d.page.locator(".relative-picker");
+  await picker.locator(".relative-picker-input").click();
+  await d.page.keyboard.type(name, { delay: 90 });
+  await d.wait(500);
+  await d.click(picker.locator(".relative-picker-option", { hasText: full }).first());
+  await d.wait(800);
+}
+
+/** What the health check looks at, grouped, for the on-screen list (the filter names). */
+const CHECKS: { name: Text; items: [string, Text][] }[] = [
+  {
+    name: { sl: "Povezave", en: "Links" },
+    items: [
+      ["🔗", { sl: "Pokvarjene povezave", en: "Broken links" }],
+      ["⧉", { sl: "Podvojeni kazalci", en: "Duplicate pointers" }],
+      ["👫", { sl: "Isti par dvakrat", en: "Same couple twice" }],
+      ["🔁", { sl: "Krožni predniki", en: "Pedigree loops" }],
+      ["👪", { sl: "Dve družini staršev", en: "Two sets of parents" }],
+      ["🏝️", { sl: "Nepovezane osebe in skupine", en: "Disconnected people and groups" }],
+    ],
+  },
+  {
+    name: { sl: "Datumi", en: "Dates" },
+    items: [
+      ["✝", { sl: "Smrt pred rojstvom", en: "Death before birth" }],
+      ["📅", { sl: "Dogodek zunaj življenjske dobe", en: "Event outside lifespan" }],
+      ["⏩", { sl: "Datumi v prihodnosti", en: "Future dates" }],
+      ["❓", { sl: "Neberljivi in neobstoječi datumi", en: "Unparseable and impossible dates" }],
+    ],
+  },
+  {
+    name: { sl: "Starosti", en: "Ages" },
+    items: [
+      ["💍", { sl: "Starost ob poroki in ob smrti", en: "Age at marriage and at death" }],
+      ["👶", { sl: "Starost starša", en: "Parent's age" }],
+      ["↔", { sl: "Starostna razlika zakoncev", en: "Spouse age gap" }],
+      ["🔢", { sl: "Navedena starost", en: "Stated age" }],
+      ["🕯️", { sl: "Rojstvo po smrti starša", en: "Born after a parent's death" }],
+      ["⏪", { sl: "Rojstvo pred poroko", en: "Born before the marriage" }],
+    ],
+  },
+  {
+    name: { sl: "Manjkajoči podatki", en: "Missing data" },
+    items: [
+      ["🏷️", { sl: "Brez imena, brez spola", en: "No name, no sex" }],
+      ["⌛", { sl: "Brez ključnih datumov", en: "No vital dates" }],
+      ["💒", { sl: "Poroka brez datuma", en: "Undated marriage" }],
+      ["🧓", { sl: "Živi nad 99 let", en: "Living over 99" }],
+    ],
+  },
+  {
+    name: { sl: "Zapis GEDCOM", en: "GEDCOM" },
+    items: [
+      ["📄", { sl: "Skladnost s standardom", en: "Conformance to the standard" }],
+      ["🔗", { sl: "Neobstoječi sklici", en: "Dangling references" }],
+      ["〰", { sl: "Nestandardni datumi", en: "Non-standard dates" }],
+    ],
+  },
+];
+
+const scenario: Scenario = {
+  id: "health",
+  episode: 15,
+  settings: seriesSettings,
+  title: {
+    sl: "GED Merge: pregled — poiščite in popravite napake v drevesu",
+    en: "GED Merge: health check — find and fix the errors in your tree",
+  },
+  description: {
+    sl: "Kako Pregled v GED Merge najde napake v drevesu: pokvarjene in podvojene povezave, nemogoče datume in starosti, manjkajoče podatke ter odstopanja od standarda GEDCOM. Večino popravite z enim klikom, nekatere v Urejanju, vse popravljive pa naenkrat. Primer: kopija rodovnika pesnika Franceta Prešerna z namerno vnesenimi napakami.",
+    en: "How the GED Merge health check finds the errors in a tree: broken and duplicated links, impossible dates and ages, missing data and departures from the GEDCOM standard. Most are fixed with one click, some in Edit, and all the fixable ones at once. Example: a copy of the poet France Prešeren's pedigree with errors put in on purpose.",
+  },
+  thumbnail: {
+    tag: { sl: "Pregled", en: "Health check" },
+    title: { sl: "Počistite *napake* v drevesu", en: "Clean up the *errors* in your tree" },
+  },
+  steps: [
+    {
+      say: {
+        sl: "Tudi v skrbno vodenem drevesu se naberejo napake. Pregled jih najde v nekaj sekundah.",
+        en: "Even a carefully kept tree collects errors. The health check finds them in seconds.",
+      },
+      run: async (d) => {
+        await d.card(
+          { sl: "GED Merge · video navodila", en: "GED Merge · video tutorial" },
+          { sl: "Pregled", en: "Health check" },
+          { sl: "Poiščite in popravite napake v drevesu", en: "Find and fix the errors in your tree" },
+        );
+      },
+    },
+    {
+      say: {
+        sl: "Odprimo kopijo rodovnika pesnika Franceta Prešerna. Napake smo vanjo vnesli namerno, take, kot jih pustijo tipkarske napake, uvozi in združevanja.",
+        en: "Let's open a copy of the poet France Prešeren's pedigree. We put errors into it on purpose, the kind that typos, imports and merges leave behind.",
+      },
+      run: async (d) => {
+        await d.card(null, null);
+        await d.wait(700);
+        await d.upload(d.page.locator(".lb-drop"), MAIN);
+        await d.page.locator(".edit-person").first().waitFor();
+        await d.overlay("hideCursor");
+        await d.wait(1200);
+        await d.highlight(d.page.locator(".edit-person").first(), 6);
+      },
+    },
+    {
+      callout: { sl: "Orodja → Pregled", en: "Tools → Health check" },
+      say: {
+        sl: "V Orodjih odprite Pregled. Na zavihku »Težave v podatkih« preveri povezave med osebami, datume, starosti in manjkajoče podatke, drugi zavihek pa zapis po standardu GEDCOM. Vsaka vrsta težave ima svoj filter s številom zadetkov.",
+        en: "In Tools, open the health check. The Data issues tab checks the links between people, dates, ages and missing data, and the second tab how the file follows the GEDCOM standard. Each kind of issue has its own filter with the number of findings.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await d.click(d.page.locator(".seg-btn").nth(2));
+        await d.wait(250);
+        await d.click(d.page.locator(".tools-tab").filter({ has: d.page.locator(".tools-tab-label", { hasText: new RegExp(`^${d.t({ sl: "Pregled", en: "Health check" })}$`) }) }).first());
+        await d.skippable(() => d.page.locator(".tools-chips").first().waitFor({ timeout: 60_000 }));
+        await d.wait(500);
+        await d.overlay(
+          "list",
+          d.t({ sl: "Kaj Pregled preveri", en: "What the health check looks at" }),
+          CHECKS.map((g) => ({ name: d.t(g.name), items: g.items.map(([icon, label]) => [icon, d.t(label)] as [string, string]) })),
+        );
+        // The ring walks the file's own findings, filter by filter.
+        const chips = d.page.locator(".tools-chips .tools-chip");
+        const n = await chips.count();
+        for (let i = 1; i < n; i++) {
+          await d.highlight(chips.nth(i), 4);
+          await d.wait(700);
+        }
+        await d.highlight(d.page.locator(".tools-chips").first(), 6);
+        await d.snapshot();
+        await d.untilSaid();
+        await d.overlay("list", null, []);
+      },
+    },
+    {
+      callout: { sl: "Popravek v Urejanju", en: "Fixing in Edit" },
+      say: {
+        sl: "Začnimo pri smrti pred rojstvom. Klik na ime odpre osebo v Urejanju. Mina Prešeren je umrla leta 1823, v datoteki pa piše 1723. Ena napačna števka povzroči kar tri težave: smrt pred rojstvom, rojstvo po smrti in sina, rojenega po materini smrti.",
+        en: "Let's start with the death before birth. A click on the name opens the person in Edit. Mina Prešeren died in 1823, but the file says 1723. One wrong digit causes three issues: a death before birth, a birth after the death, and a son born after his mother's death.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await openChip(d, { sl: "Smrt pred rojstvom", en: "Death before birth" });
+        const mina = row(d, "Mina Prešeren");
+        await d.highlight(mina, 4);
+        await d.wait(1500);
+        await d.highlight(null);
+        await d.click(mina.locator(".tools-issue-link").first());
+        await d.page.locator(".edit-person").first().waitFor();
+        await d.wait(900);
+        const death = d.page.locator(".edit-person .edit-event").filter({ hasText: d.t({ sl: "Smrt", en: "Death" }) }).first();
+        await d.highlight(death, 6);
+        await d.untilSaid(2);
+        const date = death.locator(".edit-event-date").first();
+        await d.click(date);
+        await d.page.keyboard.press("End");
+        for (let i = 0; i < 4; i++) await d.page.keyboard.press("Backspace");
+        await d.page.keyboard.type("1823", { delay: 160 });
+        await d.page.keyboard.press("Enter");
+        // Enter moves on to the place, whose suggestions must not stay open.
+        await d.wait(400);
+        await d.page.keyboard.press("Escape");
+        await d.wait(700);
+      },
+    },
+    {
+      say: {
+        sl: "Ko datoteko spremenite, pregled zaženete znova. Vse tri težave so izginile.",
+        en: "Once the file has changed, you run the check again. All three issues are gone.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await backAndRerun(d);
+        await d.highlight(d.page.locator(".tools-chips").first(), 6);
+      },
+    },
+    {
+      callout: { sl: "Nepovezane osebe", en: "Disconnected people" },
+      say: {
+        sl: "Terezija Jelovšek ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
+        en: "Terezija Jelovšek is linked to nobody. A person without a family is often just a forgotten link. In Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await openChip(d, { sl: "Nepovezane", en: "Disconnected" });
+        await d.click(row(d, "Terezija").locator(".tools-issue-link").first());
+        await d.page.locator(".edit-person").first().waitFor();
+        await d.wait(900);
+        await d.highlight(d.page.locator(".edit-parents").first(), 6);
+        await d.wait(900);
+        await d.highlight(null);
+        await pickParent(d, { sl: "Dodaj očeta", en: "Add Father" }, "France", "France Prešeren");
+        await pickParent(d, { sl: "Dodaj mater", en: "Add Mother" }, "Ana", "Ana Jelovšek");
+        await d.highlight(d.page.locator(".edit-parents").first(), 6);
+        await d.wait(1200);
+        await d.highlight(null);
+        await backAndRerun(d);
+      },
+    },
+    {
+      callout: { sl: "Popravek z enim klikom", en: "One-click fixes" },
+      say: {
+        sl: "Nekaterih napak v Urejanju sploh ne vidite: povezave na družino, ki je ni več, otroka, ki je v družini naveden dvakrat, in para, zapisanega v dveh družinah. Te popravite kar tukaj, z gumbom v vrstici.",
+        en: "Some errors you cannot even see in Edit: a link to a family that no longer exists, a child listed twice in one family, and a couple recorded in two families. You fix these right here, with the button on the row.",
+      },
+      run: async (d) => {
+        await openChip(d, { sl: "Pokvarjene povezave", en: "Broken links" });
+        await fixRow(d, "Ernestina");
+        await openChip(d, { sl: "Podvojeni kazalci", en: "Duplicate pointers" });
+        await fixRow(d, "F36128");
+        await openChip(d, { sl: "Isti par dvakrat", en: "Same couple twice" });
+        await fixRow(d, "Šimen");
+      },
+    },
+    {
+      callout: { sl: "Spol in vloga", en: "Sex and role" },
+      say: {
+        sl: "Simon Muhovec je zapisan kot žena, Marija Legat pa kot mož. Program ju vrne v pravi vlogi. Ana Jelovšek nima spola, a je zapisana kot žena, zato ji ga program določi iz te vloge.",
+        en: "Simon Muhovec is recorded as the wife and Marija Legat as the husband. The program puts them back in their roles. Ana Jelovšek has no sex recorded, but she is listed as a wife, so the program takes it from that role.",
+      },
+      run: async (d) => {
+        await openChip(d, { sl: "Spol proti vlogi", en: "Sex vs. role" });
+        await fixRow(d, "Simon Muhovec");
+        await openChip(d, { sl: "Brez spola", en: "No sex" });
+        await fixRow(d, "Ana Jelovšek");
+      },
+    },
+    {
+      callout: { sl: "Ocene datumov", en: "Estimated dates" },
+      say: {
+        sl: "Manjkajoče datume program oceni iz sorodnikov, enako kot paketno opravilo. Marija, žena Matije Prešerna, dobi rojstvo okoli leta 1670. Poroka Jerneja in Mine Prešeren je zapisana brez datuma, zato dobi datum pred rojstvom njunega prvega otroka.",
+        en: "The program estimates missing dates from the relatives, the same way the batch action does. Marija, Matija Prešeren's wife, gets a birth of about 1670. Jernej and Mina Prešeren's marriage has no date, so it gets one before the birth of their first child.",
+      },
+      run: async (d) => {
+        await openChip(d, { sl: "Brez ključnih datumov", en: "No vital dates" });
+        await fixRow(d, "Marija");
+        await openChip(d, { sl: "Poroka brez datuma", en: "Undated marriage" });
+        await fixRow(d, "Jernej");
+      },
+    },
+    {
+      callout: { sl: "Živi nad 99 let", en: "Living over 99" },
+      say: {
+        sl: "Kdor bi bil danes star več kot 99 let, je skoraj gotovo umrl, le zapisa o smrti ni. Gumb »Dodaj smrt« zapiše smrt brez datuma in kraja. Med njimi je zdaj tudi Marija: z ocenjenim rojstvom je popravek odkril novo težavo.",
+        en: "Anyone who would be over 99 today has almost certainly died; only the death record is missing. The Add death button records a death without a date or place. Marija is among them now: her estimated birth has brought up a new issue.",
+      },
+      run: async (d) => {
+        await openChip(d, { sl: "Živi nad 99 let", en: "Living over 99" });
+        await d.highlight(personRow(d, "Marija"), 4);
+        await d.wait(2500);
+        await d.highlight(null);
+        await fixRow(d, "Matija Prešeren");
+      },
+    },
+    {
+      callout: { sl: "Datumi in sklici", en: "Dates and references" },
+      say: {
+        sl: "Datum, zapisan kot »1. 3. 1698«, program prepiše v obliko GEDCOM. Navedba vira, ki ga v datoteki ni, pa se odstrani.",
+        en: "A date written as 1. 3. 1698 is rewritten in the GEDCOM form. A citation of a source that is not in the file is removed.",
+      },
+      run: async (d) => {
+        await openChip(d, { sl: "Neberljivi datumi", en: "Unparseable dates" });
+        await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
+        await d.wait(2500);
+        await openChip(d, { sl: "Neobstoječi sklici", en: "Dangling references" });
+        await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
+        await d.wait(1500);
+        await d.highlight(null);
+      },
+    },
+    {
+      callout: { sl: "Vse naenkrat", en: "All at once" },
+      say: {
+        sl: "Vse popravljive težave pa lahko popravite tudi naenkrat: »Popravljivo«, »Izberi vse popravljive« in »Popravi izbrane«. Pred tem vidite seznam popravkov s številom.",
+        en: "You can also fix all the fixable issues at once: Fixable, Select all fixable, and Fix selected. Before that you see the list of fixes with their counts.",
+      },
+      run: async (d) => {
+        await fixAll(d);
+      },
+    },
+    {
+      callout: { sl: "Skladnost z GEDCOM", en: "GEDCOM conformance" },
+      say: {
+        sl: "Drugi zavihek preveri, ali je datoteka zapisana po standardu. Datum »~1665« je navada drugega programa, standard pa ga zapiše kot »ABT 1665«. Tudi te popravite naenkrat.",
+        en: "The second tab checks whether the file is written to the standard. A date like ~1665 is another program's habit; the standard writes it as ABT 1665. These you also fix at once.",
+      },
+      run: async (d) => {
+        await d.click(groupTab(d, 1));
+        await d.page.locator(".tools-chips").first().waitFor();
+        await d.wait(600);
+        await openChip(d, { sl: "Nestandardni datumi", en: "Non-standard dates" });
+        await d.highlight(d.page.locator(".tools-issues").first(), 6);
+        await d.wait(2000);
+        await d.highlight(null);
+        await fixAll(d);
+      },
+    },
+    {
+      callout: { sl: "Počiščeno", en: "All clean" },
+      say: {
+        sl: "Nazaj pri težavah v podatkih ni ostalo nič. Drevo je počiščeno.",
+        en: "Back in the data issues, nothing is left. The tree is clean.",
+      },
+      run: async (d) => {
+        await d.click(groupTab(d, 0));
+        await d.wait(900);
+        await d.highlight(d.page.locator(".tools-clean").first(), 6);
+        await d.wait(1500);
+      },
+    },
+    {
+      callout: null,
+      say: {
+        sl: "GED Merge je vaš rodoslovni program v brskalniku. V njem urejate drevo, ga dopolnjujete iz drugih datotek ter rišete diagrame in zemljevide. Je brezplačen, ne potrebuje računa, najdete pa ga na naslovu gedmerge.com.",
+        en: "GED Merge is your genealogy program in the browser. You edit your tree, complete it from other files, and draw charts and maps. It is free, needs no account, and you will find it at gedmerge.com.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        await d.overlay("hideCursor");
+        await d.card(
+          { sl: "Brezplačno · brez računa · v brskalniku", en: "Free · no account · in your browser" },
+          { sl: "GED Merge — vaš rodoslovni program", en: "GED Merge — your genealogy program" },
+          { sl: "gedmerge.com", en: "gedmerge.com" },
+        );
+      },
+    },
+  ],
+};
+
+export default scenario;
