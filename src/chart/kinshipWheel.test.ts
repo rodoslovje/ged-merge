@@ -152,6 +152,31 @@ describe("collectKin", () => {
     expect(kinDepth({ ...input, maxDistance: 2 })).toBe(4);
   });
 
+  it("walks only as far as the cap, with the same result as the full walk filtered", () => {
+    const full = bloodKin(ds, "@I1@");
+    const windows = [undefined, { from: 1955, to: 1970 }, { from: 1990, to: 2000 }];
+    for (let cap = 0; cap <= 5; cap++) {
+      const capped = bloodKin(ds, "@I1@", cap);
+      expect([...capped]).toEqual([...full].filter(([, p]) => bloodDistance(p) <= cap));
+      for (const win of windows) {
+        // The old way: everyone, then the cap applied afterwards.
+        const filtered = collectKin({ ...input, window: win }).filter((p) => p.distance <= cap);
+        expect(collectKin({ ...input, window: win, maxDistance: cap })).toEqual(filtered);
+        // A caller's shared, uncapped walk gives the same chart.
+        expect(collectKin({ ...input, window: win, maxDistance: cap, kin: full })).toEqual(filtered);
+      }
+    }
+  });
+
+  it("measures the same depth from a shared walk, in either scope", () => {
+    const kin = bloodKin(ds, "@I1@");
+    for (const win of [undefined, { from: 1955, to: 1970 }, { from: 1990, to: 2000 }, { from: 1700, to: 1710 }]) {
+      const expected = Math.max(1, ...collectKin({ ...input, window: win }).map((p) => p.distance));
+      expect(kinDepth({ ...input, window: win })).toBe(expected);
+      expect(kinDepth({ ...input, window: win, kin })).toBe(expected);
+    }
+  });
+
   it("orders closest first", () => {
     expect(people.map((p) => p.distance)).toEqual([...people.map((p) => p.distance)].sort((a, b) => a - b));
   });

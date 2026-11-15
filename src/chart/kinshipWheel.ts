@@ -84,11 +84,14 @@ export function childrenOf(ds: Dataset, id: string): string[] {
  *  descendants belong to. Generations 0 and 1 (the root and their parents) hold
  *  no grandparent line of their own — their descendants are the root's siblings
  *  and issue, which share the central wedge. */
-function ancestorLines(ds: Dataset, rootId: string): Map<string, AncestorLine> {
+function ancestorLines(ds: Dataset, rootId: string, maxGen = Infinity): Map<string, AncestorLine> {
   const map = new Map<string, AncestorLine>([[rootId, { gen: 0, side: "own", branch: OWN_BRANCH }]]);
   const queue = [rootId];
   for (let i = 0; i < queue.length; i++) {
     const at = map.get(queue[i])!;
+    // Breadth-first, so generations only grow along the queue: nothing past
+    // the cap is needed, and nothing within it is reached through it.
+    if (at.gen >= maxGen) break;
     for (const p of parentsOf(ds, queue[i])) {
       if (map.has(p.id)) continue;
       const gen = at.gen + 1;
@@ -111,8 +114,13 @@ function ancestorLines(ds: Dataset, rootId: string): Map<string, AncestorLine> {
  * walk seeds one bucket per ancestor generation and then descends: a bucket's
  * index is the blood distance, so the first time a person is reached is by
  * their closest relationship and no comparison is needed.
+ *
+ * `maxDistance` stops the walk at that blood distance. Because a bucket only
+ * ever feeds the next one, the buckets up to the cap come out exactly as they
+ * would in the full walk — the capped result is the full one, filtered — and a
+ * big tree is not walked to its last cousin for a chart of the first few rings.
  */
-export function bloodKin(ds: Dataset, rootId: string): Map<string, KinPosition> {
+export function bloodKin(ds: Dataset, rootId: string, maxDistance = Infinity): Map<string, KinPosition> {
   const out = new Map<string, KinPosition>();
   if (!ds.individuals.has(rootId)) return out;
 
@@ -121,15 +129,16 @@ export function bloodKin(ds: Dataset, rootId: string): Map<string, KinPosition> 
   const push = (m: number, step: Step) => (buckets[m] ??= []).push(step);
 
   // Sorted so pedigree collapse resolves the same way on every run.
-  const seeds = [...ancestorLines(ds, rootId)].sort(
+  const seeds = [...ancestorLines(ds, rootId, maxDistance)].sort(
     (a, b) => a[1].gen - b[1].gen || (a[0] < b[0] ? -1 : 1),
   );
   for (const [id, line] of seeds) push(line.gen, { id, up: line.gen, down: 0, viaId: id });
 
-  for (let m = 0; m < buckets.length; m++) {
+  for (let m = 0; m < buckets.length && m <= maxDistance; m++) {
     for (const step of buckets[m] ?? []) {
       if (out.has(step.id)) continue;
       out.set(step.id, { up: step.up, down: step.down, viaId: step.viaId });
+      if (m === maxDistance) continue;
       for (const childId of childrenOf(ds, step.id)) {
         if (!out.has(childId)) push(m + 1, { id: childId, up: step.up, down: step.down + 1, viaId: step.viaId });
       }
@@ -220,6 +229,9 @@ export interface KinInput {
   /** Cap on blood distance — the shared Generations setting. */
   maxDistance?: number;
   now?: number;
+  /** {@link bloodKin} of the root, uncapped, when the caller already has it —
+   *  so the depth and the chart share one walk of the tree instead of two. */
+  kin?: Map<string, KinPosition>;
 }
 
 /**
@@ -229,9 +241,27 @@ export interface KinInput {
  * would step back up.
  */
 export function kinDepth(input: KinInput): number {
+  const { ds, rootId, window: win } = input;
+  const kin = input.kin ?? bloodKin(ds, rootId);
   let max = 1;
-  for (const p of collectKin({ ...input, maxDistance: undefined })) {
-    if (p.distance > max) max = p.distance;
+  if (!win) {
+    for (const [id, pos] of kin) {
+      const distance = bloodDistance(pos);
+      if (distance > max && ds.individuals.has(id)) max = distance;
+    }
+    return max;
+  }
+  // Contemporaries: the deepest relative whose life overlaps the window. Read
+  // from the far end, so the lifespans (each an estimate over the person's
+  // network) are worked out only until the first one in scope.
+  const now = input.now ?? new Date().getFullYear();
+  const byDistance = [...kin].map(([id, pos]) => ({ id, distance: bloodDistance(pos) }));
+  byDistance.sort((a, b) => b.distance - a.distance);
+  for (const { id, distance } of byDistance) {
+    if (distance <= max) break;
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    if (id === rootId || overlaps(lifeSpan(indi, ds, now), win.from, win.to)) max = distance;
   }
   return max;
 }
@@ -240,10 +270,11 @@ export function kinDepth(input: KinInput): number {
 export function collectKin(input: KinInput): KinPerson[] {
   const { ds, rootId, nameOf, window: win, maxDistance } = input;
   const now = input.now ?? new Date().getFullYear();
-  const lines = ancestorLines(ds, rootId);
+  const cap = maxDistance ?? Infinity;
+  const lines = ancestorLines(ds, rootId, cap);
   const out: KinPerson[] = [];
 
-  for (const [id, pos] of bloodKin(ds, rootId)) {
+  for (const [id, pos] of input.kin ?? bloodKin(ds, rootId, cap)) {
     const indi = ds.individuals.get(id);
     if (!indi) continue;
     const distance = bloodDistance(pos);

@@ -5,6 +5,7 @@ import { INDI_EVENT_TAGS, isChangeStampEvent } from "../gedcom/eventTags";
 import { LINK_TAGS } from "../gedcom/builder";
 import { cloneNode, mergeSubLines, nodeFingerprint, firstChild, hasChild } from "../gedcom/node";
 import { URL_RE, looksLikeUrl } from "../gedcom/uri";
+import { objeNodesFor } from "../gedcom/source";
 import {
   EDITABLE_LINK_TAGS,
   EVENT_CHILD_ORDER,
@@ -543,7 +544,7 @@ function carryUncoveredLines(
 function carriesLink(line: GedNode, records: GedNode[]): boolean {
   const v = line.value?.trim() ?? "";
   if (line.tag === "OBJE" && /^@[^@]+@$/.test(v)) {
-    const file = records.find((r) => r.xref === v)?.children.find((c) => c.tag === "FILE")?.value?.trim();
+    const file = objeNodesFor(records).get(v)?.children.find((c) => c.tag === "FILE")?.value?.trim();
     if (file && looksLikeUrl(file)) return true;
   } else if (new RegExp(URL_RE.source, "i").test(v)) return true;
   return line.children.some((c) => carriesLink(c, records));

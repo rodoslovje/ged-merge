@@ -10,6 +10,7 @@ import {
   buildKinBars,
   buildKinshipWheel,
   buildSurnameRings,
+  bloodKin,
   collectKin,
   kinDepth,
   OWN_BRANCH,
@@ -134,6 +135,9 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const [yearOn, setYearOn] = useState(false);
   const [year, setYear] = useState(now);
 
+  // The blood-kin walk, once per root: the depth below and the chart share it,
+  // and neither a scope nor a Generations step walks the tree again.
+  const kin = useMemo(() => bloodKin(mainDs, currentRootId), [mainDs, currentRootId]);
   const baseInput = useMemo(
     () => ({
       ds: mainDs,
@@ -141,8 +145,9 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       nameOf,
       now,
       window: scope === "contemporaries" ? window : undefined,
+      kin,
     }),
-    [mainDs, currentRootId, nameOf, now, scope, window],
+    [mainDs, currentRootId, nameOf, now, scope, window, kin],
   );
   const input = useMemo(
     () => ({ ...baseInput, maxDistance: settings.maxGenerations ?? undefined }),
