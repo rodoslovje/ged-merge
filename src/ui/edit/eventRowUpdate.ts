@@ -1,4 +1,5 @@
 import type { EventFieldUpdate } from "../../gedcom/edit";
+import { eventTimeTag, ordinanceStatusIn } from "../../normalize/migrate";
 
 /** One text field of an event row, as `useField` holds it. */
 export interface RowField {
@@ -64,4 +65,16 @@ export function eventRowUpdate(
     return v === undefined || v === fields[key].initial || (key === "value" && flagOnly && v === flagValue);
   });
   return unchanged ? null : merged;
+}
+
+/**
+ * Spell the row's update the way `version` (the target's) writes it, in
+ * place: an LDS ordinance's status in that version's enumeration (`pre-1970`
+ * is 7.0's `PRE_1970` and 5.5.1's `PRE-1970`, see `ordinanceStatusIn`), and
+ * a time on the line that version has for it (5.5.1's `_TIME`, see
+ * `eventTimeTag`).
+ */
+export function spellUpdateFor(update: EventFieldUpdate, version: "5.5.1" | "7.0"): void {
+  if (update.status !== undefined) update.status = ordinanceStatusIn(update.status, version);
+  if (update.time !== undefined) update.timeTag = eventTimeTag(version);
 }

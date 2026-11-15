@@ -15,7 +15,7 @@ import { fixDuplicatePointers } from "./fixDuplicatePointers";
  * ValidatePanel), so both name a repair alike.
  *
  * Left out are the repairs that decide something about the family rather
- * than about how the file is written: dropping a one-way link, a sex read
+ * than about how the file is written: completing a one-way link, a sex read
  * from a family role, swapped spouses, merging duplicate families, and the
  * media-title removal the health check runs only on the user's word. So is
  * the source-coverage repair: Normalize's own source-coverage pass writes

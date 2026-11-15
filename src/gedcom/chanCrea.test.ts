@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { markEventTouched } from "./edit";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, stampUsageFor, todayGedcom } from "./chanCrea";
 import type { ChanCreaUsage, GedNode } from "./types";
+import { buildDataset } from "./builder";
+import { parseGedcom } from "./parser";
+import { convertUpdToChan } from "../normalize/vendorInternal";
+import { validateConformance } from "../tools/conformance/conformance";
 
 const TODAY = "24 JUN 2026";
 const NOW = "09:05:42";
@@ -36,6 +40,48 @@ describe("stampUsageFor", () => {
   it("keeps the file's event stamps only while the file still has them", () => {
     expect(stampUsageFor(ALL, { strict: false, version: "7.0" }, stamped)).toMatchObject({ eventChan: true, eventCrea: false });
     expect(stampUsageFor(ALL, { strict: false, version: "7.0" }, lifted)).toMatchObject({ eventChan: false, eventCrea: false });
+  });
+
+  /** A MyHeritage file: `_UPD` on its people and its sources, no CHAN. */
+  function myHeritage(version: "5.5.1" | "7.0") {
+    const text =
+      `0 HEAD\n1 GEDC\n2 VERS ${version}\n` +
+      "0 @I1@ INDI\n1 NAME Ana /Novak/\n1 _UPD 10 AUG 2020 01:57:49 GMT -0500\n" +
+      "0 @S1@ SOUR\n1 TITL Register\n1 _UPD 10 AUG 2020 01:57:49 GMT -0500\n0 TRLR\n";
+    return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+  }
+  const STAMP = "15 NOV 2026 10:00:00 GMT +0100";
+  const touched = (ds: ReturnType<typeof myHeritage>) =>
+    ds.records.filter((r) => r.xref === "@I1@" || r.xref === "@S1@");
+
+  it.each(["5.5.1", "7.0"] as const)("stamps a strict %s save with CHAN instead of _UPD", (version) => {
+    const ds = myHeritage(version);
+    // The file's own `_UPD` lines go the way Normalize takes them.
+    convertUpdToChan(ds.records);
+    for (const r of ds.records) if (r.tag === "SOUR") r.children = r.children.filter((c) => c.tag !== "_UPD");
+    const usage = stampUsageFor(ds.chanCreaUsage, { strict: true, version }, ds.records);
+    expect(usage).toMatchObject({ recordUpd: false, sharedUpd: false, recordChan: true, sharedChan: true });
+    stampChanCrea(ds.records, new Set(["@I1@", "@S1@"]), new Set(), usage, "15 NOV 2026", "10:00:00", STAMP);
+    for (const r of touched(ds)) {
+      expect(r.children.some((c) => c.tag === "_UPD")).toBe(false);
+      expect(childTag(childTag(r, "CHAN"), "DATE")?.value).toBe("15 NOV 2026");
+    }
+    expect(validateConformance(ds).filter((i) => i.recordId === "@I1@" || i.recordId === "@S1@")).toEqual([]);
+  });
+
+  it("does not add _UPD back once Normalize has turned it into CHAN", () => {
+    const ds = myHeritage("5.5.1");
+    // Load-time usage says `_UPD`; Normalize then rewrites the people's stamps.
+    convertUpdToChan(ds.records);
+    const usage = stampUsageFor(ds.chanCreaUsage, { strict: false, version: "5.5.1" }, ds.records);
+    stampChanCrea(ds.records, new Set(["@I1@", "@S1@"]), new Set(), usage, "15 NOV 2026", "10:00:00", STAMP);
+    const [person, source] = touched(ds);
+    expect(person.children.some((c) => c.tag === "_UPD")).toBe(false);
+    expect(childTag(childTag(person, "CHAN"), "DATE")?.value).toBe("15 NOV 2026");
+    // The source kept its `_UPD` (Normalize leaves shared records alone) and
+    // is refreshed in the file's own way, with no CHAN invented beside it.
+    expect(childTag(source, "_UPD")?.value).toBe(STAMP);
+    expect(childTag(source, "CHAN")).toBeUndefined();
   });
 });
 

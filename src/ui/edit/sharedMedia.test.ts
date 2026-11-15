@@ -17,7 +17,7 @@ describe("sharedMediaMutation", () => {
   it("creates the media record only when the commit runs the mutation", () => {
     const recs = records();
     const patches: RecordPatch[] = [];
-    const mutate = sharedMediaMutation(recs, "new.jpg", undefined, patches);
+    const mutate = sharedMediaMutation(recs, "new.jpg", "5.5.1", undefined, patches);
     expect(recs).toHaveLength(4); // a bailing commit never calls it: nothing created
     const person = recs[1];
     mutate(person);
@@ -30,7 +30,7 @@ describe("sharedMediaMutation", () => {
   it("reuses a record with the same file", () => {
     const recs = records();
     const patches: RecordPatch[] = [];
-    sharedMediaMutation(recs, "old.jpg", undefined, patches)(recs[1]);
+    sharedMediaMutation(recs, "old.jpg", "5.5.1", undefined, patches)(recs[1]);
     expect(recs).toHaveLength(4);
     expect(patches).toEqual([]);
     expect(recs[1].children[0].value).toBe("@O1@");

@@ -17,7 +17,7 @@ import { DownloadIcon } from "../icons/DownloadIcon";
 import { TrashIcon } from "../icons/TrashIcon";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
-import type { BrokenLinkRef } from "../../tools/fixLinks";
+import { spouseSlotFor, type BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
@@ -505,7 +505,7 @@ export function ValidatePanel({
         tranFirst ??= issue;
         continue;
       }
-      if (issue.category === "enumValue" && issue.fix !== undefined && !issue.toNote && issue.recordId) {
+      if (isValueFix(issue)) {
         const k = `${issue.messageKey}\0${issue.messageVars?.parent}\0${issue.sample}\0${issue.fix}`;
         const list = valueGroups.get(k);
         if (list) list.push(issue);
@@ -659,14 +659,25 @@ export function ValidatePanel({
    *  above would touch — "→ Female" on the three no-sex spouses among eight. */
   function recordRowFix(issue: ValidationIssue): RowFix | null {
     switch (issue.category) {
-      case "brokenLink":
+      case "brokenLink": {
+        const target = brokenTarget(issue);
+        // A one-way link gets its back-pointer; one to a missing record goes.
+        const oneWay = issue.messageKey.endsWith("NotReciprocal");
+        if (issue.messageKey === "tools.validate.issue.famsNotReciprocal") {
+          // A spouse slot that is taken, or a role the sex can't tell, is the
+          // user's to settle: the fix leaves that link alone.
+          const indi = dataset.individuals.get(issue.id);
+          const fam = target ? dataset.families.get(target) : undefined;
+          if (!indi || !fam || !spouseSlotFor(indi, fam)) return null;
+        }
         return {
-          label: t("tools.validate.fixOneLink"),
-          hint: t("tools.validate.fixOneLinkHint"),
-          removes: true,
+          label: t(oneWay ? "tools.validate.fixOneLinkBack" : "tools.validate.fixOneLink"),
+          hint: t(oneWay ? "tools.validate.fixOneLinkBackHint" : "tools.validate.fixOneLinkHint"),
+          removes: !oneWay,
           kind: "links",
-        run: () => onFixBrokenLinks({ id: issue.id, target: brokenTarget(issue) }),
+        run: () => onFixBrokenLinks({ id: issue.id, target }),
         };
+      }
       case "duplicatePointer":
         return {
           label: t("tools.validate.fixOneDup"),
@@ -774,13 +785,13 @@ export function ValidatePanel({
     if (issue.toNote && issue.recordId) {
       return {
         label: t("tools.validate.fixOneNote"),
-        hint: t("tools.validate.fixOneNoteHint"),
+        hint: t(isEventText(issue) ? "tools.validate.fixOneNoteHint" : "tools.validate.fixOneNoteLineHint"),
         kind: "notes",
         run: () => onFixConformance("notes", { id: issue.recordId!, path: issue.path }),
       };
     }
-    if (issue.category === "enumValue" && issue.fix !== undefined && issue.recordId) {
-      const fix = issue.fix;
+    if (isValueFix(issue)) {
+      const fix = issue.fix!;
       return {
         label: t("tools.validate.fixOneValue", { value: fix }),
         hint: t("tools.validate.struct.fixableTitle", { value: fix }),
@@ -1042,7 +1053,7 @@ export function ValidatePanel({
   if (fixableNonStandard > 0) fixActions.push({ kind: "nonStandard", count: fixableNonStandard });
   // The conformance fixes, counted off the report the way the non-standard
   // dates are: each finding that carries its repair is one the batch makes.
-  const conformValues = structure?.issues.filter((i) => i.category === "enumValue" && i.fix !== undefined && !i.toNote && i.recordId).length ?? 0;
+  const conformValues = structure?.issues.filter((i) => isValueFix(i)).length ?? 0;
   if (conformValues > 0) fixActions.push({ kind: "values", count: conformValues });
   const conformNotes = structure?.issues.filter((i) => i.toNote && i.recordId).length ?? 0;
   if (conformNotes > 0) fixActions.push({ kind: "notes", count: conformNotes });
@@ -1490,6 +1501,7 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.misplacedStamp",
   "tools.validate.struct.issue.missingMany",
   "tools.validate.struct.issue.smartMatch",
+  "tools.validate.struct.issue.inexactDate",
   TRAN_LANG_KEY,
   "tools.validate.struct.issue.misplacedStamps",
   "tools.validate.struct.issue.unknownTag",
@@ -1499,6 +1511,12 @@ const GROUPED_KEYS = new Set([
 ]);
 function isGrouped(i: StructIssue): boolean {
   return (GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1) || (i.groupCount ?? 0) > 1;
+}
+
+/** A value the fix rewrites in place: a mis-spelt enumeration value, or a
+ *  coordinate in the standard's form. */
+function isValueFix(i: StructIssue): boolean {
+  return (i.category === "enumValue" || i.category === "valueFormat") && i.fix !== undefined && !i.toNote && !!i.recordId;
 }
 
 /** Text on an event line (`DEAT 1.5y old`), which the fix moves into a note. */

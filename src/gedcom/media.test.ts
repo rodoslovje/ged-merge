@@ -18,7 +18,9 @@ describe("detectMediaMode", () => {
       "0 TRLR",
       "",
     ].join("\n"));
-    expect(detectMediaMode(recs)).toBe("inline");
+    expect(detectMediaMode(recs, "5.5.1")).toBe("inline");
+    // 7.0 has no inline media block: a 7.0 target always links a record.
+    expect(detectMediaMode(recs, "7.0")).toBe("shared");
   });
 
   it("detects shared top-level OBJE referenced by a pointer", () => {
@@ -31,12 +33,12 @@ describe("detectMediaMode", () => {
       "0 TRLR",
       "",
     ].join("\n"));
-    expect(detectMediaMode(recs)).toBe("shared");
+    expect(detectMediaMode(recs, "5.5.1")).toBe("shared");
   });
 
   it("falls back to shared when the file has no photos", () => {
     const recs = records([...HEAD, "0 @I1@ INDI", "1 NAME A /B/", "0 TRLR", ""].join("\n"));
-    expect(detectMediaMode(recs)).toBe("shared");
+    expect(detectMediaMode(recs, "5.5.1")).toBe("shared");
   });
 
   it("goes by the majority style when mixed", () => {
@@ -55,7 +57,7 @@ describe("detectMediaMode", () => {
       "0 TRLR",
       "",
     ].join("\n"));
-    expect(detectMediaMode(recs)).toBe("inline");
+    expect(detectMediaMode(recs, "5.5.1")).toBe("inline");
   });
 });
 

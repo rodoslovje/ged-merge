@@ -19,6 +19,7 @@ import { newSourceCitations } from "../gedcom/source";
 import type { ChangeReport, GraftJoinPerson } from "./merge";
 import type { PlacedLink } from "./linkPlacement";
 import type { Translate } from "../locales/i18n";
+import { writeVersionOf } from "../normalize/formatOverrides";
 import {
   applyEventSources,
   applyEventSub,
@@ -928,7 +929,7 @@ export function applyIndividualFamilies(
         const rowIncoming = rows.find((r) => r.key === key)?.incoming ?? "";
         let applied: boolean;
         if (sub === "value") {
-          applied = applyEventValue(famNode, incFam.raw, evTag, choice, 0, 0, FAM_CHILD_ORDER);
+          applied = applyEventValue(famNode, incFam.raw, evTag, choice, 0, 0, writeVersionOf(ctx.linkPlacement.overrides), FAM_CHILD_ORDER);
         } else {
           const subTag = SUB_TAG[sub];
           if (!subTag) continue;

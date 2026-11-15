@@ -13,7 +13,8 @@ const DEFAULT_PASSES: NormalizeOptions = { dates: true, places: true, links: tru
 import { applyPassSafely, type PassJournal } from "./passSafety";
 import { foreignAliasTags, isNativeTag, producerSoftware } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
-import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import { applyFormatOverrides, writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
+import { versionFamily } from "../normalize/migrate";
 import { normalizeDataset, recordExample } from "../normalize/normalize";
 import { detectSourceCoverage } from "../gedcom/source";
 import { baptismTargetTag, normalizeSourceCoverage } from "./sourceReshape";
@@ -88,6 +89,8 @@ export function bulkNormalize(
   // follows each of them rather than forcing one on both.
   if (options?.noteShape !== false) {
     const detected = detectNoteShapes(ds.records);
+    // The target's version, else (no target given) the file's own.
+    const version = overrides?.writeVersion ? writeVersionOf(overrides) : versionFamily(ds.version);
     const recordTarget = overrides?.notes ?? detected.record;
     const eventTarget = overrides?.eventNotes ?? detected.event;
     const passes = [
@@ -97,7 +100,7 @@ export function bulkNormalize(
     let changed = 0;
     const examples: NormChange[] = [];
     for (const { target, scope } of passes) {
-      const r = reshapeNotes(result.dataset.records, target, scope);
+      const r = reshapeNotes(result.dataset.records, target, version, scope);
       changed += r.changed;
       for (const ex of r.examples) if (examples.length < 12) examples.push(ex);
     }

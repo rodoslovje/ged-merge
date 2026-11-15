@@ -72,8 +72,8 @@ export interface StructIssue {
   /** Conformance `cardinality`: every repeat is an exact copy of the first,
    *  so the fix can drop them without losing anything. */
   repeat?: boolean;
-  /** Conformance `badY`: `fix` is the event line's text, which the fix moves
-   *  into a NOTE on the event. */
+  /** Conformance `badY` / `valueNotAllowed`: `fix` is the line's text, which
+   *  the fix moves into a NOTE beneath it. */
   toNote?: boolean;
   /** Conformance `misplacedTag`: a media record's TITL/FORM beside its FILE,
    *  which the fix moves under it file-wide. */

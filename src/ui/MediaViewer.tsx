@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { Dataset, GedDate, GedNode, Individual } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
-import { collectMediaRefs, type MediaAddress } from "../gedcom/media";
+import { collectMediaRefs, type MediaAddress, type MediaRef } from "../gedcom/media";
 import { mediaKindOf } from "./mediaPath";
 import { familySpouses, mediaUsedBy, type PersonRef } from "../tools/sources";
 import { lifespanLabel } from "../match/relatives";
@@ -73,6 +73,10 @@ export interface MediaEdit {
   /** When set (image media in Edit context), the info panel offers marking the
    *  record's region: save a drawn rectangle, or `null` to clear it. */
   onSaveCrop?: (crop: CropRegion | null) => void;
+  /** Why the media item cannot be marked private (the target's version has
+   *  no privacy line there), when it cannot: the lock then only clears a
+   *  flag the item already has. */
+  privateUnavailable?: string;
 }
 
 /** A crop region plus the label (person name) shown under it. */
@@ -145,6 +149,9 @@ export interface MediaRefContext {
    *  file kept with its variations writes them (see `mediaInfoOffered`).
    *  Both are offered when omitted. */
   mediaFields?: { date: boolean; place: boolean };
+  /** Why a media item cannot be marked private, when it cannot (see
+   *  {@link MediaEdit.privateUnavailable}). */
+  privateUnavailable?: (ref: MediaRef) => string | undefined;
 }
 
 interface MediaViewerCtx {
@@ -426,6 +433,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                   private: !!ref.private,
                 },
                 onSave: (fields) => onEditMedia(ref, fields),
+                privateUnavailable: refCtx?.privateUnavailable?.(ref),
                 crop: ref.crop,
                 onSaveCrop:
                   refCtx?.onEditMediaCrop && mediaKindOf(ref.file) === "image"
@@ -550,9 +558,13 @@ function MediaInfoEditor({
         <button
           type="button"
           className={`edit-name-chip private-toggle${fields.private ? " is-on" : ""}`}
-          title={fields.private ? t("edit.privateOn") : t("edit.privateOff", { target: t("edit.privateTarget.media") })}
+          title={fields.private ? t("edit.privateOn") : (edit.privateUnavailable ?? t("edit.privateOff", { target: t("edit.privateTarget.media") }))}
           aria-pressed={fields.private}
+          // Where the version has no privacy line for the item, the lock only
+          // clears a flag the item already carries; it never sets one.
+          aria-disabled={!fields.private && !!edit.privateUnavailable}
           onClick={() => {
+            if (!fields.private && edit.privateUnavailable) return;
             const next = { ...fields, private: !fields.private };
             setFields(next);
             onSaved(next);

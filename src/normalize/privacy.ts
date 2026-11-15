@@ -33,7 +33,7 @@ export function normalizePrivacyStyle(
     if (!markers.length) return;
     if (markers.length === 1 && markers[0].tag === style) return; // already house style
     const before = markers.map(label).join(" + ");
-    setPrivateFlag(node, true, style, records, version);
+    setPrivateFlag(node, true, style, version);
     const after = node.children.filter(isPrivacyMarker).map(label).join(" + ");
     changes.push({ before, after });
   });

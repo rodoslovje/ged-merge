@@ -67,7 +67,7 @@ test("a typed date reads back in words and is written in the file's style", asyn
   await expect(death).toHaveValue("pred vojno");
 });
 
-test("a time typed after the date is saved as the DATE's TIME", async ({ page }) => {
+test("a time typed after the date is saved with the DATE, as _TIME in 5.5.1", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(writeFixture());
   await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -83,7 +83,9 @@ test("a time typed after the date is saved as the DATE's TIME", async ({ page })
   const downloadPromise = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
   await page.locator(".preview-actions .export-btn").click();
   const content = readFileSync((await (await downloadPromise).path())!, "utf-8");
-  expect(content).toMatch(/2 DATE 5 MAR 1850\r?\n3 TIME 09:05/);
+  // 5.5.1 times only a header's and a change stamp's date: an event's time is
+  // kept as _TIME, the form a conversion to 7.0 turns back into TIME.
+  expect(content).toMatch(/2 DATE 5 MAR 1850\r?\n3 _TIME 09:05/);
 });
 
 test("a date field's hover says how the date reads", async ({ page }) => {

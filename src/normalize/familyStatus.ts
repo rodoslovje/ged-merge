@@ -36,15 +36,20 @@ export interface FamilyStatusChange {
 
 const hasMstat = (fam: GedNode): boolean => hasChild(fam, "_MSTAT");
 
-/** Consolidate vendor partnership-status encodings on FAM records into `_MSTAT`. */
-export function normalizeFamilyStatus(records: GedNode[]): FamilyStatusChange[] {
+/** Consolidate vendor partnership-status encodings on FAM records into `_MSTAT`.
+ *  `keepStandardEvents` (a strict target) leaves MyHeritage's `EVEN` + `TYPE`
+ *  as it is: a standard structure is preferred over the `_MSTAT` extension. */
+export function normalizeFamilyStatus(
+  records: GedNode[],
+  { keepStandardEvents = false }: { keepStandardEvents?: boolean } = {},
+): FamilyStatusChange[] {
   const changes: FamilyStatusChange[] = [];
   for (const fam of records) {
     if (fam.tag !== "FAM") continue;
 
     // MyHeritage: `EVEN` + `TYPE MYHERITAGE:REL_*` → `_MSTAT <status>`.
     for (const child of fam.children) {
-      if (child.tag !== "EVEN" || hasMstat(fam)) continue;
+      if (keepStandardEvents || child.tag !== "EVEN" || hasMstat(fam)) continue;
       const typeNode = firstChild(child, "TYPE");
       const status = vendorEventTypeInfo(typeNode?.value)?.mstat;
       if (!status) continue;

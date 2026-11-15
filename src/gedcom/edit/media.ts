@@ -8,29 +8,6 @@ import { bumpSourceCacheVersion, getMediaAndSourceCtx, memoOnContent } from "./c
 import type { FormatOverrides } from "../../normalize/formatOverrides";
 import { linkKey } from "../../normalize/links";
 
-/** Which dialect the file's `FORM` payloads speak: 7.0 requires IANA media
- *  types (`image/jpeg`), 5.5-family files carry extension tokens (`jpg`).
- *  Read off the existing FORMs' own habit; a file with none states it in its
- *  header version. Writing `FORM htm` into a 7.0 file is invalid — new media
- *  must speak the dialect the file already does. */
-export function prefersMimeForm(records: GedNode[]): boolean {
-  let mime = 0;
-  let ext = 0;
-  for (const rec of records) {
-    if (rec.tag !== "OBJE" || !rec.xref) continue;
-    for (const file of childrenByTag(rec, "FILE")) {
-      const form = firstChild(file, "FORM")?.value?.trim();
-      if (!form) continue;
-      if (form.includes("/")) mime++;
-      else ext++;
-    }
-  }
-  if (mime || ext) return mime > ext;
-  const head = records.find((r) => r.tag === "HEAD");
-  const vers = head ? firstChild(firstChild(head, "GEDC") ?? head, "VERS")?.value?.trim() : undefined;
-  return vers?.startsWith("7") ?? false;
-}
-
 /** A media block's title line: the one under its first `FILE`, where 5.5.1
  *  and 7.0 records keep it, else one beside the `FILE` (the 5.5 shape, and an
  *  inline 5.5.1 block's own). */
@@ -61,17 +38,19 @@ export function writeMediaTitle(obje: GedNode, value: string): void {
 /** Create a new top-level `OBJE` record whose `FILE` is `url`/`file` (with an
  * optional `TITL` under it), and add it to `records`. The `FILE` carries the
  * `FORM` the spec asks for — even in a file whose older media omit it, so new
- * media never add to the health check's findings. */
+ * media never add to the health check's findings — spelled as `version` (the
+ * target's) spells it: an IANA media type in 7.0, an extension token in 5.5.1. */
 export function createMediaRecord(
   records: GedNode[],
   url: string,
+  version: "5.5.1" | "7.0",
   title?: string,
   /** Xrefs promised elsewhere (the merge's pending shared-record imports)
    *  that the fresh id must skip — see `nextXref`. */
   reserved?: ReadonlySet<string>,
 ): GedNode {
   const fileNode: GedNode = { level: 1, tag: "FILE", value: url, children: [] };
-  const form = fileFormOf(url, prefersMimeForm(records));
+  const form = fileFormOf(url, version === "7.0");
   if (form) fileNode.children.push({ level: 2, tag: "FORM", value: form, children: [] });
   const raw: GedNode = {
     level: 0,
@@ -95,9 +74,15 @@ export function createMediaRecord(
 // to a top-level record) is the caller's, driven by the main file's detected
 // `MediaMode`; these helpers just realize whichever the caller picks.
 
-/** Build an `OBJE` node (a `FILE` plus an optional `TITL`) at `level`. */
+/** Build an inline `OBJE` node (a `FILE` with the `FORM` 5.5.1 requires under
+ *  it, plus an optional `TITL`) at `level`. Only 5.5.1 has an inline media
+ *  block (7.0 always links a media record, see `detectMediaMode`), so the
+ *  FORM is its extension token, as `createMediaRecord` writes it there. */
 function buildObjeNode(level: number, file: string, title?: string): GedNode {
-  const node: GedNode = { level, tag: "OBJE", children: [{ level: level + 1, tag: "FILE", value: file, children: [] }] };
+  const fileNode: GedNode = { level: level + 1, tag: "FILE", value: file, children: [] };
+  const form = fileFormOf(file);
+  if (form) fileNode.children.push({ level: level + 2, tag: "FORM", value: form, children: [] });
+  const node: GedNode = { level, tag: "OBJE", children: [fileNode] };
   const trimmedTitle = title?.trim();
   if (trimmedTitle) node.children.push({ level: level + 1, tag: "TITL", value: trimmedTitle, children: [] });
   return node;

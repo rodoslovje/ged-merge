@@ -4711,6 +4711,11 @@ button:focus-visible {
   filter: none;
 }
 .clearable-wrap--leading .edit-input { padding-left: 22px; }
+/* A lock the target version cannot carry (a note or media item in a strict
+ * mode): it says why on hover and never lights up. */
+.note-chip-lock[aria-disabled="true"],
+.private-toggle[aria-disabled="true"] { cursor: not-allowed; }
+.clearable-wrap .note-chip-lock[aria-disabled="true"]:hover { opacity: 0.7; background: transparent; }
 /* Person/family private chip: quiet outline at rest, accented when set. */
 .private-toggle {
   cursor: pointer;

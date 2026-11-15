@@ -1351,7 +1351,7 @@ export function reshapeSources(
         // Written stripped of viewer state but keeping what selects the page,
         // so a page linked twice by two readers lands as one media record and
         // still reopens where it was copied (see `familySearchPageUrl`).
-        const obje = addObjeToSource(clone, sourceXref, storedLink(hitUrl, hit), objeTitle);
+        const obje = addObjeToSource(clone, sourceXref, storedLink(hitUrl, hit), sourceWriteVersion(opts), objeTitle);
         if (obje.xref) {
           createdObjeUrls.set(obje.xref, hitUrl);
           minted.set(obje.xref, obje);

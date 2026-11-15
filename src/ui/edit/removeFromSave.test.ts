@@ -46,7 +46,7 @@ describe("removeFromSave", () => {
     const loaded = parse(FILE);
     const ds = parse(FILE);
     const before = serializeGedcom(ds.records);
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     ctx.noteStyle = "shared";
     setNotes(ctx, ds.individuals.get("@I1@")!, [{ text: "A new note" }]);
     expect(serializeGedcom(ds.records)).toContain("A new note");

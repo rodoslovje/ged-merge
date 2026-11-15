@@ -202,9 +202,13 @@ export function stampChanCrea(
 /**
  * The stamping conventions a save may follow under `target`. A strict target
  * writes only what its version allows: no `CHAN`/`CREA` on events in either,
- * and no `CREA` at all in 5.5.1. Kept as a file's own habit, an event stamp is
- * written only while the file still carries one — once a fix has lifted them
- * all, a save does not start them again.
+ * no `CREA` at all in 5.5.1, and no MyHeritage `_UPD` — a file that stamps
+ * its records that way gets the standard record `CHAN` instead, so its saves
+ * still record when a record changed. Kept as a file's own habit, an event
+ * stamp or an `_UPD` is written only while the file still carries one — once
+ * a fix has lifted them all (or Normalize has turned `_UPD` into `CHAN`), a
+ * save does not start them again, and a converted `_UPD` file is stamped
+ * through its new `CHAN`s.
  */
 export function stampUsageFor(
   usage: ChanCreaUsage,
@@ -216,11 +220,21 @@ export function stampUsageFor(
     return {
       ...usage, eventChan: false, eventCrea: false,
       recordCrea: usage.recordCrea && crea, sharedCrea: usage.sharedCrea && crea,
+      recordUpd: false, sharedUpd: false,
+      recordChan: usage.recordChan || !!usage.recordUpd, sharedChan: usage.sharedChan || !!usage.sharedUpd,
     };
   }
-  if (!usage.eventChan && !usage.eventCrea) return usage;
+  if (!usage.eventChan && !usage.eventCrea && !usage.recordUpd && !usage.sharedUpd) return usage;
   const now = detectChanCreaUsage(records);
-  return { ...usage, eventChan: usage.eventChan && now.eventChan, eventCrea: usage.eventCrea && now.eventCrea };
+  return {
+    ...usage,
+    eventChan: usage.eventChan && now.eventChan,
+    eventCrea: usage.eventCrea && now.eventCrea,
+    recordUpd: now.recordUpd && usage.recordUpd,
+    sharedUpd: now.sharedUpd && usage.sharedUpd,
+    recordChan: usage.recordChan || (!!usage.recordUpd && now.recordChan),
+    sharedChan: usage.sharedChan || (!!usage.sharedUpd && now.sharedChan),
+  };
 }
 
 const MONTH_INDEX: Record<string, number> = {

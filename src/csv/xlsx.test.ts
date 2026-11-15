@@ -176,6 +176,18 @@ describe("readWorkbook", () => {
     expect(sheets[0].rows[0]).toEqual(["1873", "TRUE", "", "Kovačič & sin", ""]);
   });
 
+  it("keeps a character reference beyond Unicode as written instead of failing", async () => {
+    const sheets = await readWorkbook(
+      zip([
+        { name: "xl/workbook.xml", text: `<?xml version="1.0"?><workbook><sheets><sheet name="s" r:id="rId1"/></sheets></workbook>` },
+        { name: "xl/_rels/workbook.xml.rels", text: `<?xml version="1.0"?><Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>` },
+        { name: "xl/sharedStrings.xml", text: shared(`<si><t>a&#1114112;b&#x110000;c&#x10FFFF;</t></si>`) },
+        { name: "xl/worksheets/sheet1.xml", text: sheet([`<row><c r="A1" t="s"><v>0</v></c></row>`]) },
+      ]),
+    );
+    expect(sheets[0].rows[0]).toEqual(["a&#1114112;b&#x110000;c\u{10FFFF}"]);
+  });
+
   it("returns nothing for a zip that is not a workbook", async () => {
     expect(await readWorkbook(zip([{ name: "readme.txt", text: "hello" }]))).toEqual([]);
   });

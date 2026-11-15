@@ -7,6 +7,8 @@ import { RichNoteInput } from "./RichNoteInput";
 import { linkHref } from "../FieldValue";
 import { translationLine } from "../../gedcom/translation";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
+import { useTargetFormat } from "../TargetFormatContext";
+import { privateFlagWritable } from "../../gedcom/private";
 
 /**
  * How wide a note may be before it stops riding beside the fields it belongs to.
@@ -78,6 +80,7 @@ export function NotesEditor({
   t: Translate;
   onCommit: (notes: NoteRef[]) => void;
 }) {
+  const { target } = useTargetFormat();
   const baseline = new Set(baselineNotes ?? initialNotes.map((n) => n.text));
   const [notes, setNotes] = useState<NoteRef[]>(() => (addOnMount ? [...initialNotes, { text: "" }] : initialNotes));
   const prevTrigger = useRef(addTrigger ?? 0);
@@ -137,6 +140,12 @@ export function NotesEditor({
   const noteFields = notes.map((note, i) => {
     if (isHidden(note)) return null;
     const url = firstUrlIn(note.text);
+    // A strict target has no privacy line on a note (inline or shared): the
+    // lock then says why, and only clears a flag the note already carries.
+    const lockBlocked = !note.private && !privateFlagWritable(target, {
+      level: note.xref ? 0 : 1,
+      tag: note.xref && target.version === "7.0" ? "SNOTE" : "NOTE",
+    });
     return (
       <span key={i} className="edit-note-item">
         <RichNoteInput
@@ -147,13 +156,19 @@ export function NotesEditor({
             <button
               type="button"
               className={`note-chip-lock${note.private ? " is-on" : ""}`}
-              title={t(note.private ? "edit.notePrivateOn" : "edit.notePrivateOff")}
+              title={lockBlocked
+                ? t("edit.notePrivateUnavailable", { version: target.version })
+                : t(note.private ? "edit.notePrivateOn" : "edit.notePrivateOff")}
               aria-pressed={!!note.private}
+              aria-disabled={lockBlocked}
               // mousedown is swallowed to keep the box's focus/blur cycle
               // intact; the flip is the click, which Enter on the focused
               // lock fires too.
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)))}
+              onClick={() => {
+                if (lockBlocked) return;
+                commitNotes(notes.map((n, idx) => (idx === i ? { ...n, private: !n.private } : n)));
+              }}
             >
               🔒
             </button>

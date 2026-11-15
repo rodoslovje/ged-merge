@@ -7,6 +7,7 @@ import { individualFieldRows } from "../review/fields";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
+import { applyFormatOverrides } from "../normalize/formatOverrides";
 import { formatReport, materializeEventSources, materializeRecordField, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER } from "../gedcom/edit/shared";
@@ -1222,6 +1223,28 @@ describe("mergeDecisions — links", () => {
     const out = serializeGedcom(records);
     expect(out).toContain("1 _URL https://example.com/new");
     expect(out).not.toContain("2 URL https://example.com/new");
+  });
+
+  it("brings a new person's record link into a strict main as _URL", () => {
+    // A RootsMagic-style `1 WWW` on a person the main does not have: the new
+    // person is copied as the normalized compare file holds it.
+    const compareText =
+      "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+      "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 WWW https://example.com/ana\n1 FAMS @G1@\n" +
+      "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n0 TRLR\n";
+    for (const version of ["5.5.1", "7.0"] as const) {
+      const form = version === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : "";
+      const main = dataset(`0 HEAD\n1 GEDC\n2 VERS ${version}\n${form}1 SOUR t\n0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n0 TRLR\n`);
+      const profile = applyFormatOverrides(inferMainProfile(main), { standard: version });
+      const { dataset: compare } = normalizeDataset(dataset(compareText), profile);
+      const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr, [], { standard: version });
+      expect(report.newPersons, version).toBeGreaterThan(0);
+      const out = serializeGedcom(records);
+      expect(out, version).toContain("1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n1 _URL https://example.com/ana\n");
+      expect(out, version).not.toContain("1 WWW");
+      expect(validateConformance({ records }), version).toEqual([]);
+    }
   });
 
   it("adds a new incoming link as a _WEBTAG block when the main uses that format", () => {

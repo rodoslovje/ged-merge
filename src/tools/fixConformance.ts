@@ -230,7 +230,9 @@ function fillMediaForms(rec: GedNode, v7: boolean, value: string | undefined, ap
   const visit = (node: GedNode) => {
     for (const c of node.children) {
       if (c.tag.startsWith("_")) continue;
-      if (node.tag === "OBJE" && c.tag === "FILE" && c.value && !c.children.some((g) => g.tag === "FORM")) {
+      // A FORM beside the FILE (the 5.5 shape) already names its format.
+      if (node.tag === "OBJE" && c.tag === "FILE" && c.value && !c.children.some((g) => g.tag === "FORM")
+        && !node.children.some((g) => g.tag === "FORM")) {
         const form = fileFormOf(c.value, v7);
         if (form && (value === undefined || form === value)) {
           n++;

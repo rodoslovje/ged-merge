@@ -28,6 +28,9 @@ export interface EventFieldUpdate {
    *  unchanged — only the event row, whose date field carries the time, sets
    *  it; every other writer of a date leaves an existing time alone. */
   time?: string;
+  /** The line a time is written on — the target's (see `eventTimeTag`): 7.0's
+   *  `TIME`, 5.5.1's `_TIME`. A time on the other one is moved to it. */
+  timeTag?: "TIME" | "_TIME";
   /** New PLAC value, or `""` to remove the place. Omit to leave unchanged. */
   place?: string;
   /** `PLAC`.`FORM` naming the jurisdiction level of each part of `place`. Set
@@ -252,7 +255,11 @@ export function applyEventNodeUpdate(record: GedNode, eventNode: GedNode, update
   if (update.time !== undefined) {
     // The time lives under the date and goes when the date does.
     const dateNode = firstChild(eventNode, "DATE");
-    if (dateNode) setOrRemoveValue(dateNode, "TIME", update.time, ["TIME", "PHRASE"]);
+    if (dateNode) {
+      const tag = update.timeTag ?? "TIME";
+      removeChildren(dateNode, tag === "TIME" ? "_TIME" : "TIME");
+      setOrRemoveValue(dateNode, tag, update.time, ["TIME", "_TIME", "PHRASE"]);
+    }
   }
   if (update.sortDate !== undefined) {
     const tag = firstChild(eventNode, SORT_DATE_TAGS)?.tag ?? update.sortDateTag ?? "SDATE";

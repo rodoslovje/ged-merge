@@ -214,7 +214,7 @@ describe("validateDataset", () => {
     // I5 is just as old but carries an undated DEAT Y — deceased, not flagged.
     expect(tooOld.map((i) => i.id)).not.toContain("@I5@");
     // The finding's own repair (the batch "mark deceased" action) settles it.
-    expect(applyBatchAction(ds, tooOld.map((i) => i.id), { kind: "markDeceased" }).changed).toBe(tooOld.length);
+    expect(applyBatchAction(ds, tooOld.map((i) => i.id), { kind: "markDeceased" }, "5.5.1").changed).toBe(tooOld.length);
     expect(validateDataset(ds, 2026).issues.some((i) => i.category === "livingTooOld")).toBe(false);
     // The father-age finding is reported on the child record.
     expect(report.issues.find((i) => i.category === "parentAge")?.id).toBe("@I3@");
@@ -1998,7 +1998,7 @@ describe("fixDanglingRefs", () => {
 1 TITL Parish register
 0 TRLR`;
 
-  it("drops every dangling pointer except the ones the broken-links fix owns", () => {
+  it("repairs or drops every dangling pointer except the ones the broken-links fix owns", () => {
     const ds = dataset(FILE);
     // @F9@ is the record-level FAMC (a brokenLink finding); the rest are this
     // fix's: the ADOP's nested FAMC, the citation, the media link.
@@ -2012,12 +2012,14 @@ describe("fixDanglingRefs", () => {
     const tags = (node: { children: { tag: string; value?: string }[] }) =>
       node.children.map((c) => `${c.tag}${c.value ? ` ${c.value}` : ""}`);
     // The good citation, the record-level FAMC and the vendor subtree stay; the
-    // dangling OBJE and the ADOP's FAMC are gone.
+    // dangling OBJE and the ADOP's FAMC carried nothing, so they are gone.
     expect(tags(indi.raw)).toEqual([
       "NAME Bo /Horvat/", "SEX M", "FAMC @F9@", "ADOP", "BIRT", "SOUR @S1@", "_CUSTOM @X9@",
     ]);
     const birt = indi.raw.children.find((c) => c.tag === "BIRT")!;
-    expect(tags(birt)).toEqual(["DATE 1900"]); // the citation went with its PAGE
+    // A 5.5.1 file: the citation of the missing source is a text citation now,
+    // its PAGE the text.
+    expect(tags(birt)).toEqual(["DATE 1900", "SOUR p. 12"]);
     expect(countDanglingRefs(ds)).toBe(0);
     // Untouched: the family link is still the broken-links fix's to remove.
     expect(indi.childOf).toEqual(["@F9@"]);
@@ -3225,6 +3227,29 @@ describe("bulkNormalize vendor-tag dialect", () => {
 0 TRLR`));
     const fam = out.families.get("@F1@")!.raw;
     expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(true);
+  });
+
+  it.each(["5.5.1", "7.0"] as const)("keeps a standard EVEN + TYPE partnership in a strict %s target", (version) => {
+    // `_MSTAT` is the producer's own tag here, so only the strict target
+    // keeps the standard event from becoming the extension.
+    const { dataset: out } = bulkNormalize(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+1 SOUR BROSKEEP
+1 GEDC
+2 VERS ${version}
+2 FORM LINEAGE-LINKED
+0 @F1@ FAM
+1 EVEN
+2 TYPE MYHERITAGE:REL_PARTNERS
+0 TRLR`),
+      undefined,
+      { standard: version, writeVersion: version },
+    );
+    const fam = out.families.get("@F1@")!.raw;
+    expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(false);
+    expect(fam.children.find((c) => c.tag === "EVEN")?.children[0]?.value).toBe("MYHERITAGE:REL_PARTNERS");
+    expect(validateConformance(out).filter((i) => i.recordId === "@F1@")).toEqual([]);
   });
 
   it("still renames _MILI in a Brother's Keeper file — _MILT is BK's own spelling too", () => {

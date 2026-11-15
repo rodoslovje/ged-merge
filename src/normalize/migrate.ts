@@ -61,7 +61,9 @@ import { walkNodes } from "./walk";
  *                                        `@VOID@` pointers (see below),
  *                                        `SEX X` → `SEX U` + `_SEX X` (and back),
  *                                        an event date's `TIME` → `_TIME` (and back),
- *                                        any other `PHRASE` → a `NOTE`
+ *                                        a media record's `RESN` → `_RESN` (and back),
+ *                                        any other `PHRASE` → a `NOTE`, a
+ *                                        `RESI`'s text → its `NOTE`
  *
  * A vendor line the upgrade turns into its standard form remembers what it was
  * (`GedNode.upgradedFrom`), so the downgrade gives back that very line — `_FID`
@@ -202,14 +204,24 @@ const STAT_ENUM = new Set([
 /** 7.0 status → its 5.5.1 spelling, where the two differ. */
 const STAT_DOWNGRADES: Record<string, string> = { PRE_1970: "PRE-1970", DNS_CAN: "DNS/CAN" };
 
+/** A status in 7.0's spelling, whatever its case and punctuation. */
+const statKey = (value: string) => value.trim().toUpperCase().replace(/[-/ ]/g, "_");
+
+/** An ordinance status as `to` spells it (`pre-1970` → 7.0 `PRE_1970`, 5.5.1
+ *  `PRE-1970`) — the one spelling of the mapping, for the conversion and the
+ *  editor alike. A value neither standard defines comes back as given. */
+export function ordinanceStatusIn(value: string, to: VersionFamily): string {
+  const key = statKey(value);
+  if (!STAT_ENUM.has(key)) return value;
+  return to === "7.0" ? key : (STAT_DOWNGRADES[key] ?? key);
+}
+
 /** Rewrite an ordinance's `STAT` value into the target version's spelling. A
  *  value neither standard defines is left as the file writes it. */
 function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   const raw = node.value?.trim();
-  if (!raw) return;
-  const upper = raw.toUpperCase().replace(/[-/ ]/g, "_");
-  if (!STAT_ENUM.has(upper)) return;
-  const next = to === "7.0" ? upper : (STAT_DOWNGRADES[upper] ?? upper);
+  if (!raw || !STAT_ENUM.has(statKey(raw))) return;
+  const next = ordinanceStatusIn(raw, to);
   if (next === node.value) return;
   const before = describe(node);
   node.value = next;
@@ -300,6 +312,17 @@ function migrateEnums(records: GedNode[], ctx: MigrateCtx, to: VersionFamily): v
 
 /** 5.5.1's stand-in for an event date's 7.0 `TIME`. */
 const TIME_EXTENSION = "_TIME";
+
+/** 5.5.1's stand-in for a media record's 7.0 `RESN`, which 5.5.1 allows on
+ *  people, families and events but not on a media record. */
+const OBJE_RESN_EXTENSION = "_RESN";
+
+/** The line an event date's time is written on in `version`: 7.0's `TIME`,
+ *  5.5.1's `_TIME` (it times only a header's and a change stamp's date) — the
+ *  conversion's own forms, so an edit and a conversion agree. */
+export function eventTimeTag(version: VersionFamily): "TIME" | "_TIME" {
+  return version === "7.0" ? "TIME" : TIME_EXTENSION;
+}
 
 /**
  * The last 7.0 lines a 5.5.1 file cannot hold, once every other conversion
@@ -538,6 +561,14 @@ function upgradeExtensionNode(node: GedNode, ctx: MigrateCtx): boolean {
     }
     return false;
   }
+  // A media record's restriction, which the downgrade kept as `_RESN`.
+  if (node.tag === "OBJE" && node.level === 0) {
+    for (const c of childrenByTag(node, OBJE_RESN_EXTENSION)) {
+      const before = `OBJE.${describe(c)}`;
+      report(ctx, retag(c, "RESN"), before);
+    }
+    return false;
+  }
   // An event date's time, which the downgrade kept as `_TIME`.
   if (node.tag === "DATE") {
     for (const c of childrenByTag(node, TIME_EXTENSION)) {
@@ -748,6 +779,12 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
 
   // BC era marker → BCE.
   value = value.replace(/\b(\d+)\s*(?:B\.C\.|BC\b)/gi, "$1 BCE");
+
+  // 7.0 spells a month in capitals (`4 Jan 2026` is no 7.0 date, exact or
+  // not); 5.5.1 readers took any case.
+  value = value.replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(?=\s+\d)/gi, (m) => m.toUpperCase());
+  // …and so its qualifiers and calendar names (`abt 1900` → `ABT 1900`).
+  value = value.replace(/\b(abt|cal|est|bef|aft|bet|and|from|to|julian|hebrew|french_r|gregorian)(?=\s)/gi, (m) => m.toUpperCase());
 
   // `BET a AND b` must be chronological in 7.0 — swap endpoints when reversed.
   const bet = value.match(/^BET\s+(.+?)\s+AND\s+(.+)$/i);
@@ -1025,14 +1062,27 @@ function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
   });
 }
 
-function voidAsNote(node: GedNode): GedNode | undefined {
-  const phrase = firstChild(node, "PHRASE")?.value?.trim();
+/**
+ * A pointer to a record the file does not hold, as a 5.5.1 note: the text that
+ * says who it was (7.0's `PHRASE`; failing that, an association's own text
+ * notes, which a 5.5.1 file writes for an associate it has no record of),
+ * with an association's role after it. Undefined when nothing says who it was.
+ * Also the health check's repair of a dangling 5.5.1 `ASSO` (fixDanglingRefs).
+ */
+export function voidAsNote(node: GedNode): GedNode | undefined {
+  const isAsso = node.tag === "ASSO";
+  let phrase = firstChild(node, "PHRASE")?.value?.trim();
+  const ownNotes = !phrase && isAsso
+    ? node.children.filter((c) => c.tag === "NOTE" && c.value?.trim() && !c.value.trim().startsWith("@") && !c.children.length)
+    : [];
+  if (ownNotes.length) phrase = ownNotes.map((c) => c.value!.trim()).join("\n");
   if (!phrase) return undefined;
-  const role = node.tag === "ASSO" ? firstChild(node, "ROLE") : undefined;
-  const roleText = role && (firstChild(role, "PHRASE")?.value?.trim() || ROLE_TO_RELA[role.value?.trim().toUpperCase() ?? ""]);
+  const role = isAsso ? firstChild(node, "ROLE") : undefined;
+  const rela = isAsso ? firstChild(node, "RELA")?.value?.trim() : undefined;
+  const roleText = (role && (firstChild(role, "PHRASE")?.value?.trim() || ROLE_TO_RELA[role.value?.trim().toUpperCase() ?? ""])) || rela;
   const note = plain("NOTE", roleText ? `${phrase} (${roleText})` : phrase);
   note.level = node.level;
-  note.children = node.children.filter((c) => c.tag !== "PHRASE" && c.tag !== "ROLE");
+  note.children = node.children.filter((c) => c.tag !== "PHRASE" && c.tag !== "ROLE" && c.tag !== "RELA" && !ownNotes.includes(c));
   return note;
 }
 
@@ -1059,7 +1109,11 @@ function upgradeTextCitation(node: GedNode, ctx: MigrateCtx): void {
   report(ctx, node, before);
 }
 
-function voidCitation(node: GedNode): GedNode | undefined {
+/** A citation of a source the file does not hold, as 5.5.1's text citation:
+ *  its `PAGE` as the text, its transcript as `TEXT`. Rewrites `node` in place;
+ *  undefined when neither says anything. Also the health check's repair of a
+ *  dangling 5.5.1 `SOUR` (fixDanglingRefs). */
+export function voidCitation(node: GedNode): GedNode | undefined {
   const page = firstChild(node, "PAGE")?.value?.trim();
   const texts = firstChild(node, "DATA")?.children.filter((c) => c.tag === "TEXT") ?? [];
   if (!page && texts.length === 0) return undefined;
@@ -1148,6 +1202,15 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
     if (rec.tag === "SNOTE" && rec.xref) {
       report(ctx, retag(rec, "NOTE"), `SNOTE ${rec.xref}`);
     }
+    // 5.5.1 restricts no media record: the restriction is kept as `_RESN`,
+    // its 7.0 value as written (before the enumeration pass narrows a RESN
+    // list), and the upgrade restores it.
+    if (rec.tag === "OBJE") {
+      for (const resn of childrenByTag(rec, "RESN")) {
+        const before = `OBJE.${describe(resn)}`;
+        report(ctx, retag(resn, OBJE_RESN_EXTENSION), before);
+      }
+    }
   }
 
   walkNodes(records, (node) => {
@@ -1180,6 +1243,13 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
       if (!node.children.some((c) => c.tag === SEX_X_EXTENSION)) {
         node.children.push({ level: node.level + 1, tag: SEX_X_EXTENSION, value: "X", children: [] });
       }
+      report(ctx, node, before);
+    } else if (node.tag === "RESI" && node.level === 1 && node.value?.trim()) {
+      // 7.0's residence carries text (an address, a description); 5.5.1's
+      // takes none, so the text is kept word for word as its NOTE.
+      const before = describe(node);
+      node.children.push({ level: node.level + 1, tag: "NOTE", value: node.value.trim(), children: [] });
+      node.value = undefined;
       report(ctx, node, before);
     } else if (node.tag === "STAT" && node.level > 0) {
       migrateStat(node, ctx, "5.5.1");

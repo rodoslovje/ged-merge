@@ -32,30 +32,38 @@ const NAME_PIECES = "NPFX:01 GIVN:01 NICK:01 SPFX:01 SURN:01 NSFX:01 NOTE:0M SOU
 /** LDS ordinance lines common to BAPL/CONL/ENDL/SLGC/SLGS. */
 const LDS = "DATE:01 TEMP:01 PLAC:01 NOTE:0M SOUR=SOUR-CIT:0M";
 
-/** The individual events of INDIVIDUAL_EVENT_STRUCTURE by structure id. */
+/**
+ * The individual events of INDIVIDUAL_EVENT_STRUCTURE by structure id. They
+ * share their detail lines but not their value: an event line holds `Y` or
+ * nothing (IEVEN), `EVEN` its EVENT_DESCRIPTOR, an attribute its text (IATTR),
+ * and `RESI` nothing at all — 5.5.1's residence is an attribute with no value.
+ */
 const INDI_EVENTS: Record<string, string> = {
   BIRT: "BIRT", CHR: "BIRT", ADOP: "ADOP",
   DEAT: "IEVEN", BURI: "IEVEN", CREM: "IEVEN", BAPM: "IEVEN", BARM: "IEVEN", BASM: "IEVEN",
   BLES: "IEVEN", CHRA: "IEVEN", CONF: "IEVEN", FCOM: "IEVEN", ORDN: "IEVEN", NATU: "IEVEN",
   EMIG: "IEVEN", IMMI: "IEVEN", CENS: "IEVEN", PROB: "IEVEN", WILL: "IEVEN", GRAD: "IEVEN",
-  RETI: "IEVEN", EVEN: "IEVEN",
+  RETI: "IEVEN", EVEN: "IEVEN-EVEN",
   // INDIVIDUAL_ATTRIBUTE_STRUCTURE: the same detail lines.
-  CAST: "IEVEN", DSCR: "IEVEN", EDUC: "IEVEN", IDNO: "IEVEN", NATI: "IEVEN", NCHI: "IEVEN",
-  NMR: "IEVEN", OCCU: "IEVEN", PROP: "IEVEN", RELI: "IEVEN", RESI: "IEVEN", SSN: "IEVEN",
-  TITL: "IEVEN", FACT: "IEVEN",
+  CAST: "IATTR", DSCR: "IATTR", EDUC: "IATTR", IDNO: "IATTR", NATI: "IATTR", NCHI: "IATTR",
+  NMR: "IATTR", OCCU: "IATTR", PROP: "IATTR", RELI: "IATTR", RESI: "IRESI", SSN: "IATTR",
+  TITL: "IATTR", FACT: "IATTR",
 };
-const FAM_EVENTS = ["ANUL", "CENS", "DIV", "DIVF", "ENGA", "MARB", "MARC", "MARR", "MARL", "MARS", "RESI", "EVEN"];
+/** FAMILY_EVENT_STRUCTURE likewise: `Y` or nothing, `EVEN` its descriptor,
+ *  `RESI` nothing. */
+const FAM_EVENTS: Record<string, string> = {
+  ANUL: "FEVEN", CENS: "FEVEN", DIV: "FEVEN", DIVF: "FEVEN", ENGA: "FEVEN", MARB: "FEVEN",
+  MARC: "FEVEN", MARR: "FEVEN", MARL: "FEVEN", MARS: "FEVEN", RESI: "FRESI", EVEN: "FEVEN-EVEN",
+};
 
-const each = (tags: Record<string, string> | string[], card: string): string =>
-  (Array.isArray(tags) ? tags.map((t) => `${t}=FEVEN`) : Object.entries(tags).map(([t, id]) => `${t}=${id}`))
-    .map((c) => `${c}:${card}`)
-    .join(" ");
+const each = (tags: Record<string, string>, card: string): string =>
+  Object.entries(tags).map(([t, id]) => `${t}=${id}:${card}`).join(" ");
 
 /** Text lines with no children of their own. */
 const TEXT_LEAVES = [
   "TXT", "VERS", "NAME", "DEST", "FILE", "COPR", "LANG", "TIME", "ADR1", "ADR2", "ADR3", "CITY",
   "STAE", "POST", "CTRY", "PHON", "EMAIL", "FAX", "WWW", "AGNC", "CAUS", "TYPE", "PAGE", "TEXT",
-  "AUTH", "TITL", "ABBR", "PUBL", "RIN", "RFN", "AFN", "LATI", "LONG", "FORM", "NPFX", "GIVN",
+  "AUTH", "TITL", "ABBR", "PUBL", "RIN", "RFN", "AFN", "FORM", "NPFX", "GIVN",
   "NICK", "SPFX", "SURN", "NSFX", "TEMP", "FAMF", "ANCE", "DESC", "ORDI", "RELA",
 ];
 
@@ -74,8 +82,8 @@ export const SPEC_551: SpecTable = {
     HEAD: ["", "SOUR=HEAD-SOUR:11 DEST:01 DATE=HEAD-DATE:01 SUBM=SUBM-PTR:01 SUBN=SUBN-PTR:01 FILE:01 COPR:01 GEDC:11 CHAR:11 LANG:01 PLAC=HEAD-PLAC:01 NOTE=TXT:01"],
     "HEAD-SOUR": ["T", "VERS:01 NAME:01 CORP:01 DATA=HEAD-SOUR-DATA:01"],
     CORP: ["T", ADDRESS],
-    "HEAD-SOUR-DATA": ["T", "DATE=TXT:01 COPR:01"],
-    "HEAD-DATE": ["D", "TIME:01"],
+    "HEAD-SOUR-DATA": ["T", "DATE=DATE-exact:01 COPR:01"],
+    "HEAD-DATE": ["DX", "TIME:01"],
     GEDC: ["", "VERS:11 FORM=GEDC-FORM:11"],
     "GEDC-FORM": ["E:GEDC-FORM", ""],
     CHAR: ["E:CHAR", "VERS:01"],
@@ -84,8 +92,11 @@ export const SPEC_551: SpecTable = {
     // ── Shared substructures
     ADDR: ["T", "ADR1:01 ADR2:01 ADR3:01 CITY:01 STAE:01 POST:01 CTRY:01"],
     CHAN: ["", "DATE=CHAN-DATE:11 NOTE:0M"],
-    "CHAN-DATE": ["D", "TIME:01"],
+    "CHAN-DATE": ["DX", "TIME:01"],
     DATE: ["D", ""],
+    // DATE_EXACT: an ordinance status's date and the header source's
+    // publication date (CHANGE_DATE's and the header's own carry a TIME).
+    "DATE-exact": ["DX", ""],
     NOTE: ["@NOTE?", "SOUR=SOUR-CIT:0M"],
     "SOUR-CIT": ["@SOUR?", "PAGE:01 EVEN=CIT-EVEN:01 DATA=CIT-DATA:01 QUAY:01 OBJE=OBJE-LINK:0M NOTE:0M TEXT:0M"],
     "CIT-EVEN": ["T", "ROLE:01"],
@@ -95,7 +106,9 @@ export const SPEC_551: SpecTable = {
     // The 5.5 shape — FORM beside FILE rather than under it — is what most
     // 5.5.1 exporters still write, and 5.5.1 readers are told to accept it.
     "OBJE-LINK": ["@OBJE?", "FILE=OBJE-FILE:0M FORM=OBJE-FORM:01 TITL:01"],
-    "OBJE-FILE": ["T", "FORM=OBJE-FORM:01 TITL:01"],
+    // FORM is {1:1} under FILE; a FILE whose FORM stands beside it (the 5.5
+    // shape above) is not faulted for its absence here.
+    "OBJE-FILE": ["T", "FORM=OBJE-FORM:11 TITL:01"],
     "OBJE-FORM": ["T", "MEDI:01 TYPE=MEDI:01"],
     MEDI: ["E:MEDI", ""],
     REFN: ["T", "TYPE:01"],
@@ -105,6 +118,8 @@ export const SPEC_551: SpecTable = {
     PLAC: ["T", "FORM:01 FONE=PLAC-VARIANT:0M ROMN=PLAC-VARIANT:0M MAP:01 NOTE:0M SOUR=SOUR-CIT:0M"],
     "PLAC-VARIANT": ["T", "TYPE:11"],
     MAP: ["", "LATI:11 LONG:11"],
+    LATI: ["LAT", ""],
+    LONG: ["LON", ""],
     AGE: ["A", ""],
     "SUBM-PTR": ["@SUBM", ""],
     "SUBN-PTR": ["@SUBN", ""],
@@ -119,19 +134,22 @@ export const SPEC_551: SpecTable = {
     "NAME-TYPE": ["T", ""],
     "NAME-VARIANT": ["T", `TYPE:11 ${NAME_PIECES}`],
     SEX: ["E:SEX", ""],
-    IEVEN: ["T", INDI_EVENT],
-    BIRT: ["T", `${INDI_EVENT} FAMC=EVEN-FAMC:01`],
-    ADOP: ["T", `${INDI_EVENT} FAMC=ADOP-FAMC:01`],
+    IEVEN: ["Y", INDI_EVENT],
+    "IEVEN-EVEN": ["T", INDI_EVENT],
+    IATTR: ["T", INDI_EVENT],
+    IRESI: ["", INDI_EVENT],
+    BIRT: ["Y", `${INDI_EVENT} FAMC=EVEN-FAMC:01`],
+    ADOP: ["Y", `${INDI_EVENT} FAMC=ADOP-FAMC:01`],
     "EVEN-FAMC": ["@FAM", ""],
     "ADOP-FAMC": ["@FAM", "ADOP=ADOP-ADOP:01"],
     "ADOP-ADOP": ["E:ADOP", ""],
     BAPL: ["", `${LDS} STAT=STAT-BAPL:01`],
     ENDL: ["", `${LDS} STAT=STAT-ENDL:01`],
     SLGC: ["", `${LDS} STAT=STAT-SLGC:01 FAMC=EVEN-FAMC:11`],
-    "STAT-BAPL": ["E:STAT-BAPL", "DATE=TXT:11"],
-    "STAT-ENDL": ["E:STAT-ENDL", "DATE=TXT:11"],
-    "STAT-SLGC": ["E:STAT-SLGC", "DATE=TXT:11"],
-    "STAT-SLGS": ["E:STAT-SLGS", "DATE=TXT:11"],
+    "STAT-BAPL": ["E:STAT-BAPL", "DATE=DATE-exact:11"],
+    "STAT-ENDL": ["E:STAT-ENDL", "DATE=DATE-exact:11"],
+    "STAT-SLGC": ["E:STAT-SLGC", "DATE=DATE-exact:11"],
+    "STAT-SLGS": ["E:STAT-SLGS", "DATE=DATE-exact:11"],
     "INDI-FAMC": ["@FAM", "PEDI:01 STAT=FAMC-STAT:01 NOTE:0M"],
     PEDI: ["E:PEDI", ""],
     "FAMC-STAT": ["E:FAMC-STAT", ""],
@@ -145,7 +163,9 @@ export const SPEC_551: SpecTable = {
       "HUSB=FAM-SPOUSE:01 WIFE=FAM-SPOUSE:01 CHIL:0M NCHI=TXT:01 SUBM=SUBM-PTR:0M SLGS:0M",
       "REFN:0M RIN:01 CHAN:01", CITES,
     ].join(" ")],
-    FEVEN: ["T", FAM_EVENT],
+    FEVEN: ["Y", FAM_EVENT],
+    "FEVEN-EVEN": ["T", FAM_EVENT],
+    FRESI: ["", FAM_EVENT],
     "EVEN-SPOUSE": ["", "AGE:11"],
     "FAM-SPOUSE": ["@INDI", ""],
     CHIL: ["@INDI", ""],

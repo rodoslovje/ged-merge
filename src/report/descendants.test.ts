@@ -213,10 +213,20 @@ describe("factText (⚭ partner tail)", () => {
     expect(factText(tr, fact)).toBe("⚭ 1950 — Eva Zajc (1928–), register.spouseOriginBoth_F");
   });
 
-  it("privacy drops a living partner's years and a living parent's name", () => {
+  it("privacy redacts a living partner like an entry: label, no years, no origin", () => {
+    const livingNameOf = (p: { id: string; sex: string }) => `Living ${p.id} ${p.sex}`;
+    expect(factText(tr, { ...fact, spouseId: "@I9@" }, { privacyLiving: true, livingNameOf })).toBe(
+      "⚭ 1950 — Living @I9@ F",
+    );
+  });
+
+  it("privacy keeps a deceased partner but drops a living parent's name", () => {
     // Only the deceased father survives the privacy filter, so the clause
     // falls back to its father-only form; the living mother stays out.
-    expect(factText(tr, fact, { privacyLiving: true })).toBe("⚭ 1950 — Eva Zajc, register.spouseOriginFather_F");
+    const dead = { ...fact, spouseYears: "1928–1990", spouseLiving: false };
+    expect(factText(tr, dead, { privacyLiving: true, livingNameOf: () => "Living" })).toBe(
+      "⚭ 1950 — Eva Zajc (1928–1990), register.spouseOriginFather_F",
+    );
   });
 
   it("leads with the partner alone on a dateless line", () => {

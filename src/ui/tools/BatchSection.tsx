@@ -7,7 +7,8 @@ import { applyPassSafely } from "../../tools/passSafety";
 import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
 import { eventMenuLabel } from "../EventGlyph";
 import { offeredEventGroups } from "../edit/editConstants";
-import { useTargetFormat } from "../TargetFormatContext";
+import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
+import { writeVersionOf } from "../../normalize/formatOverrides";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -104,6 +105,7 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
 
 export function BatchSection({ dataset, editVersionRef, active, onNavigate, onApplyPatches, startId }: Props) {
   const { t } = useTranslation();
+  const formatOverrides = useFormatOverrides();
   const derivations = useDatasetDerivations();
   const nameOf = useNameOf();
   const { settings } = useSettings();
@@ -389,7 +391,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // A throw partway puts the targets back as they were (see applyPassSafely).
     const res = applyPassSafely(dataset, (journal) => {
       for (const id of ids) journal.touch(id);
-      return applyBatchAction(dataset, ids, action);
+      return applyBatchAction(dataset, ids, action, writeVersionOf(formatOverrides));
     });
     if (res.patches.length > 0) onApplyPatches(res.patches);
     setDone({ changed: res.changed, skipped: res.skipped });

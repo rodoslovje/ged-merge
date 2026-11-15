@@ -4,7 +4,7 @@ import { cloneNode, firstChild } from "../gedcom/node";
 import { readAddressParts } from "../gedcom/address";
 import { dropPlaceholderDates, normalizeDateString } from "./date";
 import { dropPlaceholderPlaces, normalizePlaceString } from "./place";
-import { rewriteLinkLang } from "./links";
+import { reshapeRecordLinks, rewriteLinkLang } from "./links";
 import { reformatPlace, reshapesLayout, respellSeparator } from "./placeReformat";
 import { inferDateProfile } from "./profile";
 import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
@@ -196,6 +196,16 @@ export function normalizeDataset(
     }
   });
 
+  // A bare link line on a person or family record (`1 WWW`) is no structure
+  // either version has: restate it in the main's form, or a new person copied
+  // as is would carry it into the main.
+  if (options.links && profile.recordLinks) {
+    reshapeRecordLinks(editable, profile.recordLinks, (before, after) => {
+      record(report.linkExamples, seenLink, before, after);
+      report.linksConverted++;
+    });
+  }
+
   // An all-placeholder date (".__.____") carries no information. When the main
   // has no placeholder-date convention of its own, strip it entirely rather than
   // keep a foreign "__.__.____" marker — the date analog of reshapeUnknownNames'
@@ -232,7 +242,8 @@ export function normalizeDataset(
   // a third program's dialect, which `preserveFamilyStatus` holds off — the
   // same doctrine as `preserveVendorTags` above.
   if (options.vendorTags && !options.preserveFamilyStatus) {
-    for (const change of normalizeFamilyStatus(editable)) {
+    // A strict target keeps MyHeritage's standard `EVEN` + `TYPE` form.
+    for (const change of normalizeFamilyStatus(editable, { keepStandardEvents: !!profile.standard })) {
       report.vendorTagsRenamed++;
       record(report.vendorTagExamples, seenVendor, change.before, change.after);
     }

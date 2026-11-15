@@ -10,12 +10,12 @@ import { clearObjeNodeCache } from "../source";
 import { familiesScope, individualsScope, pointerScope, unindexRecord } from "./pointerIndex";
 
 /** Add a `FAMC`/`FAMS` pointer from an individual to a family. */
-function addFamilyLink(indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
+export function addFamilyLink(indi: Individual, tag: "FAMC" | "FAMS", famId: string): void {
   insertOrdered(indi.raw, { level: indi.raw.level + 1, tag, value: famId, children: [] }, INDI_CHILD_ORDER);
 }
 
 /** Set a family's `HUSB`/`WIFE` pointer to an individual. */
-function setFamilySpouse(fam: Family, tag: "HUSB" | "WIFE", indiId: string): void {
+export function setFamilySpouse(fam: Family, tag: "HUSB" | "WIFE", indiId: string): void {
   getOrCreateChild(fam.raw, tag, FAM_CHILD_ORDER).value = indiId;
 }
 
@@ -26,7 +26,7 @@ function setFamilySpouse(fam: Family, tag: "HUSB" | "WIFE", indiId: string): voi
  * the `CHIL` block. The position is found by comparing birth keys against the
  * existing children only, so an already-sorted list stays sorted.
  */
-function addFamilyChild(dataset: Dataset, fam: Family, childId: string): void {
+export function addFamilyChild(dataset: Dataset, fam: Family, childId: string): void {
   const node: GedNode = { level: fam.raw.level + 1, tag: "CHIL", value: childId, children: [] };
   const key = birthSortKey(dataset.individuals.get(childId));
   // Insert before the first existing CHIL that was born later than this child.

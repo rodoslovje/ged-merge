@@ -32,7 +32,7 @@ test("Normalize applies its passes to the open file and Save shows the changes",
   const repairs = page.locator(".tools-norm-check", { hasText: /repaired as the health check proposes/ });
   await expect(repairs).toBeVisible();
   const list = page.locator(".tools-examples", { hasText: "Health-check repairs" });
-  await expect(list).toContainText("Remove dangling references");
+  await expect(list).toContainText("Fix dangling references");
   await expect(list).toContainText("Add media formats");
 
   await page.getByRole("button", { name: "Apply to the file" }).click();
