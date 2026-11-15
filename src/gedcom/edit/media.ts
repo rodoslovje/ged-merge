@@ -74,12 +74,13 @@ export function createMediaRecord(
 // to a top-level record) is the caller's, driven by the main file's detected
 // `MediaMode`; these helpers just realize whichever the caller picks.
 
-/** Build an `OBJE` node (a `FILE` plus an optional `TITL`) at `level`. The
- *  `FILE` carries the `FORM` 5.5.1 requires under it, read off its name — an
- *  inline link is 5.5.1's, so the form is its extension token. */
+/** Build an inline `OBJE` node (a `FILE` with the `FORM` 5.5.1 requires under
+ *  it, plus an optional `TITL`) at `level`. Only 5.5.1 has an inline media
+ *  block (7.0 always links a media record, see `detectMediaMode`), so the
+ *  FORM is its extension token, as `createMediaRecord` writes it there. */
 function buildObjeNode(level: number, file: string, title?: string): GedNode {
-  const form = fileFormOf(file);
   const fileNode: GedNode = { level: level + 1, tag: "FILE", value: file, children: [] };
+  const form = fileFormOf(file);
   if (form) fileNode.children.push({ level: level + 2, tag: "FORM", value: form, children: [] });
   const node: GedNode = { level, tag: "OBJE", children: [fileNode] };
   const trimmedTitle = title?.trim();

@@ -2253,6 +2253,18 @@ describe("individual media", () => {
     expect(validateConformance(ds).filter((i) => i.recordId === "@I1@")).toEqual([]);
   });
 
+  it("states the FORM 5.5.1 requires under an inline FILE, and strict 5.5.1 finds nothing", () => {
+    const ds = buildFromText(BASE);
+    const before = validateConformance(ds);
+    const indi = ds.individuals.get("@I1@")!;
+    attachInlineMedia(indi.raw, "photos/janez.tiff", "Janez 1870");
+    attachInlineMedia(indi.raw, "https://example.com/janez");
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("1 OBJE\n2 FILE photos/janez.tiff\n3 FORM tif\n2 TITL Janez 1870");
+    expect(out).toContain("1 OBJE\n2 FILE https://example.com/janez\n3 FORM htm");
+    expect(validateConformance(ds)).toEqual(before);
+  });
+
   it("attaches a pointer to a shared top-level OBJE record", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
