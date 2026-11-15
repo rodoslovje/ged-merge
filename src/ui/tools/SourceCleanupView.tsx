@@ -51,6 +51,7 @@ import { SelectMenu } from "../DropdownMenu";
 import { useSettings } from "../SettingsContext";
 import { ToolSummary } from "./ToolSummary";
 import { quayOptions } from "../source/quay";
+import { TrashIcon } from "../icons/TrashIcon";
 
 const SITES: readonly ReshapeSite[] = ALL_SITES;
 
@@ -1463,7 +1464,7 @@ function ReshapeGroupRow({
           aria-pressed={removeMarked}
           title={t(removeMarked ? "tools.sources.reshapeRemoveUndo" : "tools.sources.reshapeRemoveHint")}
         >
-          {removeMarked ? "↩" : "🗑"}
+          {removeMarked ? "↩" : <TrashIcon />}
         </button>
       </div>
       {open && (

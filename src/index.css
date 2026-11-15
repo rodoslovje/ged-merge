@@ -4726,6 +4726,7 @@ button:focus-visible {
 
 /* Delete person — trash icon button in the sex row */
 .edit-delete-btn {
+  display: inline-flex; align-items: center;
   margin-left: auto;
   border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
@@ -10570,8 +10571,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-geo-country { font-weight: 600; }
 .tools-geo-count { color: var(--muted); font-size: 0.85rem; }
 .tools-geo-delete {
+  display: inline-flex; align-items: center;
   background: none; border: none; cursor: pointer; font-size: 0.9rem;
-  opacity: 0.7; padding: 2px 4px;
+  color: var(--danger); opacity: 0.7; padding: 2px 4px;
 }
 .tools-geo-delete:hover { opacity: 1; }
 /* The one line saying you have to do something before any of this works — the
