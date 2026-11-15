@@ -333,6 +333,34 @@ const scenario: Scenario = {
       },
     },
     {
+      // Fewer cases next time: the Editing setting that writes the married
+      // name as a wife is added.
+      say: {
+        sl: "Da bo takih primerov v prihodnje manj, v Nastavitvah na zavihku »Urejanje« vklopite »Poročni priimek po partnerju«. Ko ženo dodate možu, se njen poročni priimek zapiše sam.",
+        en: "To have fewer of these in future, turn on Married name from partner in Settings, on the Editing tab. When you add a wife to her husband, her married name is written for you.",
+      },
+      run: async (d) => {
+        await d.highlight(null);
+        const modal = d.page.locator(".settings-modal");
+        await d.click(d.page.locator(`button.nav-btn.icon-only[aria-label="${L(d, "settings.title")}"]`));
+        await modal.waitFor();
+        await d.wait(600);
+        await d.click(modal.locator(".settings-tabs button", { hasText: L(d, "settings.tab.editing") }));
+        await d.wait(800);
+        const row = modal.locator("label.settings-row-toggle", { hasText: L(d, "settings.editing.marriedFromPartner") }).first();
+        await d.scrollTo(row);
+        await d.highlight(row, 4);
+        await d.wait(1500);
+        await d.click(row.locator("input"));
+        await d.untilSaid();
+        await d.wait(600);
+        await d.highlight(null);
+        await d.page.keyboard.press("Escape");
+        await modal.waitFor({ state: "hidden" });
+        await d.wait(400);
+      },
+    },
+    {
       callout: { sl: "Umrli mladi", en: "Died young" },
       say: {
         sl: "Drugi primer: otroci, ki so umrli mladi. Z gumbom »Počisti vse« začnemo znova.",

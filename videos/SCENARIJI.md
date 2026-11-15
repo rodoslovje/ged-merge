@@ -670,6 +670,7 @@ zadetkov s predogledom ocen.
 | 4 | Ukrep »Dodaj poročni priimek po partnerju« → predogled »→ Renko«, neoznačene vrstice »poroka ni zapisana« | Vsaka vrstica vnaprej pokaže priimek, ki se bo zapisal. Kjer poroka ni zapisana, je vrstica neoznačena — ta par morda ni bil poročen. |
 | 5 | »Izvedi« → potrditev → »Spremenjenih: 456« | En klik, in priimke dobi več kot štiristo žensk. |
 | 6 | Ime »Poročni priimki« → »Shrani filter« | Filter shranimo skupaj z ukrepom. Seznam shranjenih vedno pokaže, koliko oseb trenutno ustreza. |
+| 6a | Nastavitve → »Urejanje« → vklop »Poročni priimek po partnerju« | Da bo takih primerov manj: ko ženo dodate možu, se njen poročni priimek zapiše sam. |
 | 7 | Nov filter: »Živi: ne — umrli«, »Starost: manj kot 20 let« → 185 | Drugi primer: otroci, ki so umrli mladi. Starost se šteje ob smrti. |
 | 8 | Ukrep »Pripni medij« → v iskalno polje »died« → `icons/died-young.jpg` iz mape z mediji → izvedi | Vsem pripnemo isto sličico, da jih v drevesu in na diagramih takoj prepoznamo. |
 | 9 | Filter »Mediji: nima tega medija → died-young« → 0 → shrani »Umrli mladi« | Dodamo še pogoj, da slike nimajo. Zdaj filter ne najde nikogar, ko pa vnesete novega otroka, ga bo našel. |
