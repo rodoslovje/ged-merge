@@ -704,6 +704,21 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     expect(head.children.some((c) => c.tag.includes("SNOTE"))).toBe(false);
   });
 
+  it("moves a calendar escape written before the qualifier after it, onto both ends of a range", () => {
+    const { records, changes, findings } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 BIRT\n2 DATE @#DJULIAN@ ABT 1700\n1 CHR\n2 DATE @#DJULIAN@ BET 1700 AND 1710\n" +
+        "1 DEAT\n2 DATE @#DJULIAN@ FROM 1700 TO @#DJULIAN@ 1710\n1 BURI\n2 DATE @#DGREGORIAN@ BEF 1800\n1 RESI\n2 DATE ABT @#DJULIAN@ 1700\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const indi = record(records, "@I1@");
+    expect(["BIRT", "CHR", "DEAT", "BURI", "RESI"].map((tag) => findByPath(indi, [tag, "DATE"])!.value)).toEqual([
+      "ABT JULIAN 1700", "BET JULIAN 1700 AND JULIAN 1710", "FROM JULIAN 1700 TO JULIAN 1710", "BEF 1800", "ABT JULIAN 1700",
+    ]);
+    expect(changes).toContain("DATE @#DJULIAN@ ABT 1700 → DATE ABT JULIAN 1700");
+  });
+
   it("keeps a shared-note pointer's citations on the pointer, as _NOTE_SOUR", () => {
     const { records, changes, findings } = converted(
       "5.5.1",

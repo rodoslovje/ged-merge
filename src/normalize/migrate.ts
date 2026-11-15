@@ -701,6 +701,15 @@ function upgradeDate(node: GedNode, ctx: MigrateCtx): void {
     phrase = pure[1];
   }
 
+  // An escape written before the qualifier (`@#DJULIAN@ ABT 1700`, against
+  // 5.5.1's order) goes after it, as 7.0 writes the calendar: onto each end
+  // of a range, which it was meant for.
+  const lead = value.match(/^(@#D[A-Z]+(?: R)?@)\s*(ABT|CAL|EST|BEF|AFT|BET|FROM|TO)\s+(.*)$/i);
+  if (lead) {
+    const [, esc, qualifier, rest] = lead;
+    value = `${qualifier} ${esc} ${rest.replace(/\s+(AND|TO)\s+(?!@#)/i, ` $1 ${esc} `)}`;
+  }
+
   // Calendar escape → calendar tag prefix (GREGORIAN, being the default, drops).
   value = value.replace(/@#(D[A-Z]+(?: R)?)@\s*/gi, (m, esc: string) => {
     const cal = CALENDAR_ESCAPES[esc.toUpperCase()];
