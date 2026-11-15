@@ -9851,6 +9851,19 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    the batch button above would touch. */
 .tools-issue-fix.sets { color: var(--status-diff); }
 .tools-issue-fix.sets:hover { border-color: var(--status-diff); background: none; }
+/* A detached branch's own actions (download, remove), at the row's end. */
+.tools-issue-actions {
+  flex: none; margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tools-issue-icon {
+  display: inline-flex; align-items: center;
+  padding: 2px 6px;
+  border: 1px solid var(--border-2); border-radius: var(--radius-pill);
+  background: none; color: var(--accent);
+  cursor: pointer;
+}
+.tools-issue-icon:hover { border-color: var(--accent); }
 /* Its aftermath, while the re-run health check is still in flight. */
 .tools-issue-fixed {
   flex: none; margin-left: auto;

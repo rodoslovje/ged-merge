@@ -9,7 +9,10 @@ import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
-import { type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
+import { branchOf, type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
+import { exportChartGedcom } from "../exportGedcom";
+import { chartSlug } from "../exportSvg";
+import { GedIcon } from "../icons/FormatIcons";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
@@ -25,7 +28,7 @@ import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
 import { completeStructure, ownVersion } from "../../save/outputFile";
 import { submitterName } from "../../gedcom/newFile";
-import { useSettingsSlice } from "../SettingsContext";
+import { AUTHOR_KEYS as SUBMITTER_KEYS, submitterOf, useSettingsSlice } from "../SettingsContext";
 import { displayDateText } from "../../gedcom/dateDisplay";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
@@ -1259,6 +1262,7 @@ export function ValidatePanel({
                       done={fixedRows.has(rowKey(row.issue))}
                       onRun={(run) => runRowFix(row.issue, run)}
                     />
+                    {row.issue.category === "island" && <BranchActions dataset={dataset} personId={row.issue.id} />}
                   </li>
                 ) : (
                   <StructRow
@@ -1324,6 +1328,33 @@ function PickBox({
       onChange={() => onToggle(row)}
       aria-label={t("tools.validate.pickOne")}
     />
+  );
+}
+
+/** A detached branch's own actions, at the end of its row: download the whole
+ *  branch as a GEDCOM file. The branch's members are looked up only on click —
+ *  the scan carries just the youngest member and the count. */
+function BranchActions({ dataset, personId }: { dataset: Dataset; personId: string }) {
+  const { t } = useTranslation();
+  const { target } = useTargetFormat();
+  // The author a branch file without a submitter is given, as in the charts.
+  const author = submitterOf(useSettingsSlice(SUBMITTER_KEYS));
+  const exportBranch = () => {
+    const name = dataset.individuals.get(personId)?.names[0]?.full;
+    exportChartGedcom(dataset, branchOf(dataset, personId), chartSlug(name, t("tools.validate.branchFile")), target, author);
+  };
+  return (
+    <span className="tools-issue-actions">
+      <button
+        type="button"
+        className="tools-issue-icon"
+        title={t("tools.validate.branchExport")}
+        aria-label={t("tools.validate.branchExport")}
+        onClick={exportBranch}
+      >
+        <GedIcon />
+      </button>
+    </span>
   );
 }
 

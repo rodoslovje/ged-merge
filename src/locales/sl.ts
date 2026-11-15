@@ -642,6 +642,8 @@ export const sl = {
   "tools.validate.issue.orphan_M": "Ni povezan z nobeno družino",
   "tools.validate.issue.orphan_F": "Ni povezana z nobeno družino",
   "tools.validate.issue.island": "Najmlajša oseba v veji, ki ni povezana z glavnim drevesom (oseb v veji: {{count}}).",
+  "tools.validate.branchExport": "Prenesi to vejo kot datoteko GEDCOM",
+  "tools.validate.branchFile": "veja",
   "tools.validate.issue.pedigreeLoop": "Je svoj lastni prednik — krožna povezava staršev (rodovni cikel)",
   "tools.validate.issue.pedigreeLoop_M": "Je svoj lastni prednik — krožna povezava staršev (rodovni cikel)",
   "tools.validate.issue.pedigreeLoop_F": "Je svoja lastna prednica — krožna povezava staršev (rodovni cikel)",
