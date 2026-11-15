@@ -13,13 +13,24 @@
  *  register, or source pages (FamilySearch, Matricula, other source links). */
 export type ActivityKind = "places" | "addresses" | "sources";
 
-export type ActivitySnapshot = Readonly<Record<ActivityKind, number>>;
+/** One kind's run: requests still open, and every request the run has taken
+ *  on since the kind was last idle — so `1 - active / total` estimates how far
+ *  a batch ("Look up all") has come. Both drop to 0 once nothing is open. */
+export interface ActivityCount {
+  active: number;
+  total: number;
+}
 
-let snapshot: ActivitySnapshot = { places: 0, addresses: 0, sources: 0 };
+export type ActivitySnapshot = Readonly<Record<ActivityKind, ActivityCount>>;
+
+const IDLE: ActivityCount = { active: 0, total: 0 };
+let snapshot: ActivitySnapshot = { places: IDLE, addresses: IDLE, sources: IDLE };
 const watchers = new Set<() => void>();
 
-function bump(kind: ActivityKind, by: number): void {
-  snapshot = { ...snapshot, [kind]: Math.max(0, snapshot[kind] + by) };
+function bump(kind: ActivityKind, by: 1 | -1): void {
+  const { active, total } = snapshot[kind];
+  const next = Math.max(0, active + by);
+  snapshot = { ...snapshot, [kind]: next ? { active: next, total: total + (by > 0 ? 1 : 0) } : IDLE };
   for (const fn of watchers) fn();
 }
 

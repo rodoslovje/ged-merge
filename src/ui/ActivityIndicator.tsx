@@ -12,14 +12,19 @@ const LINGER_MS = 1200;
 
 const KINDS: ActivityKind[] = ["places", "addresses", "sources"];
 
-/** The import's own name, by what it fetches. */
+/** `done` of `total` as a whole percentage. */
+const percent = (done: number, total: number) => Math.round((done / total) * 100);
+
+/** The import's own name, by what it fetches and from whom — the register is
+ *  named, so a GURS run reads differently from a DGU one. */
 function importKey(job: GeoRunning["job"]): string {
   switch (job.kind) {
     case "gurs":
+      return "activity.import.gurs";
     case "dgu":
-      return "activity.import.places";
+      return "activity.import.dgu";
     case "addresses":
-      return "activity.import.addresses";
+      return job.country === "SI" ? "activity.import.gursAddresses" : "activity.import.dguAddresses";
     case "osm":
       return "activity.import.osm";
     case "file":
@@ -39,7 +44,7 @@ export function ActivityIndicator() {
   const counts = useSyncExternalStore(watchActivity, activitySnapshot, activitySnapshot);
   const geo = useSyncExternalStore(watchGeoImport, geoImportSnapshot, geoImportSnapshot);
   const running = geo.state.phase === "running" ? geo.state : undefined;
-  const busy = !!running || KINDS.some((k) => counts[k] > 0);
+  const busy = !!running || KINDS.some((k) => counts[k].active > 0);
 
   const [shown, setShown] = useState(busy);
   useEffect(() => {
@@ -54,17 +59,28 @@ export function ActivityIndicator() {
 
   const items: DropdownItem[] = [];
   if (running) {
-    const known = running.total > 0;
-    const pct = known ? ` ${Math.round((running.done / running.total) * 100)} %` : "";
+    // A download whose length the server never announced still shows how
+    // much has arrived — the same reading as the import's own bar.
+    const pct =
+      running.total > 0
+        ? ` ${percent(running.done, running.total)} %`
+        : running.done > 0
+          ? ` ${(running.done / 1048576).toFixed(1)} MB`
+          : "";
     items.push({
       value: "import",
       label: `${t(importKey(running.job))}${running.note ? ` — ${running.note}` : ""}${pct}`,
     });
   }
   for (const kind of KINDS) {
-    if (counts[kind] > 0) items.push({ value: kind, label: t(`activity.${kind}`, { count: counts[kind] }) });
+    const { active, total } = counts[kind];
+    if (active > 0)
+      items.push({
+        value: kind,
+        label: t(`activity.${kind}`, { count: active, percent: percent(total - active, total) }),
+      });
   }
-  const total = KINDS.reduce((n, k) => n + counts[k], running ? 1 : 0);
+  const total = KINDS.reduce((n, k) => n + counts[k].active, running ? 1 : 0);
 
   return (
     <DropdownMenu

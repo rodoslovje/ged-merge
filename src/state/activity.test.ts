@@ -10,13 +10,13 @@ describe("activity", () => {
     let reject!: (e: Error) => void;
     const a = trackActivity("sources", new Promise<void>((r) => (resolve = r)));
     const b = trackActivity("sources", new Promise<void>((_, r) => (reject = r)));
-    expect(activitySnapshot().sources).toBe(2);
+    expect(activitySnapshot().sources).toEqual({ active: 2, total: 2 });
     resolve();
     reject(new Error("x"));
     await a;
     await b.catch(() => undefined);
     await Promise.resolve();
-    expect(activitySnapshot().sources).toBe(0);
+    expect(activitySnapshot().sources).toEqual({ active: 0, total: 0 });
     expect(seen).toBe(4);
     stop();
   });
@@ -25,9 +25,13 @@ describe("activity", () => {
     const enqueue = createThrottledQueue(0, { activity: "addresses" });
     const one = enqueue(async () => 1);
     const two = enqueue(async () => 2);
-    expect(activitySnapshot().addresses).toBe(2);
-    await Promise.all([one, two]);
+    expect(activitySnapshot().addresses).toEqual({ active: 2, total: 2 });
+    await one;
     await Promise.resolve();
-    expect(activitySnapshot().addresses).toBe(0);
+    // One of two done: the run remembers its size until it is over.
+    expect(activitySnapshot().addresses).toEqual({ active: 1, total: 2 });
+    await two;
+    await Promise.resolve();
+    expect(activitySnapshot().addresses).toEqual({ active: 0, total: 0 });
   });
 });
