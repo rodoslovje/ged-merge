@@ -379,6 +379,36 @@ const scenario: Scenario = {
         await d.wait(1200);
         await d.highlight(null);
         await backAndRerun(d);
+        await d.untilSaid();
+        await d.calloutAhead();
+        await openChip(d, { sl: "Nepovezane veje", en: "Detached branches" });
+      },
+    },
+    {
+      callout: { sl: "Nepovezane veje", en: "Detached branches" },
+      say: {
+        sl: "Nepovezana veja je skupina oseb, povezanih le med sabo. Tu je Svetinova družina zapisana še enkrat, kot ostanek uvoza, ki ni bil nikoli pripet. Vejo lahko prenesete kot datoteko GEDCOM ali jo odstranite. Pred odstranitvijo program pove, kaj vse se izbriše.",
+        en: "A detached branch is a group of people linked only to each other. Here the Svetina family is written a second time, left over from an import that was never attached. You can download the branch as a GEDCOM file or remove it. Before removing it, the program tells you everything that goes.",
+      },
+      run: async (d) => {
+        const branch = row(d, "Mina Svetina");
+        await d.highlight(branch, 4);
+        await d.wait(5500);
+        await d.highlight(branch.locator(".tools-issue-icon").first(), 4);
+        await d.wait(2500);
+        const remove = branch.locator(".tools-issue-iconfix").first();
+        await d.highlight(remove, 4);
+        await d.wait(1500);
+        await d.highlight(null);
+        await d.click(remove);
+        const dialog = d.page.locator(".confirm-dialog");
+        await dialog.waitFor();
+        await d.highlight(dialog, 4);
+        await d.untilSaid(1);
+        await d.highlight(null);
+        await d.click(dialog.locator(".confirm-dialog-confirm"));
+        await dialog.waitFor({ state: "detached" });
+        await d.wait(1500);
       },
     },
     {

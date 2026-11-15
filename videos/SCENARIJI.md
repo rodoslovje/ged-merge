@@ -605,7 +605,7 @@ Govor seznama ne bere, le povzame skupine. Imena so oznake filtrov iz `sl.ts`.
 
 ### Demo datoteka `preseren-hawlina-pregled.ged`
 
-Kopija `preseren-hawlina.ged`. Napake 1–9 popravi gumb v Pregledu, 10–11 popravite v
+Kopija `preseren-hawlina.ged`. Napake 1–9 in 12 popravi gumb v Pregledu, 10–11 popravite v
 Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kakor sta.
 
 | # | Oseba, zapis | Vnesena napaka | Kaj pokaže Pregled | Popravek |
@@ -622,7 +622,8 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 8 | Marija, žena Matije Prešerna | rojstvo (`~1670`) odstranjeno | Brez ključnih datumov | → `ABT 1670` |
 | 9 | Jernej Prešeren in Mina Prešeren | poroka `~1761` → `MARR Y` | Poroka brez datuma | → `BEF 23 OCT 1762` (rojstvo Šimna) |
 | 10 | Mina Prešeren, smrt | `1823` → `1723` (napačna števka) | Smrt pred rojstvom; posledično še Dogodek zunaj življenjske dobe in Rojstvo po smrti starša (Šimen) | v Urejanju popravite letnico, ob ponovnem pregledu izginejo vse tri |
-| 11 | Terezija Jelovšek (1839–1840) | brez povezave s starši | Nepovezane | v Urejanju jo povežete kot otroka Franceta in Ane |
+| 11 | Terezija Jelovšek (1839–1840) | brez povezave s starši | Nepovezane osebe | v Urejanju jo povežete kot otroka Franceta in Ane |
+| 12 | Jakob Svetina, Jera Muhovec in Mina Svetina | družina zapisana še enkrat, nepripeta (kot uvoz, ki ni bil pripet) | Nepovezane veje (3 osebe) | »Odstrani vejo« (gumb za prenos v GEDCOM le pokažemo) |
 
 ### Kadri
 
@@ -634,6 +635,7 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 4 | »Smrt pred rojstvom« → Mina Prešeren → Urejanje, 1723 → 1823 | Klik na težavo odpre osebo v Urejanju. Ena napačna števka povzroči tri težave. |
 | 5 | »Zaženi znova« | Ob ponovnem pregledu izginejo vse tri. |
 | 6 | »Nepovezane osebe« → obroč na »Odstrani osebo« → Terezija → Urejanje: poveži s staršema | Odvečno osebo odstranite z gumbom; ta je le pozabljena povezava. |
+| 6a | »Nepovezane veje« → obroč na prenos in »Odstrani vejo« → potrditev s seznamom → odstrani | Svetinova družina še enkrat, ostanek uvoza; vejo prenesete ali odstranite. |
 | 7 | »Pokvarjene povezave«, »Podvojeni kazalci«, »Isti par dvakrat« | Teh napak v Urejanju ne vidite, zato jih popravite kar tukaj. |
 | 8 | »Spol proti vlogi« → zamenja vlogi; »Brez spola« → Ženska | Spol ali vlogo program razbere iz družine. |
 | 9 | »Brez ključnih datumov« → ABT 1670; »Poroka brez datuma« → BEF 23 OCT 1762 | Manjkajoče datume oceni iz sorodnikov, enako kot paketno opravilo. |
