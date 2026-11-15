@@ -76,6 +76,8 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     // The Attach media action, »Pripni medij«, is stressed on its last
     // syllable: spelled »Prip-ní« for the voice (checked by ear).
     [/»Pripni medij«/g, "»Prip-ní medij«"],
+    // The Union option »ima ocenjen datum«, stressed on -ma (checked by ear).
+    [/»ima ocenjen datum«/g, "»imá ocenjen datum«"],
     // »ukrêp« (checked by ear against ukrèp, ukrép, úkrep).
     [/\b([Uu])krep\b/g, "$1krêp"],
   ],
