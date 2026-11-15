@@ -736,7 +736,7 @@ function wantsIncoming(rows: Row[], fields: Record<string, FieldChoice>, key: st
 export function applyIndividualRelations(
   mainId: string,
   _mainIndi: import("../gedcom/types").Individual,
-  _incomingIndi: import("../gedcom/types").Individual,
+  incomingIndi: import("../gedcom/types").Individual,
   rows: Row[],
   fields: Record<string, FieldChoice>,
   main: Dataset,
@@ -752,6 +752,13 @@ export function applyIndividualRelations(
     const incParentId = wantsIncoming(rows, fields, key) ? rowIncomingRef(rows, key) : undefined;
     return incParentId ? [{ role, incParentId, labelKey }] : [];
   });
+  // The incoming family of exactly the parents taken, whose facts (their
+  // marriage) a family created for them carries.
+  const father = slots.find((s) => s.role === "HUSB")?.incParentId;
+  const mother = slots.find((s) => s.role === "WIFE")?.incParentId;
+  const parentsFam = incomingIndi.childOf
+    .map((id) => compare.families.get(id))
+    .find((f) => !!f && f.husband === father && f.wife === mother);
   let childFam: { id: string; node: GedNode } | undefined;
   for (const { role, incParentId, labelKey } of slots) {
     // Peek at the slot before materializing the incoming parent: with a
@@ -772,7 +779,7 @@ export function applyIndividualRelations(
     }
     const targetId = ctx.resolve(incParentId);
     if (!targetId) continue;
-    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx));
+    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx), parentsFam && ((node) => copyFamilyFacts(node, parentsFam, compare, ctx)));
     setSpouseSlot(childFam.node, role, targetId, ctx.t(labelKey), ctx);
   }
 }
@@ -1138,6 +1145,8 @@ function ensureChildFamily(
   main: Dataset,
   ctx: MergeContext,
   couple?: ParentCouple,
+  /** Called with the family when this call creates it, not when it finds one. */
+  onCreate?: (node: GedNode) => void,
 ): { id: string; node: GedNode } {
   // Prefer the live merged tree's FAMC over the original dataset's: a child
   // family created earlier in this merge (e.g. by the confirmed-match parent
@@ -1164,9 +1173,26 @@ function ensureChildFamily(
     return shared;
   }
   const fam = ctx.createFamily();
+  onCreate?.(fam.node);
   addPointer(fam.node, "CHIL", mainId, FAM_CHILD_ORDER);
   linkBack(ctx, mainId, "FAMC", fam.id);
   return fam;
+}
+
+const MEMBER_TAGS = new Set(["HUSB", "WIFE", "CHIL"]);
+
+/**
+ * Give a family this merge created for an incoming family everything that
+ * family records besides its members — marriage, divorce and other events,
+ * sources, notes, media, its own extensions — with pointers into the incoming
+ * file's shared records remapped. Without it a grafted couple arrives with
+ * no marriage.
+ */
+export function copyFamilyFacts(target: GedNode, incFam: import("../gedcom/types").Family, compare: Dataset, ctx: MergeContext): void {
+  const facts = cloneNodeRemapped({ ...incFam.raw, children: incFam.raw.children.filter((c) => !MEMBER_TAGS.has(c.tag)) }, ctx.sourXrefMap);
+  stripForeignPointers(facts, (xref) => compare.individuals.has(xref) || compare.families.has(xref));
+  collectCustomTags(facts, ctx.report.customTags);
+  target.children.push(...facts.children);
 }
 
 /** Fill a HUSB/WIFE slot if empty; note a conflict if it already differs. */
@@ -1337,6 +1363,11 @@ function importAncestors(
   // review's Parents rows read them (see `incomingParentIds`).
   const incParents = incomingParentIds(main.individuals.get(mainId), incIndi, main, compare, undefined);
   if (!incParents.father && !incParents.mother) return;
+  // The incoming family of exactly these parents, whose facts a family the
+  // walk creates for them carries — none when they are read from two.
+  const parentsFam = incIndi.childOf
+    .map((id) => compare.families.get(id))
+    .find((f) => !!f && f.husband === incParents.father && f.wife === incParents.mother);
 
   // The family the person already has, if any; one is created (or the
   // couple's own joined) only once a parent is actually linked, so a walk
@@ -1376,7 +1407,8 @@ function importAncestors(
     }
     const parentMainId = ctx.resolve(incParentId);
     if (!parentMainId) continue;
-    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx));
+    // A family the graft creates for the parents carries their own facts.
+    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx), parentsFam && ((node) => copyFamilyFacts(node, parentsFam, compare, ctx)));
     setSpouseSlot(childFam.node, role, parentMainId, ctx.t(labelKey), ctx);
     importAncestors(incParentId, main, compare, ctx, visited);
   }
@@ -1423,7 +1455,10 @@ function importDescendants(
     const otherMainId = otherIncId ? ctx.resolved(otherIncId) : undefined;
 
     let famNode = findMainSpouseFamily(mainId, otherMainId, ctx, incIndi.spouseOf.length, mainIndi);
-    if (!famNode) famNode = createPersonFamily(mainId, sex, ctx, incFam.wife === incId ? "WIFE" : "HUSB");
+    if (!famNode) {
+      famNode = createPersonFamily(mainId, sex, ctx, incFam.wife === incId ? "WIFE" : "HUSB");
+      copyFamilyFacts(famNode, incFam, compare, ctx);
+    }
 
     // Bring the spouse and every child of this union; `applyFamilyStructure`
     // skips slots/children already present, so re-running on a family a confirmed

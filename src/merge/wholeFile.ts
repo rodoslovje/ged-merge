@@ -2,8 +2,7 @@ import { firstChild } from "../gedcom/node";
 import type { Dataset, Family, GedNode } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { confirmedPeople, decisionKey, parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
-import { applyFamilyStructure, findMainSpouseFamily, type MergeContext } from "./applyRelations";
-import { cloneNodeRemapped, collectCustomTags, stripForeignPointers } from "./applyFields";
+import { applyFamilyStructure, copyFamilyFacts, findMainSpouseFamily, type MergeContext } from "./applyRelations";
 
 /** Where a whole-file merge stands before the save. */
 export interface WholeFileSummary {
@@ -143,11 +142,6 @@ function existingFamily(incFam: Family, compare: Dataset, ctx: MergeContext, cla
  *  besides its members: events, sources, notes, media, its own extensions. */
 function createFamilyFrom(incFam: Family, compare: Dataset, ctx: MergeContext): GedNode {
   const { node } = ctx.createFamily();
-  const facts = cloneNodeRemapped({ ...incFam.raw, children: incFam.raw.children.filter((c) => !MEMBER_TAGS.has(c.tag)) }, ctx.sourXrefMap);
-  stripForeignPointers(facts, (xref) => compare.individuals.has(xref) || compare.families.has(xref));
-  collectCustomTags(facts, ctx.report.customTags);
-  node.children.push(...facts.children);
+  copyFamilyFacts(node, incFam, compare, ctx);
   return node;
 }
-
-const MEMBER_TAGS = new Set(["HUSB", "WIFE", "CHIL"]);
