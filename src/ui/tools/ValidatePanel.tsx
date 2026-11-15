@@ -1444,12 +1444,6 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
-                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency))
-                      ? dialect?.software ?? ""
-                      // A program's own tag, kept with the file's variations.
-                      : !formatOverrides.standard && row.issue.category === "customTag" && row.issue.severity === "warning" && (structRowFix(row.issue)?.kind ?? "customTags") === "customTags"
-                        ? String(row.issue.messageVars?.software ?? dialect?.software ?? "")
-                        : undefined}
                     headSour={headSour}
                     open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
@@ -1581,6 +1575,8 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.unknownTag",
   "tools.validate.struct.issue.customTag",
   "tools.validate.struct.issue.customTagKnown",
+  "tools.validate.struct.issue.customTagBare",
+  "tools.validate.struct.issue.customTagStandard",
   "tools.validate.struct.issue.danglingXref",
 ]);
 function isGrouped(i: StructIssue): boolean {
@@ -1718,7 +1714,6 @@ function StructRow({
   done,
   onRun,
   onEditSource,
-  variationOf,
   open,
   headSour,
   pick,
@@ -1734,8 +1729,6 @@ function StructRow({
   done: boolean;
   onRun: (run: () => void) => void;
   onEditSource: (xref: string) => void;
-  /** The program whose kept habit the finding is, in a file kept with its variations. */
-  variationOf?: string;
   /** Takes the reader to where the finding is settled (no fix of its own). */
   open?: { label: string; run: () => void };
   /** The file's producer (`HEAD.SOUR`): whose page a tag in the message links. */
@@ -1765,13 +1758,6 @@ function StructRow({
         />
         {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
       </span>
-      {variationOf !== undefined && (
-        <span className="tools-issue-detail">
-          {variationOf === MULTI
-            ? t("tools.validate.struct.variationCommon")
-            : variationOf ? t("tools.validate.struct.variationOf", { software: variationOf }) : t("tools.validate.struct.variationOwn")}
-        </span>
-      )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
       {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       {/* A repairable date whose record can't carry an undo patch (no xref of its
