@@ -695,6 +695,8 @@ export const en = {
   "tools.validate.coordConflict.rowEvents_one": "{{count, number}} event",
   "tools.validate.coordConflict.rowEvents_other": "{{count, number}} events",
   "tools.validate.coordConflict.mapHint": "Every coordinate this place and address carries, numbered by how many events sit on it — click one to choose it.",
+  "tools.validate.coordConflict.placeOwn": "(place's position)",
+  "tools.validate.coordConflict.placeOwnHint": "The position this place carries on its events that name no address — the settlement's, which an address inherits until it is placed on its own.",
   "tools.validate.coordConflict.mapPickHint": "Every coordinate this place and address carries, numbered by how many events sit on it — click one to choose it, or click anywhere else to place the events there instead.",
   "tools.validate.coordConflict.apply": "Settle coordinates ({{count}})",
   "tools.validate.coordConflict.applied_one": "Settled — {{count}} record updated.",

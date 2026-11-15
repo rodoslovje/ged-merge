@@ -803,6 +803,8 @@ export const sl = {
   "tools.validate.coordConflict.rowEvents_few": "{{count, number}} dogodki",
   "tools.validate.coordConflict.rowEvents_other": "{{count, number}} dogodkov",
   "tools.validate.coordConflict.mapHint": "Vse koordinate, ki jih nosi ta kraj in naslov, s številom dogodkov na vsaki — kliknite eno, da jo izberete.",
+  "tools.validate.coordConflict.placeOwn": "(lega kraja)",
+  "tools.validate.coordConflict.placeOwnHint": "Lega, ki jo ta kraj nosi pri dogodkih brez naslova — lega naselja, ki jo naslov podeduje, dokler ne dobi svoje.",
   "tools.validate.coordConflict.mapPickHint": "Vse koordinate, ki jih nosi ta kraj in naslov, s številom dogodkov na vsaki — kliknite eno, da jo izberete, ali kamor koli drugam, da dogodke postavite tja.",
   "tools.validate.coordConflict.apply": "Poenoti koordinate ({{count}})",
   "tools.validate.coordConflict.applied_one": "Poenoteno — posodobljen {{count}} zapis.",

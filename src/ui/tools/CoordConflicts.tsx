@@ -191,7 +191,11 @@ export function CoordConflicts({
                             coord: x.coord,
                             label: c.value,
                             ...(c.address ? { sub: c.address } : {}),
-                            lines: [t("tools.geocode.addr.uses", { count: x.n }), t("event.coord.pinPick")],
+                            lines: [
+                              t("tools.geocode.addr.uses", { count: x.n }) +
+                                (x.placeOwn ? ` ${t("tools.validate.coordConflict.placeOwn")}` : ""),
+                              t("event.coord.pinPick"),
+                            ],
                             badge: numberOf(x.coord),
                             kind: sameCoord(chosen, x.coord) ? "chosen" : "candidate",
                             onPick: () => pick(key, x.coord),
@@ -233,7 +237,17 @@ export function CoordConflicts({
                         onPick={() => pick(key, x.coord)}
                         onUnpick={() => unpick(key)}
                       >
-                        <span className="tools-geo-count">{t("tools.geocode.addr.uses", { count: x.n })}</span>
+                        <span className="tools-geo-count">
+                          {t("tools.geocode.addr.uses", { count: x.n })}
+                          {x.placeOwn && (
+                            <>
+                              {" "}
+                              <span title={t("tools.validate.coordConflict.placeOwnHint")}>
+                                {t("tools.validate.coordConflict.placeOwn")}
+                              </span>
+                            </>
+                          )}
+                        </span>
                       </CandidateOption>
                     ))}
                     {/* Neither of the file's coordinates need be right: click the
