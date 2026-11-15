@@ -11,6 +11,7 @@ import type { Translate } from "../locales/i18n";
 import { firstChild } from "./node";
 import type { GedNode } from "./types";
 import { UPD_STAMP_TYPE, VENDOR_TAGS, VENDOR_TAG_ALIASES, isInternalEventType, vendorEventTypeInfo } from "./vendorTags";
+import { eventTakesText } from "../tools/conformance/allows";
 
 /** Individual event tags in canonical life-cycle order (birth → … → death).
  *  Includes the GEDCOM attribute tags (TITL, DSCR, RELI, …) — the app models
@@ -355,6 +356,18 @@ export const VALUE_EVENT_TAGS: Set<string> = new Set([
   "_MILT", "_MILI", "_MEDC",
   "_MSTAT",
 ]);
+
+/**
+ * Whether a new value is offered (Edit's empty Value field) or written (a
+ * merge copying the incoming one) on `tag`'s line in `version`, the
+ * target's: a value-bearing tag whose line that version gives a text
+ * payload. 7.0's `DEAT` and `RETI` take only the `Y` flag, so they get none —
+ * a value already there is still shown. A tag the version does not have
+ * (an extension) keeps its value.
+ */
+export function offersEventValue(tag: string, version: "5.5.1" | "7.0"): boolean {
+  return VALUE_EVENT_TAGS.has(tag) && eventTakesText(version, tag) !== false;
+}
 
 /** Value-bearing tags whose value is *supplementary* rather than the event's
  *  substance. An occupation is its value ("Farmer"), so that value leads the

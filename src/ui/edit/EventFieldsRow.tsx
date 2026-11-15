@@ -6,7 +6,8 @@ import type { GedDate, GedEvent, GedNode, GeoCoord, SourceCitation } from "../..
 import { parseDate } from "../../gedcom/date";
 import type { AgeBadge } from "../../gedcom/age";
 import type { Translate } from "../../locales/i18n";
-import { LDS_ORDINANCE_TAGS, ORDINANCE_STATUSES, customEventLabel, customEventTooltip, isOccurrenceFlag, vendorEventTooltip } from "../../gedcom/eventTags";
+import { LDS_ORDINANCE_TAGS, ORDINANCE_STATUSES, customEventLabel, customEventTooltip, isOccurrenceFlag, offersEventValue, vendorEventTooltip } from "../../gedcom/eventTags";
+import { useTargetFormat } from "../TargetFormatContext";
 import type { RecordPatch } from "../historyTypes";
 import { canWriteEventAssociation, type EventFieldUpdate } from "../../gedcom/edit";
 import { SourceRefs } from "../SourceRef";
@@ -29,7 +30,7 @@ import { sortDateTag } from "../../gedcom/sortDate";
 import { translationLine } from "../../gedcom/translation";
 import { EventCoordPicker } from "./EventCoordPicker";
 import { useField } from "./useField";
-import { SECONDARY_VALUE_EVENT_TAGS, VALUE_EVENT_TAGS } from "./editConstants";
+import { SECONDARY_VALUE_EVENT_TAGS } from "./editConstants";
 import { placeAddrCoordKey, placeCombosOf, placeKey, type Suggestions, type TagSuggestions } from "./fieldSuggestions";
 import { DropdownMenu } from "../DropdownMenu";
 import { altShiftLabel } from "../../keyboard/shortcuts";
@@ -224,10 +225,13 @@ export function EventFieldsRow({
   // Any other event may still carry a description on its own line
   // (`1 BIRT nezakonski otrok`). Merge compares it, so Edit shows it while it
   // is there — to edit or clear — but never offers it on an event whose
-  // standard payload is only the `Y` flag.
-  const strayValue = !isEven && tag !== undefined && !VALUE_EVENT_TAGS.has(tag)
+  // standard payload is only the `Y` flag — in the target's version: 7.0's
+  // death and retirement take only the flag (see `offersEventValue`).
+  const { target } = useTargetFormat();
+  const offersValue = tag !== undefined && offersEventValue(tag, target.version);
+  const strayValue = !isEven && tag !== undefined && !offersValue
     && ((Boolean(ev?.value?.trim()) && !isOccurrenceFlag(ev?.value)) || mergeHighlight?.has(`${kBase}.value`) === true);
-  const showValue = isEven || strayValue || (tag !== undefined && VALUE_EVENT_TAGS.has(tag));
+  const showValue = isEven || strayValue || offersValue;
   // A residence's value is supplementary, not its headline (see
   // `SECONDARY_VALUE_EVENT_TAGS`): the row still leads with the date, and the
   // value rides on the extras line like the agency or the cause. A custom
