@@ -693,7 +693,7 @@ function wantsIncoming(rows: Row[], fields: Record<string, FieldChoice>, key: st
 export function applyIndividualRelations(
   mainId: string,
   _mainIndi: import("../gedcom/types").Individual,
-  incomingIndi: import("../gedcom/types").Individual,
+  _incomingIndi: import("../gedcom/types").Individual,
   rows: Row[],
   fields: Record<string, FieldChoice>,
   main: Dataset,
@@ -706,7 +706,7 @@ export function applyIndividualRelations(
   ];
   // The parents this stitch links, for finding the family they already form.
   const slots = parents.flatMap(([key, role, labelKey]) => {
-    const incParentId = wantsIncoming(rows, fields, key) ? incomingParentId(incomingIndi, compare, role) : undefined;
+    const incParentId = wantsIncoming(rows, fields, key) ? rowIncomingRef(rows, key) : undefined;
     return incParentId ? [{ role, incParentId, labelKey }] : [];
   });
   let childFam: { id: string; node: GedNode } | undefined;
@@ -1155,14 +1155,12 @@ function setSpouseSlot(
   ctx.touched.add(famId);
 }
 
-function incomingParentId(
-  incomingIndi: import("../gedcom/types").Individual,
-  compare: Dataset,
-  role: "HUSB" | "WIFE",
-): string | undefined {
-  const famId = incomingIndi.childOf[0];
-  const fam = famId ? compare.families.get(famId) : undefined;
-  return role === "HUSB" ? fam?.husband : fam?.wife;
+/** The incoming person a relative row shows (its first incoming ref). The
+ *  Parents rows already found the parent in whichever family holds them and
+ *  read crossed parents crossed, so taking the id from the row links exactly
+ *  the parent the review offered. */
+function rowIncomingRef(rows: Row[], key: string): string | undefined {
+  return rows.find((r) => r.key === key)?.incomingRefs?.find((id): id is string => !!id);
 }
 
 /**
