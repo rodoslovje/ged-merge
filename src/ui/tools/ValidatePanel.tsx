@@ -749,7 +749,7 @@ export function ValidatePanel({
     if (issue.toNote && issue.recordId) {
       return {
         label: t("tools.validate.fixOneNote"),
-        hint: t("tools.validate.fixOneNoteHint"),
+        hint: t(isEventText(issue) ? "tools.validate.fixOneNoteHint" : "tools.validate.fixOneNoteLineHint"),
         kind: "notes",
         run: () => onFixConformance("notes", { id: issue.recordId!, path: issue.path }),
       };

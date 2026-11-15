@@ -8,7 +8,7 @@ import { vendorTagInfo } from "../../gedcom/vendorTags";
 import { eventTypeFor } from "../../normalize/migrate";
 import { isUnparseable } from "../fixDates";
 import type { SpecTable } from "./types";
-import { compile, type Compiled } from "./compile";
+import { compile, type Compiled, type Struct } from "./compile";
 import { SPEC_55, SPEC_551, SPEC_555 } from "./spec551";
 import { SPEC_70 } from "./spec70";
 
@@ -199,7 +199,7 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
   const walk = (node: GedNode, structId: string): void => {
     const struct = spec.structs.get(structId);
     if (!struct) return;
-    checkPayload(node, struct.payload, loc, ctx, base);
+    checkPayload(node, struct, loc, ctx, base);
     if (!node.children.length && !struct.required.length) return;
 
     let seen: Map<string, GedNode[]> | undefined;
@@ -368,12 +368,13 @@ function checkXref(xref: string, ctx: Ctx, base: { recordId?: string; recordTag?
 }
 
 function checkPayload(
-  node: GedNode, payload: string, loc: Loc, ctx: Ctx,
+  node: GedNode, struct: Struct, loc: Loc, ctx: Ctx,
   base: { recordId?: string; recordTag?: string },
 ): void {
   const { spec } = ctx;
+  const { payload } = struct;
   // Most lines are text: nothing to hold them to unless they look like a pointer.
-  if ((payload === "T" || payload === "") && !node.value?.includes("@")) return;
+  if (payload === "T" && !node.value?.includes("@")) return;
   const value = node.value?.trim() ?? "";
   const tag = node.tag;
   const fixable = !!base.recordId;
@@ -430,7 +431,15 @@ function checkPayload(
   }
   if (!value) return;
 
-  if (payload === "Y") {
+  if (payload === "") {
+    // Text on a line that takes none (`CHAN today`, 5.5.1's `RESI Ljubljana`):
+    // the fix keeps it word for word in a NOTE beneath, where the line may
+    // carry one more.
+    const note = struct.children.get("NOTE");
+    const notes = note ? node.children.filter((c) => c.tag === "NOTE").length : 0;
+    const toNote = !!note && notes < note.max;
+    emit("valueFormat", "valueNotAllowed", {}, toNote ? value : undefined, { toNote });
+  } else if (payload === "Y") {
     // A lower-case y is the Y. Any other text is something said about the
     // event (a doubtful date or place, an address): the fix keeps it word for
     // word in a NOTE on the event.

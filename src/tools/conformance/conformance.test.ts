@@ -301,6 +301,35 @@ describe("value formats and record ids", () => {
     expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TRAN B\n3 LANG Slovenian language`))).toEqual(["badLang"]);
   });
 
+  it("flags a value on a line that takes none, and moves it into a NOTE where the line may carry one", () => {
+    // A change stamp: NOTE allowed beneath it in both versions.
+    for (const check of [check551, check70]) {
+      expect(check(`0 @I1@ INDI\n1 CHAN danes\n2 DATE 1 JAN 2020`)).toMatchObject([
+        { messageKey: "tools.validate.struct.issue.valueNotAllowed", sample: "danes", fix: "danes", toNote: true },
+      ]);
+    }
+    // A record line: the record's NOTE.
+    expect(check551(`0 @S1@ SOUR Matična knjiga`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.valueNotAllowed", toNote: true }]);
+    // MAP has no NOTE: reported, no fix.
+    const map = check551(`0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n3 MAP tu\n4 LATI N46.2\n4 LONG E14.3`);
+    expect(kinds(map)).toEqual(["valueNotAllowed"]);
+    expect(map[0].fix).toBeUndefined();
+    expect(map[0].toNote).toBeUndefined();
+    // A NOTE already used up ({0:1} under 5.5.1's HEAD) — and no record id to patch.
+    expect(validateConformance(dataset(`${HEAD_551.replace("0 HEAD", "0 HEAD x")}\n0 TRLR`))[0]).toMatchObject({ messageKey: "tools.validate.struct.issue.valueNotAllowed" });
+    // Empty stays clean.
+    expect(check551(`0 @I1@ INDI\n1 CHAN\n2 DATE 1 JAN 2020`)).toEqual([]);
+  });
+
+  it("fixes a value on a line that takes none into a NOTE, once", () => {
+    const ds = dataset(`${HEAD_70}\n0 @I1@ INDI\n1 CHAN danes\n2 DATE 1 JAN 2020\n0 TRLR`);
+    expect(countFixableConformance(ds, "notes")).toBe(1);
+    fixConformance(ds, "notes");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 CHAN\n2 DATE 1 JAN 2020\n2 NOTE danes\n");
+    expect(validateConformance(ds)).toEqual([]);
+    expect(fixConformance(ds, "notes")).toEqual([]);
+  });
+
   it("checks the record id's shape", () => {
     expect(kinds(check551(`0 @I12345678901234567890X@ INDI`))).toEqual(["xrefLong"]);
     expect(kinds(check551(`0 @-1@ INDI`))).toEqual(["xrefStart"]);
