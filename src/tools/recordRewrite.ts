@@ -1,0 +1,99 @@
+import type { Dataset, GedNode } from "../gedcom/types";
+import { cloneNode } from "../gedcom/node";
+import { conformingXref } from "../gedcom/xrefShape";
+import { applyRecordPatches, type RecordPatch } from "../ui/historyTypes";
+
+/**
+ * Two whole-file rewrites the health check offers on one row, built as undo
+ * patches first and then applied forward — a rename changes a record's key,
+ * which an in-place pass keyed by xref cannot express:
+ *
+ *  - {@link renameXref}: a record whose id the version's rules refuse gets one
+ *    they accept, unique in the file, and every line pointing at it follows;
+ *  - {@link removeCustomTag}: every line of one extension tag goes, with what
+ *    is beneath it — and a top-level record of that tag, with every line
+ *    pointing at it.
+ *
+ * Records without an xref (HEAD) are left alone, as an undo patch is keyed by
+ * xref. Both return the patches they applied, empty when nothing changed.
+ */
+
+function patchType(dataset: Dataset, rec: GedNode): RecordPatch["type"] {
+  const xref = rec.xref!;
+  if (dataset.individuals.get(xref)?.raw === rec) return "individual";
+  if (dataset.families.get(xref)?.raw === rec) return "family";
+  return "record";
+}
+
+/** Whether a line anywhere beneath `node` meets `hit`. */
+function anyBeneath(node: GedNode, hit: (line: GedNode) => boolean): boolean {
+  return node.children.some((c) => hit(c) || anyBeneath(c, hit));
+}
+
+/** A patch for every record holding a line that meets `hit`, its `after` the
+ *  record as `edit` leaves a clone of it. Only those records are cloned. */
+function editedPatches(
+  dataset: Dataset,
+  skip: ReadonlySet<string>,
+  hit: (line: GedNode) => boolean,
+  edit: (clone: GedNode) => void,
+): RecordPatch[] {
+  const patches: RecordPatch[] = [];
+  for (const rec of dataset.records) {
+    if (!rec.xref || skip.has(rec.xref) || !anyBeneath(rec, hit)) continue;
+    const after = cloneNode(rec);
+    edit(after);
+    patches.push({ type: patchType(dataset, rec), id: rec.xref, before: cloneNode(rec), after });
+  }
+  return patches;
+}
+
+/** Give record `xref` an id the version accepts; returns the patches applied. */
+export function renameXref(dataset: Dataset, xref: string, is70: boolean): RecordPatch[] {
+  const index = dataset.records.findIndex((r) => r.xref === xref);
+  if (index < 0) return [];
+  const rec = dataset.records[index];
+  const taken = new Set(dataset.records.map((r) => r.xref).filter((x): x is string => !!x));
+  const next = conformingXref(xref, is70, taken);
+  // The lines beneath a record that point at it (the record's own value is
+  // text, never a pointer).
+  const points = (line: GedNode) => line.value?.trim() === xref;
+  const repoint = (node: GedNode): void => {
+    for (const c of node.children) {
+      if (points(c)) c.value = next;
+      repoint(c);
+    }
+  };
+  const renamed = cloneNode(rec);
+  renamed.xref = next;
+  repoint(renamed);
+  const type = patchType(dataset, rec);
+  const patches: RecordPatch[] = [
+    // The old id goes and the new one takes its place in the record list.
+    { type, id: xref, before: cloneNode(rec), after: null, index },
+    { type, id: next, before: null, after: renamed, index },
+    ...editedPatches(dataset, new Set([xref]), points, repoint),
+  ];
+  applyRecordPatches(dataset, patches, "redo");
+  return patches;
+}
+
+/** Remove every line tagged `tag` (and a record of that tag, with the lines
+ *  pointing at it); returns the patches applied. */
+export function removeCustomTag(dataset: Dataset, tag: string): RecordPatch[] {
+  const patches: RecordPatch[] = [];
+  const gone = new Set<string>();
+  dataset.records.forEach((rec, index) => {
+    if (rec.tag !== tag || !rec.xref) return;
+    gone.add(rec.xref);
+    patches.push({ type: patchType(dataset, rec), id: rec.xref, before: cloneNode(rec), after: null, index });
+  });
+  const drops = (line: GedNode) => line.tag === tag || gone.has(line.value?.trim() ?? "");
+  const strip = (node: GedNode): void => {
+    node.children = node.children.filter((c) => !drops(c));
+    for (const c of node.children) strip(c);
+  };
+  patches.push(...editedPatches(dataset, gone, drops, strip));
+  if (patches.length) applyRecordPatches(dataset, patches, "redo");
+  return patches;
+}

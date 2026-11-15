@@ -55,7 +55,10 @@ const FIX_DONE_MS = 8000;
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
+/** Fixes that settle only the rows that ask: picking every row of the kind
+ *  still runs them one by one, never as a whole-file pass. */
+const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs"]);
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -574,24 +577,30 @@ export function ValidatePanel({
   };
   const rowFixOf = (row: IssueRow): RowFix | null =>
     row.kind === "record" ? recordRowFix(row.issue) : structRowFix(row.issue);
+  /** A row's fix when it repairs something: removing a custom tag is the
+   *  row's own button only — never counted as fixable, never picked in bulk. */
+  const repairOf = (row: IssueRow): RowFix | null => {
+    const fix = rowFixOf(row);
+    return fix && fix.kind !== "customTags" ? fix : null;
+  };
   const allRows = useMemo(
     () => buildRows("all", ""),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, group],
   );
   const shown = useMemo(
-    () => (filter === "fixable" ? buildRows("all", q).filter((r) => rowFixOf(r)) : buildRows(filter, q)),
+    () => (filter === "fixable" ? buildRows("all", q).filter((r) => repairOf(r)) : buildRows(filter, q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles]);
 
-  const pickable = (row: IssueRow) => !!rowFixOf(row) && !fixedRows.has(rowKey(row.issue));
+  const pickable = (row: IssueRow) => !!repairOf(row) &&!fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
     () => shown.filter(pickable),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [shown, fixedRows],
   );
   const fixableTotal = useMemo(
-    () => allRows.filter((r) => rowFixOf(r)).length,
+    () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [allRows, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles],
   );
@@ -626,7 +635,7 @@ export function ValidatePanel({
   }
   /** Every row of a kind picked: the batch runs the kind's whole-file fix once. */
   const wholeKind = (kind: FixKind, rows: IssueRow[]) =>
-    rows.length >= allRows.filter((r) => rowFixOf(r)?.kind === kind).length;
+    !ROW_ONLY_KINDS.has(kind) && rows.length >= allRows.filter((r) => rowFixOf(r)?.kind === kind).length;
   // The confirmed batch: every picked fix, in one undo step.
   function applyPicked() {
     setBatchPending(false);
@@ -985,6 +994,27 @@ export function ValidatePanel({
         hint: t("tools.validate.fixOneStampsHint"),
         kind: "stamps",
         run: () => onFixConformance("stamps"),
+      };
+    }
+    // A record id the version refuses: one it accepts, unique in the file.
+    // Not a person's or a family's — the open session (start person, merge
+    // decisions, Edit) is keyed by those; a download renames them instead.
+    if (issue.category === "xrefShape" && issue.recordId && issue.recordTag !== "INDI" && issue.recordTag !== "FAM") {
+      return {
+        label: t("tools.validate.fixOneXref"),
+        hint: t("tools.validate.fixOneXrefHint", { version: issue.messageVars?.version }),
+        kind: "xrefs",
+        run: () => onFixConformance("xrefs", { id: issue.recordId, value: String(issue.messageVars?.version ?? "") }),
+      };
+    }
+    // An extension tag: every line of it can go, wherever it stands.
+    if (issue.category === "customTag" && issue.sample) {
+      return {
+        label: t("tools.validate.fixOneRemoveTag"),
+        hint: t("tools.validate.fixOneRemoveTagHint", { tag: issue.sample, count: Number(issue.messageVars?.count) || 1 }),
+        removes: true,
+        kind: "customTags",
+        run: () => onFixConformance("customTags", { value: issue.sample }),
       };
     }
     return null;
@@ -1417,7 +1447,7 @@ export function ValidatePanel({
                     variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency))
                       ? dialect?.software ?? ""
                       // A program's own tag, kept with the file's variations.
-                      : !formatOverrides.standard && row.issue.category === "customTag" && row.issue.severity === "warning" && !structRowFix(row.issue)
+                      : !formatOverrides.standard && row.issue.category === "customTag" && row.issue.severity === "warning" && (structRowFix(row.issue)?.kind ?? "customTags") === "customTags"
                         ? String(row.issue.messageVars?.software ?? dialect?.software ?? "")
                         : undefined}
                     headSour={headSour}
