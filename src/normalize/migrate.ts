@@ -659,12 +659,15 @@ function upgradeObje(node: GedNode, ctx: MigrateCtx): void {
   }
   for (const file of childrenByTag(node, "FILE")) {
     const form = firstChild(file, "FORM");
-    if (!form?.value || form.value.includes("/")) continue;
+    if (!form) continue;
     const before = describe(form);
-    form.value = mimeFormOf(form.value);
     const type = firstChild(form, "TYPE");
+    // The media type is MEDI in 7.0 whatever the FORM says (a MIME type
+    // already, or none at all).
     if (type) type.tag = "MEDI";
-    report(ctx, form, before);
+    const toMime = !!form.value && !form.value.includes("/");
+    if (toMime) form.value = mimeFormOf(form.value!);
+    if (type || toMime) report(ctx, form, before);
   }
 }
 
@@ -1004,12 +1007,16 @@ function restoreVendor(node: GedNode, tag: string): GedNode {
 function downgradeObje(node: GedNode, ctx: MigrateCtx): void {
   for (const file of childrenByTag(node, "FILE")) {
     const form = firstChild(file, "FORM");
-    if (!form?.value?.includes("/")) continue;
+    if (!form) continue;
     const before = describe(form);
-    const ext = MIME_TO_EXT[form.value.trim().toLowerCase()];
-    form.value = ext ?? form.value.split("/").pop()!.replace(/^x-/i, "");
     const medi = firstChild(form, "MEDI");
+    // The media type is TYPE in 5.5.1 whatever the FORM says.
     if (medi) medi.tag = "TYPE";
-    report(ctx, form, before);
+    const fromMime = !!form.value?.includes("/");
+    if (fromMime) {
+      const ext = MIME_TO_EXT[form.value!.trim().toLowerCase()];
+      form.value = ext ?? form.value!.split("/").pop()!.replace(/^x-/i, "");
+    }
+    if (medi || fromMime) report(ctx, form, before);
   }
 }
