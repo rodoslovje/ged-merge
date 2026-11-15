@@ -573,6 +573,7 @@ export const en = {
   "tools.validate.branchRemoveTip": "Delete everyone in this branch from the file",
   "tools.validate.branchRemoveConfirm": "Remove the whole branch {{name}} belongs to?",
   "tools.validate.branchRemoveDeleted": "Deleted from the file:",
+  "tools.validate.personRemove": "Remove person",
   "tools.validate.personRemoveTip": "Delete this person from the file",
   "tools.validate.personRemoveConfirm": "Delete {{name}} from the file?",
   "tools.validate.personRemoveDeleted": "Deleted with them:",

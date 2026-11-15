@@ -74,7 +74,7 @@ test("a disconnected person is deleted from their row, with the note only they u
   await openBranches(page);
   await chip(page, "Disconnected people").click();
   const row = page.locator(".tools-issue", { hasText: "Sam" });
-  await row.getByRole("button", { name: "Delete this person from the file" }).click();
+  await row.getByRole("button", { name: "Remove person" }).click();
   const dialog = page.locator(".confirm-dialog");
   await expect(dialog).toContainText("Delete Sam Samec");
   await expect(dialog).toContainText("shared notes used nowhere else: 1");

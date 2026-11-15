@@ -648,6 +648,7 @@ export const sl = {
   "tools.validate.branchRemoveTip": "Iz datoteke izbriši vse osebe v tej veji",
   "tools.validate.branchRemoveConfirm": "Odstranim celotno vejo, v kateri je {{name}}?",
   "tools.validate.branchRemoveDeleted": "Iz datoteke se izbrišejo:",
+  "tools.validate.personRemove": "Odstrani osebo",
   "tools.validate.personRemoveTip": "Iz datoteke izbriši to osebo",
   "tools.validate.personRemoveConfirm": "Izbrišem osebo {{name}} iz datoteke?",
   "tools.validate.personRemoveDeleted": "Skupaj z osebo se izbrišejo:",

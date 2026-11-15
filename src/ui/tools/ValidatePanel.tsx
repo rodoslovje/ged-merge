@@ -1325,10 +1325,10 @@ export function ValidatePanel({
                             type="button"
                             className="tools-issue-fix tools-issue-iconfix tools-issue-end"
                             title={t("tools.validate.personRemoveTip")}
-                            aria-label={t("tools.validate.personRemoveTip")}
                             onClick={() => askRemoveBranch(row.issue)}
                           >
                             <TrashIcon size={13} />
+                            {t("tools.validate.personRemove")}
                           </button>
                         )
                     )}
