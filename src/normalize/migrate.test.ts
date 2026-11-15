@@ -849,3 +849,22 @@ describe("migrateVersion — a 7.0 PHRASE on the way to 5.5.1, which has none", 
     expect(findings(records, "5.5.1")).toEqual([]);
   });
 });
+
+describe("migrateVersion — an event date's TIME", () => {
+  const V70 =
+    "0 @I1@ INDI\n1 BIRT\n2 DATE 1 JAN 1900\n3 TIME 14:30\n" +
+    "1 CHAN\n2 DATE 2 FEB 2020\n3 TIME 08:15:00\n";
+
+  it("is _TIME in 5.5.1, which times only the header and a change stamp, and TIME again in 7.0", () => {
+    const { records, changes } = migrated("7.0", V70, "5.5.1");
+    const indi = record(records, "@I1@");
+    expect(findByPath(indi, ["BIRT", "DATE"])!.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["_TIME 14:30"]);
+    expect(findByPath(indi, ["CHAN", "DATE", "TIME"])!.value).toBe("08:15:00");
+    expect(changes).toEqual([{ before: "DATE.TIME 14:30", after: "_TIME 14:30" }]);
+    expect(findings(records, "5.5.1")).toEqual([]);
+
+    migrateVersion(records, "5.5.1", "7.0", () => {});
+    expect(findings(records, "7.0")).toEqual([]);
+    expect(serializeGedcom(records)).toBe(head("7.0") + V70 + "0 TRLR\n");
+  });
+});

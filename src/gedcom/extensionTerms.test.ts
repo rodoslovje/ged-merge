@@ -58,7 +58,7 @@ describe("termsEntries — one documented page per tag and program", () => {
     const v7 =
       "0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n1 UID 1\n1 CREA\n2 DATE 1 JAN 2020\n1 NO MARR\n1 SEX X\n" +
       "1 EXID GPZG-CXL\n2 TYPE https://www.familysearch.org/tree/person/\n" +
-      "1 BIRT\n2 SDATE 1900\n1 NOTE <b>a</b>\n2 MIME text/html\n2 LANG en\n2 TRAN b\n3 LANG sl\n0 TRLR\n";
+      "1 BIRT\n2 SDATE 1900\n2 DATE 1 JAN 1900\n3 TIME 12:00\n1 NOTE <b>a</b>\n2 MIME text/html\n2 LANG en\n2 TRAN b\n3 LANG sl\n0 TRLR\n";
     const down = parseGedcom(new TextEncoder().encode(v7).buffer).records;
     migrateVersion(down, "7.0", "5.5.1", () => {});
     // …and the 7.0 conversion's submission record (see save/outputFile.ts).
@@ -66,7 +66,7 @@ describe("termsEntries — one documented page per tag and program", () => {
     // (`settleSourceFields`), so they need no page.
     const written = [serializeGedcom(down), "0 @S1@ _SUBN"].join("\n");
     const tags = new Set([...written.matchAll(/^\d+ (?:@[^@]+@ )?(_[A-Z_]+)/gm)].map((m) => m[1]));
-    expect([...tags].sort()).toEqual(["_CREA", "_FSFTID", "_LANG", "_MIME", "_NO", "_SDATE", "_SEX", "_SUBN", "_TRAN", "_UID"]);
+    expect([...tags].sort()).toEqual(["_CREA", "_FSFTID", "_LANG", "_MIME", "_NO", "_SDATE", "_SEX", "_SUBN", "_TIME", "_TRAN", "_UID"]);
     for (const tag of tags) expect(ownTag(tag), tag).toBeDefined();
     expect(GEDMERGE_TAGS).toHaveLength(tags.size);
   });

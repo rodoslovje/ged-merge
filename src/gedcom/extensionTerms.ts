@@ -91,6 +91,7 @@ export const STANDARD_FORMS: Record<string, StandardForm> = {
   _MARNM: { form: "a NAME of its own with TYPE MARRIED", converted: true },
   _NO: { form: "NO", converted: true },
   _SDATE: { form: "SDATE", converted: true },
+  _TIME: { form: "DATE.TIME", converted: true },
   _MIME: { form: "NOTE.MIME", converted: true },
   _LANG: { form: "NOTE.LANG", converted: true },
   _TRAN: { form: "NOTE.TRAN", converted: true },
@@ -178,6 +179,14 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
       sl: "datum, po katerem se dogodek razvršča (SDATE iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
     },
     context: "under an event",
+  },
+  {
+    tag: "_TIME",
+    meaning: {
+      en: "the time of day of an event's date (GEDCOM 7.0 DATE.TIME), kept in a GEDCOM 5.5.1 file",
+      sl: "ura dogodka (DATE.TIME iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+    },
+    context: "under an event's DATE",
   },
   {
     tag: "_MIME",

@@ -59,6 +59,7 @@ import { walkNodes } from "./walk";
  *                                        note's `MIME`/`LANG`/`TRAN` → `_…`,
  *                                        `@VOID@` pointers (see below),
  *                                        `SEX X` → `SEX U` + `_SEX X` (and back),
+ *                                        an event date's `TIME` → `_TIME` (and back),
  *                                        any other `PHRASE` → a `NOTE`
  *
  * A vendor line the upgrade turns into its standard form remembers what it was
@@ -241,9 +242,12 @@ function migrateEnums(records: GedNode[], ctx: MigrateCtx, to: VersionFamily): v
   });
 }
 
+/** 5.5.1's stand-in for an event date's 7.0 `TIME`. */
+const TIME_EXTENSION = "_TIME";
+
 /**
  * The last 7.0 lines a 5.5.1 file cannot hold, once every other conversion
- * has run. A `PHRASE` the conversions did not fold into their own 5.5.1 form
+ * has run: an event date's `TIME` (see {@link TIME_EXTENSION}). A `PHRASE` the conversions did not fold into their own 5.5.1 form
  * (a date's, an age keyword's, a role's, a name type's, an OTHER's) — under a
  * PEDI, a child link's STAT, a MEDI, a family's HUSB/WIFE/CHIL, an ALIA, an
  * adoption's ADOP, an ASSO, an age — becomes a NOTE with its text, on the
@@ -251,6 +255,14 @@ function migrateEnums(records: GedNode[], ctx: MigrateCtx, to: VersionFamily): v
  */
 function downgradeLeftovers(records: GedNode[], ctx: MigrateCtx): void {
   walkWithPath(records, (node, path, line) => {
+    // 5.5.1 times only a header's and a change stamp's date: an event's
+    // `TIME` is kept as `_TIME`, which the upgrade restores.
+    if (node.tag === "DATE" && !allowsChild("5.5.1", path, "TIME")) {
+      for (const time of childrenByTag(node, "TIME")) {
+        const before = `DATE.${describe(time)}`;
+        report(ctx, retag(time, TIME_EXTENSION), before);
+      }
+    }
     for (const phrase of childrenByTag(node, "PHRASE")) {
       const text = phrase.value?.trim();
       const before = `${node.tag}.${describe(phrase)}`;
@@ -424,6 +436,14 @@ function upgradeExtensionNode(node: GedNode, ctx: MigrateCtx): boolean {
     for (const c of node.children) {
       const up = NOTE_UPGRADES[c.tag];
       if (up) report(ctx, retag(c, up), `${node.tag}.${describe(c)}`);
+    }
+    return false;
+  }
+  // An event date's time, which the downgrade kept as `_TIME`.
+  if (node.tag === "DATE") {
+    for (const c of childrenByTag(node, TIME_EXTENSION)) {
+      const before = `DATE.${describe(c)}`;
+      report(ctx, retag(c, "TIME"), before);
     }
     return false;
   }
