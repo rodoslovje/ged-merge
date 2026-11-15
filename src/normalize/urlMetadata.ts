@@ -1,3 +1,5 @@
+import { trackActivity } from "../state/activity";
+
 /**
  * Best-effort page-title lookup for the "Add Source" dialog's URL-only path.
  * This is a browser-only static app with no backend, and the genealogy sites
@@ -84,7 +86,11 @@ const JUNK_TITLE_RE =
  *  next relay is tried instead of short-circuiting the chain. Exception: a
  *  client-rendered Next.js page (SIstory) ships an *empty* `<title>` but
  *  carries the record in its `__NEXT_DATA__` JSON — that is content. */
-export async function fetchPageHtml(url: string): Promise<string | undefined> {
+export function fetchPageHtml(url: string): Promise<string | undefined> {
+  return trackActivity("sources", relayPageHtml(url));
+}
+
+async function relayPageHtml(url: string): Promise<string | undefined> {
   for (const proxy of PROXY_URLS) {
     const text = await fetchViaProxy(proxy.proxied(url), proxy.timeoutMs);
     if (!text) continue;

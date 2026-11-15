@@ -204,6 +204,30 @@ button:focus-visible {
 .app-head-actions .export-btn {
   font-size: 0.85rem;
 }
+/* Background downloads, beside Undo: a spinner and how many are running. */
+.activity-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 4px 10px;
+}
+.activity-spinner {
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+}
+/* Lingering a moment after the last request: the ring stops, all accent. */
+.activity-spinner--idle {
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+}
+.activity-count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
 /* The Save button shows "Save GEDCOM" by default and the short "Save" on
    narrower screens (toggled in the 1100px header media query below). */
 .export-btn-label-short {

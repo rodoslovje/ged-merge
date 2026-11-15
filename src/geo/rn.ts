@@ -488,7 +488,7 @@ export function rnFeaturesToResults(data: RnFeatureCollection, max = MAX_RESULTS
 }
 
 // One shared queue so concurrent rows still space their requests out.
-const enqueue = createThrottledQueue(INTERVAL_MS);
+const enqueue = createThrottledQueue(INTERVAL_MS, { activity: "addresses" });
 
 /** Run one throttled register request and return the parsed response. */
 function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Promise<RnFeatureCollection> {
