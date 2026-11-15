@@ -9,6 +9,7 @@ import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
+import { planBranchRemoval } from "../../tools/removeBranch";
 import { branchOf, type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
 import { exportChartGedcom } from "../exportGedcom";
 import { chartSlug } from "../exportSvg";
@@ -167,6 +168,7 @@ export function ValidatePanel({
   onFixDanglingRefs,
   onFixConformance,
   onFixBatch,
+  onRemoveBranch,
   onTagTranslations,
   onEditSource,
   onEditMediaFile,
@@ -195,6 +197,8 @@ export function ValidatePanel({
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   /** Run the picked fixes as one undo step. */
   onFixBatch: (run: () => void) => void;
+  /** Delete these people — a detached branch — with all they take along. */
+  onRemoveBranch: (personIds: string[]) => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Save an edited source record — a finding on a source opens its editor. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
@@ -256,6 +260,31 @@ export function ValidatePanel({
   // up; after a batch of several kinds, how many fixes it made.
   const [picked, setPicked] = useState<Map<string, IssueRow>>(() => new Map());
   const [batchPending, setBatchPending] = useState(false);
+  // A detached branch's removal, asked about: its members and the message
+  // counting everything that goes with them.
+  const [removeAsk, setRemoveAsk] = useState<{ issue: ValidationIssue; ids: string[]; message: string } | null>(null);
+  function askRemoveBranch(issue: ValidationIssue) {
+    const plan = planBranchRemoval(dataset, branchOf(dataset, issue.id));
+    const shared = (tags: string[]) => plan.leftBehind.filter((r) => tags.includes(r.tag)).length;
+    const lines: [string, number][] = [
+      ["people", plan.people.length],
+      ["families", plan.families.length],
+      ["sources", shared(["SOUR"])],
+      ["notes", shared(["NOTE", "SNOTE"])],
+      ["media", shared(["OBJE"])],
+      ["naming", plan.naming.length],
+    ];
+    const body = lines
+      .filter(([, count]) => count > 0)
+      .map(([key, count]) => `• ${t(`tools.validate.branchGone.${key}`, { count })}`)
+      .join("\n");
+    const name = issue.subject;
+    setRemoveAsk({
+      issue,
+      ids: plan.people,
+      message: `${t("tools.validate.branchRemoveConfirm", { name })}\n\n${t("tools.validate.branchRemoveDeleted")}\n${body}`,
+    });
+  }
   const [batchDone, setBatchDone] = useState<number | null>(null);
   // Findings already repaired from their own row. The re-validate they trigger
   // runs in the worker, so the old list stays up for a moment — these rows go
@@ -1142,6 +1171,20 @@ export function ValidatePanel({
         editing={editingSource}
         standalone
       />
+      {removeAsk && (
+        <ConfirmDialog
+          message={removeAsk.message}
+          confirmLabel={t("tools.validate.branchRemove")}
+          danger
+          busy
+          onConfirm={() => {
+            const { issue, ids } = removeAsk;
+            setRemoveAsk(null);
+            runRowFix(issue, () => onRemoveBranch(ids));
+          }}
+          onCancel={() => setRemoveAsk(null)}
+        />
+      )}
       {batchPending && (
         <ConfirmDialog
           message={batchMessage}
@@ -1262,7 +1305,14 @@ export function ValidatePanel({
                       done={fixedRows.has(rowKey(row.issue))}
                       onRun={(run) => runRowFix(row.issue, run)}
                     />
-                    {row.issue.category === "island" && <BranchActions dataset={dataset} personId={row.issue.id} />}
+                    {row.issue.category === "island" && (
+                      <BranchActions
+                        dataset={dataset}
+                        personId={row.issue.id}
+                        done={fixedRows.has(rowKey(row.issue))}
+                        onRemove={() => askRemoveBranch(row.issue)}
+                      />
+                    )}
                   </li>
                 ) : (
                   <StructRow
@@ -1332,9 +1382,16 @@ function PickBox({
 }
 
 /** A detached branch's own actions, at the end of its row: download the whole
- *  branch as a GEDCOM file. The branch's members are looked up only on click —
- *  the scan carries just the youngest member and the count. */
-function BranchActions({ dataset, personId }: { dataset: Dataset; personId: string }) {
+ *  branch as a GEDCOM file, or remove it from the file. The branch's members
+ *  are looked up only on click — the scan carries just the youngest member and
+ *  the count. */
+function BranchActions({ dataset, personId, done, onRemove }: {
+  dataset: Dataset;
+  personId: string;
+  /** Removed: the row waits for the re-run health check to drop it. */
+  done: boolean;
+  onRemove: () => void;
+}) {
   const { t } = useTranslation();
   const { target } = useTargetFormat();
   // The author a branch file without a submitter is given, as in the charts.
@@ -1343,6 +1400,7 @@ function BranchActions({ dataset, personId }: { dataset: Dataset; personId: stri
     const name = dataset.individuals.get(personId)?.names[0]?.full;
     exportChartGedcom(dataset, branchOf(dataset, personId), chartSlug(name, t("tools.validate.branchFile")), target, author);
   };
+  if (done) return <span className="tools-issue-fixed">{t("tools.validate.fixOneDone")}</span>;
   return (
     <span className="tools-issue-actions">
       <button
@@ -1353,6 +1411,9 @@ function BranchActions({ dataset, personId }: { dataset: Dataset; personId: stri
         onClick={exportBranch}
       >
         <GedIcon />
+      </button>
+      <button type="button" className="tools-issue-fix" title={t("tools.validate.branchRemoveTip")} onClick={onRemove}>
+        {t("tools.validate.branchRemove")}
       </button>
     </span>
   );
