@@ -77,7 +77,6 @@ const CATEGORIES: IssueCategory[] = [
   "missingName",
   "missingSex",
   "island",
-  "detachedBranch",
   "orphan",
 ];
 

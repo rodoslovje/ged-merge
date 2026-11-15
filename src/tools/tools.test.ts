@@ -740,23 +740,24 @@ describe("validateDataset", () => {
     return people.join("") + fam;
   };
 
-  it("reports a large detached group as an info-level branch, on its youngest", () => {
+  it("reports every detached group, however large, on its youngest", () => {
     // Main tree of 14 (I1–I14), a detached branch of 11 (I101–I111) and a
-    // stray group of 3 (I201–I203).
+    // stray group of 3 (I201–I203) — smallest first.
     const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(2, 101, 9)}${family(3, 201, 1)}0 TRLR`);
     const report = validateDataset(ds, 2026);
-    const branch = report.issues.filter((i) => i.category === "detachedBranch");
-    expect(branch.map((i) => [i.id, i.severity, i.messageVars?.count])).toEqual([["@I111@", "info", 11]]);
-    expect(report.issues.filter((i) => i.category === "island").map((i) => i.id)).toEqual(["@I203@"]);
+    const found = report.issues.filter((i) => i.category === "island");
+    expect(found.map((i) => [i.id, i.severity, i.messageVars?.count])).toEqual([
+      ["@I111@", "warning", 11],
+      ["@I203@", "warning", 3],
+    ]);
   });
 
   it("takes the start person's group as the main tree", () => {
     // The start person sits in the 3-person group, so the 14-person tree is
-    // the one reported — as a detached branch — and the small group is not.
+    // the one reported and the small group is not.
     const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(3, 201, 1)}0 TRLR`);
     const report = validateDataset(ds, 2026, "@I201@");
-    expect(report.counts.island).toBe(0);
-    expect(report.issues.filter((i) => i.category === "detachedBranch").map((i) => i.id)).toEqual(["@I14@"]);
+    expect(report.issues.filter((i) => i.category === "island").map((i) => i.id)).toEqual(["@I14@"]);
     // A start person not in the file falls back to the largest group.
     expect(validateDataset(ds, 2026, "@I999@").counts.island).toBe(1);
   });

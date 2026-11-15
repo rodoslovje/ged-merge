@@ -38,15 +38,6 @@ export const AGE_LIMITS = {
 export const MIN_BIRTH_INTERVAL_MONTHS = 9;
 
 /**
- * Largest group of people, linked only to each other, still reported as a stray
- * island (a warning) rather than as a detached branch (info). A handful of
- * people who connect to nobody else is usually an import that never got
- * attached, or a duplicate of a branch already in the file; a larger group may
- * be a branch kept apart on purpose.
- */
-export const MAX_ISLAND_SIZE = 9;
-
-/**
  * Main-file health check.
  *
  * Pure, synchronous validation over the typed domain model — fast enough to run
@@ -71,7 +62,6 @@ export type IssueCategory =
   | "missingName"
   | "missingVitals"
   | "island"
-  | "detachedBranch"
   | "orphan"
   | "duplicateVital"
   | "noEventConflict"
@@ -90,11 +80,7 @@ export type IssueCategory =
   | "statedAge"
   | "association";
 
-/** `info` points at something worth a look that may well be the file's intent
- *  (a detached branch kept on purpose) rather than at a problem. */
-export type IssueSeverity = "error" | "warning" | "info";
-
-const SEVERITY_RANK: Record<IssueSeverity, number> = { error: 0, warning: 1, info: 2 };
+export type IssueSeverity = "error" | "warning";
 
 export interface ValidationIssue {
   scope: IssueScope;
@@ -151,7 +137,6 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   missingName: 0,
   missingVitals: 0,
   island: 0,
-  detachedBranch: 0,
   orphan: 0,
   duplicateVital: 0,
   noEventConflict: 0,
@@ -299,8 +284,10 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
  * one, or when it names nobody in the file, it is the largest group, and when
  * several tie for largest none of them stands out as the stray, so they all
  * stay out. A group of one is already an `orphan` finding and is dropped here,
- * so nothing is reported twice. The caller splits the rest by size: up to
- * {@link MAX_ISLAND_SIZE} a stray island, above it a detached branch.
+ * so nothing is reported twice. Every other group is reported, whatever its
+ * size: a handful of people is usually an import that never got attached or a
+ * duplicate of a branch already in the file, a larger one a branch whose link
+ * to the main tree is missing.
  *
  * Iterative breadth-first walk over `childOf`/`spouseOf` and back out through
  * each family's members — one pass over the graph, no recursion.
@@ -992,16 +979,12 @@ export function validateDataset(
   }
 
   // Groups linked only to each other — reported once, on the youngest, who is
-  // where the search for the missing link starts. A small one is a stray
-  // (warning); a larger one may be a branch kept apart on purpose (info).
+  // where the search for the missing link starts.
   for (const group of findIslands(ds, startId)) {
     const person = youngestOf(group);
-    const small = group.length <= MAX_ISLAND_SIZE;
     push({
-      scope: "individual", id: person.id, category: small ? "island" : "detachedBranch",
-      severity: small ? "warning" : "info",
-      subject: subjectOf(person), sexContext: sexOf(person),
-      messageKey: small ? "tools.validate.issue.island" : "tools.validate.issue.detachedBranch",
+      scope: "individual", id: person.id, category: "island", severity: "warning",
+      subject: subjectOf(person), sexContext: sexOf(person), messageKey: "tools.validate.issue.island",
       messageVars: { count: group.length },
     });
   }
@@ -1083,7 +1066,7 @@ export function validateDataset(
 
   // Stable, useful ordering: errors first, then by category, then by subject.
   issues.sort((a, b) => {
-    if (a.severity !== b.severity) return SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+    if (a.severity !== b.severity) return a.severity === "error" ? -1 : 1;
     if (a.category !== b.category) return a.category.localeCompare(b.category);
     return a.subject.localeCompare(b.subject);
   });
