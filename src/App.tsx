@@ -3044,6 +3044,7 @@ function AppContent() {
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
               onFixMarriageDates={(fixes) => applyToolPatches(fixMarriageDates(mainDataset, fixes), true)}
               onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }).patches, true)}
+              onEstimateBirths={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "estimateBirth" }).patches, true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
               onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, formatOverrides, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}

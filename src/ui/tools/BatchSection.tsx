@@ -452,7 +452,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                 <button className="batch-saved-load" onClick={() => loadFilter(f)} title={t("tools.batch.load")}>
                   <span className="batch-saved-name">{f.name}</span>
                   <span className={`batch-saved-count ${savedCounts[i] > 0 ? "batch-count-live" : ""}`}>
-                    ({savedCounts[i]})
+                    {savedCounts[i]}
                   </span>
                 </button>
                 {!refsResolve(f) && (
