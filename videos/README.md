@@ -60,7 +60,7 @@ people: the author and his parents under their real names, every other living
 relative under a made-up given name (the family surname stays), sex and birth
 date, with no other facts. Never record a living person's real data for a
 public video. Two additions are not from the author's tree, both for episode
-15: the 22 couples among his grandparents and their ancestors that recorded
+16: the 22 couples among his grandparents and their ancestors that recorded
 no marriage carry an undated one (`1 MARR Y`), and the two couples with a
 living partner and children (his parents, and Tanja Renko's) a made-up
 marriage date, 14 May of the year before their first child.

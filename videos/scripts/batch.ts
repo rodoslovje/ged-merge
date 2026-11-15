@@ -1,5 +1,5 @@
 /**
- * Video 15 (SCENARIJI.md, "Paketno urejanje"): pick people from the whole file
+ * Video 16 (SCENARIJI.md, "Paketno urejanje"): pick people from the whole file
  * with stacked filters, review the matches and apply one action to all of
  * them — married names, a died-young image, estimated marriage dates — and
  * save the filters, some with no action at all, as searches to run again.
@@ -168,7 +168,7 @@ async function connectMediaFolder(d: Director): Promise<void> {
 
 const scenario: Scenario = {
   id: "batch",
-  episode: 15,
+  episode: 16,
   // Married surnames shown, »Ana Novak (Kovač)«: the married-name example then reads at a glance.
   settings: (lang) => ({ ...seriesSettingsWithMaps(lang), marriedSurname: true }),
   title: {

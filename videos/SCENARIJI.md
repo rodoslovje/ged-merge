@@ -21,8 +21,8 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ |
 | 13 | Kraji in naslovi | `scripts/addresses.ts` | SL z glasom ✓ |
 | 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
-| 15 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ |
-| 16 | Pregled | — | scenarij in demo datoteka |
+| 15 | Pregled | — | scenarij in demo datoteka |
+| 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
 
@@ -577,46 +577,7 @@ Natančen govor v obeh jezikih je v `scripts/organize.ts`.
 
 ---
 
-## 15. Paketno urejanje: isti popravek na sto osebah naenkrat
-
-**Cilj:** s filtri izbrati osebe iz celotnega drevesa, preveriti zadetke in nad vsemi izvesti en
-ukrep; filtre shraniti, da jih pozneje zaženemo znova. Tudi filter brez ukrepa je uporaben —
-kot shranjeno iskanje za nadaljnje raziskovanje.
-**Podatki:** `rodbina-renko.ged` (izhodiščna oseba avtor, kot v epizodah 9 in 11). Številke
-(preverjeno 15. 11. 2026): poročene ženske brez poročnega priimka 497 (36 jih ostane neoznačenih,
-ker poroka ni zapisana); umrli pred 20. letom 185; osebe s partnerjem v zvezi s poroko brez datuma
-48 (24 parov, 21 dobi BEF, ostali ABT — avtorjevi predniki brez poroke so v demo datoteki dobili
-poroko brez datuma); ocenjeni datumi poroke po ukrepu 160 oseb; pari z otroki brez poroke 14; avtorjevi
-predniki 399, od tega 198 brez virov.
-**Slika died-young:** `icons/died-young.jpg` iz avtorjeve mape medijev (kot v epizodi 12). ·
-**Trajanje:** ~6 min
-**Naslovna slika:** oznaka »Paketno urejanje« · »En popravek, *sto* oseb« · posnetek seznama
-zadetkov s predogledom ocen.
-
-| # | Kader | Govor |
-|---|-------|-------|
-| 1 | Naslovna kartica | Nekateri popravki so enaki za sto oseb. Namesto da jih urejate eno za drugo, jih izberete s filtri in popravite naenkrat. |
-| 2 | Orodja → »Poenoti in paketno uredi« → »Paketna opravila« | Filtri izberejo osebe iz celotne datoteke, seznam pokaže zadetke, ukrep pa se izvede nad vsemi označenimi. |
-| 3 | Filtri »Spol: ženski«, »Sorodniki: ima partnerja«, »Ime: nima poročnega priimka« → 497 zadetkov | Najprej poročni priimki. Poiščimo ženske s partnerjem, ki poročnega priimka še nimajo. |
-| 4 | Ukrep »Dodaj poročni priimek po partnerju« → predogled »→ Renko«, neoznačene vrstice »poroka ni zapisana« | Vsaka vrstica vnaprej pokaže priimek, ki se bo zapisal. Kjer poroka ni zapisana, je vrstica neoznačena — ta par morda ni bil poročen. |
-| 5 | »Izvedi« → potrditev → »Spremenjenih: 456« | En klik, in priimke dobi več kot štiristo žensk. |
-| 6 | Ime »Poročni priimki« → »Shrani filter« | Filter shranimo skupaj z ukrepom. Seznam shranjenih vedno pokaže, koliko oseb trenutno ustreza. |
-| 7 | Nov filter: »Živi: ne — umrli«, »Starost: manj kot 20 let« → 185 | Drugi primer: otroci, ki so umrli mladi. Starost se šteje ob smrti. |
-| 8 | Ukrep »Pripni medij« → v iskalno polje »died« → `icons/died-young.jpg` iz mape z mediji → izvedi | Vsem pripnemo isto sličico, da jih v drevesu in na diagramih takoj prepoznamo. |
-| 9 | Filter »Mediji: nima tega medija → died-young« → 0 → shrani »Umrli mladi« | Dodamo še pogoj, da slike nimajo. Zdaj filter ne najde nikogar, ko pa vnesete novega otroka, ga bo našel. |
-| 10 | Urejanje ali diagram družine z otroki, ki so umrli mladi | Sličica je pri vsakem otroku. |
-| 11 | Filtra »Sorodniki: ima partnerja«, »Zveza: nima datuma — Poroka« → 48 (24 parov) | Tretji primer: poroke brez datuma. |
-| 12 | Ukrep »Dodaj ocenjen datum poroke (BEF, ABT)« → predogled »→ BEF 1885«, »→ ABT 1880« | Kjer ima otrok natančen datum rojstva, je poroka pred njim: BEF. Sicer je ocena ABT, iz ocenjenega rojstva otroka ali iz let rojstva zakoncev. |
-| 13 | Izvedi → shrani »Poroke brez datuma« | |
-| 14 | »Zveza: ima ocenjen datum — Poroka«, brez ukrepa → shrani »Ocenjene poroke« | Filter brez ukrepa je shranjeno iskanje. Ocene je dobro preveriti v matičnih knjigah — in če pozneje dodate starejšega otroka, ukrep oceno BEF popravi. |
-| 14a | »ima partnerja«, »ima otroke«, »Zveza: nima — Poroka« → 14, brez ukrepa → shrani »Pari brez poroke« | Tudi tem parom bi lahko dodali oceno poroke, a par morda ni bil poročen — odločitev je vaša. |
-| 15 | »Sorodstvo: neposredni prednik«, »Viri: nima virov« → 198 → shrani »Predniki brez virov« | Še en seznam nalog: od 399 prednikov jih 198 nima nobenega vira. |
-| 16 | Seznam shranjenih filtrov s številkami → »Naloži ta filter« | Shranjeni filtri ostanejo v brskalniku, ne v datoteki GEDCOM — na drugem računalniku jih ni. |
-| 17 | Zaključna kartica | |
-
----
-
-## 16. Pregled: čiščenje podatkov
+## 15. Pregled: čiščenje podatkov
 
 **Cilj:** pokazati, katere napake Pregled najde in kako jih popravite: večino z gumbom v
 samem Pregledu, nekatere v Urejanju, vse popravljive pa naenkrat. Ocena rojstva in poroke
@@ -682,6 +643,45 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 13 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
 | 14 | Ponoven pregled: »Živi nad 99 let« → Marija → »Dodaj smrt« | Popravek lahko odkrije novo težavo: z ocenjenim rojstvom je Marija zdaj starejša od 99 let. |
 | 15 | Zaključna kartica | |
+
+---
+
+## 16. Paketno urejanje: isti popravek na sto osebah naenkrat
+
+**Cilj:** s filtri izbrati osebe iz celotnega drevesa, preveriti zadetke in nad vsemi izvesti en
+ukrep; filtre shraniti, da jih pozneje zaženemo znova. Tudi filter brez ukrepa je uporaben —
+kot shranjeno iskanje za nadaljnje raziskovanje.
+**Podatki:** `rodbina-renko.ged` (izhodiščna oseba avtor, kot v epizodah 9 in 11). Številke
+(preverjeno 15. 11. 2026): poročene ženske brez poročnega priimka 497 (36 jih ostane neoznačenih,
+ker poroka ni zapisana); umrli pred 20. letom 185; osebe s partnerjem v zvezi s poroko brez datuma
+48 (24 parov, 21 dobi BEF, ostali ABT — avtorjevi predniki brez poroke so v demo datoteki dobili
+poroko brez datuma); ocenjeni datumi poroke po ukrepu 160 oseb; pari z otroki brez poroke 14; avtorjevi
+predniki 399, od tega 198 brez virov.
+**Slika died-young:** `icons/died-young.jpg` iz avtorjeve mape medijev (kot v epizodi 12). ·
+**Trajanje:** ~6 min
+**Naslovna slika:** oznaka »Paketno urejanje« · »En popravek, *sto* oseb« · posnetek seznama
+zadetkov s predogledom ocen.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Nekateri popravki so enaki za sto oseb. Namesto da jih urejate eno za drugo, jih izberete s filtri in popravite naenkrat. |
+| 2 | Orodja → »Poenoti in paketno uredi« → »Paketna opravila« | Filtri izberejo osebe iz celotne datoteke, seznam pokaže zadetke, ukrep pa se izvede nad vsemi označenimi. |
+| 3 | Filtri »Spol: ženski«, »Sorodniki: ima partnerja«, »Ime: nima poročnega priimka« → 497 zadetkov | Najprej poročni priimki. Poiščimo ženske s partnerjem, ki poročnega priimka še nimajo. |
+| 4 | Ukrep »Dodaj poročni priimek po partnerju« → predogled »→ Renko«, neoznačene vrstice »poroka ni zapisana« | Vsaka vrstica vnaprej pokaže priimek, ki se bo zapisal. Kjer poroka ni zapisana, je vrstica neoznačena — ta par morda ni bil poročen. |
+| 5 | »Izvedi« → potrditev → »Spremenjenih: 456« | En klik, in priimke dobi več kot štiristo žensk. |
+| 6 | Ime »Poročni priimki« → »Shrani filter« | Filter shranimo skupaj z ukrepom. Seznam shranjenih vedno pokaže, koliko oseb trenutno ustreza. |
+| 7 | Nov filter: »Živi: ne — umrli«, »Starost: manj kot 20 let« → 185 | Drugi primer: otroci, ki so umrli mladi. Starost se šteje ob smrti. |
+| 8 | Ukrep »Pripni medij« → v iskalno polje »died« → `icons/died-young.jpg` iz mape z mediji → izvedi | Vsem pripnemo isto sličico, da jih v drevesu in na diagramih takoj prepoznamo. |
+| 9 | Filter »Mediji: nima tega medija → died-young« → 0 → shrani »Umrli mladi« | Dodamo še pogoj, da slike nimajo. Zdaj filter ne najde nikogar, ko pa vnesete novega otroka, ga bo našel. |
+| 10 | Urejanje ali diagram družine z otroki, ki so umrli mladi | Sličica je pri vsakem otroku. |
+| 11 | Filtra »Sorodniki: ima partnerja«, »Zveza: nima datuma — Poroka« → 48 (24 parov) | Tretji primer: poroke brez datuma. |
+| 12 | Ukrep »Dodaj ocenjen datum poroke (BEF, ABT)« → predogled »→ BEF 1885«, »→ ABT 1880« | Kjer ima otrok natančen datum rojstva, je poroka pred njim: BEF. Sicer je ocena ABT, iz ocenjenega rojstva otroka ali iz let rojstva zakoncev. |
+| 13 | Izvedi → shrani »Poroke brez datuma« | |
+| 14 | »Zveza: ima ocenjen datum — Poroka«, brez ukrepa → shrani »Ocenjene poroke« | Filter brez ukrepa je shranjeno iskanje. Ocene je dobro preveriti v matičnih knjigah — in če pozneje dodate starejšega otroka, ukrep oceno BEF popravi. |
+| 14a | »ima partnerja«, »ima otroke«, »Zveza: nima — Poroka« → 14, brez ukrepa → shrani »Pari brez poroke« | Tudi tem parom bi lahko dodali oceno poroke, a par morda ni bil poročen — odločitev je vaša. |
+| 15 | »Sorodstvo: neposredni prednik«, »Viri: nima virov« → 198 → shrani »Predniki brez virov« | Še en seznam nalog: od 399 prednikov jih 198 nima nobenega vira. |
+| 16 | Seznam shranjenih filtrov s številkami → »Naloži ta filter« | Shranjeni filtri ostanejo v brskalniku, ne v datoteki GEDCOM — na drugem računalniku jih ni. |
+| 17 | Zaključna kartica | |
 
 ---
 
