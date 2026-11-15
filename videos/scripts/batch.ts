@@ -218,8 +218,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Paketna opravila", en: "Batch actions" },
       say: {
-        sl: "Odprimo izsek iz avtorjevega rodovnika. V Orodjih izberite »Poenoti in paketno uredi«. Levo filtri izberejo osebe iz celotne datoteke, desno so zadetki, izbrani ukrep pa se izvede nad vsemi označenimi.",
-        en: "Let's open the excerpt of the author's tree. In Tools, choose Normalize & batch. On the left, filters pick people from the whole file; on the right are the matches; and the action you choose is applied to every ticked one.",
+        sl: "Odprimo izsek iz avtorjevega rodovnika. V Orodjih izberite »Poenoti in paketno uredi«.",
+        en: "Let's open the excerpt of the author's tree. In Tools, choose Normalize & batch.",
       },
       run: async (d) => {
         await d.card(null, null);
@@ -232,11 +232,23 @@ const scenario: Scenario = {
         await d.click(d.page.locator(".tools-tab").nth(BATCH_TAB));
         await view(d).waitFor();
         await d.wait(800);
+      },
+    },
+    {
+      // The layout is told once the panel is on screen, each part ringed as it is named.
+      say: {
+        sl: "Levo filtri izberejo osebe iz celotne datoteke. Desno so zadetki. Izbrani ukrep pa se izvede nad vsemi označenimi.",
+        en: "On the left, filters pick people from the whole file. On the right are the matches. And the action you choose is applied to every ticked one.",
+      },
+      run: async (d) => {
         await d.highlight(view(d).locator(".batch-builder"), 4);
-        await d.wait(2200);
+        await d.wait(3200);
         await d.highlight(view(d).locator(".batch-results"), 4);
-        await d.wait(2000);
+        await d.wait(1800);
         await d.highlight(view(d).locator(".batch-action"), 4);
+        await d.untilSaid();
+        await d.wait(600);
+        await d.highlight(null);
       },
     },
     {
@@ -298,13 +310,24 @@ const scenario: Scenario = {
     {
       callout: { sl: "Umrli mladi", en: "Died young" },
       say: {
-        sl: "Drugi primer: otroci, ki so umrli mladi. Z gumbom »Počisti vse« začnemo znova. Filter »Živi« nastavimo na umrle, »Starost« pa na manj kot 20 let. Starost se pri umrlih šteje ob smrti. Najdemo 185 oseb.",
-        en: "A second example: children who died young. Clear all starts us over. We set Living to deceased and Age to less than 20 years. For the deceased, age counts at death. We find 185 people.",
+        sl: "Drugi primer: otroci, ki so umrli mladi. Z gumbom »Počisti vse« začnemo znova.",
+        en: "A second example: children who died young. Clear all starts us over.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.scrollTo(view(d).locator(".batch-builder"));
+        await d.highlight(view(d).locator(".batch-title-row .batch-bar-btn"), 4);
+        await d.wait(1500);
+        await d.highlight(null);
         await clearFilters(d);
+      },
+    },
+    {
+      say: {
+        sl: "Filter »Živi« nastavimo na umrle.",
+        en: "We set Living to deceased.",
+      },
+      run: async (d) => {
         // Recording only: the Living filter starts at "yes", which would list
         // the living people of this file for a moment — never shown in a
         // public video. The matches stay hidden until it reads "deceased".
@@ -312,11 +335,28 @@ const scenario: Scenario = {
         const living = await addFilter(d, "tools.batch.crit.living");
         await choose(d, living.locator(".batch-select").first(), L(d, "tools.batch.living.no"));
         await hide.evaluate((el) => (el as Element).remove());
+      },
+    },
+    {
+      say: {
+        sl: "Filter »Starost« pa na manj kot 20 let. Pri umrlih se starost šteje ob smrti.",
+        en: "And Age to less than 20 years. For the deceased, age counts at death.",
+      },
+      run: async (d) => {
         const age = await addFilter(d, "tools.batch.crit.age");
         // 20 years is the filter's own default: ring it rather than retype it.
         await d.highlight(age, 4);
-        await d.wait(1500);
+      },
+    },
+    {
+      say: {
+        sl: "Najdemo 185 oseb.",
+        en: "We find 185 people.",
+      },
+      run: async (d) => {
         await d.highlight(count(d), 4);
+        await d.untilSaid();
+        await d.wait(800);
       },
     },
     {
@@ -351,16 +391,24 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Dodamo še filter »Mediji« s pogojem, da te slike nimajo. Sliko poiščemo tako, da vtipkamo del imena. Zdaj ne ustreza nihče. Filter shranimo kot »Umrli mladi«: ko vnesete novega otroka, ki je umrl mlad, ga bo našel.",
-        en: "We add one more filter, Media, for people without this image; we find the image by typing part of its name. Now nobody matches. We save the filter as Died young: when you enter another child who died young, it will find them.",
+        sl: "Dodamo še filter »Mediji« s pogojem, da te slike nimajo. Sliko poiščemo tako, da vtipkamo del imena.",
+        en: "We add one more filter, Media, for people without this image; we find the image by typing part of its name.",
       },
       run: async (d) => {
         await d.scrollTo(view(d).locator(".batch-builder"));
         const media = await addFilter(d, "tools.batch.crit.media");
         await choose(d, media.locator(".batch-select").first(), L(d, "tools.batch.media.lacks"));
         await searchPick(d, media.locator(".search-select"), "died-young", "died");
+      },
+    },
+    {
+      say: {
+        sl: "Zdaj ne ustreza nihče. Filter shranimo kot »Umrli mladi«: ko vnesete novega otroka, ki je umrl mlad, ga bo našel.",
+        en: "Now nobody matches. We save the filter as Died young: when you enter another child who died young, it will find them.",
+      },
+      run: async (d) => {
         await d.highlight(count(d), 4);
-        await d.wait(1500);
+        await d.wait(1800);
         await d.highlight(null);
         await save(d, d.t({ sl: "Umrli mladi", en: "Died young" }));
       },
@@ -368,15 +416,25 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poroke brez datuma", en: "Undated marriages" },
       say: {
-        sl: "Tretji primer: poroke brez datuma. Filtru »Sorodniki: ima partnerja« dodamo filter »Zveza« z možnostjo »nima datuma« za poroko. Najde 48 oseb, torej 24 parov s poroko, ki nima datuma.",
-        en: "A third example: marriages without a date. Next to Relatives has a partner, we add the Union filter, set to has no date for Marriage. It finds 48 people: 24 couples whose marriage has no date.",
+        sl: "Tretji primer: poroke brez datuma. Filtru »Sorodniki: ima partnerja« dodamo filter »Zveza« z možnostjo »nima datuma« za poroko.",
+        en: "A third example: marriages without a date. Next to Relatives has a partner, we add the Union filter, set to has no date for Marriage.",
       },
       run: async (d) => {
         await clearFilters(d);
         await addFilter(d, "tools.batch.crit.relation");
         const union = await addFilter(d, "tools.batch.crit.familyEvent");
         await choose(d, union.locator(".batch-select").first(), L(d, "tools.batch.event.undated"));
+      },
+    },
+    {
+      say: {
+        sl: "Najde 48 oseb, torej 24 parov s poroko, ki nima datuma.",
+        en: "It finds 48 people: 24 couples whose marriage has no date.",
+      },
+      run: async (d) => {
         await d.highlight(count(d), 4);
+        await d.untilSaid();
+        await d.wait(600);
       },
     },
     {
@@ -429,8 +487,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Pari brez poroke", en: "Couples without a marriage" },
       say: {
-        sl: "Še eno iskanje: pari z otroki, ki nimajo zapisane poroke. Takih je 14. Tudi njim bi lahko dodali oceno poroke, a par morda ni bil poročen, zato o tem odločite sami. Filter shranimo brez ukrepa, kot »Pari brez poroke«.",
-        en: "One more search: couples with children and no marriage recorded. There are 14. You could give them an estimated marriage too, but a couple may never have married, so that is your decision. We save the filter without an action, as Couples without a marriage.",
+        sl: "Še eno iskanje: pari z otroki, ki nimajo zapisane poroke.",
+        en: "One more search: couples with children and no marriage recorded.",
       },
       run: async (d) => {
         await clearFilters(d);
@@ -438,8 +496,16 @@ const scenario: Scenario = {
         const kids = await addFilter(d, "tools.batch.crit.relation");
         await choose(d, kids.locator(".batch-select").first(), L(d, "tools.batch.relation.children.has"));
         await addFilter(d, "tools.batch.crit.familyEvent");
+      },
+    },
+    {
+      say: {
+        sl: "Takih je 14. Tudi njim bi lahko dodali oceno poroke, a par morda ni bil poročen, zato o tem odločite sami. Filter shranimo brez ukrepa, kot »Pari brez poroke«.",
+        en: "There are 14. You could give them an estimated marriage too, but a couple may never have married, so that is your decision. We save the filter without an action, as Couples without a marriage.",
+      },
+      run: async (d) => {
         await d.highlight(count(d), 4);
-        await d.wait(2500);
+        await d.wait(3500);
         await d.highlight(null);
         await save(d, d.t({ sl: "Pari brez poroke", en: "Couples without a marriage" }));
       },
@@ -447,8 +513,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Predniki brez virov", en: "Ancestors without sources" },
       say: {
-        sl: "Še en seznam nalog: filter »Sorodstvo« z neposrednimi predniki izhodiščne osebe in filter »Viri« z osebami brez virov. Od 399 avtorjevih prednikov jih 198 nima nobenega vira. Shranimo ga kot »Predniki brez virov« in se nanj vračamo med raziskovanjem.",
-        en: "One more to-do list: the Kinship filter set to the start person's direct ancestors, and the Sources filter set to people without sources. Of the author's 399 ancestors, 198 cite no source at all. We save it as Ancestors without sources and come back to it while researching.",
+        sl: "Še en seznam nalog: filter »Sorodstvo« z neposrednimi predniki izhodiščne osebe in filter »Viri« z osebami brez virov.",
+        en: "One more to-do list: the Kinship filter set to the start person's direct ancestors, and the Sources filter set to people without sources.",
       },
       run: async (d) => {
         await d.scrollTo(view(d).locator(".batch-builder"));
@@ -456,8 +522,16 @@ const scenario: Scenario = {
         const kin = await addFilter(d, "tools.batch.crit.kinship");
         await choose(d, kin.locator(".batch-select").first(), L(d, "tools.batch.kinship.ancestor"));
         await addFilter(d, "tools.batch.crit.sources");
+      },
+    },
+    {
+      say: {
+        sl: "Od 399 avtorjevih prednikov jih 198 nima nobenega vira. Shranimo ga kot »Predniki brez virov« in se nanj vračamo med raziskovanjem.",
+        en: "Of the author's 399 ancestors, 198 cite no source at all. We save it as Ancestors without sources and come back to it while researching.",
+      },
+      run: async (d) => {
         await d.highlight(count(d), 4);
-        await d.wait(2500);
+        await d.wait(3000);
         await d.highlight(null);
         await save(d, d.t({ sl: "Predniki brez virov", en: "Ancestors without sources" }));
       },

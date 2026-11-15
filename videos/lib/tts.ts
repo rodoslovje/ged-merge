@@ -63,6 +63,11 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\b([Gg])rob\b/g, "$1ròb"],
     // Episode 15: the voice reads a bare "spol" as "spou"; the accent keeps the l.
     [/\b([Ss])pol\b/g, "$1pòl"],
+    // The Living filter is »Žívi«, stressed on the first i.
+    [/»Živi«/g, "»Žívi«"],
+    // "umrli" / "umrl" are stressed on the u: »Úmrli mladi«.
+    [/\bUmrl(i|e|ih)?\b/g, "Úmrl$1"],
+    [/\bumrl(i|e|ih)?\b/g, "úmrl$1"],
     // The GEDCOM date keywords are said as words, quickly — in capitals the
     // voice spells them letter by letter.
     [/\bABT\b/g, "abt"],
