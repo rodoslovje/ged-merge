@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
@@ -38,6 +38,8 @@ import { useVirtualList } from "../useVirtualList";
 import { DropdownMenu, SelectMenu, type DropdownGroup } from "../DropdownMenu";
 import { useConfirmDialog } from "../useConfirmDialog";
 import { SearchSelect } from "../SearchSelect";
+import { useMediaFolder } from "../MediaFolderContext";
+import { basename, sameMediaFile } from "../mediaPath";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -191,6 +193,33 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     })).map((o) => ({ ...o, key: mediaOptionKey(o) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [dataset, ver]);
+
+  /** Images in the connected media folder that the file does not use yet —
+   *  offered by the attach action beside the file's own, so a picture already
+   *  in the folder is picked rather than its path typed. Re-read when the
+   *  panel shows, so files copied in meanwhile appear. */
+  const { listMediaFiles } = useMediaFolder();
+  const [folderPaths, setFolderPaths] = useState<string[]>([]);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    listMediaFiles().then((paths) => {
+      if (!cancelled) setFolderPaths(paths);
+    }, () => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [active, listMediaFiles]);
+  const folderMediaOptions = useMemo<MediaOption[]>(() => {
+    const byName = new Map<string, MediaOption[]>();
+    for (const o of mediaOptions) {
+      const name = basename(o.file).toLowerCase();
+      byName.set(name, [...(byName.get(name) ?? []), o]);
+    }
+    return folderPaths
+      .filter((p) => !(byName.get(basename(p).toLowerCase()) ?? []).some((o) => sameMediaFile(o.file, p)))
+      .map((file) => ({ key: mediaOptionKey({ file }), file }));
+  }, [folderPaths, mediaOptions]);
 
   const sourceOptions = useMemo(() => {
     const list: Array<{ xref: string; title: string }> = [];
@@ -482,6 +511,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
         <ActionEditor
           action={action}
           mediaOptions={mediaOptions}
+          folderMediaOptions={folderMediaOptions}
           sourceOptions={sourceOptions}
           vendorEventOptions={vendorEventOptions}
           onChange={changeAction}
@@ -925,12 +955,15 @@ function MediaSelect({
 function ActionEditor({
   action,
   mediaOptions,
+  folderMediaOptions,
   sourceOptions,
   vendorEventOptions,
   onChange,
 }: {
   action: BatchActionSpec | null;
   mediaOptions: MediaOption[];
+  /** Folder images the file does not use yet — attachable, never removable. */
+  folderMediaOptions: MediaOption[];
   sourceOptions: Array<{ xref: string; title: string }>;
   /** Non-standard event tags present in the file — the convert action's sources. */
   vendorEventOptions: string[];
@@ -960,10 +993,11 @@ function ActionEditor({
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
   // "new image" choice — picking an existing option clears the title again.
+  const attachable = [...mediaOptions, ...folderMediaOptions];
   const mediaPick =
     action && (action.kind === "addMedia" || action.kind === "removeMedia")
       ? action.xref || action.file
-        ? mediaPickValue(action, mediaOptions)
+        ? mediaPickValue(action, action.kind === "addMedia" ? attachable : mediaOptions)
         : action.kind === "addMedia" && action.title !== undefined
           ? NEW_KEY
           : ""
@@ -989,7 +1023,7 @@ function ActionEditor({
         <>
           <MediaSelect
             value={mediaPick}
-            options={mediaOptions}
+            options={attachable}
             allowNew
             onPick={(o) =>
               o.file === "" && o.xref === undefined
