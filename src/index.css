@@ -2632,6 +2632,10 @@ button:focus-visible {
   grid-template-columns: repeat(auto-fill, var(--sibling-w));
   gap: 8px;
 }
+/* A phone: two even columns, so a long name never leaves one box per row. */
+@media (max-width: 560px) {
+  .edit-sibling-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .edit-sibling {
   display: flex;
   flex-direction: column;
