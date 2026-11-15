@@ -738,18 +738,6 @@ export const FamilySection = memo(function FamilySection({
             />
           )}
           {fam && (
-            <PrivateToggle
-              on={!!fam.private}
-              merge={mergePreview?.private}
-              t={t}
-              target={t("edit.privateTarget.family")}
-              onToggle={() => mergePreview?.private
-                ? famMergeActions("private").onSkip()
-                : commitFamily(fam, (f) =>
-                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), writeVersionOf(formatOverrides)))}
-            />
-          )}
-          {fam && (
             <button
               type="button"
               className="edit-name-chip edit-name-chip-add"
@@ -768,6 +756,19 @@ export const FamilySection = memo(function FamilySection({
             >
               + {t("edit.addLink")}
             </button>
+          )}
+          {/* The privacy lock ends the row, after the chips that add. */}
+          {fam && (
+            <PrivateToggle
+              on={!!fam.private}
+              merge={mergePreview?.private}
+              t={t}
+              target={t("edit.privateTarget.family")}
+              onToggle={() => mergePreview?.private
+                ? famMergeActions("private").onSkip()
+                : commitFamily(fam, (f) =>
+                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), writeVersionOf(formatOverrides)))}
+            />
           )}
         </div>
       </div>
