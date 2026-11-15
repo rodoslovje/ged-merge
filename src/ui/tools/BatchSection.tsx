@@ -40,6 +40,7 @@ import { useConfirmDialog } from "../useConfirmDialog";
 import { SearchSelect } from "../SearchSelect";
 import { useMediaFolder } from "../MediaFolderContext";
 import { basename, sameMediaFile } from "../mediaPath";
+import { ToolsIntro } from "./shared";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -437,7 +438,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   return (
     <div className="batch-section">
       {confirmDialogElement}
-      <p className="tools-intro">{t("tools.batch.intro")}</p>
+      <ToolsIntro>{t("tools.batch.intro")}</ToolsIntro>
 
       {/* Saved filters, filters, action and save in the left column, the
           matches beside them on the right (below them on a narrow screen). */}
