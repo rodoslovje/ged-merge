@@ -45,3 +45,15 @@ export function enumValuesAt(version: "5.5.1" | "7.0", path: readonly string[]):
   if (!payload || !/^[EL]:/.test(payload)) return undefined;
   return table.enums.get(payload.slice(2));
 }
+
+/**
+ * Whether the line at `path` — the tags from the level-0 record down to the
+ * line's own, `["INDI", "ASSO"]` — carries a pointer in `version`. Only such a
+ * line can stand as 7.0's `@VOID@`: a 7.0 `NOTE` is text, so a `NOTE @N1@`
+ * there names no record to void.
+ */
+export function takesPointerAt(version: "5.5.1" | "7.0", path: readonly string[]): boolean {
+  const table = tableOf(version);
+  const id = structAt(table, path);
+  return !!id && !!table.structs.get(id)?.payload.startsWith("@");
+}

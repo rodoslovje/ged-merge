@@ -1038,14 +1038,27 @@ function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
   });
 }
 
-function voidAsNote(node: GedNode): GedNode | undefined {
-  const phrase = firstChild(node, "PHRASE")?.value?.trim();
+/**
+ * A pointer to a record the file does not hold, as a 5.5.1 note: the text that
+ * says who it was (7.0's `PHRASE`; failing that, an association's own text
+ * notes, which a 5.5.1 file writes for an associate it has no record of),
+ * with an association's role after it. Undefined when nothing says who it was.
+ * Also the health check's repair of a dangling 5.5.1 `ASSO` (fixDanglingRefs).
+ */
+export function voidAsNote(node: GedNode): GedNode | undefined {
+  const isAsso = node.tag === "ASSO";
+  let phrase = firstChild(node, "PHRASE")?.value?.trim();
+  const ownNotes = !phrase && isAsso
+    ? node.children.filter((c) => c.tag === "NOTE" && c.value?.trim() && !c.value.trim().startsWith("@") && !c.children.length)
+    : [];
+  if (ownNotes.length) phrase = ownNotes.map((c) => c.value!.trim()).join("\n");
   if (!phrase) return undefined;
-  const role = node.tag === "ASSO" ? firstChild(node, "ROLE") : undefined;
-  const roleText = role && (firstChild(role, "PHRASE")?.value?.trim() || ROLE_TO_RELA[role.value?.trim().toUpperCase() ?? ""]);
+  const role = isAsso ? firstChild(node, "ROLE") : undefined;
+  const rela = isAsso ? firstChild(node, "RELA")?.value?.trim() : undefined;
+  const roleText = (role && (firstChild(role, "PHRASE")?.value?.trim() || ROLE_TO_RELA[role.value?.trim().toUpperCase() ?? ""])) || rela;
   const note = plain("NOTE", roleText ? `${phrase} (${roleText})` : phrase);
   note.level = node.level;
-  note.children = node.children.filter((c) => c.tag !== "PHRASE" && c.tag !== "ROLE");
+  note.children = node.children.filter((c) => c.tag !== "PHRASE" && c.tag !== "ROLE" && c.tag !== "RELA" && !ownNotes.includes(c));
   return note;
 }
 
@@ -1072,7 +1085,11 @@ function upgradeTextCitation(node: GedNode, ctx: MigrateCtx): void {
   report(ctx, node, before);
 }
 
-function voidCitation(node: GedNode): GedNode | undefined {
+/** A citation of a source the file does not hold, as 5.5.1's text citation:
+ *  its `PAGE` as the text, its transcript as `TEXT`. Rewrites `node` in place;
+ *  undefined when neither says anything. Also the health check's repair of a
+ *  dangling 5.5.1 `SOUR` (fixDanglingRefs). */
+export function voidCitation(node: GedNode): GedNode | undefined {
   const page = firstChild(node, "PAGE")?.value?.trim();
   const texts = firstChild(node, "DATA")?.children.filter((c) => c.tag === "TEXT") ?? [];
   if (!page && texts.length === 0) return undefined;

@@ -1964,7 +1964,7 @@ describe("fixDanglingRefs", () => {
 1 TITL Parish register
 0 TRLR`;
 
-  it("drops every dangling pointer except the ones the broken-links fix owns", () => {
+  it("repairs or drops every dangling pointer except the ones the broken-links fix owns", () => {
     const ds = dataset(FILE);
     // @F9@ is the record-level FAMC (a brokenLink finding); the rest are this
     // fix's: the ADOP's nested FAMC, the citation, the media link.
@@ -1978,12 +1978,14 @@ describe("fixDanglingRefs", () => {
     const tags = (node: { children: { tag: string; value?: string }[] }) =>
       node.children.map((c) => `${c.tag}${c.value ? ` ${c.value}` : ""}`);
     // The good citation, the record-level FAMC and the vendor subtree stay; the
-    // dangling OBJE and the ADOP's FAMC are gone.
+    // dangling OBJE and the ADOP's FAMC carried nothing, so they are gone.
     expect(tags(indi.raw)).toEqual([
       "NAME Bo /Horvat/", "SEX M", "FAMC @F9@", "ADOP", "BIRT", "SOUR @S1@", "_CUSTOM @X9@",
     ]);
     const birt = indi.raw.children.find((c) => c.tag === "BIRT")!;
-    expect(tags(birt)).toEqual(["DATE 1900"]); // the citation went with its PAGE
+    // A 5.5.1 file: the citation of the missing source is a text citation now,
+    // its PAGE the text.
+    expect(tags(birt)).toEqual(["DATE 1900", "SOUR p. 12"]);
     expect(countDanglingRefs(ds)).toBe(0);
     // Untouched: the family link is still the broken-links fix's to remove.
     expect(indi.childOf).toEqual(["@F9@"]);
