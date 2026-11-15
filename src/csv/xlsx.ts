@@ -181,7 +181,8 @@ function decodeXmlText(text: string): string {
   return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (whole, body: string) => {
     if (body[0] === "#") {
       const code = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : Number(body.slice(1));
-      return Number.isFinite(code) && code > 0 ? String.fromCodePoint(code) : whole;
+      // Beyond U+10FFFF `fromCodePoint` throws, which would abort the import.
+      return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
     }
     return ENTITIES[body.toLowerCase()] ?? whole;
   });
