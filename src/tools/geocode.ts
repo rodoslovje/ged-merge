@@ -242,6 +242,11 @@ export function confidentCandidate(candidates: GazCandidate[]): boolean {
  *  depends on nothing but the string. */
 const registerAddressCache = new Map<string, boolean>();
 
+/** Entries {@link registerAddressCache} may hold before it is emptied and
+ *  refilled: it lives for the session and would otherwise keep every place
+ *  value of every file loaded into it. */
+export const REGISTER_ADDRESS_CACHE_MAX = 100_000;
+
 /**
  * Whether this place value is itself a house address the register can resolve —
  * it names a house number ("Črni vrh 35", "Kranj (Slovenija), Stražišče 114"),
@@ -258,6 +263,7 @@ export function isRegisterAddress(value: string): boolean {
   const cached = registerAddressCache.get(value);
   if (cached !== undefined) return cached;
   const answer = !!placeAddressDetail(decomposePlace(value)) && rnQueriesFrom(value, undefined).length > 0;
+  if (registerAddressCache.size >= REGISTER_ADDRESS_CACHE_MAX) registerAddressCache.clear();
   registerAddressCache.set(value, answer);
   return answer;
 }
