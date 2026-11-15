@@ -196,6 +196,73 @@ describe("extractBranch", () => {
     });
   });
 
+  describe("pointers the branch cannot keep as they are", () => {
+    // @I1@ was sealed to the parents of @F1@, which a branch of @I1@ and his
+    // wife @I2@ leaves out; his birth cites a source the file does not record.
+    const file = (version: "5.5.1" | "7.0") => [
+      "0 HEAD",
+      "1 SOUR TEST",
+      "1 GEDC",
+      ...(version === "7.0" ? ["2 VERS 7.0"] : ["2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8", "1 SUBM @U1@"]),
+      ...(version === "7.0" ? [] : ["0 @U1@ SUBM", "1 NAME Tester"]),
+      "0 @I1@ INDI",
+      "1 NAME Janez /Novak/",
+      "1 FAMC @F1@",
+      "1 FAMS @F2@",
+      "1 SLGC",
+      "2 DATE 1 JAN 1950",
+      "2 FAMC @F1@",
+      ...(version === "7.0"
+        ? ["1 BIRT", "2 DATE 1 JAN 1900", "2 SOUR @VOID@", "3 PAGE Parish book, p. 12", "1 ASSO @VOID@", "2 PHRASE Ana Kos", "2 ROLE GODP"]
+        : []),
+      "0 @I2@ INDI",
+      "1 NAME Neža /Dolenc/",
+      "1 FAMS @F2@",
+      "0 @I3@ INDI",
+      "1 NAME Franc /Novak/",
+      "1 FAMS @F1@",
+      "0 @F1@ FAM",
+      "1 HUSB @I3@",
+      "1 CHIL @I1@",
+      "0 @F2@ FAM",
+      "1 HUSB @I1@",
+      "1 WIFE @I2@",
+      "0 TRLR",
+    ].join("\n") + "\n";
+    const person = (records: GedNode[]) => records.find((r) => r.xref === "@I1@")!;
+
+    it("keeps a 7.0 @VOID@ citation and association with their lines", () => {
+      const { records } = extractBranch(buildFromText(file("7.0")), ["@I1@", "@I2@"]);
+      const i1 = person(records);
+      const birt = i1.children.find((c) => c.tag === "BIRT")!;
+      const sour = birt.children.find((c) => c.tag === "SOUR");
+      expect(sour?.value).toBe("@VOID@");
+      expect(sour?.children.map((c) => [c.tag, c.value])).toEqual([["PAGE", "Parish book, p. 12"]]);
+      const asso = i1.children.find((c) => c.tag === "ASSO");
+      expect(asso?.value).toBe("@VOID@");
+      expect(asso?.children.map((c) => c.tag)).toEqual(["PHRASE", "ROLE"]);
+      expect(validateConformance({ records })).toEqual([]);
+    });
+
+    it("points a 7.0 sealing to a family left out at @VOID@", () => {
+      const { records } = extractBranch(buildFromText(file("7.0")), ["@I1@", "@I2@"]);
+      const slgc = person(records).children.find((c) => c.tag === "SLGC");
+      expect(slgc?.children.map((c) => [c.tag, c.value])).toEqual([["DATE", "1 JAN 1950"], ["FAMC", "@VOID@"]]);
+      expect(validateConformance({ records })).toEqual([]);
+    });
+
+    it("drops a 5.5.1 sealing to a family left out, which it cannot point to", () => {
+      const { records } = extractBranch(buildFromText(file("5.5.1")), ["@I1@", "@I2@"]);
+      expect(person(records).children.map((c) => c.tag)).toEqual(["NAME", "FAMS"]);
+      expect(validateConformance({ records })).toEqual([]);
+    });
+
+    it("writes the sealing in the version it is exported in", () => {
+      const { records } = extractBranch(buildFromText(file("7.0")), ["@I1@", "@I2@"], { version: "5.5.1" });
+      expect(person(records).children.some((c) => c.tag === "SLGC")).toBe(false);
+    });
+  });
+
   it("does not touch the source dataset", () => {
     const ds = buildFromText(BASE);
     const before = serializeGedcom(ds.records);

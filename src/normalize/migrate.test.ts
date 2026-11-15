@@ -7,6 +7,7 @@ import { inferMainProfile } from "./profile";
 import { normalizeDataset } from "./normalize";
 import { migrateVersion } from "./migrate";
 import { serializeGedcom } from "../gedcom/serialize";
+import { validateConformance } from "../tools/conformance/conformance";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -30,6 +31,14 @@ function record(records: GedNode[], xref: string): GedNode {
   const rec = records.find((r) => r.xref === xref);
   expect(rec, `record ${xref}`).toBeDefined();
   return rec!;
+}
+
+/** Conformance findings on media-type lines other than their value's case
+ *  (MEDI's 7.0 casing is a separate conversion). */
+function placement(records: GedNode[]) {
+  return validateConformance({ records }).filter(
+    (i) => i.messageKey !== "tools.validate.struct.issue.enumCase" && /TYPE|MEDI/.test(JSON.stringify(i)),
+  );
 }
 
 describe("migrateVersion 5.5.1 → 7.0", () => {
@@ -235,6 +244,34 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     expect(files.map((f) => childValue(f, "FORM"))).toEqual(["image/vnd.djvu", "application/x-xyz"]);
     migrateVersion(records, "7.0", "5.5.1", () => {});
     expect(files.map((f) => childValue(f, "FORM"))).toEqual(["djvu", "xyz"]);
+  });
+
+  it("renames TYPE to MEDI and back whatever the FORM value is", () => {
+    const body =
+      "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM image/jpeg\n3 TYPE photo\n" +
+      "0 @M2@ OBJE\n1 FILE b.jpg\n2 FORM\n3 TYPE photo\n" +
+      "0 @M3@ OBJE\n1 FILE c.jpg\n2 FORM jpg\n3 TYPE photo\n";
+    const { records } = migrated("5.5.1", body, "7.0");
+    for (const xref of ["@M1@", "@M2@", "@M3@"]) {
+      const form = firstChild(firstChild(record(records, xref), "FILE")!, "FORM")!;
+      expect(form.children.map((c) => c.tag), xref).toEqual(["MEDI"]);
+    }
+    const head70 = records.find((r) => r.tag === "HEAD")!;
+    firstChild(firstChild(head70, "GEDC")!, "VERS")!.value = "7.0";
+    expect(placement(records)).toEqual([]);
+
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    for (const xref of ["@M1@", "@M2@", "@M3@"]) {
+      const form = firstChild(firstChild(record(records, xref), "FILE")!, "FORM")!;
+      expect(form.children.map((c) => c.tag), xref).toEqual(["TYPE"]);
+    }
+    firstChild(firstChild(head70, "GEDC")!, "VERS")!.value = "5.5.1";
+    expect(placement(records)).toEqual([]);
+
+    // A 7.0 file whose FORM is not a MIME type still goes back to TYPE.
+    const back = migrated("7.0", "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n3 MEDI PHOTO\n", "5.5.1").records;
+    const form = firstChild(firstChild(record(back, "@M1@"), "FILE")!, "FORM")!;
+    expect(form.children.map((c) => c.tag)).toEqual(["TYPE"]);
   });
 
   it("does not touch the header", () => {

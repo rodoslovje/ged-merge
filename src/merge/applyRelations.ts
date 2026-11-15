@@ -944,7 +944,7 @@ export function applyIndividualFamilies(
     const famPrivateKey = `${famKey}.private`;
     if (wantsIncoming(rows, fields, famPrivateKey)) {
       const choice = fields[famPrivateKey] ?? "incoming";
-      if (applyPrivateFlag(famNode, ctx.records)) {
+      if (applyPrivateFlag(famNode, ctx.records, ctx.linkPlacement.overrides)) {
         ctx.report.changes.push({
           recordId: famNode.xref!,
           field: ctx.t("field.private"),

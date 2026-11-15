@@ -100,7 +100,11 @@ function canonicalRelation(value: string | undefined): "birth" | "adopted" | "fo
 
 /** Convert agreeing `_FREL`/`_MREL` pairs under `FAM.CHIL` into standard
  *  `PEDI` on the child's `FAMC` link (or drop the default birth/birth pair). */
-export function normalizePedigree(records: GedNode[]): FamilyStatusChange[] {
+export function normalizePedigree(
+  records: GedNode[],
+  /** The version the PEDI is written in: 7.0's enumeration is uppercase. */
+  version: "5.5.1" | "7.0" = "5.5.1",
+): FamilyStatusChange[] {
   const changes: FamilyStatusChange[] = [];
   const byXref = new Map<string, GedNode>();
   for (const r of records) if (r.xref) byXref.set(r.xref, r);
@@ -124,15 +128,16 @@ export function normalizePedigree(records: GedNode[]): FamilyStatusChange[] {
         .filter(Boolean)
         .join(" + ");
 
+      const pedi = version === "7.0" ? rel.toUpperCase() : rel;
       if (rel !== "birth") {
         // Write the standard PEDI on the child's FAMC link (never overwrite one).
         const indi = chil.value ? byXref.get(chil.value.trim()) : undefined;
         const famc = indi?.children.find((c) => c.tag === "FAMC" && c.value?.trim() === fam.xref);
         if (!famc) continue;
         if (!famc.children.some((c) => c.tag === "PEDI")) {
-          famc.children.unshift({ level: 0, tag: "PEDI", value: rel, children: [] });
+          famc.children.unshift({ level: 0, tag: "PEDI", value: pedi, children: [] });
         }
-        changes.push({ before: label, after: `PEDI ${rel}` });
+        changes.push({ before: label, after: `PEDI ${pedi}` });
       } else {
         // birth/birth is the default relationship — the tags say nothing.
         changes.push({ before: label, after: "(removed — default)" });

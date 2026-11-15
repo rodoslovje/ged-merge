@@ -1,6 +1,6 @@
 import { decodeGedcom, type DecodeResult } from "./decode";
 import { runSteps, type Steps } from "./steps";
-import { isPointer } from "./uri";
+import { isPointer, isPointerNode } from "./uri";
 import type { GedNode, GedcomVersion, ParseResult, ParseWarning } from "./types";
 
 // Leading whitespace is tolerated: 5.5.1 asks readers to accept an indented
@@ -186,8 +186,13 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     // exporters do) is remembered as such, so an untouched value saves the way
     // it was read (see `GedNode.atBare`).
     const atStyle = legacyAt && value !== undefined ? atStyleOf(value) : undefined;
+    // Escaped text that decodes to a pointer's shape (`@@I1@`) is still text;
+    // the node remembers it (see `GedNode.atText`).
+    let atText = false;
     if (value !== undefined && value.includes("@@")) {
+      const raw = value;
       value = legacyAt ? value.replace(/@@/g, "@") : value.startsWith("@@") ? value.slice(1) : value;
+      atText = value !== raw && isPointer(value.trim());
     }
 
     // CONT (new line) and CONC (no separator) extend the parent's value.
@@ -251,6 +256,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     if (value !== undefined) node.value = value;
     if (spelling) node.spelling = spelling;
     if (value === "") node.spaced = true;
+    if (atText) node.atText = value;
     if (atStyle === "bare") node.atBare = value;
     else if (atStyle === "doubled") atMixed.add(node);
 
@@ -291,8 +297,8 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     stack.length = level + 1; // discard deeper, now-stale entries
     // A pointer (`1 NOTE @N1@`) holds no text to continue: folding the next
     // stray line into it would turn `3 DATE 1900` into note text.
-    textBlob = (tag === "TEXT" || tag === "NOTE") && !(value && isPointer(value.trim())) ? node : undefined;
-    lastText = value && !isPointer(value.trim()) ? node : undefined;
+    textBlob = (tag === "TEXT" || tag === "NOTE") && !isPointerNode(node) ? node : undefined;
+    lastText = value && !isPointerNode(node) ? node : undefined;
   }
 
   // A photo, a zip, a .docx, an empty file: none of it is GEDCOM, yet every

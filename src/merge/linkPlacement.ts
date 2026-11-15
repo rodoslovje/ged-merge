@@ -730,9 +730,10 @@ function childOrderOf(record: GedNode): string[] {
 }
 
 /** A strict target format never writes `WWW` on a record, which neither
- *  version allows there: the record-level link extension instead. */
+ *  version allows there, nor Family Historian's `_WEBTAG`, which the health
+ *  check reports as a dialect form: the record-level link extension instead. */
 function strictLinkFormat(format: LinkFormat, overrides?: FormatOverrides): LinkFormat {
-  return overrides?.standard && format === "WWW" ? "_URL" : format;
+  return overrides?.standard && (format === "WWW" || format === "WEBTAG") ? "_URL" : format;
 }
 
 /**

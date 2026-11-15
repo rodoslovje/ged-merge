@@ -1177,6 +1177,53 @@ describe("mergeDecisions — links", () => {
     expect(report.changes).toHaveLength(0);
   });
 
+  it("writes a strict target's private flag as RESN, not the file's _PRIV", () => {
+    const main = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 _PRIV Y\n",
+    ));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESN privacy\n"));
+    const strict = { standard: "5.5.1" as const, privacy: "RESN" as const };
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr, [], strict).records);
+    const janez = out.split("0 @I1@ INDI")[1]!.split("\n0 ")[0]!;
+    expect(janez).toContain("1 RESN privacy");
+    expect(janez).not.toContain("_PRIV");
+  });
+
+  it("writes a strict 7.0 target's FamilySearch id as EXID, not the record's _FID", () => {
+    const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+    const main = dataset(wrap7("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _FID AAAA-111\n"));
+    const compare = dataset(wrap7("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _FID BBBB-222\n"));
+    const { records } = mergeDecisions(main, compare, confirmed({ fsid: "both" }), NO_MATCHES, tr, [], { standard: "7.0" });
+    const out = serializeGedcom(records);
+    expect(out).toMatch(/1 EXID BBBB-222/);
+    expect(out).not.toContain("_FID BBBB-222");
+  });
+
+  it("writes a strict 7.0 target's carried _UID as the standard UID", () => {
+    const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+    const main = dataset(wrap7("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(wrap7(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 _UID 0C4F6E2A-1B2C-4D5E-8F90-123456789ABC\n",
+    ));
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr, [], { standard: "7.0" }).records);
+    expect(out).toContain("1 UID 0C4F6E2A-1B2C-4D5E-8F90-123456789ABC");
+    expect(out).not.toContain("_UID");
+  });
+
+  it("writes a strict target's record link as _URL even when the main uses _WEBTAG", () => {
+    const main = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _WEBTAG\n2 URL https://example.com/old\n"),
+    );
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ links: "both" }), NO_MATCHES, tr, [], { standard: "5.5.1" });
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 _URL https://example.com/new");
+    expect(out).not.toContain("2 URL https://example.com/new");
+  });
+
   it("adds a new incoming link as a _WEBTAG block when the main uses that format", () => {
     const main = dataset(
       wrap(

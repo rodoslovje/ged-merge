@@ -388,8 +388,6 @@ export function fixConformance(
           const tag = issue.sample!;
           const first = node.children.find((c) => c.tag === tag);
           node.children = node.children.filter((c) => c === first || c.tag !== tag || !nodesEqual(c, first!));
-        } else if (issue.category === "missingLine" && issue.fix !== undefined) {
-          node.children.unshift({ level: node.level + 1, tag: issue.sample!, value: issue.fix, children: [] });
         } else if (issue.toNote && node.value) {
           const text = node.value.trim();
           if (!node.children.some((c) => c.tag === "NOTE" && c.value?.trim() === text)) {

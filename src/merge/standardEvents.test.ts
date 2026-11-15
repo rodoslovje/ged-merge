@@ -193,6 +193,20 @@ describe("LDS ordinances: BAPL, CONL, ENDL, SLGC, SLGS", () => {
     expect(out).not.toContain("@G1@");
   });
 
+  it("seals to the birth family the same merge creates for a person who had none", () => {
+    const main = dataset(wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1900\n"));
+    const compare = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1900\n1 FAMC @G1@\n" +
+      "1 SLGC\n2 DATE 1960\n2 TEMP LOGAN\n2 FAMC @G1@\n" +
+      "0 @P2@ INDI\n1 NAME Peter /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+      "0 @G1@ FAM\n1 HUSB @P2@\n1 CHIL @P1@\n",
+    ));
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed("@I1@", "@P1@"), NO_MATCHES, tr).records);
+    const famc = /^1 FAMC (@[^@]+@)$/m.exec(out.split("0 @I1@ INDI")[1]!)?.[1];
+    expect(famc).toBeDefined();
+    expect(out).toContain(`1 SLGC\n2 DATE 1960\n2 TEMP LOGAN\n2 FAMC ${famc}\n`);
+  });
+
   it("imports a family's sealing to spouse with its temple and status", () => {
     const people = (p: string, f: string) =>
       `0 @${p}1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @${f}@\n0 @${p}2@ INDI\n1 NAME Marija /Kos/\n1 SEX F\n1 FAMS @${f}@\n`;
@@ -239,6 +253,15 @@ describe("LDS ordinances: BAPL, CONL, ENDL, SLGC, SLGS", () => {
       expect(out).toMatch(/1 SLGC\n2 DATE 1960\n2 TEMP LOGAN\n1 FAMC @F1@\n/);
       expect(out).not.toContain("@G2@");
       expect(dangling(out)).toEqual([]);
+      expect(report.deferred).toContainEqual(expect.objectContaining({ field: "event.SLGC", reason: "merge.reason.sealingFamilyMissing" }));
+    });
+
+    it("keeps the required FAMC as @VOID@ in 7.0 when the family did not come across", () => {
+      const to7 = (ds: ReturnType<typeof dataset>) =>
+        dataset(serializeGedcom(ds.records).replace("2 VERS 5.5.1\n1 CHAR UTF-8\n", "2 VERS 7.0\n"));
+      const { records, report } = mergeDecisions(to7(main), to7(compare("@G2@")), decisions, matches, tr);
+      const out = serializeGedcom(records);
+      expect(out).toMatch(/1 SLGC\n2 DATE 1960\n2 TEMP LOGAN\n2 FAMC @VOID@\n/);
       expect(report.deferred).toContainEqual(expect.objectContaining({ field: "event.SLGC", reason: "merge.reason.sealingFamilyMissing" }));
     });
   });

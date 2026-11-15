@@ -1,5 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
+import { relevel } from "../gedcom/mediaForm";
 import { contentStamp, familiesNaming, memoOnContent, removeIndividual } from "../gedcom/edit";
 import { recordsNaming, remapMergedAssociations } from "../gedcom/assoc";
 import type { MatchResult } from "../match/types";
@@ -501,12 +502,15 @@ function addFor(
     sourXrefMap,
   );
   importSourRecords(records, compare, sourXrefMap, report.customTags);
-  remapSealingFamilies(people, records, compare, (incomingId) => ctx.resolved(incomingId));
+  remapSealingFamilies(people, records, compare, (incomingId) => ctx.resolved(incomingId), main.version);
   remapMergedAssociations(people, (incomingId) => ctx.resolved(incomingId));
   fillAddedPlaceCoords(people, records);
 
   const patches: RecordPatch[] = [];
+  // The lines the merge built carry `level: 0` wherever they sit; set them
+  // from depth on what goes into the main (see `relevelRecords`).
   const changed = (type: "individual" | "family" | "record", id: string, live: GedNode, copy: GedNode) => {
+    relevel(copy, 0);
     if (JSON.stringify(live) !== JSON.stringify(copy)) patches.push({ type, id, before: cloneNode(live), after: copy });
   };
   for (const id of individuals.copied) changed("individual", id, main.individuals.get(id)!.raw, individuals.get(id)!);
@@ -518,6 +522,7 @@ function addFor(
     if (live) changed("record", r.xref, live, r);
     else if (!liveIds.has(r.xref)) {
       const type = r.tag === "INDI" ? "individual" : r.tag === "FAM" ? "family" : "record";
+      relevel(r, 0);
       patches.push({ type, id: r.xref, before: null, after: r });
     }
   }

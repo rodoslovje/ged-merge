@@ -125,7 +125,7 @@ export function normalizeDataset(
     // (`2 DATE __.__.____`) only disappears in that walk — consolidating
     // first left a stray `_NMR` that the next load would then remove,
     // breaking normalize's fixed-point guarantee.
-    for (const change of [...normalizePedigree(records), ...convertUpdToChan(editable)]) {
+    for (const change of [...normalizePedigree(records, versionFamily(profile.version)), ...convertUpdToChan(editable)]) {
       report.vendorTagsRenamed++;
       record(report.vendorTagExamples, seenVendor, change.before, change.after);
     }
@@ -165,6 +165,8 @@ export function normalizeDataset(
   }
 
   walkNodes(editable, (node) => {
+    // CHAN/CREA change stamps hold the program's own exact dates: never restyle them.
+    if (node.tag === "CHAN" || node.tag === "CREA") return false;
     if (node.value === undefined) return;
     if (node.tag === "DATE") {
       if (!options.dates) return;

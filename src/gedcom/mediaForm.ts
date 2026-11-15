@@ -63,6 +63,14 @@ export function relevel(node: GedNode, level: number): void {
   for (const c of node.children) relevel(c, level + 1);
 }
 
+/** Set every line's level from its depth, records at 0. Lines the merge and
+ *  normalize build are made at `level: 0` wherever they land; the serializer
+ *  writes depth anyway, but code reading `node.level` in memory (`takesResn`,
+ *  the 5.5.1 → 7.0 conversion) needs it true. One pass, O(lines). */
+export function relevelRecords(records: readonly GedNode[]): void {
+  for (const r of records) relevel(r, 0);
+}
+
 /**
  * Hang a media record's record-level `FORM` and `TITL` (the 5.5 shape) under
  * its `FILE`, where 5.5.1 and 7.0 keep them: the `FORM` under every `FILE`
