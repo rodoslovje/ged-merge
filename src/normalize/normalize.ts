@@ -165,6 +165,8 @@ export function normalizeDataset(
   }
 
   walkNodes(editable, (node) => {
+    // CHAN/CREA change stamps hold the program's own exact dates: never restyle them.
+    if (node.tag === "CHAN" || node.tag === "CREA") return false;
     if (node.value === undefined) return;
     if (node.tag === "DATE") {
       if (!options.dates) return;
