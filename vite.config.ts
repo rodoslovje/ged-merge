@@ -142,10 +142,13 @@ export default defineConfig({
         "src/review/**/*.ts",
         "src/save/**/*.ts",
         "src/state/**/*.ts",
+        "src/stats/**/*.ts",
+        "src/terms/**/*.ts",
         "src/tools/**/*.ts",
-        // Single files, not whole directories: the rest of src/persist (the
-        // geoDb gazetteer store), src/worker (message types) and src/ui have
-        // no unit tests of their own.
+        // Single files, not whole directories: the rest of src/persist,
+        // src/worker (message types) and src/ui have no unit tests of their
+        // own. In src/ui, list every pure-logic `.ts` module that has a
+        // `*.test.ts` beside it (components stay with the e2e suite).
         "src/persist/fingerprint.ts",
         "src/persist/idb.ts",
         "src/persist/serializedMain.ts",
@@ -154,8 +157,39 @@ export default defineConfig({
         "src/worker/gedcom.worker.ts",
         "src/worker/geo.worker.ts",
         "src/worker/tools.worker.ts",
+        "src/ui/busyCursor.ts",
+        "src/ui/charsetNotice.ts",
+        "src/ui/chartFind.ts",
+        "src/ui/cropFit.ts",
+        "src/ui/dateDisplayFormat.ts",
+        "src/ui/download.ts",
+        "src/ui/edit/dateEntry.ts",
+        "src/ui/edit/deletePerson.ts",
+        "src/ui/edit/droppedMedia.ts",
+        "src/ui/edit/editConstants.ts",
+        "src/ui/edit/eventRowUpdate.ts",
+        "src/ui/edit/fieldKeys.ts",
+        "src/ui/edit/fieldSuggestions.ts",
+        "src/ui/edit/removeFromSave.ts",
+        "src/ui/edit/sharedMedia.ts",
+        "src/ui/edit/standaloneSource.ts",
+        "src/ui/exportGedcom.ts",
+        "src/ui/faceNaming.ts",
+        "src/ui/globalSearch.ts",
+        "src/ui/historyTypes.ts",
+        "src/ui/map/basemapPresets.ts",
+        "src/ui/map/overlayConfig.ts",
+        "src/ui/map/overlayIdentify.ts",
+        "src/ui/map/sampleView.ts",
+        "src/ui/map/tilePlan.ts",
+        "src/ui/matchView.ts",
+        "src/ui/mediaPath.ts",
+        "src/ui/noticeSnooze.ts",
+        "src/ui/recordLabel.ts",
+        "src/ui/sheetExport.ts",
         "src/ui/tools/geoImport.ts",
         "src/ui/useAppHistory.ts",
+        "src/ui/useVirtualList.ts",
       ],
       // The keyboard hooks (`use*.ts` beside the pure modules they wrap) are
       // covered by e2e only — same rationale as the UI layer above. Hooks with
@@ -163,6 +197,9 @@ export default defineConfig({
       exclude: [
         "**/*.test.ts", "src/**/types.ts", "src/**/*.d.ts",
         "src/keyboard/use*.ts",
+        // Build-time Vite plugin (dev middleware + emit hook); `pages.ts`
+        // beside it holds the logic and is measured.
+        "src/terms/vitePlugin.ts",
       ],
       // `text` (per-file) alongside the summary, so a gap in one module is
       // visible in CI output instead of being averaged away by its directory.
@@ -187,8 +224,13 @@ export default defineConfig({
         "src/review/**": { statements: 89, branches: 85, functions: 91, lines: 91 },
         "src/save/**": { statements: 92, branches: 89, functions: 88, lines: 96 },
         "src/state/**": { statements: 86, branches: 81, functions: 97, lines: 89 },
+        "src/stats/**": { statements: 93, branches: 89, functions: 92, lines: 95 },
+        "src/terms/**": { statements: 98, branches: 91, functions: 98, lines: 98 },
         "src/tools/**": { statements: 90, branches: 82, functions: 91, lines: 94 },
-        "src/ui/**": { statements: 95, branches: 89, functions: 93, lines: 96 },
+        // Lower than the pure layers: several tested src/ui helpers (sheet
+        // export, virtual list, match view) are only partly unit-tested; the
+        // rest of their paths run in e2e.
+        "src/ui/**": { statements: 75, branches: 73, functions: 79, lines: 75 },
         "src/worker/**": { statements: 95, branches: 87, functions: 98, lines: 95 },
       },
     },
