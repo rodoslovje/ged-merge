@@ -2745,6 +2745,10 @@ button:focus-visible {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* The couple's note beside the partner, as wide as its text; an empty one takes
+   no room. */
+.edit-family-notes { flex: 0 1 auto; min-width: 0; }
+.edit-family-notes:empty { display: none; }
 /* Separate multiple spouse families with a divider above each subsequent one. */
 .edit-family + .edit-family {
   border-top: 1px solid var(--border);
@@ -3445,6 +3449,9 @@ button:focus-visible {
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
+/* The couple's own "+ Add note" / "+ Add link" beside the partner: shown, as
+   "+ Add family event" is — hidden, nothing said a family could hold a note. */
+.edit-family-card-row .edit-name-chip-add { opacity: 1; }
 /* The row that adds an event, under the list it adds to. Always visible (it is
    the way to add an event, not an incidental extra on another row), led by the
    "+ Add event" menu. Sized like the person's own chip row above —
@@ -3460,9 +3467,11 @@ button:focus-visible {
   color: var(--muted);
 }
 .edit-event-add-row .edit-name-chip-add { opacity: 1; }
-/* Events the record states did not happen (GEDCOM 7 NO): solid chips, since
-   they are statements the file makes, each with its own ×. */
+/* Events the record states did not happen (GEDCOM 7 NO): event rows ahead of
+   the events, the event's name in the label column and the statement beside
+   it where a date would stand. */
 .edit-no-events-label { color: var(--muted); }
+.edit-no-event-text { align-self: baseline; font-style: italic; color: var(--text); }
 .edit-no-event {
   display: inline-flex;
   align-items: center;
@@ -3470,16 +3479,7 @@ button:focus-visible {
   border-style: solid;
   color: var(--text);
 }
-.edit-no-event-date { color: var(--muted); }
-.edit-no-event-remove {
-  border: none;
-  background: none;
-  padding: 0 2px;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-}
-.edit-no-event-remove:hover { color: var(--danger); }
+.edit-no-event-date { color: var(--muted); font-style: normal; }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
    destination — solid-bordered, where an offer to add is dashed. That border is
@@ -9801,6 +9801,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-pick-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 8px; min-height: 2rem; }
 .tools-pick-bar .tools-run { margin: 0; }
 .tools-pick { flex: none; margin: 0; align-self: center; cursor: pointer; }
+.tools-pick--blank { visibility: hidden; cursor: default; }
 .tools-tran-list .tools-tran-parts { flex: 0 1 auto; }
 .tools-tran-part .picker-menu-btn {
   width: auto;
@@ -9835,6 +9836,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 }
 /* A family-scoped structural issue reads as its couple (husband & wife links). */
 .tools-couple-ref { display: inline-flex; align-items: baseline; flex-wrap: wrap; }
+.tools-couple-ref > .tools-struct-rec-tag { margin-right: 0.5em; }
 .tools-issue-link {
   border: none; background: none; padding: 0;
   color: var(--accent); cursor: pointer; font-weight: 600;

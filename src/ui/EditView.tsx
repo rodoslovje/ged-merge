@@ -2191,6 +2191,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               </div>
             );
           })()}
+          {/* What the person never had leads their events. */}
+          <NoEventsRow
+            assertions={person.noEvents ?? []}
+            t={t}
+            onRemove={(tag) => commit((indi) => removeNegativeAssertion(indi.raw, tag))}
+            merge={mergePreview.noEvents && { assertions: mergePreview.noEvents, ...mergeActions("noEvents") }}
+          />
           <EventList
             key={person.id}
             person={person}
@@ -2262,12 +2269,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 onAdd={(tag) => commit((indi) => addNegativeAssertion(indi.raw, tag, dataset.version))}
               />
             }
-          />
-          <NoEventsRow
-            assertions={person.noEvents ?? []}
-            t={t}
-            onRemove={(tag) => commit((indi) => removeNegativeAssertion(indi.raw, tag))}
-            merge={mergePreview.noEvents && { assertions: mergePreview.noEvents, ...mergeActions("noEvents") }}
           />
           {/* The association index is deferred like the suggestion bundle: it
               is a walk over every record, and no commit should pay for it in

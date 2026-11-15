@@ -17,7 +17,8 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { lifespanAge } from "../gedcom/age";
 import { isApproximate } from "../gedcom/lifespan";
 import { localityParts } from "../gedcom/place";
-import { placeLabel } from "./nodeDisplay";
+import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
+import { unionMark } from "../gedcom/union";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
@@ -113,6 +114,10 @@ export interface MarriageInfo {
   /** The year stands on a date that is not stated exactly (ABT/CAL/BEF…) —
    *  drawn in italics, as a lifespan's approximate years are. */
   approx?: boolean;
+  /** What else the file says of the union (see `unionMark`): ⚯ a couple it
+   *  records as never married, ⚮ a marriage it records as dissolved, ⚬⚬ a
+   *  couple living apart — with the year that happened, when dated. */
+  status?: { glyph: string; year?: string };
 }
 
 export interface MatchMaps {
@@ -276,16 +281,28 @@ function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
 export function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo | undefined {
   if (!fam) return undefined;
   const marr = fam.events.find((e) => e.tag === "MARR");
-  if (!marr) return undefined;
-  const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
-  const place = marr.place ? localityParts(marr.place)[0] : undefined;
-  if (!year && !place) return undefined;
+  const year = marr?.date?.year !== undefined ? String(marr.date.year) : undefined;
+  const place = marr?.place ? localityParts(marr.place)[0] : undefined;
+  const status = unionStatus(fam);
+  if (!year && !place && !status) return undefined;
   return {
     year,
     place,
     ...(coupleLiving(fam, ds) ? { living: true } : null),
-    ...(year && isApproximate(marr.date) ? { approx: true } : null),
+    ...(year && isApproximate(marr?.date) ? { approx: true } : null),
+    ...(status ? { status } : null),
   };
+}
+
+/** The family events that end a union, the first one found giving the year. */
+const ENDING_TAGS: Record<string, readonly string[]> = { divorced: ["DIV", "ANUL", "DIVF"], separated: ["SEPA"] };
+
+/** The union's mark when it is not a plain marriage (see {@link MarriageInfo.status}). */
+function unionStatus(fam: Family): MarriageInfo["status"] {
+  const mark = unionMark(fam);
+  if (mark.glyph === MARRIAGE_SYMBOL) return undefined;
+  const ending = mark.ended ? fam.events.find((e) => ENDING_TAGS[mark.ended!].includes(e.tag) && e.date?.year !== undefined) : undefined;
+  return { glyph: mark.glyph, ...(ending ? { year: String(ending.date!.year) } : null) };
 }
 
 /** Is either spouse presumed living (or declared private)? See

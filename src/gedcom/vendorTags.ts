@@ -50,7 +50,8 @@ const ANC = "Ancestry";
 const RM = "RootsMagic";
 const MFT = "MacFamilyTree";
 const WT = "webtrees";
-const MULTI = "multiple programs";
+/** The `software` of a tag several programs write — shown translated, never as is. */
+export const MULTI = "multiple programs";
 
 /** tag → classification. Keep alphabetical-ish within category blocks. */
 export const VENDOR_TAGS: Record<string, VendorTagInfo> = {

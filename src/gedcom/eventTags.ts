@@ -34,9 +34,11 @@ export const INDI_EVENT_TAG_ORDER = [
  *  partnership-status tag (Brother's Keeper vocabulary — "Partners", …) that
  *  normalization consolidates the other vendor encodings into. */
 export const FAM_EVENT_TAG_ORDER = [
-  "MARR", "ENGA", "MARC", "MARS", "SEPA", "MARB", "MARL",
-  "RESI", "CENS", "NCHI",
-  "DIVF", "DIV", "ANUL", "SLGS", "EVEN", "_MSTAT",
+  "MARR", "ENGA", "DIVF", "DIV", "ANUL",
+  "MARB", "MARC", "MARL", "MARS",
+  "RESI", "CENS", "NCHI", "SLGS", "EVEN",
+  // Non-standard: after every standard one.
+  "_MSTAT", "SEPA",
 ];
 
 /** The Latter-day Saint ordinances: baptism, confirmation, endowment and the
@@ -185,6 +187,13 @@ export function eventGlyph(tag: string): string {
  *  an event row: the `_MSTAT` that records it is a vendor tag. */
 export const UNMARRIED_UNION_GLYPH = "⚯";
 
+/** The mark for an event the file says did not happen (GEDCOM 7 `NO`) — not
+ *  the event's own, which would say it did: no marriage is the never-married
+ *  couple's ⚯, any other event the struck-through ⊘. */
+export function deniedEventGlyph(tag: string): string {
+  return tag === "MARR" ? UNMARRIED_UNION_GLYPH : "⊘";
+}
+
 /** Distinct tags in canonical life-cycle order — a person's events before a
  *  family's, each in its own order, and anything unknown at the end in the
  *  order it arrived. What a list of glyphs beside a name is sorted by, so the
@@ -329,9 +338,10 @@ export const ALL_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAGS, ...FAM_E
  *  household `RESI`/`CENS`, which GEDCOM lets a family repeat — round-trips
  *  untouched but isn't editable, compared or merged; the first one is. */
 export const EDITABLE_FAM_EVENT_TAGS = [
-  "MARR", "ENGA", "MARC", "MARS", "SEPA",
-  "RESI", "CENS", "NCHI",
-  "DIVF", "DIV", "ANUL", "SLGS", "EVEN", "_MSTAT",
+  "MARR", "ENGA", "DIVF", "DIV", "ANUL",
+  "MARC", "MARS",
+  "RESI", "CENS", "NCHI", "SLGS", "EVEN",
+  "_MSTAT", "SEPA",
 ];
 
 /** Display name for an event on a family record. The household events read

@@ -37,7 +37,7 @@ import { PersonCard } from "../PersonCard";
 import type { MediaRefContext } from "../MediaViewer";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { AddEventSelect } from "./AddEventSelect";
-import { AddNoEventSelect, NoEventsRow } from "./NoEventsRow";
+import { deniableTags, NoEventsRow } from "./NoEventsRow";
 import { addNegativeAssertion, NO_FAM_EVENT_TAGS, removeNegativeAssertion } from "../../gedcom/negative";
 import { PrivateToggle } from "./PrivateToggle";
 import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
@@ -709,6 +709,20 @@ export const FamilySection = memo(function FamilySection({
               refCtx={cardRefCtx}
             />
           )}
+          {/* The couple's note, right beside the partner — mostly there is
+              one, and below the children it read as the last child's. */}
+          {fam && (
+            <div className="edit-family-notes">
+              <NotesEditor
+                key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}-${mergeGen}`}
+                notes={fam.noteRefs ?? []}
+                addTrigger={famNoteAddCount}
+                incoming={mergePreview?.notes && { ...mergePreview.notes, ...famMergeActions("notes") }}
+                t={t}
+                onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
+              />
+            </div>
+          )}
           {fam && (
             <AddEventSelect
               tags={emptyFamilyTags}
@@ -717,28 +731,10 @@ export const FamilySection = memo(function FamilySection({
               t={t}
               labelOf={familyEventLabel}
               onAdd={(tag) => { commitFamily(fam, (f) => addFamilyEventNode(f, tag)); setPendingFocusFamEventKey(`${fam.id}-${tag}`); }}
-            />
-          )}
-          {fam && (
-            <AddNoEventSelect
-              assertions={fam.noEvents ?? []}
-              offer={NO_FAM_EVENT_TAGS}
-              recordedTags={new Set(fam.events.map((e) => e.tag))}
-              t={t}
-              tooltip={t("edit.noEvent.addFamilyTooltip")}
-              onAdd={(tag) => commitFamily(fam, (f) => addNegativeAssertion(f.raw, tag, dataset.version))}
-            />
-          )}
-          {fam && (
-            <PrivateToggle
-              on={!!fam.private}
-              merge={mergePreview?.private}
-              t={t}
-              target={t("edit.privateTarget.family")}
-              onToggle={() => mergePreview?.private
-                ? famMergeActions("private").onSkip()
-                : commitFamily(fam, (f) =>
-                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), writeVersionOf(formatOverrides)))}
+              // What the couple never had — no marriage, no divorce — ends the
+              // same menu, so it is found where the events are.
+              denyTags={deniableTags(fam.noEvents ?? [], NO_FAM_EVENT_TAGS, new Set(fam.events.map((e) => e.tag)))}
+              onDeny={(tag) => commitFamily(fam, (f) => addNegativeAssertion(f.raw, tag, dataset.version))}
             />
           )}
           {fam && (
@@ -761,8 +757,30 @@ export const FamilySection = memo(function FamilySection({
               + {t("edit.addLink")}
             </button>
           )}
+          {/* The privacy lock ends the row, after the chips that add. */}
+          {fam && (
+            <PrivateToggle
+              on={!!fam.private}
+              merge={mergePreview?.private}
+              t={t}
+              target={t("edit.privateTarget.family")}
+              onToggle={() => mergePreview?.private
+                ? famMergeActions("private").onSkip()
+                : commitFamily(fam, (f) =>
+                  setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), writeVersionOf(formatOverrides)))}
+            />
+          )}
         </div>
       </div>
+      {/* What the couple never had leads their events. */}
+      {fam && (
+        <NoEventsRow
+          assertions={fam.noEvents ?? []}
+          t={t}
+          onRemove={(tag) => commitFamily(fam, (f) => removeNegativeAssertion(f.raw, tag))}
+          merge={mergePreview?.noEvents && { assertions: mergePreview.noEvents, ...famMergeActions("noEvents") }}
+        />
+      )}
       {fam && shownFamilyTags.map((tag) => {
         const eventNode = firstChild(fam.raw, tag);
         const hasRealEvent = eventNode !== undefined;
@@ -805,14 +823,6 @@ export const FamilySection = memo(function FamilySection({
           />
         );
       })}
-      {fam && (
-        <NoEventsRow
-          assertions={fam.noEvents ?? []}
-          t={t}
-          onRemove={(tag) => commitFamily(fam, (f) => removeNegativeAssertion(f.raw, tag))}
-          merge={mergePreview?.noEvents && { assertions: mergePreview.noEvents, ...famMergeActions("noEvents") }}
-        />
-      )}
       <div className="edit-children-wrap">
         <div className="person-card-role">{t("field.children")}</div>
         <div className="edit-children">
@@ -877,18 +887,6 @@ export const FamilySection = memo(function FamilySection({
               }, extraPatches)
             }
             onOpenMediaLink={(url) => openMediaLink(fam.raw, { kind: "family", fam }, url)}
-          />
-        </div>
-      )}
-      {fam && (
-        <div className="edit-record-section">
-          <NotesEditor
-            key={`fnotes-${fam.id}-${undoVersion}-${noteGen ?? 0}-${mergeGen}`}
-            notes={fam.noteRefs ?? []}
-            addTrigger={famNoteAddCount}
-            incoming={mergePreview?.notes && { ...mergePreview.notes, ...famMergeActions("notes") }}
-            t={t}
-            onCommit={(refs) => commitFamily(fam, (f, notes) => setFamilyNotes(notes, f, refs))}
           />
         </div>
       )}

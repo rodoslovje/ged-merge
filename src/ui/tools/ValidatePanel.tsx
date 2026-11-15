@@ -21,16 +21,20 @@ import { spouseSlotFor, type BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
-import { type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
+import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { MULTI } from "../../gedcom/vendorTags";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { PersonLink } from "../PersonLink";
 import { useMediaFolder } from "../MediaFolderContext";
 import { charsetNotices } from "../charsetNotice";
 import { completeStructure, ownVersion } from "../../save/outputFile";
 import { submitterName } from "../../gedcom/newFile";
-import { AUTHOR_KEYS as SUBMITTER_KEYS, submitterOf, useSettingsSlice } from "../SettingsContext";
+import { AUTHOR_KEYS as SUBMITTER_KEYS, submitterOf, useNameOf, useSettingsSlice } from "../SettingsContext";
+
+/** The order record types are listed in, within one category of findings. */
+const RECORD_TAG_ORDER = ["HEAD", "INDI", "FAM", "SOUR", "REPO", "OBJE", "NOTE", "SNOTE", "SUBM"];
 import { displayDateText } from "../../gedcom/dateDisplay";
 import { type ToolsScans } from "../useToolsScans";
 import { useVirtualList } from "../useVirtualList";
@@ -51,7 +55,10 @@ const FIX_DONE_MS = 8000;
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
+/** Fixes that settle only the rows that ask: picking every row of the kind
+ *  still runs them one by one, never as a whole-file pass. */
+const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs"]);
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -212,6 +219,7 @@ export function ValidatePanel({
   onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
+  const nameOf = useNameOf();
   const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
@@ -425,6 +433,13 @@ export function ValidatePanel({
     setMediaMissing(null);
     setMediaChecking(false);
   }, [dataset, folderName]);
+  // "All found" says its piece and goes, bringing the check button back; a
+  // list of missing files stays, as it is work still to do.
+  useEffect(() => {
+    if (mediaMissing === null || mediaMissing.length > 0) return;
+    const id = window.setTimeout(() => setMediaMissing(null), FIX_DONE_MS);
+    return () => window.clearTimeout(id);
+  }, [mediaMissing]);
 
   useEffect(() => {
     if (active) scans.ensure("validate");
@@ -525,29 +540,70 @@ export function ValidatePanel({
         issue: { ...tranFirst, messageKey: TRAN_LANG_KEY, messageVars: { ...tranFirst.messageVars, count: tranCount } },
       });
     }
-    rows.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
+    // Within a severity and a category, the records by type (people, then
+    // families, sources…), and each type by what the row calls its record.
+    const titles = new Map<string, string>();
+    const titleOf = (issue: StructIssue): string => {
+      const id = issue.recordId;
+      if (!id) return issue.sample ?? "";
+      let title = titles.get(id);
+      if (title === undefined) {
+        const indi = dataset.individuals.get(id);
+        const fam = dataset.families.get(id);
+        const rec = indi || fam ? undefined : recordByXref(dataset.records, id);
+        title = indi ? nameOf(indi)
+          : fam ? [fam.husband, fam.wife].map((s) => (s ? nameOf(dataset.individuals.get(s)) : "")).join(" ")
+          : (rec && recordTitle(rec)) ?? id;
+        titles.set(id, title);
+      }
+      return title;
+    };
+    const tagRank = (tag: string | undefined) => {
+      const i = tag ? RECORD_TAG_ORDER.indexOf(tag) : -1;
+      return i < 0 ? RECORD_TAG_ORDER.length : i;
+    };
+    rows.sort((a, b) => {
+      if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
+      if (a.kind !== b.kind) return a.kind === "record" ? -1 : 1;
+      if (a.kind === "record" || b.kind === "record") return 0;
+      const x = a.issue;
+      const y = b.issue;
+      return CATEGORY_ORDER.indexOf(x.category) - CATEGORY_ORDER.indexOf(y.category)
+        || tagRank(x.recordTag) - tagRank(y.recordTag)
+        || titleOf(x).localeCompare(titleOf(y))
+        || (x.line ?? 0) - (y.line ?? 0);
+    });
     return rows;
   };
   const rowFixOf = (row: IssueRow): RowFix | null =>
     row.kind === "record" ? recordRowFix(row.issue) : structRowFix(row.issue);
+  /** A row's fix when it repairs something: removing a custom tag is the
+   *  row's own button only — never counted as fixable, never picked in bulk. */
+  const repairOf = (row: IssueRow): RowFix | null => {
+    const fix = rowFixOf(row);
+    return fix && fix.kind !== "customTags" ? fix : null;
+  };
   const allRows = useMemo(
     () => buildRows("all", ""),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, group],
   );
   const shown = useMemo(
-    () => (filter === "fixable" ? buildRows("all", q).filter((r) => rowFixOf(r)) : buildRows(filter, q)),
+    () => (filter === "fixable" ? buildRows("all", q).filter((r) => repairOf(r)) : buildRows(filter, q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles]);
 
-  const pickable = (row: IssueRow) => !!rowFixOf(row) && !fixedRows.has(rowKey(row.issue));
+  const pickable = (row: IssueRow) => !!repairOf(row) && !fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
     () => shown.filter(pickable),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [shown, fixedRows],
   );
+  // The checkbox column, on every row of a list where any row has a repair.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pickColumn = useMemo(() => shown.some((r) => repairOf(r)), [shown]);
   const fixableTotal = useMemo(
-    () => allRows.filter((r) => rowFixOf(r)).length,
+    () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [allRows, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles],
   );
@@ -582,7 +638,7 @@ export function ValidatePanel({
   }
   /** Every row of a kind picked: the batch runs the kind's whole-file fix once. */
   const wholeKind = (kind: FixKind, rows: IssueRow[]) =>
-    rows.length >= allRows.filter((r) => rowFixOf(r)?.kind === kind).length;
+    !ROW_ONLY_KINDS.has(kind) && rows.length >= allRows.filter((r) => rowFixOf(r)?.kind === kind).length;
   // The confirmed batch: every picked fix, in one undo step.
   function applyPicked() {
     setBatchPending(false);
@@ -941,6 +997,27 @@ export function ValidatePanel({
         hint: t("tools.validate.fixOneStampsHint"),
         kind: "stamps",
         run: () => onFixConformance("stamps"),
+      };
+    }
+    // A record id the version refuses: one it accepts, unique in the file.
+    // Not a person's or a family's — the open session (start person, merge
+    // decisions, Edit) is keyed by those; a download renames them instead.
+    if (issue.category === "xrefShape" && issue.recordId && issue.recordTag !== "INDI" && issue.recordTag !== "FAM") {
+      return {
+        label: t("tools.validate.fixOneXref"),
+        hint: t("tools.validate.fixOneXrefHint", { version: issue.messageVars?.version }),
+        kind: "xrefs",
+        run: () => onFixConformance("xrefs", { id: issue.recordId, value: String(issue.messageVars?.version ?? "") }),
+      };
+    }
+    // An extension tag: every line of it can go, wherever it stands.
+    if (issue.category === "customTag" && issue.sample) {
+      return {
+        label: t("tools.validate.fixOneRemoveTag"),
+        hint: t("tools.validate.fixOneRemoveTagHint", { tag: issue.sample, count: Number(issue.messageVars?.count) || 1 }),
+        removes: true,
+        kind: "customTags",
+        run: () => onFixConformance("customTags", { value: issue.sample }),
       };
     }
     return null;
@@ -1325,7 +1402,7 @@ export function ValidatePanel({
                 const current = i === selected ? "true" : undefined;
                 return row.kind === "record" ? (
                   <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`} aria-current={current}>
-                    <PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
+                    <PickBox row={row} pickable={pickable(row)} column={pickColumn} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
                     <span className="tools-issue-msg"><LinkedTags text={t(row.issue.messageKey, issueVars(row.issue))} headSour={headSour} /></span>
                     <RowFixButton
@@ -1360,7 +1437,7 @@ export function ValidatePanel({
                 ) : (
                   <StructRow
                     key={`s-${row.issue.category}-${i}`}
-                    pick={<PickBox row={row} pickable={pickable(row)} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />}
+                    pick={<PickBox row={row} pickable={pickable(row)} column={pickColumn} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />}
                     onEditSource={setEditSrc}
                     issue={row.issue}
                     zebra={zebra}
@@ -1370,12 +1447,6 @@ export function ValidatePanel({
                     fix={structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
-                    variationOf={(keptStamps && row.issue.stamps) || (keptCoverage && (row.issue.coverage || row.issue.agency))
-                      ? dialect?.software ?? ""
-                      // A program's own tag, kept with the file's variations.
-                      : !formatOverrides.standard && row.issue.category === "customTag" && row.issue.severity === "warning" && !structRowFix(row.issue)
-                        ? String(row.issue.messageVars?.software ?? dialect?.software ?? "")
-                        : undefined}
                     headSour={headSour}
                     open={row.issue.messageKey === TRAN_LANG_KEY && filter !== "tranLang"
                       ? { label: t("tools.validate.tranLang.open"), run: () => setFilter("tranLang") }
@@ -1403,16 +1474,25 @@ export function ValidatePanel({
 function PickBox({
   row,
   pickable,
+  column,
   picked,
   onToggle,
 }: {
   row: IssueRow;
   pickable: boolean;
+  /** Whether the list shows a checkbox column at all. */
+  column: boolean;
   picked: boolean;
   onToggle: (row: IssueRow) => void;
 }) {
   const { t } = useTranslation();
-  if (!pickable) return null;
+  // A list with a checkbox column keeps it on every row: a row with nothing
+  // to pick holds the place, so the names stay in one line.
+  if (!pickable) {
+    return column
+      ? <input type="checkbox" className="tools-pick tools-pick--blank" disabled tabIndex={-1} aria-hidden />
+      : null;
+  }
   return (
     <input
       type="checkbox"
@@ -1507,6 +1587,8 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.unknownTag",
   "tools.validate.struct.issue.customTag",
   "tools.validate.struct.issue.customTagKnown",
+  "tools.validate.struct.issue.customTagBare",
+  "tools.validate.struct.issue.customTagStandard",
   "tools.validate.struct.issue.danglingXref",
 ]);
 function isGrouped(i: StructIssue): boolean {
@@ -1576,14 +1658,22 @@ function RecordRef({
   onEditSource?: (xref: string) => void;
 }) {
   const { t } = useTranslation();
+  // A person or a couple starts with its type too, as every other row does.
+  const typeTag = tag && <span className="tools-struct-rec tools-struct-rec-tag">{tag}</span>;
   if (id && dataset.individuals.has(id)) {
-    return <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />;
+    return (
+      <span className="tools-couple-ref">
+        {typeTag}
+        <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} />
+      </span>
+    );
   }
   const fam = id ? dataset.families.get(id) : undefined;
   const spouses = fam ? [fam.husband, fam.wife].filter((s): s is string => !!s) : [];
   if (spouses.length > 0) {
     return (
       <span className="tools-couple-ref">
+        {typeTag}
         {spouses.map((sid, i) => (
           <span key={sid}>
             {i > 0 && <span className="tools-usage-amp">&amp;</span>}
@@ -1636,7 +1726,6 @@ function StructRow({
   done,
   onRun,
   onEditSource,
-  variationOf,
   open,
   headSour,
   pick,
@@ -1652,8 +1741,6 @@ function StructRow({
   done: boolean;
   onRun: (run: () => void) => void;
   onEditSource: (xref: string) => void;
-  /** The program whose kept habit the finding is, in a file kept with its variations. */
-  variationOf?: string;
   /** Takes the reader to where the finding is settled (no fix of its own). */
   open?: { label: string; run: () => void };
   /** The file's producer (`HEAD.SOUR`): whose page a tag in the message links. */
@@ -1674,18 +1761,15 @@ function StructRow({
       ) : null}
       <span className="tools-issue-msg">
         <LinkedTags
-          text={t(issue.messageKey, issue.messageVars)}
+          text={t(issue.messageKey, issue.messageVars?.software === MULTI
+            ? { ...issue.messageVars, software: t("tools.validate.struct.severalPrograms") }
+            : issue.messageVars)}
           headSour={headSour}
           // A tag no table knows still gets the page that says so.
           unknown={issue.category === "unknownTag" ? issue.sample : undefined}
         />
         {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
       </span>
-      {variationOf !== undefined && (
-        <span className="tools-issue-detail">
-          {variationOf ? t("tools.validate.struct.variationOf", { software: variationOf }) : t("tools.validate.struct.variationOwn")}
-        </span>
-      )}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
       {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       {/* A repairable date whose record can't carry an undo patch (no xref of its

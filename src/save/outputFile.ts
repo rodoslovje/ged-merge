@@ -1,6 +1,6 @@
-import { VOID_XREF } from "../gedcom/assoc";
 import { submitterFields, type Submitter } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
+import { conformingXref, xrefConforms } from "../gedcom/xrefShape";
 import { relevelRecords } from "../gedcom/mediaForm";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
@@ -182,24 +182,19 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, auth
  * media), and the header, which migration leaves alone, here. Returns one
  * readable line per rewritten structure, for the preview and the report.
  */
-/** A record id 7.0 accepts: capital letters, digits and `_`, and not `@VOID@`. */
-const XREF_70 = /^@[A-Z0-9_]+@$/;
-
 /**
  * Give every record whose id 7.0 does not accept (`@f1_I1@`, `@I-12@`) one
  * it does — upper case, any other character as `_`, a suffix when that is
- * taken — and point every line at the new id. Only a download does this:
- * the open file keeps its ids, which the app's state is keyed by.
+ * taken — and point every line at the new id. A download does this for every
+ * record; the health check offers it record by record (`fixConformance`).
  */
 function renameXrefsFor70(records: GedNode[], note: (before: string, after: string) => void): void {
   const taken = new Set(records.map((r) => r.xref).filter((x): x is string => !!x));
   const renamed = new Map<string, string>();
   for (const rec of records) {
     const xref = rec.xref;
-    if (!xref || (XREF_70.test(xref) && xref !== VOID_XREF)) continue;
-    const base = xref.slice(1, -1).toUpperCase().replace(/[^A-Z0-9_]/g, "_") || "X";
-    let next = `@${base}@`;
-    for (let n = 2; taken.has(next) || next === VOID_XREF; n++) next = `@${base}_${n}@`;
+    if (!xref || xrefConforms(xref, true)) continue;
+    const next = conformingXref(xref, true, taken);
     taken.add(next);
     renamed.set(xref, next);
     rec.xref = next;

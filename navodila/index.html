@@ -709,11 +709,12 @@
               </ul>
               <p>
                 Z gumbom <strong>+ Se ni zgodilo</strong> na koncu iste vrste zapišete nasprotno: da se dogodek
-                <em>ni</em> zgodil — oseba na primer ni bila krščena ali pa se par ni poročil (družina ima svoj gumb
-                poleg gumba <strong>+ Dodaj družinski dogodek</strong>). To je struktura <code>NO</code> iz GEDCOM 7;
-                datoteka GEDCOM 5.5.1 jo hrani kot <code>_NO</code>. Vsaka taka navedba se pod gumbi prikaže kot
-                oznaka <span class="gm-glyph">⊘</span> z imenom dogodka, z ikono <span class="gm-glyph">×</span> pa jo
-                odstranite. <a href="#validate">Pregled</a> opozori na zapis, ki vsebuje dogodek in hkrati navedbo, da se
+                <em>ni</em> zgodil — oseba na primer ni bila krščena ali pa se par ni poročil (pri družini se meni
+                <strong>+ Dodaj družinski dogodek</strong> konča s skupino <em>Se ni zgodilo:</em>). To je struktura
+                <code>NO</code> iz GEDCOM 7; datoteka GEDCOM 5.5.1 jo hrani kot <code>_NO</code>. Vsaka taka navedba je
+                svoja vrstica pred dogodki: začne se z znakom <span class="gm-glyph">⊘</span> (pri poroki
+                <span class="gm-glyph">⚯</span>) in imenom dogodka, v meniju ▾ pa jo odstranite.
+                <a href="#validate">Pregled</a> opozori na zapis, ki vsebuje dogodek in hkrati navedbo, da se
                 ni zgodil. V načinu <span class="gm-pill">Združevanje</span> se te navedbe primerjajo in prenesejo kot
                 vsako drugo polje.
               </p>
@@ -1455,7 +1456,8 @@
               Razširitev, ki nadomešča strukturo, ki jo različica datoteke pozna sama (na primer <code>_UID</code> v
               datoteki 7.0), ima standardno obliko. Obe vrsti sta zato navedeni kot odstopanji, za drugo pa je pri
               možnosti »GEDCOM 7.0« na voljo popravek »Zapiši po standardu«. Druge razširitve so veljaven GEDCOM in so
-              navedene le v vednost.
+              navedene le v vednost. Vrstica vsake oznake po meri ima tudi gumb <strong>Odstrani oznako</strong>, ki iz
+              datoteke odstrani vse vrstice te oznake skupaj z vrsticami pod njimi.
             </p>
             <p>
               Ugotovitev o viru navede ime vira. S klikom na ime ali na gumb <strong>Uredi vir</strong> na vrstici odprete
@@ -1569,7 +1571,9 @@
                   QUAY, RESN, ROLE, MEDI, TYPE imena in drugih vrsticah z naštetimi vrednostmi;</li>
                 <li><strong>napačno zapisane vrednosti</strong> — vrstico AGE ali LANG, ki ni zapisana po pravilih
                   standarda;</li>
-                <li><strong>neveljavne ID-je zapisov</strong>.</li>
+                <li><strong>neveljavne ID-je zapisov</strong> — z gumbom <strong>Popravi identifikator</strong> dobi
+                  zapis vira, opombe ali medija identifikator, ki ga različica dovoljuje in ga nima noben drug zapis;
+                  vsi kazalci na zapis se posodobijo.</li>
               </ul>
               <p>
                 Razširitvene oznake, kot je <em>_UID</em>, so dovoljene povsod in se ne presojajo. Ugotovitve iste vrste so navedene enkrat, s številom pojavitev:
@@ -1778,7 +1782,8 @@
                 <li>ali nestandardni dogodek pretvorijo v standardno vrsto oziroma v poimenovan dogodek po meri, pri
                   čemer datumi, kraji in viri ostanejo. Ciljna vrsta je predlagana za vsako oznako posebej: položitev
                   v grob postane pokop, stanje, kot je bolezen, postane dejstvo, vse drugo pa dogodek po meri.
-                  Besedilo, ki ga nova vrsta v svoji vrstici ne more hraniti, se prenese v opombo dogodka.</li>
+                  Besedilo, ki ga nova vrsta v svoji vrstici ne more hraniti, se prenese v opombo dogodka. Družinski
+                  dogodek, kot je ločeno življenje (<code>SEPA</code>), se pretvori v vseh zvezah izbranih oseb.</li>
               </ul>
               <p>
                 Ob vsakem zadetku je potrditveno polje, da lahko koga pred
@@ -2661,8 +2666,10 @@
                 priimkom. Ta skupina se ne prikaže, ko je odprto Poročilo ali Zemljevid; preklopite na drugo vrsto,
                 da jo spremenite, Poročilo pa upošteva zadnjo izbrano vrednost.</li>
               <li><strong>Poroka</strong> — doda <em>Datum</em> in/ali <em>Kraj</em> poroke na povezovalnik para (ovratnik
-                pri Pahljači ali ob oznakah <span aria-hidden="true">⚭</span> na Časovnici). Privzeto sta
-                izklopljena.</li>
+                pri Pahljači ali ob oznakah <span aria-hidden="true">⚭</span> na Časovnici). Pri paru, ki je po
+                zapisu v datoteki ločen, živi ločeno ali ni poročen, se tam pokaže še
+                <span class="gm-glyph">⚮</span> z letnico, <span class="gm-glyph">⚬⚬</span> oziroma
+                <span class="gm-glyph">⚯</span>. Privzeto sta izklopljena.</li>
               <li><strong>Dogodki</strong> (samo Časovnica) — čigavi trakovi nosijo pike dogodkov: <em>Ta oseba</em>,
                 <em>Vse osebe</em> ali <em>Brez</em>; poleg tega <strong>Oznake dogodkov</strong> (strnjeno besedilo pod
                 piko) in skupni <strong>Trak prebivališč</strong> (glejte <a href="#reports">Poročila</a> spodaj).</li>

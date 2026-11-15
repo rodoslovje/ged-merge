@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { eventDisplayLabel, eventGlyph, orderedEventTags } from "../gedcom/eventTags";
+import { deniedEventGlyph, eventDisplayLabel, eventGlyph, orderedEventTags } from "../gedcom/eventTags";
 import type { Translate } from "../locales/i18n";
 import { termsHref } from "./TagLinks";
 
@@ -75,6 +75,17 @@ export function eventMenuLabel(tag: string, t: Translate, label?: string): React
       <EventGlyph tag={tag} t={t} />
       {href && name.endsWith(suffix) ? name.slice(0, -suffix.length) : name}
     </>
+  );
+}
+
+/** An event's name led by the mark that says it did not happen (see
+ *  `deniedEventGlyph`) — for a menu entry or a "did not happen" row alike. */
+export function deniedEventLabel(tag: string, t: Translate): ReactNode {
+  return (
+    <span className="edit-event-label-lead">
+      <span className="event-glyph" aria-hidden="true">{deniedEventGlyph(tag)}</span>
+      {eventDisplayLabel(tag, t)}
+    </span>
   );
 }
 

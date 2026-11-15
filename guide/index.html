@@ -698,11 +698,11 @@
               </ul>
               <p>
                 <strong>+ Did not happen</strong>, at the end of the same row, records the opposite: that an event did
-                <em>not</em> take place — a person never baptised, a couple who never married (the family has its own
-                button beside <strong>+ Add Family Event</strong>). This is GEDCOM 7's <code>NO</code>; a GEDCOM 5.5.1
-                file keeps it as <code>_NO</code>. Each statement shows below the buttons as a
-                <span class="gm-glyph">⊘</span> chip with the event's name, and its <span class="gm-glyph">×</span>
-                removes it. The <a href="#validate">health check</a> reports a record that holds both the event and the
+                <em>not</em> take place — a person never baptised, a couple who never married (for a family, the
+                <strong>+ Add Family Event</strong> menu ends with a <em>Did not happen:</em> group). This is GEDCOM 7's
+                <code>NO</code>; a GEDCOM 5.5.1 file keeps it as <code>_NO</code>. Each statement is a row of its own
+                ahead of the events, led by <span class="gm-glyph">⊘</span> (<span class="gm-glyph">⚯</span> for no
+                marriage) and the event's name, whose ▾ menu removes it. The <a href="#validate">health check</a> reports a record that holds both the event and the
                 statement, and Merge compares and brings in these statements like any other field.
               </p>
               <p>
@@ -1430,7 +1430,8 @@
               and an extension that stands in for a structure the file's version has (<code>_UID</code> in a 7.0 file)
               has a standard form, so both are reported as deviations. With <em>GEDCOM 7.0</em> the second kind has a
               <strong>Write the standard way</strong> fix. Other extensions are valid GEDCOM and are listed for
-              information only.
+              information only. Every custom tag's row also has <strong>Remove tag</strong>, which removes each line
+              of that tag in the file, with the lines beneath it.
             </p>
             <p>
               A finding about a source names the source. Click the name, or the row's <strong>Edit source</strong>
@@ -1509,7 +1510,9 @@
               <strong>tags out of place</strong> (a standard tag under a line that cannot carry it, listed once per
               habit with a count), <strong>non-standard values</strong> (a value outside the standard's list in SEX,
               PEDI, QUAY, RESN, ROLE, MEDI, a name's TYPE and the other enumerated lines), <strong>malformed
-              values</strong> (an AGE or LANG written outside its grammar) and <strong>malformed record ids</strong>.
+              values</strong> (an AGE or LANG written outside its grammar) and <strong>malformed record ids</strong>,
+              where <strong>Fix the ID</strong> gives a source, note or media record an id the version accepts and no
+              other record holds, and every reference to it follows.
               Extension tags such as <em>_UID</em> are allowed anywhere and not judged. Findings of one kind are listed once, with a count: a misplaced
               tag, a value written the same wrong way (<em>TYPE aka</em> on every name), the media files missing the
               same FORM, MyHeritage's Smart Match citations, change stamps on events. Most have a repair on their
@@ -1696,7 +1699,8 @@
               — or convert a non-standard event to a standard
               type or to a named custom event, keeping its dates, places and sources; the target is proposed per tag
               (an interment becomes a burial, a state such as an illness a fact, anything else a custom event), and
-              text the new type cannot carry on its own line moves into the event's note. Each match has a checkbox so you can drop individuals before
+              text the new type cannot carry on its own line moves into the event's note. A family event such as a
+              separation (<code>SEPA</code>) is converted in every union of the selected people. Each match has a checkbox so you can drop individuals before
               applying — with the estimate actions, each row also previews the date that person or their marriage would get, and with the
               married-name action the surnames it would write. That action also arrives with the doubtful people
               already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or
@@ -2545,7 +2549,9 @@
                 whatever it's set to.</li>
               <li><strong>Marriage</strong> — add the marriage <em>Date</em> and/or <em>Place</em> to each couple's
                 connector (the fan / circle collar, or beside the Timeline's <span aria-hidden="true">⚭</span> markers).
-                Both off by default.</li>
+                A couple the file records as divorced, living apart or never married adds
+                <span class="gm-glyph">⚮</span> with the year, <span class="gm-glyph">⚬⚬</span> or
+                <span class="gm-glyph">⚯</span> there. Both off by default.</li>
               <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
                 people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
                 shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below).</li>

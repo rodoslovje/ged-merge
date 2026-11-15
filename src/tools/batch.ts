@@ -619,40 +619,55 @@ function convertEventBatch(
 ): BatchApplyResult {
   const { fromTag, toTag } = action;
   if (!fromTag || !toTag || fromTag === toTag) return { patches: [], changed: 0, skipped: ids.length };
-  const snap = snapshotRecords(ds, ids, []);
+  // A family event (`SEPA`) is the couple's: converted in every union a
+  // picked person is a partner in, each union once.
+  const famIds = [...new Set(ids.flatMap((id) => ds.individuals.get(id)?.spouseOf ?? []))];
+  const snap = snapshotRecords(ds, ids, famIds);
   const type = action.type?.trim();
+  const convert = (node: GedNode) => {
+    node.tag = toTag;
+    if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
+      node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+    }
+    // A target with no line value of its own (a burial) cannot hold the
+    // text the old tag carried there (`1 _INTE Žale`), so it becomes the
+    // event's note instead of being lost. The bare `Y` flag says only that
+    // the event happened, which the event now says by itself.
+    const value = node.value?.trim();
+    if (value && !carriesLineValue(toTag)) {
+      if (!isOccurrenceFlag(value)) {
+        insertOrdered(node, { level: node.level + 1, tag: "NOTE", value, children: [] }, EVENT_CHILD_ORDER);
+      }
+      node.value = undefined;
+    }
+    markEventTouched(node, "changed");
+  };
+  const doneFams = new Set<string>();
   let changed = 0;
   let skipped = 0;
   for (const id of ids) {
     const indi = ds.individuals.get(id);
     if (!indi) continue;
     const nodes = childrenByTag(indi.raw, fromTag);
-    if (nodes.length === 0) {
-      skipped++;
-      continue;
-    }
-    for (const node of nodes) {
-      node.tag = toTag;
-      if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
-        node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
-      }
-      // A target with no line value of its own (a burial) cannot hold the
-      // text the old tag carried there (`1 _INTE Žale`), so it becomes the
-      // event's note instead of being lost. The bare `Y` flag says only that
-      // the event happened, which the event now says by itself.
-      const value = node.value?.trim();
-      if (value && !carriesLineValue(toTag)) {
-        if (!isOccurrenceFlag(value)) {
-          insertOrdered(node, { level: node.level + 1, tag: "NOTE", value, children: [] }, EVENT_CHILD_ORDER);
-        }
-        node.value = undefined;
-      }
-      markEventTouched(node, "changed");
-    }
+    let touched = nodes.length > 0;
+    nodes.forEach(convert);
     // The typed record must follow the raw tree, or the panel's own filters
     // (`event has _FNRL`) still find the person after the conversion.
-    rebuildIndividual(ds, indi);
-    changed++;
+    if (nodes.length) rebuildIndividual(ds, indi);
+    for (const famId of indi.spouseOf) {
+      // Already converted from the partner's side: still this person's change.
+      if (doneFams.has(famId)) { touched = true; continue; }
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      const famNodes = childrenByTag(fam.raw, fromTag);
+      if (famNodes.length === 0) continue;
+      touched = true;
+      doneFams.add(famId);
+      famNodes.forEach(convert);
+      rebuildFamily(ds, fam);
+    }
+    if (touched) changed++;
+    else skipped++;
   }
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
 }

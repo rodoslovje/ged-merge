@@ -12,7 +12,7 @@ import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
 import { EVENT_ORDER } from "../review/fields";
-import { vendorTagInfo } from "../gedcom/vendorTags";
+import { MULTI, vendorTagInfo } from "../gedcom/vendorTags";
 import { charsetNotices } from "./charsetNotice";
 import { completeStructure, convertVersion, outputOptions, ownVersion, type OutputVersion } from "../save/outputFile";
 import { cloneNode } from "../gedcom/node";
@@ -624,7 +624,7 @@ export function SaveDialog({
                           onChange={() => toggleCustomTag(tag)}
                         />
                         <code>{tag}</code> ({nodes.length})
-                        {info && <span className="preview-tag-meaning"> — {info.software}: {meaning}</span>}
+                        {info && <span className="preview-tag-meaning"> — {info.software === MULTI ? t("tools.validate.struct.severalPrograms") : info.software}: {meaning}</span>}
                       </label>
                     </li>
                   );
