@@ -409,7 +409,11 @@ button:focus-visible {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  /* At least the button's width, wider for the longest item: a short current
+     value ("Kraji") used to clip "Poenoti in paketno uredi" mid-word. */
+  min-width: 100%;
+  width: max-content;
+  max-width: calc(100vw - 32px);
   z-index: 70;
   padding: 6px;
   max-height: calc(100dvh - 160px);
@@ -430,6 +434,7 @@ button:focus-visible {
   font: inherit;
   font-size: 0.92rem;
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 .picker-menu-item:hover {
@@ -10031,6 +10036,29 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    name's room. A tap opens the panel with them. */
 @media (max-width: 560px) {
   .tools-place-coord-text { display: none; }
+  /* A long place name used to share its line with the count, the verdict and
+     Hide, and was squeezed into a column a word wide. The row wraps instead:
+     the name keeps the line beside its ▶ (and the place list's checkbox), the
+     rest carries on underneath. A short name still keeps all on one line. */
+  .tools-tree-row { flex-wrap: wrap; row-gap: 2px; }
+  .tools-tree-row > .tools-tree-label { max-width: calc(100% - 26px); }
+  .tools-tree-row:has(> .tools-pick) > .tools-tree-label { max-width: calc(100% - 52px); }
+  /* Where the ▶ (18px + the 8px gap) leads the row, the wrapped line lines up
+     under the name rather than under the ▶: the row is inset by the ▶'s room
+     and the ▶ pulled back into it. */
+  .tools-tree-row:has(> .tools-pair-toggle:first-child, > .tools-pair-toggle-spacer:first-child) { padding-left: 26px; }
+  .tools-tree-row > .tools-pair-toggle:first-child,
+  .tools-tree-row > .tools-pair-toggle-spacer:first-child { margin-left: -26px; }
+  .tools-tree-row > :is(.tools-pair-toggle, .tools-pair-toggle-spacer):first-child + .tools-tree-label { max-width: 100%; }
+  .tools-tree-row > .tools-tree-meta,
+  .tools-tree-row > .tools-reshape-badge,
+  .tools-tree-row > .tools-issue-link { white-space: nowrap; }
+  .tools-tree-row > .tools-tree-meta { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* The filter box takes the width it is given rather than stopping at 340px. */
+  .tools-search { max-width: none; }
+  /* Action bars: each action on one line; the bar wraps between them. */
+  .tools-pick-bar > *, .tools-merge-bar > *, .tools-dup-bulk > * { white-space: nowrap; }
+  .tools-dup-bulk { flex-wrap: wrap; row-gap: 8px; }
 }
 /* The file puts this place in two spots — one of them is wrong. */
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
