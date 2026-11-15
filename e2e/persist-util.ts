@@ -51,10 +51,12 @@ function cacheMatches(opts: CacheQuery): Promise<boolean> {
 // session record appears before the (separately written) main blob is visible.
 export async function waitForCache(page: Page, opts: CacheQuery) {
   await page.waitForFunction(cacheMatches, opts, { timeout: 15000 });
-  // Chromium defers flushing IndexedDB to disk briefly; a reload within ~1s of
-  // the write can lose it (a real user never reloads that fast, and the
-  // unsaved-changes prompt guards them). The flush gives the page no signal to
-  // wait on, so this one margin stays a duration.
+  // THE ONE ALLOWED waitForTimeout in the e2e suite (see AGENTS.md, "E2E tests
+  // wait for conditions"). The readback above already proves the data is in
+  // IndexedDB; what this covers is Chromium deferring the flush to disk: a
+  // reload within ~1 s of the write can lose it (a real user never reloads that
+  // fast, and the unsaved-changes prompt guards them). The flush gives the page
+  // no signal to wait on, so this one margin stays a duration. Do not copy it.
   await page.waitForTimeout(1500);
 }
 
