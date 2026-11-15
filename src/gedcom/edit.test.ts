@@ -4,6 +4,7 @@ import { buildDataset } from "./builder";
 import { childrenByTag, firstChild } from "./node";
 import { serializeGedcom } from "./serialize";
 import type { Dataset, GedNode } from "./types";
+import { validateConformance } from "../tools/conformance/conformance";
 import {
   addAdditionalName,
   addChild,
@@ -2247,6 +2248,9 @@ describe("individual media", () => {
     expect(indi.raw.children).toContain(node);
     // No top-level OBJE record is created for inline mode.
     expect(ds.records.some((r) => r.tag === "OBJE")).toBe(false);
+    // 5.5.1 requires the FORM under FILE.
+    expect(serializeGedcom(ds.records)).toContain("1 OBJE\n2 FILE photos/janez.jpg\n3 FORM jpg\n2 TITL Janez 1870\n");
+    expect(validateConformance(ds).filter((i) => i.recordId === "@I1@")).toEqual([]);
   });
 
   it("attaches a pointer to a shared top-level OBJE record", () => {

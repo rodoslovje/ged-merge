@@ -196,7 +196,7 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
   const tags: string[] = [rec.tag];
   const loc: Loc = { path: () => indices.join("."), where: () => tags.join(".") };
 
-  const walk = (node: GedNode, structId: string): void => {
+  const walk = (node: GedNode, structId: string, parent?: GedNode): void => {
     const struct = spec.structs.get(structId);
     if (!struct) return;
     checkPayload(node, struct, loc, ctx, base);
@@ -242,7 +242,7 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       else seen.set(tag, [child]);
       indices.push(i);
       tags.push(tag);
-      walk(child, childSpec.id);
+      walk(child, childSpec.id, node);
       indices.pop();
       tags.pop();
     });
@@ -265,6 +265,10 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
     }
     for (const [tag] of struct.required) {
       if (seen?.has(tag)) continue;
+      // A FILE whose FORM stands beside it (the 5.5 shape) has its format:
+      // the inline link allows that shape, and in a media record it is the
+      // misplaced FORM the relocate fix moves under FILE.
+      if (tag === "FORM" && node.tag === "FILE" && parent?.children.some((c) => c.tag === "FORM")) continue;
       // A media file's missing FORM is read off its name (`.jpg`, a web
       // address) — the one missing line the fix can add without guessing.
       const add = recordId && tag === "FORM" && node.tag === "FILE" && node.value

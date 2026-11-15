@@ -120,6 +120,30 @@ describe("cardinality", () => {
     ]);
   });
 
+  it("requires 5.5.1's FORM under every FILE, in a media record and an inline link", () => {
+    const missing = { messageKey: "tools.validate.struct.issue.missing", messageVars: { tag: "FORM", parent: "OBJE.FILE" }, fix: "jpg" };
+    expect(check551(`0 @O1@ OBJE\n1 FILE a.jpg`)).toMatchObject([missing]);
+    expect(check551(`0 @I1@ INDI\n1 OBJE\n2 FILE a.jpg`)).toMatchObject([{ ...missing, messageVars: { tag: "FORM", parent: "INDI.OBJE.FILE" } }]);
+    // A name with no format in it: reported, nothing to add.
+    expect(check551(`0 @O1@ OBJE\n1 FILE scans/poroka`)).toMatchObject([{ messageVars: { tag: "FORM" }, fix: undefined }]);
+    // The 5.5 shape, FORM beside FILE: allowed inline; in a media record only
+    // the misplaced FORM is reported, not a missing one too.
+    expect(check551(`0 @I1@ INDI\n1 OBJE\n2 FORM jpg\n2 FILE a.jpg`)).toEqual([]);
+    expect(check551(`0 @O1@ OBJE\n1 FILE a.jpg\n1 FORM jpg`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.misplaced", relocate: true }]);
+    expect(check70(`0 @O1@ OBJE\n1 FILE a.jpg\n1 FORM image/jpeg`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.misplaced", relocate: true }]);
+  });
+
+  it("fills 5.5.1's missing FORM, and leaves a FILE whose FORM stands beside it to the move", () => {
+    const ds = dataset(`${HEAD_551}\n0 @O1@ OBJE\n1 FILE a.jpg\n0 @I1@ INDI\n1 OBJE\n2 FILE b.PNG\n0 @I2@ INDI\n1 OBJE\n2 FORM gif\n2 FILE c.gif\n0 TRLR`);
+    expect(countFixableConformance(ds, "forms")).toBe(2);
+    fixConformance(ds, "forms");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 FILE a.jpg\n2 FORM jpg\n");
+    expect(out).toContain("2 FILE b.PNG\n3 FORM png\n");
+    expect(out).toContain("1 OBJE\n2 FORM gif\n2 FILE c.gif\n0 TRLR");
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it("holds 5.5.5 to its own header", () => {
     const ds = dataset(`0 HEAD\n1 SOUR T\n1 GEDC\n2 VERS 5.5.5\n2 FORM LINEAGE-LINKED\n1 CHAR ANSEL\n0 TRLR`);
     expect(kinds(validateConformance(ds)).sort()).toEqual(["enumValue", "missing"]);
@@ -519,6 +543,7 @@ describe("fixConformance", () => {
 1 TITL Krst 1870
 0 @O2@ OBJE
 1 FILE b.jpg
+2 FORM jpg
 2 TITL Poroka
 1 TITL Poroka
 0 @O3@ OBJE
@@ -536,7 +561,7 @@ describe("fixConformance", () => {
     expect(patches.map((p) => p.id)).toEqual(["@O1@", "@O2@"]);
     const out = serializeGedcom(ds.records, ds);
     expect(out).toContain("0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n2 TITL Krst 1870\n");
-    expect(out).toContain("0 @O2@ OBJE\n1 FILE b.jpg\n2 TITL Poroka\n0 @O3@"); // the copy goes
+    expect(out).toContain("0 @O2@ OBJE\n1 FILE b.jpg\n2 FORM jpg\n2 TITL Poroka\n0 @O3@"); // the copy goes
     expect(out).toContain("2 TITL Pogreb\n1 TITL Different\n"); // left for the user
 
     // Only on the user's word: the FILE's own title stays, the other goes.

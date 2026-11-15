@@ -103,7 +103,9 @@ export const SPEC_551: SpecTable = {
     // The 5.5 shape — FORM beside FILE rather than under it — is what most
     // 5.5.1 exporters still write, and 5.5.1 readers are told to accept it.
     "OBJE-LINK": ["@OBJE?", "FILE=OBJE-FILE:0M FORM=OBJE-FORM:01 TITL:01"],
-    "OBJE-FILE": ["T", "FORM=OBJE-FORM:01 TITL:01"],
+    // FORM is {1:1} under FILE; a FILE whose FORM stands beside it (the 5.5
+    // shape above) is not faulted for its absence here.
+    "OBJE-FILE": ["T", "FORM=OBJE-FORM:11 TITL:01"],
     "OBJE-FORM": ["T", "MEDI:01 TYPE=MEDI:01"],
     MEDI: ["E:MEDI", ""],
     REFN: ["T", "TYPE:01"],
