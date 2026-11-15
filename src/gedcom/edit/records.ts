@@ -74,7 +74,11 @@ export function preferredFsIdTag(ds: Dataset, overrides?: FormatOverrides): FsId
 export function setFsIds(indi: Individual, ids: string[], preferredTag: FsIdTag): void {
   const clean = ids.map((s) => s.trim().toUpperCase()).filter(Boolean);
   const existing = indi.raw.children.filter(isFsIdNode);
-  const tag = existing.length ? existing[existing.length - 1].tag : preferredTag;
+  // The record's own tag, unless it and the preferred tag disagree on EXID: a
+  // strict 7.0 target prefers the standard EXID over `_FID`/`_FSFTID`, and a
+  // strict 5.5.1 one — which has no EXID — the file's extension.
+  const own = existing[existing.length - 1]?.tag;
+  const tag = own && (own === "EXID") === (preferredTag === "EXID") ? own : preferredTag;
   existing.slice(0, clean.length).forEach((node, i) => { node.value = clean[i]; });
   if (clean.length < existing.length) {
     const drop = new Set(existing.slice(clean.length));

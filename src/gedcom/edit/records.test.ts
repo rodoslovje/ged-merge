@@ -2,7 +2,26 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../builder";
 import { parseGedcom } from "../parser";
 import { noteCtx } from "./notes";
-import { preferredFsIdTag, recordLinkTag, setFamilyLinks, setFamilyNotes, setIndividualLinks, setNotes } from "./records";
+import { preferredFsIdTag, recordLinkTag, setFsIds, setFamilyLinks, setFamilyNotes, setIndividualLinks, setNotes } from "./records";
+
+describe("setFsIds — the tag of a newly added FamilySearch id", () => {
+  const ds7 = () => buildDataset(parseGedcom(new TextEncoder().encode(
+    "0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n1 NAME A /B/\n1 _FID KWZ1-ABC\n0 TRLR\n").buffer));
+  const tags = (ds: ReturnType<typeof ds7>) =>
+    ds.individuals.get("@I1@")!.raw.children.filter((c) => /FID|EXID/.test(c.tag)).map((c) => `${c.tag} ${c.value}`);
+
+  it("writes a strict 7.0 target's EXID beside the record's _FID", () => {
+    const ds = ds7();
+    setFsIds(ds.individuals.get("@I1@")!, ["KWZ1-ABC", "GPZG-CXL"], preferredFsIdTag(ds, { standard: "7.0" }));
+    expect(tags(ds)).toEqual(["_FID KWZ1-ABC", "EXID GPZG-CXL"]);
+  });
+
+  it("keeps the record's own tag in the file's own format", () => {
+    const ds = ds7();
+    setFsIds(ds.individuals.get("@I1@")!, ["KWZ1-ABC", "GPZG-CXL"], preferredFsIdTag(ds));
+    expect(tags(ds)).toEqual(["_FID KWZ1-ABC", "_FID GPZG-CXL"]);
+  });
+});
 
 describe("recordLinkTag — a link on a person or family record", () => {
   it("never writes WWW on a record in a strict target format", () => {
