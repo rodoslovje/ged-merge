@@ -356,7 +356,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Nepovezane osebe", en: "Disconnected people" },
       say: {
-        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: pesnika Franceta Prešerna in Ano Jelovšek.",
+        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
         en: "Prešeren's daughter, who died as a baby, is linked to nobody. A person without a family is often just a forgotten link. In Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
       },
       run: async (d) => {
