@@ -76,6 +76,23 @@ describe("previewLinkCitation", () => {
     expect(previewLinkPlacement(person, url, recs).eventTag).toBeUndefined();
   });
 
+  it("finds a source record added after the lookup was cached", () => {
+    // The file names this book only through a citation of its page by link;
+    // the SOUR it points to arrives later in the merge. The cached lookup
+    // predates it, so the name must still come from the record itself.
+    const page = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56";
+    const recs = records(`0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SOUR @S9@\n2 PAGE ${page}\n`);
+    const url = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58";
+    expect(previewLinkCitation(recs, url)).toMatchObject({ sourceId: "@S9@", title: undefined });
+    recs.splice(recs.length - 1, 0, {
+      level: 0,
+      xref: "@S9@",
+      tag: "SOUR",
+      children: [{ level: 1, tag: "TITL", value: "Krstna knjiga - Šenčur", children: [] }],
+    });
+    expect(previewLinkCitation(recs, url)).toMatchObject({ sourceId: "@S9@", title: "Krstna knjiga - Šenčur" });
+  });
+
   it("leaves a link of an unknown site a plain link", () => {
     expect(previewLinkCitation(records(BOOK), "https://example.com/janez")).toBeUndefined();
   });
