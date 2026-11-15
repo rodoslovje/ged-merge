@@ -69,7 +69,7 @@ async function clickFixWhenSaid(d: Director, text: string, secondsBefore = 1.2):
   await d.untilSaid(secondsBefore);
   await d.click(button);
   await d.highlight(null);
-  await d.wait(1200);
+  await d.wait(500);
 }
 
 /** Once the narration is done, open the next step's filter, so its rows are
@@ -79,7 +79,7 @@ async function prepare(d: Director, label: Text): Promise<void> {
   await d.calloutAhead();
   // Just the filter: the next step rings its rows while it speaks.
   await d.click(chip(d, label));
-  await d.wait(500);
+  await d.wait(200);
 }
 
 /** Ring the open confirmation, and confirm it as the narration ends. */
@@ -317,7 +317,16 @@ const scenario: Scenario = {
       run: async (d) => {
         const death = d.page.locator(".edit-person .edit-event").filter({ hasText: d.t({ sl: "Smrt", en: "Death" }) }).first();
         await d.highlight(death, 6);
-        await d.untilSaid(2);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Popravimo letnico.",
+        en: "Let's correct the year.",
+      },
+      run: async (d) => {
+        const death = d.page.locator(".edit-person .edit-event").filter({ hasText: d.t({ sl: "Smrt", en: "Death" }) }).first();
         const date = death.locator(".edit-event-date").first();
         await d.click(date);
         await d.page.keyboard.press("End");
@@ -327,16 +336,23 @@ const scenario: Scenario = {
         // Enter moves on to the place, whose suggestions must not stay open.
         await d.wait(400);
         await d.page.keyboard.press("Escape");
-        await d.wait(700);
+        await d.wait(500);
         await d.highlight(null);
-        // Run again before the next sentence says what it shows.
+      },
+    },
+    {
+      say: {
+        sl: "Ko datoteko spremenite, pregled zaženete znova.",
+        en: "Once the file has changed, you run the check again.",
+      },
+      run: async (d) => {
         await backAndRerun(d);
       },
     },
     {
       say: {
-        sl: "Ko datoteko spremenite, pregled zaženete znova. Vse tri težave so izginile.",
-        en: "Once the file has changed, you run the check again. All three issues are gone.",
+        sl: "Vse tri težave so izginile.",
+        en: "All three issues are gone.",
       },
       run: async (d) => {
         await d.highlight(d.page.locator(".tools-chips").first(), 6);
