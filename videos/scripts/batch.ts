@@ -71,18 +71,18 @@ const actionSelect = (d: Director) => view(d).locator(".batch-action .batch-sele
 
 /** Open a menu and pick the option that reads `text` — slowly enough to read
  *  the open list first and to see the choice land after. */
-async function choose(d: Director, trigger: Locator, text: string, exact = true): Promise<void> {
+async function choose(d: Director, trigger: Locator, text: string, exact = true, quick = false): Promise<void> {
   await d.click(trigger);
   await option(d, text, exact).waitFor();
-  await d.wait(1000);
+  await d.wait(quick ? 450 : 1000);
   await d.click(option(d, text, exact));
-  await d.wait(1100);
+  await d.wait(quick ? 450 : 1100);
 }
 
 /** Add a filter row of the given kind (by its label key) and return it. */
-async function addFilter(d: Director, label: Key): Promise<Locator> {
+async function addFilter(d: Director, label: Key, quick = false): Promise<Locator> {
   const n = await view(d).locator(".batch-crit").count();
-  await choose(d, view(d).locator(".batch-add-filter"), L(d, label));
+  await choose(d, view(d).locator(".batch-add-filter"), L(d, label), true, quick);
   return crit(d, n);
 }
 
@@ -385,8 +385,9 @@ const scenario: Scenario = {
         // the living people of this file for a moment — never shown in a
         // public video. The matches stay hidden until it reads "deceased".
         const hide = await d.page.addStyleTag({ content: ".batch-results .batch-list { visibility: hidden; }" });
-        const living = await addFilter(d, "tools.batch.crit.living");
-        await choose(d, living.locator(".batch-select").first(), L(d, "tools.batch.living.no"));
+        // Quicker than the other picks: the line is short.
+        const living = await addFilter(d, "tools.batch.crit.living", true);
+        await choose(d, living.locator(".batch-select").first(), L(d, "tools.batch.living.no"), true, true);
         await hide.evaluate((el) => (el as Element).remove());
       },
     },
