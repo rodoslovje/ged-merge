@@ -1,6 +1,9 @@
 import { isPresumedLiving } from "./lifespan";
-import { cloneNode } from "./node";
+import { cloneNode, firstChild } from "./node";
 import type { Dataset, GedNode, Individual } from "./types";
+import { isVoidPointer } from "./uri";
+import { VOID_XREF } from "./assoc";
+import { versionFamily, type VersionFamily } from "../normalize/migrate";
 
 /**
  * Branch export: cut a shareable GEDCOM out of the main file containing
@@ -44,10 +47,12 @@ export interface BranchExport {
   supporting: number;
 }
 
-/** A standalone pointer value (`@X1@`), as opposed to a `@#…@` escape. */
+/** A standalone pointer value (`@X1@`), as opposed to a `@#…@` escape. 7.0's
+ *  `@VOID@` points nowhere on purpose, so it is no pointer to follow or scrub:
+ *  a citation `SOUR @VOID@` keeps its PAGE and PHRASE. */
 function pointerValue(node: GedNode): string | undefined {
   const v = node.value?.trim();
-  return v && /^@[^@]+@$/.test(v) && !v.startsWith("@#") ? v : undefined;
+  return v && /^@[^@]+@$/.test(v) && !v.startsWith("@#") && !isVoidPointer(v) ? v : undefined;
 }
 
 /** What a redacted record keeps: who it is related to and, for a person, the sex. */
@@ -60,7 +65,17 @@ export const REDACTED_NAME = "<living>";
 const hiddenLiving = (indi: Individual | undefined, ds: Dataset): boolean =>
   !!indi && (isPresumedLiving(indi, ds) || !!indi.private);
 
-export function extractBranch(ds: Dataset, personIds: Iterable<string>, opts: { redactLiving?: boolean } = {}): BranchExport {
+export function extractBranch(
+  ds: Dataset,
+  personIds: Iterable<string>,
+  opts: {
+    redactLiving?: boolean;
+    /** The version the export is written in (default: the file's own). It
+     *  decides how a sealing whose family is left out is kept. */
+    version?: VersionFamily;
+  } = {},
+): BranchExport {
+  const version = opts.version ?? versionFamily(ds.version);
   const keepIndi = new Set<string>();
   for (const id of personIds) if (ds.individuals.has(id)) keepIndi.add(id);
 
@@ -88,6 +103,15 @@ export function extractBranch(ds: Dataset, personIds: Iterable<string>, opts: { 
     node.children = node.children.filter((child) => {
       const v = pointerValue(child);
       if (v && isOutsider(v)) return false;
+      // A child-to-parents sealing requires its FAMC: with the family outside
+      // the branch, 7.0 points it at `@VOID@`; 5.5.1 has no such pointer, so
+      // the sealing goes.
+      const famc = child.tag === "SLGC" ? firstChild(child, "FAMC") : undefined;
+      const famcTarget = famc && pointerValue(famc);
+      if (famc && famcTarget && isOutsider(famcTarget)) {
+        if (version !== "7.0") return false;
+        famc.value = VOID_XREF;
+      }
       scrubOutsiders(child);
       return true;
     });
