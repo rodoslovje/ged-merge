@@ -13,7 +13,7 @@ import {
   SOUR_TRAILING_TAGS,
   writeNameValue,
 } from "../gedcom/edit";
-import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
+import { buildObjeIndex, buildSourceIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { contactTagOf } from "../gedcom/address";
@@ -1650,15 +1650,19 @@ export function foldMatchedSourcePages(records: GedNode[], compare: Dataset, sou
 
   const mainObje = buildObjeIndex(records);
   const compareObje = buildObjeIndex(compare.records);
+  // Built once: the loop below adds OBJE lines under source records but never
+  // adds or removes a top-level record, so both indexes stay valid throughout.
+  const mainSources = buildSourceIndex(records);
+  const compareSources = buildSourceIndex(compare.records);
   let changed = false;
   for (const [cXref, outXref] of sourMap) {
     const pages = citedPages.get(outXref);
     if (!pages?.size) continue;
     // Only a *pre-existing* main record needs the fold: a fresh-xref import
     // brings the whole compare record across, page links included.
-    const mainRec = records.find((r) => r.tag === "SOUR" && r.xref === outXref);
+    const mainRec = mainSources.get(outXref);
     if (!mainRec) continue;
-    const compareRec = compare.records.find((r) => r.tag === "SOUR" && r.xref === cXref);
+    const compareRec = compareSources.get(cXref);
     if (!compareRec) continue;
     const covered = mainRec.children
       .filter((c) => c.tag === "OBJE" && c.value)
