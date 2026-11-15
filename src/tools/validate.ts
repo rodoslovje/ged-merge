@@ -1,6 +1,6 @@
 import type { Association, Dataset, Family, GedDate, GedEvent, GedNode, Individual } from "../gedcom/types";
 import { dateText } from "../gedcom/date";
-import { BIRTH_TAGS, DEATH_TAGS, birthDateOf, birthYear, dateYearSpan, deathYear, isDeceased, statedAgesOf } from "../gedcom/lifespan";
+import { DEATH_TAGS, birthDateOf, birthYear, dateYearSpan, deathYear, isDeceased, statedAgesOf } from "../gedcom/lifespan";
 import { ageYearsRange, parseAge } from "../gedcom/ageValue";
 import { ageBetween } from "../gedcom/age";
 
@@ -13,6 +13,7 @@ import { ageBetween } from "../gedcom/age";
 export const STATED_AGE_TOLERANCE = 1;
 import { birthParentFamilies, isBirthChildLink, isSameSexCouple } from "../gedcom/couple";
 import { contradicts } from "../gedcom/negative";
+import { birthBound, daySpan, marriageEstimate, previewBirthEstimateDates } from "./estimates";
 
 /**
  * Plausibility limits for age-based sanity checks, in whole years. Computed from
@@ -80,6 +81,7 @@ export type IssueCategory =
   | "parentAge"
   | "bornAfterParentDeath"
   | "bornBeforeMarriage"
+  | "undatedMarriage"
   | "parallelFamilies"
   | "spouseAgeGap"
   | "futureDate"
@@ -110,6 +112,9 @@ export interface ValidationIssue {
   /** A better marriage date the finding proves (`bornBeforeMarriage` against
    *  an estimated or bounded marriage) — what the row's fix writes. */
   marriageFix?: MarriageDateFix;
+  /** The birth date the estimate would write (`missingVitals`) — the same
+   *  one Batch's "Estimate birth" proposes, and what the row's fix writes. */
+  birthEstimate?: string;
 }
 
 /** Write `value` as the `MARR` date of family `famId`. */
@@ -151,6 +156,7 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   parentAge: 0,
   bornAfterParentDeath: 0,
   bornBeforeMarriage: 0,
+  undatedMarriage: 0,
   parallelFamilies: 0,
   spouseAgeGap: 0,
   futureDate: 0,
@@ -161,53 +167,6 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
 /** The sex an issue message agrees with, or undefined for SEX U / unrecorded. */
 function sexOf(indi: Individual | undefined): "M" | "F" | undefined {
   return indi?.sex === "M" || indi?.sex === "F" ? indi.sex : undefined;
-}
-
-/** The first and last day a date can name, as `Y*10000 + M*100 + D`; an open
- *  side (BEF, TO / AFT, FROM) is ±Infinity. `sure` is false for an estimate
- *  (ABT, EST, CAL), read as the span it names. Undefined without a year. */
-function daySpan(d: GedDate): { from: number; to: number; sure: boolean } | undefined {
-  if (d.year == null) return undefined;
-  const lo = (y: number, m?: number, day?: number) => y * 10000 + (m ?? 1) * 100 + (day ?? 1);
-  const hi = (y: number, m?: number, day?: number) => y * 10000 + (m ?? 12) * 100 + (day ?? 31);
-  const own = { from: lo(d.year, d.month, d.day), to: hi(d.year, d.month, d.day) };
-  switch (d.qualifier) {
-    case "exact": case "interpreted": return { ...own, sure: true };
-    case "about": return { ...own, sure: false };
-    // BEF names the day before it starts; TO ends a period on its last day.
-    case "before": return { from: -Infinity, to: own.from - 1, sure: true };
-    case "to": return { from: -Infinity, to: own.to, sure: true };
-    case "after": case "from": return { from: own.from, to: Infinity, sure: true };
-    case "between": case "range":
-      return d.year2 == null ? undefined : { from: own.from, to: hi(d.year2, d.month2, d.day2), sure: true };
-    default: return undefined;
-  }
-}
-
-/** The birth/baptism date that bounds a person's birth most tightly from
- *  above — a stated one first, else an estimate — with that bound's last day. */
-function birthBound(indi: Individual): { date: GedDate; to: number; sure: boolean } | undefined {
-  let best: { date: GedDate; to: number; sure: boolean } | undefined;
-  for (const ev of indi.events) {
-    if (!(BIRTH_TAGS as readonly string[]).includes(ev.tag) || !ev.date) continue;
-    const span = daySpan(ev.date);
-    if (!span || span.to === Infinity) continue;
-    const better = !best || (span.sure && !best.sure) || (span.sure === best.sure && span.to < best.to);
-    if (better) best = { date: ev.date, to: span.to, sure: span.sure };
-  }
-  return best;
-}
-
-const GEDCOM_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
-/** The marriage date a family's eldest child's birth proves: `BEF` that
- *  birth, written in standard GEDCOM. Undefined when the birth names no last
- *  day to put it before (a period, an AFT, another calendar). */
-function marriageBefore(birth: GedDate): string | undefined {
-  if (birth.calendar && birth.calendar !== "GREGORIAN") return undefined;
-  if (!["exact", "interpreted", "before"].includes(birth.qualifier) || birth.year == null) return undefined;
-  const parts = [birth.day, birth.month ? GEDCOM_MONTHS[birth.month - 1] : undefined, birth.year].filter((p) => p != null);
-  return `BEF ${parts.join(" ")}`;
 }
 
 /** A short display label for an individual: primary name + life years. */
@@ -823,18 +782,30 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     const marrYear = marrDate?.year;
     const marrSpan = marrDate && daySpan(marrDate);
     // The marriage is only estimated (ABT) or bounded from above (BEF): what
-    // the eldest stated birth proves it was before, offered as its fix.
+    // the eldest stated birth proves it was before, offered as its fix — the
+    // same estimate Batch writes.
     const marrVague = !!marrSpan && (!marrSpan.sure || marrSpan.from === -Infinity);
-    let marrFix: MarriageDateFix | undefined;
-    if (marrVague) {
-      let eldest: { date: GedDate; to: number } | undefined;
-      for (const id of fam.children) {
-        const c = ds.individuals.get(id);
-        const b = c && isBirthChildLink(c, fam.id) ? birthBound(c) : undefined;
-        if (b?.sure && (!eldest || b.to < eldest.to)) eldest = b;
+    const marrValue = marrVague ? marriageEstimate(ds, fam) : undefined;
+    const marrFix: MarriageDateFix | undefined = marrValue ? { famId: fam.id, value: marrValue } : undefined;
+
+    // A couple's marriage recorded without a date — reported on the husband
+    // (the wife when his record is missing), offered the estimate Batch writes
+    // when the family supports one.
+    const marr = fam.events.find((e) => e.tag === "MARR");
+    if (marr && !marr.date?.raw.trim() && fam.husband && fam.wife) {
+      const person = husband ?? wife;
+      if (person) {
+        const partnerId = person === husband ? fam.wife : fam.husband;
+        const partner = ds.individuals.get(partnerId);
+        const value = marriageEstimate(ds, fam);
+        push({
+          scope: "individual", id: person.id, category: "undatedMarriage", severity: "warning",
+          subject: subjectOf(person), sexContext: sexOf(person),
+          messageKey: "tools.validate.issue.undatedMarriage",
+          messageVars: { partner: partner ? subjectOf(partner) : partnerId },
+          ...(value ? { marriageFix: { famId: fam.id, value } } : null),
+        });
       }
-      const value = eldest && marriageBefore(eldest.date);
-      if (value) marrFix = { famId: fam.id, value };
     }
 
     // Role/sex contradiction: a HUSB recorded female or a WIFE recorded male.
@@ -1076,6 +1047,15 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         subject, messageKey: "tools.validate.issue.dupChil", messageVars: { indi: indiId },
       });
     }
+  }
+
+  // Undated people: the birth Batch would estimate, computed once for all of
+  // them so the sibling spreading sees the same set it does there.
+  const undated = issues.filter((i) => i.category === "missingVitals");
+  const births = previewBirthEstimateDates(ds, undated.map((i) => i.id));
+  for (const issue of undated) {
+    const value = births.get(issue.id);
+    if (value) issue.birthEstimate = value;
   }
 
   // Stable, useful ordering: errors first, then by category, then by subject.
