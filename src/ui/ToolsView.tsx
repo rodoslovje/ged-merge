@@ -46,7 +46,7 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  */
 export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations" | "migration" | "generations" | "research";
 
-const TOOLS: Tool[] = ["stats", "places", "sources", "validate", "duplicates", "normalize", "privacy"];
+const TOOLS: Tool[] = ["stats", "places", "sources", "duplicates", "validate", "normalize", "privacy"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
