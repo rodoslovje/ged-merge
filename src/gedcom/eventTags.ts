@@ -34,9 +34,11 @@ export const INDI_EVENT_TAG_ORDER = [
  *  partnership-status tag (Brother's Keeper vocabulary — "Partners", …) that
  *  normalization consolidates the other vendor encodings into. */
 export const FAM_EVENT_TAG_ORDER = [
-  "MARR", "ENGA", "MARC", "MARS", "SEPA", "MARB", "MARL",
-  "RESI", "CENS", "NCHI",
-  "DIVF", "DIV", "ANUL", "SLGS", "EVEN", "_MSTAT",
+  "MARR", "ENGA", "DIVF", "DIV", "ANUL",
+  "MARB", "MARC", "MARL", "MARS",
+  "RESI", "CENS", "NCHI", "SLGS", "EVEN",
+  // Non-standard: after every standard one.
+  "_MSTAT", "SEPA",
 ];
 
 /** The Latter-day Saint ordinances: baptism, confirmation, endowment and the
@@ -329,9 +331,10 @@ export const ALL_EVENT_TAGS: Set<string> = new Set([...INDI_EVENT_TAGS, ...FAM_E
  *  household `RESI`/`CENS`, which GEDCOM lets a family repeat — round-trips
  *  untouched but isn't editable, compared or merged; the first one is. */
 export const EDITABLE_FAM_EVENT_TAGS = [
-  "MARR", "ENGA", "MARC", "MARS", "SEPA",
-  "RESI", "CENS", "NCHI",
-  "DIVF", "DIV", "ANUL", "SLGS", "EVEN", "_MSTAT",
+  "MARR", "ENGA", "DIVF", "DIV", "ANUL",
+  "MARC", "MARS",
+  "RESI", "CENS", "NCHI", "SLGS", "EVEN",
+  "_MSTAT", "SEPA",
 ];
 
 /** Display name for an event on a family record. The household events read
