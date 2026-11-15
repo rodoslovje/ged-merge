@@ -423,6 +423,14 @@ const scenario: Scenario = {
         await d.scrollTo(actionSelect(d));
         await choose(d, actionSelect(d), L(d, "tools.batch.action.addMedia"));
         await searchPick(d, view(d).locator(".batch-action .search-select"), DIED_YOUNG, "died");
+      },
+    },
+    {
+      say: {
+        sl: "Kliknite gumb za izvedbo in potrdite. Sličico je dobilo vseh 185 oseb.",
+        en: "Click the apply button and confirm. All 185 people got the image.",
+      },
+      run: async (d) => {
         await apply(d);
       },
     },
