@@ -9857,13 +9857,15 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   display: inline-flex; align-items: center; gap: 6px;
 }
 .tools-issue-icon {
-  display: inline-flex; align-items: center;
-  padding: 2px 6px;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 8px;
   border: 1px solid var(--border-2); border-radius: var(--radius-pill);
   background: none; color: var(--accent);
-  cursor: pointer;
+  font: inherit; font-size: 0.82rem; line-height: 1.5;
+  cursor: pointer; white-space: nowrap;
 }
 .tools-issue-icon:hover { border-color: var(--accent); }
+.tools-issue-iconfix { display: inline-flex; align-items: center; gap: 4px; margin-left: 0; }
 /* Its aftermath, while the re-run health check is still in flight. */
 .tools-issue-fixed {
   flex: none; margin-left: auto;

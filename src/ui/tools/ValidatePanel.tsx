@@ -13,7 +13,8 @@ import { planBranchRemoval } from "../../tools/removeBranch";
 import { branchOf, type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
 import { exportChartGedcom } from "../exportGedcom";
 import { chartSlug } from "../exportSvg";
-import { GedIcon } from "../icons/FormatIcons";
+import { DownloadIcon } from "../icons/DownloadIcon";
+import { TrashIcon } from "../icons/TrashIcon";
 import { inferableSexes } from "../../tools/fixSex";
 import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
 import type { BrokenLinkRef } from "../../tools/fixLinks";
@@ -1410,9 +1411,11 @@ function BranchActions({ dataset, personId, done, onRemove }: {
         aria-label={t("tools.validate.branchExport")}
         onClick={exportBranch}
       >
-        <GedIcon />
+        <DownloadIcon size={13} />
+        GEDCOM
       </button>
-      <button type="button" className="tools-issue-fix" title={t("tools.validate.branchRemoveTip")} onClick={onRemove}>
+      <button type="button" className="tools-issue-fix tools-issue-iconfix" title={t("tools.validate.branchRemoveTip")} onClick={onRemove}>
+        <TrashIcon size={13} />
         {t("tools.validate.branchRemove")}
       </button>
     </span>
