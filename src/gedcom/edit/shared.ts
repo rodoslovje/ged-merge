@@ -248,6 +248,52 @@ export function insertRecord(records: GedNode[], record: GedNode): void {
   else records.splice(trlrIndex, 0, record);
 }
 
+/**
+ * {@link insertRecord} for many records at once, in one rebuild of the list:
+ * each lands where inserting them one by one, in order, would put it — after
+ * the last record of its tag, or before `TRLR` — without a splice per record,
+ * which over a large file moves the whole list each time.
+ */
+export function insertRecords(records: GedNode[], added: readonly GedNode[]): void {
+  if (!added.length) return;
+  if (added.length === 1) return insertRecord(records, added[0]);
+  for (const r of added) noteInsertedXref(records, r.xref);
+  const lastOfTag = new Map<string, number>();
+  records.forEach((r, i) => lastOfTag.set(r.tag, i));
+  const trlr = records.findIndex((r) => r.tag === "TRLR");
+  const end = trlr === -1 ? records.length - 1 : trlr - 1;
+  // Records of a tag the list has none of go before TRLR, grouped by tag in
+  // the order the tags first come — as each one after the first would follow
+  // the first of its tag.
+  const newTags = new Map<string, GedNode[]>();
+  // Position each group goes after (-1: the very start), keyed by that index.
+  const after = new Map<number, GedNode[]>();
+  for (const r of added) {
+    const at = lastOfTag.get(r.tag);
+    if (at === undefined) {
+      let group = newTags.get(r.tag);
+      if (!group) newTags.set(r.tag, (group = []));
+      group.push(r);
+      continue;
+    }
+    let group = after.get(at);
+    if (!group) after.set(at, (group = []));
+    group.push(r);
+  }
+  if (newTags.size) {
+    const tail = after.get(end) ?? [];
+    after.set(end, [...tail, ...[...newTags.values()].flat()]);
+  }
+  const out: GedNode[] = [];
+  for (const r of after.get(-1) ?? []) out.push(r);
+  records.forEach((r, i) => {
+    out.push(r);
+    for (const a of after.get(i) ?? []) out.push(a);
+  });
+  records.length = 0;
+  for (const r of out) records.push(r);
+}
+
 const positionCaches = new WeakMap<GedNode[], WeakMap<GedNode, number>>();
 
 /**

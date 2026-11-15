@@ -542,7 +542,7 @@ export function mergeDecisions(
   // here on are reported as imported (preview flags them "Incoming").
   ctx.beginGraftPhase();
   applyImportBranches(importBranches, main, compare, ctx);
-  if (wholeFile) applyWholeFile(compare, ctx);
+  if (wholeFile) ctx.batchInserts(() => applyWholeFile(compare, ctx));
 
   // Every family pointer written onto a person, now that the families it names
   // are whole. Deliberately after the decision loop: `touched` gates the

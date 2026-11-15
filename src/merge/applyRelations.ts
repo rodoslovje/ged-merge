@@ -3,6 +3,7 @@ import {
   INDI_CHILD_ORDER,
   insertOrdered,
   insertRecord,
+  insertRecords,
 } from "../gedcom/edit";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { EDITABLE_FAM_EVENT_TAGS, familyEventLabel } from "../gedcom/eventTags";
@@ -78,6 +79,11 @@ export interface MergeContext {
   childPedigree: (incomingId: string, incomingFamId: string) => string | undefined;
   /** The families the incoming file makes this person a child of. */
   incomingChildOf: (incomingId: string) => readonly string[] | undefined;
+  /** Run `run` with the records it adds held back and placed in one go at
+   *  its end — a step adding tens of thousands of records would otherwise
+   *  move the whole record list for each. Nothing in the run may look a new
+   *  record up in `records` (the node maps hold them). */
+  batchInserts: <T>(run: () => T) => T;
   /** Display label for a main id, for the change report. */
   label: (id: string) => string;
   /** A main id (or a record this merge added) as the preview writes a person. */
@@ -213,12 +219,19 @@ export function makeContext(
     used.add(id);
     return id;
   };
+  // Records this context adds, held back while a batch runs (see
+  // `batchInserts`) and placed in one rebuild of the list at its end.
+  let pendingInserts: GedNode[] | null = null;
+  const place = (node: GedNode): void => {
+    if (pendingInserts) pendingInserts.push(node);
+    else insertRecord(records, node);
+  };
 
   const createFamily = (): { id: string; node: GedNode } => {
     const id = allocXref("F");
     const node = newNode("FAM");
     node.xref = id;
-    insertRecord(records, node);
+    place(node);
     famNodes.set(id, node);
     report.changes.push({ recordId: id, field: t("merge.field.newFamily"), from: "", to: "", action: "incoming", newRecord: true, viaGraft: graftPhase || undefined });
     report.newFamilies++;
@@ -354,7 +367,7 @@ export function makeContext(
         reason: t("merge.reason.aliaNotImported"),
       });
     }
-    insertRecord(records, node);
+    place(node);
     indiNodes.set(newId, node);
     addedFromIncoming.set(incomingId, newId);
     const name = displayName(incIndi.names[0]);
@@ -402,6 +415,17 @@ export function makeContext(
       return famc?.children.find((c) => c.tag === "PEDI")?.value?.trim() || undefined;
     },
     incomingChildOf: (incomingId) => compare.individuals.get(incomingId)?.childOf,
+    batchInserts: (run) => {
+      if (pendingInserts) return run();
+      pendingInserts = [];
+      try {
+        return run();
+      } finally {
+        const added = pendingInserts;
+        pendingInserts = null;
+        insertRecords(records, added);
+      }
+    },
     label: (id) =>
       addedLabels.get(id) ?? displayName(main.individuals.get(id)?.names[0]),
     person: (id) => {
