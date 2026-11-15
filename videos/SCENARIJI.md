@@ -583,9 +583,10 @@ Natančen govor v obeh jezikih je v `scripts/organize.ts`.
 ukrep; filtre shraniti, da jih pozneje zaženemo znova. Tudi filter brez ukrepa je uporaben —
 kot shranjeno iskanje za nadaljnje raziskovanje.
 **Podatki:** `rodbina-renko.ged` (izhodiščna oseba avtor, kot v epizodah 9 in 11). Številke
-(preverjeno 14. 11. 2026): poročene ženske brez poročnega priimka 497 (57 jih ostane neoznačenih,
-ker poroka ni zapisana); umrli pred 20. letom 185; osebe s partnerjem v zvezi brez datuma poroke
-147 (77 družin, 36 dobi BEF, ostale ABT); ocenjeni datumi poroke po ukrepu 256 oseb; avtorjevi
+(preverjeno 15. 11. 2026): poročene ženske brez poročnega priimka 497 (36 jih ostane neoznačenih,
+ker poroka ni zapisana); umrli pred 20. letom 185; osebe s partnerjem v zvezi s poroko brez datuma
+48 (24 parov, 21 dobi BEF, ostali ABT — avtorjevi predniki brez poroke so v demo datoteki dobili
+poroko brez datuma); ocenjeni datumi poroke po ukrepu 160 oseb; pari z otroki brez poroke 14; avtorjevi
 predniki 399, od tega 198 brez virov.
 **Slika died-young:** `icons/died-young.jpg` iz avtorjeve mape medijev (kot v epizodi 12). ·
 **Trajanje:** ~6 min
@@ -598,16 +599,17 @@ zadetkov s predogledom ocen.
 | 2 | Orodja → »Poenoti in paketno uredi« → »Paketna opravila« | Filtri izberejo osebe iz celotne datoteke, seznam pokaže zadetke, ukrep pa se izvede nad vsemi označenimi. |
 | 3 | Filtri »Spol: ženski«, »Sorodniki: ima partnerja«, »Ime: nima poročnega priimka« → 497 zadetkov | Najprej poročni priimki. Poiščimo ženske s partnerjem, ki poročnega priimka še nimajo. |
 | 4 | Ukrep »Dodaj poročni priimek po partnerju« → predogled »→ Renko«, neoznačene vrstice »poroka ni zapisana« | Vsaka vrstica vnaprej pokaže priimek, ki se bo zapisal. Kjer poroka ni zapisana, je vrstica neoznačena — ta par morda ni bil poročen. |
-| 5 | »Izvedi« → potrditev → »Spremenjenih: 435« | En klik, in priimke dobi več kot štiristo žensk. |
+| 5 | »Izvedi« → potrditev → »Spremenjenih: 456« | En klik, in priimke dobi več kot štiristo žensk. |
 | 6 | Ime »Poročni priimki« → »Shrani filter« | Filter shranimo skupaj z ukrepom. Seznam shranjenih vedno pokaže, koliko oseb trenutno ustreza. |
 | 7 | Nov filter: »Živi: ne — umrli«, »Starost: manj kot 20 let« → 185 | Drugi primer: otroci, ki so umrli mladi. Starost se šteje ob smrti. |
-| 8 | Ukrep »Pripni medij« → »Nova slika…« `icons/died-young.jpg` → izvedi | Vsem pripnemo isto sličico, da jih v drevesu in na diagramih takoj prepoznamo. |
+| 8 | Ukrep »Pripni medij« → v iskalno polje »died« → `icons/died-young.jpg` iz mape z mediji → izvedi | Vsem pripnemo isto sličico, da jih v drevesu in na diagramih takoj prepoznamo. |
 | 9 | Filter »Mediji: nima tega medija → died-young« → 0 → shrani »Umrli mladi« | Dodamo še pogoj, da slike nimajo. Zdaj filter ne najde nikogar, ko pa vnesete novega otroka, ga bo našel. |
 | 10 | Urejanje ali diagram družine z otroki, ki so umrli mladi | Sličica je pri vsakem otroku. |
-| 11 | Filtra »Sorodniki: ima partnerja«, »Zveza: nima datuma — Poroka« → 147 | Tretji primer: poroke brez datuma. |
+| 11 | Filtra »Sorodniki: ima partnerja«, »Zveza: nima datuma — Poroka« → 48 (24 parov) | Tretji primer: poroke brez datuma. |
 | 12 | Ukrep »Dodaj ocenjen datum poroke (BEF, ABT)« → predogled »→ BEF 1885«, »→ ABT 1880« | Kjer ima otrok natančen datum rojstva, je poroka pred njim: BEF. Sicer je ocena ABT, iz ocenjenega rojstva otroka ali iz let rojstva zakoncev. |
 | 13 | Izvedi → shrani »Poroke brez datuma« | |
 | 14 | »Zveza: ima ocenjen datum — Poroka«, brez ukrepa → shrani »Ocenjene poroke« | Filter brez ukrepa je shranjeno iskanje. Ocene je dobro preveriti v matičnih knjigah — in če pozneje dodate starejšega otroka, ukrep oceno BEF popravi. |
+| 14a | »ima partnerja«, »ima otroke«, »Zveza: nima — Poroka« → 14, brez ukrepa → shrani »Pari brez poroke« | Tudi tem parom bi lahko dodali oceno poroke, a par morda ni bil poročen — odločitev je vaša. |
 | 15 | »Sorodstvo: neposredni prednik«, »Viri: nima virov« → 198 → shrani »Predniki brez virov« | Še en seznam nalog: od 399 prednikov jih 198 nima nobenega vira. |
 | 16 | Seznam shranjenih filtrov s številkami → »Naloži ta filter« | Shranjeni filtri ostanejo v brskalniku, ne v datoteki GEDCOM — na drugem računalniku jih ni. |
 | 17 | Zaključna kartica | |

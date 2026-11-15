@@ -6,10 +6,12 @@
  *
  * Data: `rodbina-renko.ged` (the anonymised excerpt of the author's tree, as in
  * episodes 9, 11 and 12), the author as the start person. Counts checked on
- * 14 Nov 2026: 497 married women without a married name (57 left unchecked,
- * no marriage recorded), 185 people who died before 20, 147 partners in a
- * union with an undated marriage (77 families), 399 ancestors of whom 198
- * cite no source.
+ * 15 Nov 2026: 497 married women without a married name (36 left unchecked,
+ * no marriage recorded), 185 people who died before 20, 48 partners in a
+ * union with a marriage recorded undated (24 couples, after the undated
+ * marriages added to the author's ancestors — see videos/README.md), 14
+ * couples with children and no marriage, 399 ancestors of whom 198 cite no
+ * source.
  *
  * The died-young image is `icons/died-young.jpg` from the author's media
  * folder (`~/Work/rod/renko-ged/media`, or `VIDEO_MEDIA_DIR`), which is not in
@@ -272,8 +274,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Kliknite gumb za izvedbo in potrdite. Poročni priimek je dobilo 435 žensk, v enem koraku.",
-        en: "Click the apply button and confirm. 435 women got their married name, in one step.",
+        sl: "Kliknite gumb za izvedbo in potrdite. Poročni priimek je dobilo 456 žensk, v enem koraku.",
+        en: "Click the apply button and confirm. 456 women got their married name, in one step.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -319,18 +321,14 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Vsem pripnemo isto sličico, da jih v drevesu takoj prepoznamo. Izberite »Pripni medij« in »Nova slika«, nato vpišite pot do slike v mapi z mediji.",
-        en: "We attach the same small image to all of them, so they stand out in the tree at once. Choose Attach media and New image, then type the image's path in your media folder.",
+        sl: "Vsem pripnemo isto sličico, da jih v drevesu takoj prepoznamo. Izberite »Pripni medij« in poiščite sliko v mapi z mediji: dovolj je, da vtipkate del njenega imena.",
+        en: "We attach the same small image to all of them, so they stand out in the tree at once. Choose Attach media and find the image in your media folder: typing part of its name is enough.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.scrollTo(actionSelect(d));
         await choose(d, actionSelect(d), L(d, "tools.batch.action.addMedia"));
-        await searchPick(d, view(d).locator(".batch-action .search-select"), L(d, "tools.batch.newMedia"));
-        const inputs = view(d).locator(".batch-action input.batch-input");
-        await type(d, inputs.nth(0), DIED_YOUNG);
-        await type(d, inputs.nth(1), "died-young");
-        await d.wait(400);
+        await searchPick(d, view(d).locator(".batch-action .search-select"), DIED_YOUNG, "died");
         await apply(d);
       },
     },
@@ -370,8 +368,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Poroke brez datuma", en: "Undated marriages" },
       say: {
-        sl: "Tretji primer: poroke brez datuma. Filtru »Sorodniki: ima partnerja« dodamo filter »Zveza« z možnostjo »nima datuma« za poroko. Najde 147 oseb.",
-        en: "A third example: marriages without a date. Next to Relatives has a partner, we add the Union filter, set to has no date for Marriage. It finds 147 people.",
+        sl: "Tretji primer: poroke brez datuma. Filtru »Sorodniki: ima partnerja« dodamo filter »Zveza« z možnostjo »nima datuma« za poroko. Najde 48 oseb, torej 24 parov s poroko, ki nima datuma.",
+        en: "A third example: marriages without a date. Next to Relatives has a partner, we add the Union filter, set to has no date for Marriage. It finds 48 people: 24 couples whose marriage has no date.",
       },
       run: async (d) => {
         await clearFilters(d);
@@ -426,6 +424,24 @@ const scenario: Scenario = {
         await d.scrollTo(actionSelect(d));
         await choose(d, actionSelect(d), L(d, "tools.batch.action.none"));
         await save(d, d.t({ sl: "Ocenjene poroke", en: "Estimated marriages" }));
+      },
+    },
+    {
+      callout: { sl: "Pari brez poroke", en: "Couples without a marriage" },
+      say: {
+        sl: "Še eno iskanje: pari z otroki, ki nimajo zapisane poroke. Takih je 14. Tudi njim bi lahko dodali oceno poroke, a par morda ni bil poročen, zato o tem odločite sami. Filter shranimo brez ukrepa, kot »Pari brez poroke«.",
+        en: "One more search: couples with children and no marriage recorded. There are 14. You could give them an estimated marriage too, but a couple may never have married, so that is your decision. We save the filter without an action, as Couples without a marriage.",
+      },
+      run: async (d) => {
+        await clearFilters(d);
+        await addFilter(d, "tools.batch.crit.relation");
+        const kids = await addFilter(d, "tools.batch.crit.relation");
+        await choose(d, kids.locator(".batch-select").first(), L(d, "tools.batch.relation.children.has"));
+        await addFilter(d, "tools.batch.crit.familyEvent");
+        await d.highlight(count(d), 4);
+        await d.wait(2500);
+        await d.highlight(null);
+        await save(d, d.t({ sl: "Pari brez poroke", en: "Couples without a marriage" }));
       },
     },
     {
