@@ -434,15 +434,16 @@ const scenario: Scenario = {
         await d.untilSaid();
         await d.wait(600);
         await d.highlight(null);
+        // Run again before the next sentence says what it shows.
+        await backAndRerun(d);
       },
     },
     {
       say: {
-        sl: "Nazaj v Pregledu ga zaženemo znova in Terezija ni več na seznamu.",
-        en: "Back in the health check we run it again, and Terezija is off the list.",
+        sl: "Ko pregled zaženemo znova, Terezije ni več na seznamu.",
+        en: "Once the check runs again, Terezija is off the list.",
       },
       run: async (d) => {
-        await backAndRerun(d);
         await d.highlight(d.page.locator(".tools-chips").first(), 6);
         await prepare(d, { sl: "Nepovezane veje", en: "Detached branches" });
       },
@@ -593,7 +594,13 @@ const scenario: Scenario = {
         en: "A date written as 1. 3. 1698 is rewritten in the GEDCOM form.",
       },
       run: async (d) => {
-        await d.highlight(d.page.locator(".tools-issues .tools-issue").first(), 4);
+        const first = d.page.locator(".tools-issues .tools-issue").first();
+        await d.highlight(first, 4);
+        // The deaths' confirmation leaves after a while and the list moves up
+        // with it: ring the row again where it lands.
+        await d.page.locator(".tools-clean--ok").waitFor({ state: "detached", timeout: 10_000 }).catch(() => {});
+        await d.wait(400);
+        await d.highlight(first, 4);
         await d.untilSaid();
         await prepare(d, { sl: "Neobstoječi sklici", en: "Dangling references" });
       },
