@@ -690,3 +690,37 @@ describe("consolidateDuplicates", () => {
     expect([...fast.individuals.keys()].sort()).toEqual(["@I1@", "@I3@", "@I5@"]);
   });
 });
+
+describe("mergeDuplicate honours the row choices for shared notes, external ids and NO", () => {
+  const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+  const file = () => dataset(wrap7(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 EXID 111\n2 TYPE https://example.org/id\n1 BIRT\n2 DATE 1850\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 SNOTE @N1@\n1 EXID 222\n2 TYPE https://example.org/id\n" +
+      "1 NO MARR\n1 BIRT\n2 DATE 1850\n" +
+      "0 @N1@ SNOTE A note\n",
+  ));
+  const survivorLines = (ds: ReturnType<typeof dataset>) =>
+    serializeGedcom(ds.records).split("0 @I1@ INDI")[1]!.split("\n0 ")[0]!;
+
+  it("keeps the survivor's own when the choice is main", () => {
+    const ds = file();
+    const rows = individualFieldRows(tr, ds.individuals.get("@I1@"), ds.individuals.get("@I2@"), ds, ds);
+    const main = Object.fromEntries(rows.filter((r) => !r.isGroupHeader).map((r) => [r.key, "main" as FieldChoice]));
+    mergeDuplicate(ds, "@I1@", "@I2@", decide(main), tr);
+    const out = survivorLines(ds);
+    expect(out).not.toContain("SNOTE @N1@");
+    expect(out).not.toContain("EXID 222");
+    expect(out).not.toContain("1 NO MARR");
+    expect(out).toContain("EXID 111");
+  });
+
+  it("still takes them over when the choice is incoming", () => {
+    const ds = file();
+    // Both records have an EXID, so that row conflicts and defaults to main.
+    mergeDuplicate(ds, "@I1@", "@I2@", decide({ exid: "incoming" }), tr);
+    const out = survivorLines(ds);
+    expect(out).toContain("SNOTE @N1@");
+    expect(out).toContain("EXID 222");
+    expect(out).toContain("1 NO MARR");
+  });
+});
