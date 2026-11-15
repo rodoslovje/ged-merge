@@ -218,8 +218,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // somewhere in its middle — past its first heading, with no sign of what was
   // skipped.
   const bodyRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
+    // On a phone the tab bar scrolls sideways — keep the chosen tab in view.
+    tabsRef.current?.querySelector<HTMLElement>("[aria-selected=true]")
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [tab]);
 
   // What "Auto (detected)" resolves to — computed at load in the worker and
@@ -402,7 +406,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             ×
           </button>
         </div>
-        <div className="settings-tabs" role="tablist" aria-label={t("settings.title")} onKeyDown={tablistKeyDown}>
+        <div className="settings-tabs" ref={tabsRef} role="tablist" aria-label={t("settings.title")} onKeyDown={tablistKeyDown}>
           {SETTINGS_TABS.map((id) => (
             <button
               key={id}

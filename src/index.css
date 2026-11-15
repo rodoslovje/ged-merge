@@ -7424,9 +7424,15 @@ body:has(.modal-overlay) {
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
+/* Five tabs don't fit a phone: the bar scrolls sideways rather than widening
+ * the dialog past the screen (its min-content width used to push the whole
+ * modal, body text included, off the right edge). */
 .settings-tabs {
   display: flex;
   gap: 2px;
+  flex: none;
+  overflow-x: auto;
+  scrollbar-width: none;
   margin: 12px 32px;
   padding: 3px;
   background: var(--panel-2);
@@ -7434,7 +7440,8 @@ body:has(.modal-overlay) {
   border-radius: 9px;
 }
 .settings-tabs button {
-  flex: 1 1 0;
+  flex: 1 0 auto;
+  white-space: nowrap;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
@@ -9008,6 +9015,7 @@ kbd {
     border-radius: 0;
     padding: 0 20px 24px;
   }
+  .settings-tabs { margin: 12px 20px; }
   .app {
     padding: 0;
     overflow-y: auto;
