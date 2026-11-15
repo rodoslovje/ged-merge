@@ -1,6 +1,6 @@
 import type { Translate } from "../../locales/i18n";
 import { DropdownMenu, type DropdownGroup } from "../DropdownMenu";
-import { eventMenuLabel } from "../EventGlyph";
+import { deniedEventLabel, eventMenuLabel } from "../EventGlyph";
 
 /** Marks a menu value as a "did not happen" pick rather than an event tag. */
 const DENY = "\0no:";
@@ -48,7 +48,7 @@ export function AddEventSelect({
   if (denyTags?.length) {
     menuGroups.push({
       label: t("edit.noEvent.label"),
-      items: denyTags.map((tag) => ({ ...item(tag), value: `${DENY}${tag}` })),
+      items: denyTags.map((tag) => ({ value: `${DENY}${tag}`, label: deniedEventLabel(tag, t) })),
     });
   }
   if (!menuGroups.some((g) => g.items.length)) return null;

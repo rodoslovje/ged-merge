@@ -187,6 +187,13 @@ export function eventGlyph(tag: string): string {
  *  an event row: the `_MSTAT` that records it is a vendor tag. */
 export const UNMARRIED_UNION_GLYPH = "⚯";
 
+/** The mark for an event the file says did not happen (GEDCOM 7 `NO`) — not
+ *  the event's own, which would say it did: no marriage is the never-married
+ *  couple's ⚯, any other event the struck-through ⊘. */
+export function deniedEventGlyph(tag: string): string {
+  return tag === "MARR" ? UNMARRIED_UNION_GLYPH : "⊘";
+}
+
 /** Distinct tags in canonical life-cycle order — a person's events before a
  *  family's, each in its own order, and anything unknown at the end in the
  *  order it arrived. What a list of glyphs beside a name is sorted by, so the

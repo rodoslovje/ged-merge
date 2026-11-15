@@ -1,23 +1,12 @@
 import type { NegativeAssertion } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { eventDisplayLabel, UNMARRIED_UNION_GLYPH } from "../../gedcom/eventTags";
+import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { deniedEventLabel } from "../EventGlyph";
 import { AddEventSelect } from "./AddEventSelect";
 import { DropdownMenu } from "../DropdownMenu";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
 
 const REMOVE = "remove";
-
-/** The event's name led by a mark that says it did not happen — not the
- *  event's own, which would say it did: the never-married couple's ⚯ (as the
- *  charts and reports draw it), else the struck-through ⊘. */
-function deniedLabel(tag: string, t: Translate) {
-  return (
-    <span className="edit-event-label-lead">
-      <span className="event-glyph" aria-hidden="true">{tag === "MARR" ? UNMARRIED_UNION_GLYPH : "⊘"}</span>
-      {eventDisplayLabel(tag, t)}
-    </span>
-  );
-}
 
 /** What a statement says: "did not happen", and over which period when it is
  *  limited to one. */
@@ -62,7 +51,7 @@ export function NoEventsRow({
                 onSelect={() => onRemove(a.tag)}
                 trigger={
                   <>
-                    {deniedLabel(a.tag, t)}
+                    {deniedEventLabel(a.tag, t)}
                     <span className="edit-event-type-caret" aria-hidden="true">▾</span>
                   </>
                 }
@@ -76,7 +65,7 @@ export function NoEventsRow({
         <div key={`merge-${a.tag}`} className="edit-event edit-no-event-row">
           <div className="edit-event-main">
             <div className="edit-event-type-row">
-              <div className="edit-event-label">{deniedLabel(a.tag, t)}</div>
+              <div className="edit-event-label">{deniedEventLabel(a.tag, t)}</div>
             </div>
             <MergeChip className="edit-no-event" t={t} onTake={merge.onTake} onSkip={merge.onSkip}>
               <NoEventText a={a} t={t} />
