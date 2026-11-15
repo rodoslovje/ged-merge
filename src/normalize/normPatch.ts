@@ -24,7 +24,7 @@ import type { GedNode } from "../gedcom/types";
  * numbering the node's parent has once earlier ops ran):
  *  - `SCALARS mask` — the node's fields in `SCALAR_FIELDS` order whose bit is
  *    set take the next strings (length -1 = remove the field); bit 5 takes the
- *    next object as `conc`.
+ *    next object as `conc`, bit 6 the next object as `upgradedFrom`.
  *  - `CHILDREN n e1…en` — the node's children become: `e ≥ 0` its old child at
  *    that index, `e < 0` the object `-e - 1`. Later ops then reach them.
  *  - `REPLACE obj keepXref` — the node (its level or xref changed) is
@@ -50,6 +50,7 @@ const OP_CHILDREN = 2;
 const OP_REPLACE = 3;
 const SCALAR_FIELDS = ["tag", "value", "spelling", "reshapedFrom", "verbatim"] as const;
 const CONC_BIT = 1 << SCALAR_FIELDS.length;
+const UPGRADED_BIT = CONC_BIT << 1;
 
 class Writer {
   ops: number[] = [];
@@ -124,6 +125,7 @@ function diffNode(a: GedNode, b: GedNode, r: number, path: number[], w: Writer):
     if (a[k] !== b[k]) mask |= 1 << i;
   });
   if (!concEqual(a.conc, b.conc)) mask |= CONC_BIT;
+  if (!upgradedEqual(a.upgradedFrom, b.upgradedFrom)) mask |= UPGRADED_BIT;
   if (mask) {
     w.head(OP_SCALARS, r, path);
     w.ops.push(mask);
@@ -131,6 +133,7 @@ function diffNode(a: GedNode, b: GedNode, r: number, path: number[], w: Writer):
       if (mask & (1 << i)) w.str(b[k]);
     });
     if (mask & CONC_BIT) w.ops.push(w.obj(b.conc ?? null));
+    if (mask & UPGRADED_BIT) w.ops.push(w.obj(b.upgradedFrom ?? null));
   }
   // Align the children: each new child reuses the next old one of the same
   // tag and shape (normalization drops and appends lines, it never reorders
@@ -170,6 +173,11 @@ function concEqual(a: GedNode["conc"], b: GedNode["conc"]): boolean {
   if (a === b) return true;
   if (!a || !b || a.of !== b.of || a.at.length !== b.at.length) return false;
   return a.at.every((v, i) => v === b.at[i]);
+}
+
+function upgradedEqual(a: GedNode["upgradedFrom"], b: GedNode["upgradedFrom"]): boolean {
+  if (a === b) return true;
+  return !!a && !!b && a.tag === b.tag && a.spelling === b.spelling && a.index === b.index && a.value === b.value;
 }
 
 /**
@@ -220,6 +228,11 @@ export function applyNormPatch(records: GedNode[], patch: NormPatch): boolean {
         const conc = objs[ops[at++]] as GedNode["conc"] | null;
         if (conc) node.conc = conc;
         else delete node.conc;
+      }
+      if (mask & UPGRADED_BIT) {
+        const from = objs[ops[at++]] as GedNode["upgradedFrom"] | null;
+        if (from) node.upgradedFrom = from;
+        else delete node.upgradedFrom;
       }
     } else if (op === OP_CHILDREN) {
       const n = ops[at++];
