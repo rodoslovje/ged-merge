@@ -594,7 +594,7 @@ Kot seznam podprtih povezav v epizodi 4 (Viri): overlay `list` na začetku, obro
 Govor seznama ne bere, le povzame skupine. Imena so oznake filtrov iz `sl.ts`.
 
 - **Povezave:** Pokvarjene povezave, Podvojeni kazalci, Isti par dvakrat, Krožni predniki,
-  Dve družini staršev, Nepovezane, Nepovezane skupine
+  Dve družini staršev, Nepovezane osebe, Nepovezane veje
 - **Datumi:** Smrt pred rojstvom, Dogodek zunaj življenjske dobe, Datumi v prihodnosti,
   Neberljivi datumi, Neobstoječi datumi
 - **Starosti:** Starost ob poroki, Starost ob smrti, Starost starša, Starostna razlika
@@ -633,7 +633,7 @@ Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kako
 | 3 | Orodja → Pregled → »Težave v podatkih«; seznam na zaslonu | Pregled preveri povezave, datume, starosti in manjkajoče podatke, drugi zavihek pa še zapis GEDCOM. |
 | 4 | »Smrt pred rojstvom« → Mina Prešeren → Urejanje, 1723 → 1823 | Klik na težavo odpre osebo v Urejanju. Ena napačna števka povzroči tri težave. |
 | 5 | »Zaženi znova« | Ob ponovnem pregledu izginejo vse tri. |
-| 6 | »Nepovezane« → Terezija → Urejanje: poveži s staršema | Oseba brez družine je pogosto le pozabljena povezava. |
+| 6 | »Nepovezane osebe« → obroč na »Odstrani osebo« → Terezija → Urejanje: poveži s staršema | Odvečno osebo odstranite z gumbom; ta je le pozabljena povezava. |
 | 7 | »Pokvarjene povezave«, »Podvojeni kazalci«, »Isti par dvakrat« | Teh napak v Urejanju ne vidite, zato jih popravite kar tukaj. |
 | 8 | »Spol proti vlogi« → zamenja vlogi; »Brez spola« → Ženska | Spol ali vlogo program razbere iz družine. |
 | 9 | »Brez ključnih datumov« → ABT 1670; »Poroka brez datuma« → BEF 23 OCT 1762 | Manjkajoče datume oceni iz sorodnikov, enako kot paketno opravilo. |

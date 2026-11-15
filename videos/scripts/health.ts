@@ -177,7 +177,7 @@ const CHECKS: { name: Text; items: [string, Text][]; column?: boolean }[] = [
       ["👫", { sl: "Isti par dvakrat", en: "Same couple twice" }],
       ["🔁", { sl: "Krožni predniki", en: "Pedigree loops" }],
       ["👪", { sl: "Dve družini staršev", en: "Two sets of parents" }],
-      ["🏝️", { sl: "Nepovezane osebe in skupine", en: "Disconnected people and groups" }],
+      ["🏝️", { sl: "Nepovezane osebe in veje", en: "Disconnected people and detached branches" }],
     ],
   },
   {
@@ -350,17 +350,24 @@ const scenario: Scenario = {
         await fixRow(d, "Ana Jelovšek");
         await d.untilSaid();
         await d.calloutAhead();
-        await openChip(d, { sl: "Nepovezane", en: "Disconnected" });
+        await openChip(d, { sl: "Nepovezane osebe", en: "Disconnected people" });
       },
     },
     {
       callout: { sl: "Nepovezane osebe", en: "Disconnected people" },
       say: {
-        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer. Oseba brez družine je pogosto le pozabljena povezava. V Urejanju ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
-        en: "Prešeren's daughter, who died as a baby, is linked to nobody. A person without a family is often just a forgotten link. In Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
+        sl: "Prešernova hči, ki je umrla kot dojenček, ni povezana z nikomer. Osebo, ki v datoteko ne sodi, odstranite z gumbom »Odstrani osebo«. Ta pa je le pozabljena povezava, zato ji v Urejanju dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
+        en: "Prešeren's daughter, who died as a baby, is linked to nobody. A person who does not belong in the file you remove with the Remove person button. She, though, is just a forgotten link, so in Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
       },
       run: async (d) => {
-        await d.click(row(d, "Terezija").locator(".tools-issue-link").first());
+        const terezija = row(d, "Terezija");
+        await d.highlight(terezija, 4);
+        await d.wait(3800);
+        // The row's own remove button, named but not used.
+        await d.highlight(terezija.locator(".tools-issue-iconfix").first(), 4);
+        await d.wait(3200);
+        await d.highlight(null);
+        await d.click(terezija.locator(".tools-issue-link").first());
         await d.page.locator(".edit-person").first().waitFor();
         await d.wait(900);
         await d.highlight(d.page.locator(".edit-parents").first(), 6);
