@@ -501,7 +501,7 @@ function addFor(
     sourXrefMap,
   );
   importSourRecords(records, compare, sourXrefMap, report.customTags);
-  remapSealingFamilies(people, records, compare, (incomingId) => ctx.resolved(incomingId));
+  remapSealingFamilies(people, records, compare, (incomingId) => ctx.resolved(incomingId), main.version);
   remapMergedAssociations(people, (incomingId) => ctx.resolved(incomingId));
   fillAddedPlaceCoords(people, records);
 

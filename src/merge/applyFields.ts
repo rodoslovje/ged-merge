@@ -17,7 +17,7 @@ import { buildObjeIndex, matchesPage, newSourceCitations, fullerSourceOf, source
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
 import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { contactTagOf } from "../gedcom/address";
-import type { Dataset, Family, GedNode, PersonName, SourceCitation } from "../gedcom/types";
+import type { Dataset, Family, GedcomVersion, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
 import { parseDate } from "../gedcom/date";
 import { insertNegativeAssertion, negativeAssertionsOf, NO_TAGS } from "../gedcom/negative";
@@ -869,6 +869,20 @@ function resolveEventNode(
   return created;
 }
 
+/**
+ * Give each sealing to parents (`SLGC`) this merge created without a `FAMC`
+ * the person's birth family. The sealing's rows apply before the person's
+ * parents are stitched, so a person whose birth family the same merge creates
+ * had none when the sealing was written — and SLGC requires its FAMC.
+ */
+export function fillSealingFamilies(target: GedNode): void {
+  const famc = firstChild(target, "FAMC")?.value;
+  if (!famc) return;
+  for (const sealing of childrenByTag(target, "SLGC")) {
+    if (sealing.auditStamp === "new" && !firstChild(sealing, "FAMC")) sealing.children.push(newNode("FAMC", famc));
+  }
+}
+
 /** Copy the direct value on an event line (e.g. occupation text) from incoming to main. */
 export function applyEventValue(
   target: GedNode,
@@ -1477,6 +1491,9 @@ export function remapSealingFamilies(
   allRecords: GedNode[],
   compare: Dataset,
   resolve: (incomingId: string) => string | undefined,
+  /** The main's version: 7.0 keeps a sealing whose family did not come across
+   *  as `FAMC @VOID@`, since SLGC requires its FAMC. */
+  version?: GedcomVersion,
 ): string[] {
   const dropped: string[] = [];
   const families = new Map(allRecords.filter((r) => r.tag === "FAM" && r.xref).map((r) => [r.xref!, r]));
@@ -1492,7 +1509,9 @@ export function remapSealingFamilies(
           return true;
         }
         dropped.push(person.xref ?? "");
-        return false;
+        if (version !== "7.0") return false;
+        c.value = "@VOID@";
+        return true;
       });
     }
   }

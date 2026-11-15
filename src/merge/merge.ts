@@ -24,6 +24,7 @@ import {
   foldMatchedSourcePages,
   importSourRecords,
   remapSealingFamilies,
+  fillSealingFamilies,
   sortEventsByDate,
 } from "./applyFields";
 import {
@@ -484,6 +485,7 @@ export function mergeDecisions(
     const fields = currentFieldChoices(decision.fields, decision.fieldAnchors, rows);
     applyRows(target, incoming.raw, mainId, rows, fields, report, touched, INDI_HANDLED, t, placement, records, sourXrefMap, decision.mainFields);
     applyIndividualRelations(mainId, mainIndi, incoming, rows, fields, main, compare, ctx);
+    fillSealingFamilies(target);
     // A family row stands down like a person's row when the main family was
     // edited after the choice was made (see `CandidateDecision.mainFields`).
     const editedSinceConfirm = (rowKey: string, liveMain: string): boolean => {
@@ -553,7 +555,7 @@ export function mergeDecisions(
   // Every family is placed too, so an imported sealing to parents can name its
   // main-side family — or, where that family did not come across, lose the
   // pointer, which is said here.
-  for (const recordId of remapSealingFamilies(records, records, compare, (incomingId) => ctx.resolved(incomingId))) {
+  for (const recordId of remapSealingFamilies(records, records, compare, (incomingId) => ctx.resolved(incomingId), main.version)) {
     report.deferred.push({ recordId, field: t("event.SLGC"), reason: t("merge.reason.sealingFamilyMissing") });
   }
 
