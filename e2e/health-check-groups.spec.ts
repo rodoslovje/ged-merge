@@ -29,7 +29,7 @@ test("the health check lists data issues and GEDCOM issues on their own tabs", a
   await expect(data).toHaveAttribute("aria-selected", "true");
   const list = page.locator(".tools-issues");
   await expect(list).toContainText("Sex not recorded");
-  await expect(list).not.toContainText("may hold only Y");
+  await expect(list).not.toContainText("event line holds the text");
   await expect(page.getByRole("button", { name: "Move into a note" })).toHaveCount(0);
 
   await gedcom.click();
@@ -37,12 +37,12 @@ test("the health check lists data issues and GEDCOM issues on their own tabs", a
   // The half's explanation sits behind "How it works".
   await page.locator(".tools-intro-toggle").first().click();
   await expect(page.locator(".tools-intro").first()).toContainText("departs from GEDCOM 7.0");
-  await expect(list).toContainText("may hold only Y");
+  await expect(list).toContainText("event line holds the text");
   await expect(list).not.toContainText("Sex not recorded");
   await expect(page.getByRole("button", { name: "Move into a note" }).first()).toBeVisible();
   // Text on event lines is a chip of its own, carved out of the values.
   await page.locator(".tools-chip", { hasText: "Text on event lines" }).click();
-  await expect(list).toContainText("may hold only Y");
+  await expect(list).toContainText("event line holds the text");
 
   // A page of its own: Back returns to the data issues.
   await page.goBack();
