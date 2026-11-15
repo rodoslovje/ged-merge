@@ -28,7 +28,7 @@ test("the demo file's estimates match Batch, and one fix-all leaves the judgment
 
   // Left for Edit: the mistyped death (and what it drags along) and the
   // disconnected daughter. New: Marija's estimated birth makes her over 99.
-  for (const left of ["Death before birth", "Event outside lifespan", "Born after a parent's death", "Disconnected", "Living over 99"]) {
+  for (const left of ["Death before birth", "Event outside lifespan", "Born after a parent's death", "Disconnected people", "Living over 99"]) {
     await expect(chip(page, left)).toBeVisible();
   }
   for (const gone of ["Broken links", "Duplicate pointers", "Same couple twice", "Sex vs. role", "No sex", "No vital dates", "Undated marriage", "Unparseable dates", "Dangling references"]) {
