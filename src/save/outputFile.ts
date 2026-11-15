@@ -5,6 +5,7 @@ import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOpti
 import type { Dataset, GedNode } from "../gedcom/types";
 import { migrateVersion, versionFamily, type VersionFamily } from "../normalize/migrate";
 import { walkNodes } from "../normalize/walk";
+import type { WriteTarget } from "../normalize/target";
 import { registryEntry } from "../gedcom/extensionRegistry";
 import { termsUri } from "../gedcom/extensionTerms";
 
@@ -29,6 +30,13 @@ export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm" | "gedc7"
 /** The version a file is saved in unless the reader picks the other one. */
 export function ownVersion(ds: Pick<Dataset, "version">): OutputVersion {
   return versionFamily(ds.version);
+}
+
+/** The version a download of `ds` is written in under the main file's target
+ *  format: a strict target's own version (the download converts a file in the
+ *  other one), else the file's own — as Save does. */
+export function downloadVersion(ds: Pick<Dataset, "version">, target: Pick<WriteTarget, "strict" | "version">): OutputVersion {
+  return target.strict ? target.version : ownVersion(ds);
 }
 
 /** Serialize options for a download written in `version`. */

@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
 import { validateConformance } from "../tools/conformance/conformance";
-import { completeStructure, convertVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
+import { completeStructure, convertVersion, downloadVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
 
 const TERMS = "https://gedmerge.com/terms/";
 
@@ -114,6 +114,17 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
   it("converts nothing when saved in the file's own version", () => {
     expect(download(v551).conversion).toBeNull();
     expect(convertVersion(parse(v551).records, "5.5.1", "5.5.1")).toEqual([]);
+  });
+});
+
+describe("downloadVersion — the version every download is written in", () => {
+  it("follows a strict target, else the file's own version", () => {
+    const v551 = { version: "5.5.1" as const };
+    const v70 = { version: "7.0" as const };
+    expect(downloadVersion(v551, { strict: true, version: "7.0" })).toBe("7.0");
+    expect(downloadVersion(v70, { strict: true, version: "5.5.1" })).toBe("5.5.1");
+    expect(downloadVersion(v551, { strict: false, version: "5.5.1" })).toBe("5.5.1");
+    expect(downloadVersion(v70, { strict: false, version: "7.0" })).toBe("7.0");
   });
 });
 
