@@ -705,7 +705,7 @@ export const en = {
   "tools.validate.struct.issue.enumCase": "{{tag}} {{sample}} is written {{standard}} in GEDCOM {{version}}",
   "tools.validate.struct.issue.nameTypeNearest": "{{sample}} is not a GEDCOM {{version}} name type; the standard calls it {{standard}}",
   "tools.validate.struct.issue.nameTypeOther": "{{sample}} is not a GEDCOM {{version}} name type; the standard writes it {{standard}}, with the word kept as its PHRASE",
-  "tools.validate.struct.issue.badY": "The {{tag}} event line holds “{{sample}}”; the standard allows only Y or nothing there",
+  "tools.validate.struct.issue.badY": "The {{tag}} event line holds the text “{{sample}}”",
   "tools.validate.struct.issue.valueNotAllowed": "{{tag}} {{sample}}: in GEDCOM {{version}}, a {{tag}} line takes no value",
   "tools.validate.struct.issue.calendarEscape": "Date {{sample}} names its calendar the GEDCOM 5.5.1 way; GEDCOM 7.0 writes it as a word (JULIAN)",
   "tools.validate.struct.issue.badAge": "AGE {{sample}} is not in the standard form (such as 42y 3m)",

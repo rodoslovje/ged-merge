@@ -803,7 +803,7 @@ export const sl = {
   "tools.validate.struct.issue.enumCase": "{{tag}} {{sample}} se v GEDCOM {{version}} zapiše kot {{standard}}",
   "tools.validate.struct.issue.nameTypeNearest": "GEDCOM {{version}} vrste imena {{sample}} ne pozna; standard jo imenuje {{standard}}",
   "tools.validate.struct.issue.nameTypeOther": "GEDCOM {{version}} vrste imena {{sample}} ne pozna; standard jo zapiše kot {{standard}}, izvirna beseda pa se ohrani v vrstici PHRASE",
-  "tools.validate.struct.issue.badY": "Vrstica dogodka {{tag}} vsebuje besedilo »{{sample}}«, standard pa tu dovoljuje le Y ali prazno vrednost",
+  "tools.validate.struct.issue.badY": "Vrstica dogodka {{tag}} vsebuje besedilo »{{sample}}«",
   "tools.validate.struct.issue.valueNotAllowed": "{{tag}} {{sample}}: v GEDCOM {{version}} vrstica {{tag}} ne sme imeti vrednosti",
   "tools.validate.struct.issue.calendarEscape": "Datum {{sample}} navaja koledar v obliki iz GEDCOM 5.5.1, GEDCOM 7.0 pa ga zapiše z besedo (JULIAN)",
   "tools.validate.struct.issue.badAge": "Starost {{sample}} ni zapisana v standardni obliki (na primer 42y 3m)",
