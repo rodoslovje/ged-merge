@@ -320,19 +320,34 @@ const scenario: Scenario = {
         await fixRow(d, "F36128");
         await openChip(d, { sl: "Isti par dvakrat", en: "Same couple twice" });
         await fixRow(d, "Šimen");
+        // The next step's people are on screen before its narration names them.
+        await d.untilSaid();
+        await d.calloutAhead();
+        await openChip(d, { sl: "Spol proti vlogi", en: "Sex vs. role" });
       },
     },
     {
       callout: { sl: "Spol in vloga", en: "Sex and role" },
       say: {
-        sl: "Simon Muhovec je zapisan kot žena, Marija Legat pa kot mož. Program ju vrne v pravi vlogi. Ana Jelovšek nima spola, a je zapisana kot žena, zato ji ga program določi iz te vloge.",
-        en: "Simon Muhovec is recorded as the wife and Marija Legat as the husband. The program puts them back in their roles. Ana Jelovšek has no sex recorded, but she is listed as a wife, so the program takes it from that role.",
+        sl: "Simon Muhovec je zapisan kot žena, Marija Legat pa kot mož. Program ju vrne v pravi vlogi.",
+        en: "Simon Muhovec is recorded as the wife and Marija Legat as the husband. The program puts them back in their roles.",
       },
       run: async (d) => {
-        await openChip(d, { sl: "Spol proti vlogi", en: "Sex vs. role" });
         await fixRow(d, "Simon Muhovec");
+        await d.untilSaid();
         await openChip(d, { sl: "Brez spola", en: "No sex" });
+      },
+    },
+    {
+      say: {
+        sl: "Ana Jelovšek nima spola, a je zapisana kot žena, zato ji ga program določi iz te vloge.",
+        en: "Ana Jelovšek has no sex recorded, but she is listed as a wife, so the program takes it from that role.",
+      },
+      run: async (d) => {
         await fixRow(d, "Ana Jelovšek");
+        await d.untilSaid();
+        await d.calloutAhead();
+        await openChip(d, { sl: "Nepovezane", en: "Disconnected" });
       },
     },
     {
@@ -342,8 +357,6 @@ const scenario: Scenario = {
         en: "Terezija Jelovšek is linked to nobody. A person without a family is often just a forgotten link. In Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
       },
       run: async (d) => {
-        await d.highlight(null);
-        await openChip(d, { sl: "Nepovezane", en: "Disconnected" });
         await d.click(row(d, "Terezija").locator(".tools-issue-link").first());
         await d.page.locator(".edit-person").first().waitFor();
         await d.wait(900);
@@ -378,6 +391,9 @@ const scenario: Scenario = {
         await fixRow(d, "Marija");
         await showInEdit(d, ".edit-person");
         await backToTools(d);
+        await d.untilSaid();
+        await d.calloutAhead();
+        await openChip(d, { sl: "Poroka brez datuma", en: "Undated marriage" });
       },
     },
     {
@@ -387,7 +403,6 @@ const scenario: Scenario = {
         en: "Jernej and Mina Prešeren's marriage is recorded without a date. The program gives it a date before the birth of their first child, Šimen.",
       },
       run: async (d) => {
-        await openChip(d, { sl: "Poroka brez datuma", en: "Undated marriage" });
         await fixRow(d, "Jernej");
       },
     },
