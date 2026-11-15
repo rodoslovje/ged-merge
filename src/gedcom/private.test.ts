@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { GedNode } from "./types";
-import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./private";
+import { detectPrivacyStyle, isPrivateNode, privateFlagWritable, setPrivateFlag } from "./private";
+import { parseGedcom } from "./parser";
+import { validateConformance } from "../tools/conformance/conformance";
 
 function node(tag: string, value?: string, children: GedNode[] = []): GedNode {
   return { level: 1, tag, value, children };
@@ -40,32 +42,65 @@ describe("detectPrivacyStyle", () => {
 describe("setPrivateFlag", () => {
   it("writes the file's dialect and clears all dialects", () => {
     const r = rec([node("NAME", "Ana /Novak/")]);
-    setPrivateFlag(r, true, "PRIV", []);
+    setPrivateFlag(r, true, "PRIV", "5.5.1");
     expect(r.children.some((c) => c.tag === "PRIV" && c.value === undefined)).toBe(true);
-    setPrivateFlag(r, false, "PRIV", []);
+    setPrivateFlag(r, false, "PRIV", "5.5.1");
     expect(isPrivateNode(r)).toBe(false);
 
-    setPrivateFlag(r, true, "_PRIV", []);
+    setPrivateFlag(r, true, "_PRIV", "5.5.1");
     expect(r.children.some((c) => c.tag === "_PRIV" && c.value === "Y")).toBe(true);
   });
 
   it("keeps non-privacy RESN list entries when clearing", () => {
     const r = rec([node("RESN", "CONFIDENTIAL, LOCKED")]);
-    setPrivateFlag(r, false, "RESN", []);
+    setPrivateFlag(r, false, "RESN", "5.5.1");
     expect(r.children.find((c) => c.tag === "RESN")?.value).toBe("LOCKED");
     expect(isPrivateNode(r)).toBe(false);
   });
 
   it("RESN casing follows the GEDCOM version", () => {
-    const head7: GedNode = {
-      level: 0, tag: "HEAD",
-      children: [{ level: 1, tag: "GEDC", children: [{ level: 2, tag: "VERS", value: "7.0.3", children: [] }] }],
-    };
     const r = rec([]);
-    setPrivateFlag(r, true, "RESN", [head7]);
+    setPrivateFlag(r, true, "RESN", "7.0");
     expect(r.children.find((c) => c.tag === "RESN")?.value).toBe("PRIVACY");
     const r2 = rec([]);
-    setPrivateFlag(r2, true, "RESN", []);
+    setPrivateFlag(r2, true, "RESN", "5.5.1");
     expect(r2.children.find((c) => c.tag === "RESN")?.value).toBe("privacy");
+  });
+});
+
+describe("privateFlagWritable", () => {
+  const strict = (version: "5.5.1" | "7.0") => ({ strict: true, version });
+
+  it("is unavailable in a strict target where the version has no RESN", () => {
+    for (const version of ["5.5.1", "7.0"] as const) {
+      expect(privateFlagWritable(strict(version), { level: 0, tag: "INDI" })).toBe(true);
+      expect(privateFlagWritable(strict(version), { level: 1, tag: "BIRT" })).toBe(true);
+      expect(privateFlagWritable(strict(version), { level: 1, tag: "NOTE" })).toBe(false);
+      expect(privateFlagWritable(strict(version), { level: 0, tag: version === "7.0" ? "SNOTE" : "NOTE" })).toBe(false);
+      expect(privateFlagWritable(strict(version), { level: 1, tag: "OBJE" })).toBe(false);
+    }
+    // A media record takes RESN in 7.0 only.
+    expect(privateFlagWritable(strict("5.5.1"), { level: 0, tag: "OBJE" })).toBe(false);
+    expect(privateFlagWritable(strict("7.0"), { level: 0, tag: "OBJE" })).toBe(true);
+  });
+
+  it("keeps every lock in the file's own format", () => {
+    expect(privateFlagWritable({ strict: false, version: "7.0" }, { level: 1, tag: "NOTE" })).toBe(true);
+  });
+
+  it.each(["5.5.1", "7.0"] as const)("where it is writable, strict %s finds nothing in the marker", (version) => {
+    const records = parseGedcom(new TextEncoder().encode(
+      `0 HEAD\n1 GEDC\n2 VERS ${version}\n0 @I1@ INDI\n1 BIRT\n2 DATE 1900\n1 NOTE a note\n0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM ${version === "7.0" ? "image/jpeg" : "jpg"}\n0 TRLR\n`).buffer).records;
+    const before = validateConformance({ records });
+    const indi = records.find((r) => r.tag === "INDI")!;
+    const lines = [indi, ...indi.children, records.find((r) => r.tag === "OBJE")!];
+    let set = 0;
+    for (const line of lines) {
+      if (!privateFlagWritable(strict(version), line)) continue;
+      setPrivateFlag(line, true, "RESN", version);
+      set++;
+    }
+    expect(set).toBe(version === "7.0" ? 3 : 2);
+    expect(validateConformance({ records })).toEqual(before);
   });
 });

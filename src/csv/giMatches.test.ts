@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { parseCsvText, parseGiMatchesCsv } from "./giMatches";
 import { childrenNames, fatherName, motherName, partnerNames } from "../match/relatives";
+import { buildDataset } from "../gedcom/builder";
+import { parseGedcom } from "../gedcom/parser";
+import { inferMainProfile } from "../normalize/profile";
+import { normalizeDataset } from "../normalize/normalize";
+import { applyFormatOverrides } from "../normalize/formatOverrides";
+import { validateConformance } from "../tools/conformance/conformance";
 
 const SL_HEADER =
   '"Ime","Priimek","Datum rojstva","Kraj rojstva","Datum smrti","Kraj smrti","Datum pokopa","Kraj pokopa","Povezave","Partnerji","Starši","Rodoslovec","Zaupanje"';
@@ -176,6 +182,25 @@ describe("parseGiMatchesCsv", () => {
     const indi = dataset.individuals.get("@SGI1@");
     expect(indi?.events.find((e) => e.tag === "BURI")).toBeUndefined();
     expect(indi?.links).toContain("https://en.geneanet.org/cemetery/view/8657008");
+  });
+
+  it("restates the person's own link as _URL against a strict main", () => {
+    const rows = ["Renko", "Pokopališča-geneanet"].map((who) =>
+      row([
+        "Franc", "Vilfan", "20 JUL 1877", "", "", "", "", "",
+        "https://en.geneanet.org/cemetery/view/8657008", "", "", "", who, "99",
+      ]),
+    );
+    const { dataset } = parseGiMatchesCsv(`${SL_HEADER_SOURCE}\n${rows.join("\n")}\n`);
+    for (const version of ["5.5.1", "7.0"] as const) {
+      const form = version === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : "";
+      const main = buildDataset(parseGedcom(new TextEncoder().encode(`0 HEAD\n1 GEDC\n2 VERS ${version}\n${form}1 SOUR t\n0 TRLR\n`).buffer));
+      const profile = applyFormatOverrides(inferMainProfile(main), { standard: version });
+      const { dataset: out } = normalizeDataset(dataset, profile);
+      const indi = out.individuals.get("@SGI1@")!.raw;
+      expect(indi.children.find((c) => c.tag === "_URL")?.value, version).toBe("https://en.geneanet.org/cemetery/view/8657008");
+      expect(validateConformance({ records: [main.records[0], ...out.records] }), version).toEqual([]);
+    }
   });
 
   it("handles the English header with separate Father/Mother columns", () => {

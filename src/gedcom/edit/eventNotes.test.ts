@@ -49,7 +49,7 @@ describe("an event's notes", () => {
     const ds = build(THREE);
     const indi = ds.individuals.get("@I1@")!;
     const eventNode = firstChild(indi.raw, "BIRT")!;
-    applyEventNodeUpdate(indi.raw, eventNode, { note: "first note, corrected" }, noteCtx(ds.records));
+    applyEventNodeUpdate(indi.raw, eventNode, { note: "first note, corrected" }, noteCtx(ds.records, "5.5.1"));
 
     const out = serializeGedcom(ds.records);
     expect(out).toContain("2 NOTE first note, corrected");
@@ -61,7 +61,7 @@ describe("an event's notes", () => {
     const ds = build(THREE);
     const indi = ds.individuals.get("@I1@")!;
     const eventNode = firstChild(indi.raw, "BIRT")!;
-    applyEventNodeUpdate(indi.raw, eventNode, { date: "1901" }, noteCtx(ds.records));
+    applyEventNodeUpdate(indi.raw, eventNode, { date: "1901" }, noteCtx(ds.records, "5.5.1"));
 
     const out = serializeGedcom(ds.records);
     expect(out).toContain("2 DATE 1901");
@@ -73,7 +73,7 @@ describe("an event's notes", () => {
     const indi = ds.individuals.get("@I1@")!;
     const birt = indi.events.find((e) => e.tag === "BIRT")!;
     const eventNode = firstChild(indi.raw, "BIRT")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     applyEventNodeUpdate(indi.raw, eventNode, {
       noteRefs: [
         ...birt.noteRefs!,
@@ -97,7 +97,7 @@ describe("an event's notes", () => {
     const eventNode = firstChild(indi.raw, "BIRT")!;
     applyEventNodeUpdate(indi.raw, eventNode, {
       noteRefs: birt.noteRefs!.filter((r) => !r.xref),
-    }, noteCtx(ds.records));
+    }, noteCtx(ds.records, "5.5.1"));
 
     const out = serializeGedcom(ds.records);
     expect(out).not.toContain("@N1@");

@@ -25,10 +25,19 @@ export const RECORD_LINK_EXTENSION = "_URL";
 export function recordLinkTag(records: GedNode[], record: GedNode, overrides?: FormatOverrides): string {
   if (overrides?.standard) return RECORD_LINK_EXTENSION;
   const own = record.children.find((c) => LINE_LINK_TAGS.has(c.tag))?.tag;
-  return own ?? memoOnContent(records, "recordLinkTag", () => fileRecordLinkTag(records));
+  return own ?? memoOnContent(records, "recordLinkTag", () => recordLinkHabit(records).tag);
 }
 
-function fileRecordLinkTag(records: GedNode[]): string {
+/** Is `node` a link written as one value line on a person or family record? */
+export function isRecordLinkLine(node: GedNode): boolean {
+  return LINE_LINK_TAGS.has(node.tag);
+}
+
+/**
+ * How a file writes links on its person and family records: the tag it writes
+ * most (else {@link RECORD_LINK_EXTENSION}), and every line tag it uses there.
+ */
+export function recordLinkHabit(records: GedNode[]): { tag: string; tags: string[] } {
   const counts = new Map<string, number>();
   for (const rec of records) {
     if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
@@ -37,7 +46,7 @@ function fileRecordLinkTag(records: GedNode[]): string {
   let best = RECORD_LINK_EXTENSION;
   let max = 0;
   for (const [tag, n] of counts) if (n > max) [best, max] = [tag, n];
-  return best;
+  return { tag: best, tags: [...counts.keys()] };
 }
 
 /** Tags carrying a FamilySearch person id (MacFamilyTree / RootsMagic dialects),

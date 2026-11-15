@@ -381,7 +381,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const agncNode = firstChild(node, "AGNC");
   const causNode = firstChild(node, "CAUS");
   if (dateNode?.value) event.date = parseDate(dateNode.value);
-  const time = dateNode && childValue(dateNode, "TIME")?.trim();
+  // 5.5.1 keeps an event's time as `_TIME` (see `eventTimeTag`).
+  const time = dateNode && (childValue(dateNode, "TIME") ?? childValue(dateNode, "_TIME"))?.trim();
   if (time) event.time = time;
   // A GEDCOM 7 date's own wording — beside the value, or the whole date.
   const datePhrase = phraseOf(dateNode);

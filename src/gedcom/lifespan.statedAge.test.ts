@@ -61,7 +61,7 @@ describe("the estimate-birth batch prefers a stated age", () => {
     const dates = previewBirthEstimateDates(ds, ["@I2@", "@I3@"]);
     expect(dates.get("@I2@")).toBe("CAL 1808");
     expect(dates.get("@I3@")).toMatch(/^ABT \d{4}$/);
-    applyBatchAction(ds, ["@I2@"], { kind: "estimateBirth" });
+    applyBatchAction(ds, ["@I2@"], { kind: "estimateBirth" }, "5.5.1");
     expect(serializeGedcom(ds.records)).toContain("1 BIRT\n2 DATE CAL 1808\n");
   });
 });

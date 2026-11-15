@@ -266,7 +266,7 @@ export function placeRecordLink(
   const recognized = recognizeSourceUrl(url);
   const source = resolveSource(records, url, recognized, placement, reserved);
   if (!source) {
-    insertOrdered(record, buildLinkNode(placement.linkFormat, url, records, reserved), childOrderOf(record));
+    insertOrdered(record, buildLinkNode(placement.linkFormat, url, records, sourceWriteVersion(placement.overrides), reserved), childOrderOf(record));
     return { url };
   }
   const target = citationTarget(record, records, recognized, source.sourceXref, placement);
@@ -424,7 +424,7 @@ function resolveSource(
     const pageObje =
       existing.objeXref ??
       (incomingObje && linkObjeToSource(records, existing.sourceXref, incomingObje)) ??
-      addObjeToSource(records, existing.sourceXref, url, pageTitleFor(records, existing.sourceXref, recognized), reserved)
+      addObjeToSource(records, existing.sourceXref, url, sourceWriteVersion(placement.overrides), pageTitleFor(records, existing.sourceXref, recognized), reserved)
         .xref ??
       undefined;
     return { sourceXref: existing.sourceXref, page: existing.page, pageObje, quay };
@@ -747,13 +747,15 @@ function buildLinkNode(
   format: LinkFormat,
   url: string,
   records: GedNode[],
+  /** The version a media record is written in — the main's target's. */
+  version: "5.5.1" | "7.0",
   reserved?: ReadonlySet<string>,
 ): GedNode {
   if (format === "WEBTAG") {
     return { level: 0, tag: "_WEBTAG", children: [{ level: 1, tag: "URL", value: url, children: [] }] };
   }
   if (format === "OBJE") {
-    const obje = createMediaRecord(records, url, undefined, reserved);
+    const obje = createMediaRecord(records, url, version, undefined, reserved);
     return { level: 0, tag: "OBJE", value: obje.xref, children: [] };
   }
   return { level: 0, tag: format === "_URL" ? RECORD_LINK_EXTENSION : "WWW", value: url, children: [] };

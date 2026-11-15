@@ -79,6 +79,10 @@ export function buildAhnentafel(
       if (father) {
         const wife = famF!.wife ? ds.individuals.get(famF!.wife) : undefined;
         const fact = marriageFact(famF!, wife && nameOf(wife), opts, wife && (isPresumedLiving(wife, ds, nowYear) || !!wife.private), ds);
+        if (fact && wife) {
+          fact.spouseId = wife.id;
+          fact.spouseSex = wife.sex;
+        }
         next.push({ num: 2 * num, indi: father, marriages: fact ? [fact] : [] });
       }
       if (mother) {

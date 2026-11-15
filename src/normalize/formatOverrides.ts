@@ -1,4 +1,5 @@
 import { placeSeparatorText } from "./profile";
+import { RECORD_LINK_EXTENSION } from "../gedcom/edit/records";
 import type { DateFormatProfile, MainProfile, NameProfile, PlaceLayout, PlaceTargetFormat, SourceLayout } from "./types";
 
 /**
@@ -62,6 +63,12 @@ export interface FormatOverrides {
   /** Set by the target format, never stored or offered: the version lines are
    *  written in — the strict one, else the file's own. */
   writeVersion?: "5.5.1" | "7.0";
+}
+
+/** The version a writer writes lines in: the strict target's, else the
+ *  file's own — both set by the target format (5.5.1 with no file in). */
+export function writeVersionOf(o?: Pick<FormatOverrides, "standard" | "writeVersion">): "5.5.1" | "7.0" {
+  return o?.standard ?? o?.writeVersion ?? "5.5.1";
 }
 
 /** What "Auto (detected)" resolves to per dimension, as override-value
@@ -196,7 +203,12 @@ export function applyFormatOverrides(profile: MainProfile, o: FormatOverrides | 
   }
   if (o.privacy) out.privacyStyle = o.privacy;
   // A strict target keeps none of a source's 5.5-EL lines.
-  if (o.standard) out.sourceTags = { FILN: false, PERI: false };
+  if (o.standard) {
+    out.sourceTags = { FILN: false, PERI: false };
+    out.standard = o.standard;
+    // …nor a bare link tag on a person or family record.
+    out.recordLinks = { tag: RECORD_LINK_EXTENSION, keep: [] };
+  }
   return out;
 }
 

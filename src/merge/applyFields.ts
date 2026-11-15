@@ -15,7 +15,8 @@ import {
 } from "../gedcom/edit";
 import { buildObjeIndex, buildSourceIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
-import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
+import { eventDisplayLabel, isOccurrenceFlag, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
+import { eventTakesText } from "../tools/conformance/allows";
 import { contactTagOf } from "../gedcom/address";
 import type { Dataset, Family, GedcomVersion, GedNode, PersonName, SourceCitation } from "../gedcom/types";
 import { childrenByTag, childText, cloneNode, firstChild, hasChild, removeChildren } from "../gedcom/node";
@@ -29,7 +30,7 @@ import { NOTE_TAGS } from "../gedcom/builder";
 import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
-import type { FormatOverrides } from "../normalize/formatOverrides";
+import { writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, incomingPageObje, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
@@ -445,7 +446,7 @@ export function applyRows(
       const mainIdx = split ? -1 : row.eventMainIdx ?? 0;
       const compareIdx = row.eventCompareIdx ?? 0;
       if (sub === "value") {
-        applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, newEventNodes);
+        applied = applyEventValue(target, incomingRecord, tag, choice, mainIdx, compareIdx, writeVersionOf(placement.overrides), INDI_CHILD_ORDER, newEventNodes);
       } else if (sub === "sources") {
         applied = applyEventSources(target, incomingRecord, tag, choice, mainIdx, compareIdx, INDI_CHILD_ORDER, sourMap, records, placement, report.customTags, newEventNodes, row.incomingRecordLinks, placedLinks);
       } else if (sub === "assoc") {
@@ -677,7 +678,7 @@ export function applyNotes(
 export function applyPrivateFlag(target: GedNode, records: GedNode[], overrides?: FormatOverrides): boolean {
   if (isPrivateNode(target)) return false;
   // A strict target forces RESN (Settings → GEDCOM), like every Edit path.
-  setPrivateFlag(target, true, overrides?.privacy ?? detectPrivacyStyle(records), records);
+  setPrivateFlag(target, true, overrides?.privacy ?? detectPrivacyStyle(records), writeVersionOf(overrides));
   return true;
 }
 
@@ -884,7 +885,10 @@ export function fillSealingFamilies(target: GedNode): void {
   }
 }
 
-/** Copy the direct value on an event line (e.g. occupation text) from incoming to main. */
+/** Copy the direct value on an event line (e.g. occupation text) from incoming
+ *  to main. Where `version` (the main's target) gives the line no text — 7.0's
+ *  `DEAT` and `RETI` take only `Y` — the text becomes the event's note
+ *  instead, the way the version conversion keeps it. */
 export function applyEventValue(
   target: GedNode,
   incomingRecord: GedNode,
@@ -892,6 +896,7 @@ export function applyEventValue(
   choice: FieldChoice,
   mainIdx: number,
   compareIdx: number,
+  version: "5.5.1" | "7.0",
   order: string[] = [],
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
@@ -899,6 +904,12 @@ export function applyEventValue(
   if (!incEvent?.value) return false;
   if (choice === "incoming" || choice === "both") {
     const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
+    const text = incEvent.value.trim();
+    if (tag !== "EVEN" && tag !== "FACT" && !isOccurrenceFlag(text) && eventTakesText(version, tag) === false) {
+      if (childrenByTag(event, "NOTE").some((n) => n.value?.trim() === text)) return false;
+      insertOrdered(event, { level: event.level + 1, tag: "NOTE", value: text, children: [] }, EVENT_CHILD_ORDER);
+      return true;
+    }
     event.value = incEvent.value;
     return true;
   }

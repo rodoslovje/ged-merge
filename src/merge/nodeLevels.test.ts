@@ -40,7 +40,7 @@ describe("merge-created lines carry their true level", () => {
 
       const person = records.find((r) => r.xref === "@I1@")!;
       const buri = person.children.find((c) => c.tag === "BURI")!;
-      setPrivateFlag(buri, true, "RESN", records, vers);
+      setPrivateFlag(buri, true, "RESN", vers);
       const out = serializeGedcom(records);
       expect(out).toContain(`1 BURI\n2 DATE 1950\n2 PLAC Kranj\n2 RESN ${vers === "7.0" ? "PRIVACY" : "privacy"}\n`);
       expect(out).not.toContain("_PRIV");

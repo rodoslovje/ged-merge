@@ -32,6 +32,22 @@ export function allowsChild(version: "5.5.1" | "7.0", path: readonly string[], t
 }
 
 /**
+ * Whether a person's or a family's event or attribute `tag` carries a text
+ * value on its own line in `version` (`1 OCCU Farmer`) rather than only the
+ * `Y` flag (7.0's `1 DEAT Y`) or nothing. Undefined where the version has no
+ * such line on either record: an extension's value is its own business.
+ */
+export function eventTakesText(version: "5.5.1" | "7.0", tag: string): boolean | undefined {
+  const table = tableOf(version);
+  const payloads = [["INDI", tag], ["FAM", tag]]
+    .map((path) => structAt(table, path))
+    .filter((id): id is string => !!id)
+    .map((id) => table.structs.get(id)?.payload);
+  if (!payloads.length) return undefined;
+  return payloads.some((p) => p === "T");
+}
+
+/**
  * The values a version's enumeration admits for the line at `path` — the tags
  * from the level-0 record down to the line's own, `["INDI", "FAMC", "PEDI"]` —
  * spelled as that version spells them. Undefined where the version has no
@@ -44,4 +60,16 @@ export function enumValuesAt(version: "5.5.1" | "7.0", path: readonly string[]):
   const payload = id ? table.structs.get(id)?.payload : undefined;
   if (!payload || !/^[EL]:/.test(payload)) return undefined;
   return table.enums.get(payload.slice(2));
+}
+
+/**
+ * Whether the line at `path` — the tags from the level-0 record down to the
+ * line's own, `["INDI", "ASSO"]` — carries a pointer in `version`. Only such a
+ * line can stand as 7.0's `@VOID@`: a 7.0 `NOTE` is text, so a `NOTE @N1@`
+ * there names no record to void.
+ */
+export function takesPointerAt(version: "5.5.1" | "7.0", path: readonly string[]): boolean {
+  const table = tableOf(version);
+  const id = structAt(table, path);
+  return !!id && !!table.structs.get(id)?.payload.startsWith("@");
 }

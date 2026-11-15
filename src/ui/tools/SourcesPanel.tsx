@@ -1,11 +1,11 @@
-import { useFormatOverrides } from "../TargetFormatContext";
+import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { buildSourceTree, recordCitedBy, usesBeyondMedia, type SourceTree, type RepoGroup, type SourceEntry, type MediaEntry } from "../../tools/sources";
 import { MediaThumb, type MediaGalleryItem } from "../PersonMedia";
 import { useMediaFolder } from "../MediaFolderContext";
-import { isPrivateNode } from "../../gedcom/private";
+import { isPrivateNode, privateFlagWritable } from "../../gedcom/private";
 import { sourceTitle } from "../../gedcom/source";
 import { safeLinkHref } from "../FieldValue";
 import type { MediaEditFields } from "../MediaViewer";
@@ -108,6 +108,11 @@ function MediaRows({
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
   const formatOverrides = useFormatOverrides();
+  const { target } = useTargetFormat();
+  // A shared media record takes the standard's privacy line in 7.0 only.
+  const privateUnavailable = privateFlagWritable(target, { level: 0, tag: "OBJE" })
+    ? undefined
+    : t("edit.mediaPrivateUnavailable", { version: target.version });
   // A photo's date and place, only where the file keeps them with its variations.
   const offered = mediaInfoOffered(dataset.records, formatOverrides);
   const { items, indexOf } = useMemo(() => {
@@ -140,12 +145,13 @@ function MediaRows({
                 private: isPrivateNode(rec),
               },
               onSave: (fields: MediaEditFields) => onEditMediaInfo(m.xref, fields),
+              privateUnavailable,
             }
           : undefined,
       };
     });
     return { items, indexOf: new Map(photos.map((m, i) => [m, i] as const)) };
-  }, [entries, dataset, onNavigate, onEditMediaInfo, onShowSource, t, offered]);
+  }, [entries, dataset, onNavigate, onEditMediaInfo, onShowSource, t, offered, privateUnavailable]);
 
   // Only with a loaded folder do file entries leave the row list for the tray —
   // without one there is nothing to render, so the titled rows stay.

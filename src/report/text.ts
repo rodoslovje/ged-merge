@@ -168,12 +168,28 @@ export function factText(t: Translate, f: FactLine, opts: ReportTextOptions = {}
   return `${lead}${cause}${spouseText(t, f, opts)}`;
 }
 
+/** Whether a ⚭ line's partner is redacted: presumed living under the privacy
+ *  option, with a replacement name available (see {@link reportName}). */
+export function spouseRedacted(f: FactLine, opts: ReportTextOptions): boolean {
+  return !!(opts.privacyLiving && f.spouseLiving && opts.livingNameOf);
+}
+
+/** A ⚭ line's partner name as rendered: the recorded name, or — a living
+ *  partner under privacy — their kinship / "Living" label, like any entry. */
+export function spouseName(f: FactLine, opts: ReportTextOptions): string | undefined {
+  if (!f.spouse) return undefined;
+  return reportName({ id: f.spouseId ?? "", sex: f.spouseSex ?? "U", name: f.spouse, living: !!f.spouseLiving }, opts);
+}
+
 /** The ⚭ line's partner tail: name, lifespan, and the NGSQ origin clause
  *  ("daughter of Janez Oblak and Neža Zupan"). Under the privacy option a
- *  living partner keeps the name but loses the years — like the group
- *  headings — and a living parent's name stays out of the origin clause. */
+ *  living partner is redacted like an entry — the kinship / "Living" label,
+ *  no years, no origin clause — and a living parent's name stays out of the
+ *  origin clause. */
 function spouseText(t: Translate, f: FactLine, opts: ReportTextOptions): string {
-  if (!f.spouse) return "";
+  const name = spouseName(f, opts);
+  if (!name) return "";
+  if (spouseRedacted(f, opts)) return ` — ${name}`;
   const priv = !!opts.privacyLiving;
   const years = f.spouseYears && !(priv && f.spouseLiving) ? ` (${f.spouseYears})` : "";
   const father = f.spouseFather && !(priv && f.spouseFather.living) ? f.spouseFather.name : undefined;
@@ -187,5 +203,5 @@ function spouseText(t: Translate, f: FactLine, opts: ReportTextOptions): string 
         : mother
           ? t(`register.spouseOriginMother${sfx}`, { mother })
           : undefined;
-  return ` — ${f.spouse}${years}${origin ? `, ${origin}` : ""}`;
+  return ` — ${name}${years}${origin ? `, ${origin}` : ""}`;
 }

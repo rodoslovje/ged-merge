@@ -103,7 +103,8 @@ describe("family events: ANUL, DIVF, MARC, MARS, RESI, CENS, NCHI", () => {
     expect(fam).toContain("1 DIVF\n2 DATE 1920\n");
     expect(fam).toContain("1 MARS\n2 DATE 1899\n2 AGNC Notar Kranj\n");
     expect(fam).toContain("1 NCHI 4\n");
-    expect(fam).toContain("1 RESI Glavni trg 3\n2 DATE 1901\n");
+    // 5.5.1's RESI takes no text: the address moves into the residence's NOTE.
+    expect(fam).toContain("1 RESI\n2 DATE 1901\n2 NOTE Glavni trg 3\n");
     expect(fam).toContain("1 CENS\n2 DATE 1910\n");
     // One row per tag: the family's second residence is not offered.
     expect(fam).not.toContain("1911");
