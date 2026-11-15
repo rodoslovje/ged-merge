@@ -218,8 +218,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Paketna opravila", en: "Batch actions" },
       say: {
-        sl: "Odprimo izsek iz avtorjevega rodovnika. V Orodjih izberite »Poenoti in paketno uredi«.",
-        en: "Let's open the excerpt of the author's tree. In Tools, choose Normalize & batch.",
+        sl: "Odprimo rodovnik. V Orodjih izberite »Poenoti in paketno uredi«.",
+        en: "Let's open the family tree. In Tools, choose Normalize & batch.",
       },
       run: async (d) => {
         await d.card(null, null);
@@ -526,8 +526,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Od 399 avtorjevih prednikov jih 198 nima nobenega vira. Shranimo ga kot »Predniki brez virov« in se nanj vračamo med raziskovanjem.",
-        en: "Of the author's 399 ancestors, 198 cite no source at all. We save it as Ancestors without sources and come back to it while researching.",
+        sl: "Od 399 prednikov jih 198 nima nobenega vira. Shranimo ga kot »Predniki brez virov« in se nanj vračamo med raziskovanjem.",
+        en: "Of the 399 ancestors, 198 cite no source at all. We save it as Ancestors without sources and come back to it while researching.",
       },
       run: async (d) => {
         await d.highlight(count(d), 4);
