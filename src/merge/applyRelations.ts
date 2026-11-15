@@ -163,6 +163,13 @@ export function makeContext(
     if (!indiNodes.has(c.mainId)) continue;
     incToMain.set(c.compareId, c.mainId);
   }
+  // A pair the user confirmed outranks the matcher's other candidates for the
+  // same incoming person, whichever the list happened to name last — or the
+  // person would be stitched in a second time, onto the record not chosen.
+  for (const pair of confirmedPairs) {
+    const [mainId, compareId] = pair.split("|");
+    if (indiNodes.has(mainId)) incToMain.set(compareId, mainId);
+  }
   // Pinned people outrank whatever the matcher suggested for them.
   const suppressed = new Set<string>();
   const confirmed = pinned.size ? new Set(confirmedPairs) : confirmedPairs;
