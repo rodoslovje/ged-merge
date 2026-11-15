@@ -194,6 +194,16 @@ describe("writeSchema — GEDCOM 7 extension tags", () => {
     expect(lines.filter((l) => l === "1 SCHMA")).toHaveLength(1);
   });
 
+  it("reads an entry spelled in lowercase as the uppercase tag the file writes", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SCHMA", "2 TAG _mytag https://example.org/mytag",
+      "0 @I1@ INDI", "1 _mytag x",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual(["2 TAG _MYTAG https://example.org/mytag"]);
+    expect(lines).toContain("1 _MYTAG x");
+  });
+
   it("writes no schema for a 7.0 file without extensions, nor for 5.5.1", () => {
     expect(writeSchema(parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I1@ INDI\n0 TRLR\n").records)).toEqual([]);
     expect(writeSchema([])).toEqual([]);

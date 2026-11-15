@@ -290,9 +290,17 @@ export function writeSchema(records: GedNode[], headSour?: string): string[] {
   };
   visit(records, []);
   let schma = firstChild(head, "SCHMA");
-  const declared = new Set(
-    (schma?.children ?? []).filter((c) => c.tag === "TAG").map((c) => c.value?.trim().split(/\s+/)[0]),
-  );
+  // Tags compare uppercase, as the parser reads them and the download writes
+  // them: an entry `_mytag` already declares `_MYTAG`, and is written as such.
+  const declared = new Set<string>();
+  for (const entry of schma?.children ?? []) {
+    if (entry.tag !== "TAG" || !entry.value) continue;
+    const [tag, ...rest] = entry.value.trim().split(/\s+/);
+    if (!tag) continue;
+    const upper = tag.toUpperCase();
+    if (upper !== tag) entry.value = [upper, ...rest].join(" ");
+    declared.add(upper);
+  }
   const added = [...used.keys()].filter((tag) => !declared.has(tag)).sort();
   if (added.length === 0) return added;
   if (!schma) {
