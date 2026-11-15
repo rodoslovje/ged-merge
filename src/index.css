@@ -10578,6 +10578,29 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    label rather than words inside both buttons — repeated it would say the same
    thing twice, and what tells the buttons apart is places against addresses. */
 .tools-geo-source { display: grid; justify-items: center; gap: 4px; }
+/* A download in progress, in its own button: spinner, label, number. */
+.tools-geo-running {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--accent);
+}
+.tools-geo-running-spinner { width: 12px; height: 12px; box-sizing: border-box; }
+.tools-geo-running-pct {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--muted);
+  min-width: 7ch; /* "43.3 MB" — the button keeps one width as the number grows */
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+/* A source's failure, under its own buttons, in the source's own grid cell. */
+.tools-geo-source-error {
+  max-width: 18em;
+  font-size: 0.78rem;
+  color: var(--danger);
+  text-align: center;
+}
 .tools-geo-source-name {
   font-size: 0.78rem;
   font-weight: 600;

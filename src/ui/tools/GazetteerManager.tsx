@@ -31,7 +31,6 @@ import {
 import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
 import type { GeoFailure, GeoStage } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
-import { ToolsLoading } from "./shared";
 import { SelectMenu } from "../DropdownMenu";
 
 // The place-directory manager: the offline gazetteers (GeoNames country extracts,
@@ -382,11 +381,32 @@ function RegionPicker({ gaz, regions }: { gaz: Gazetteer; regions: { country: st
  * lifted out, every row reads the same way: who it comes from, then what of
  * theirs you can take.
  */
-function SourceGroup({ name, children }: { name: string; children: ReactNode }) {
+function SourceGroup({
+  name,
+  children,
+  gaz,
+  slots = [],
+}: {
+  name: string;
+  children: ReactNode;
+  /** With `slots`: the sources' failures are said here, under their buttons. */
+  gaz?: Gazetteer;
+  slots?: GeoSlot[];
+}) {
+  // Inside the group's own cell, so a message never shifts the grid's rows.
+  const failures = slots.flatMap((slot) => {
+    const state = gaz?.imports[slot];
+    return state?.phase === "error" ? [{ slot, message: state.message }] : [];
+  });
   return (
     <div className="tools-geo-source">
       <span className="tools-geo-source-name">{name}</span>
       <div className="tools-geo-source-actions">{children}</div>
+      {failures.map((f) => (
+        <span key={f.slot} className="tools-geo-source-error">
+          {f.message}
+        </span>
+      ))}
     </div>
   );
 }
@@ -399,47 +419,63 @@ function RegisterSource({
   name,
   places,
   addresses,
+  gaz,
 }: {
   name: string;
-  places: { onClick: () => void; title: string; busy?: boolean };
-  addresses: { onClick: () => void; title: string; busy?: boolean };
+  places: { onClick: () => void; title: string; slot: GeoSlot };
+  addresses: { onClick: () => void; title: string; slot: GeoSlot };
+  gaz: Gazetteer;
 }) {
   const { t } = useTranslation();
   return (
-    <SourceGroup name={name}>
-      <button className="nav-btn tools-run" onClick={places.onClick} title={places.title} disabled={places.busy}>
-        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-        {t("tools.geocode.sourcePlaces")}
-      </button>
-      <button className="nav-btn tools-run" onClick={addresses.onClick} title={addresses.title} disabled={addresses.busy}>
-        <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
-        {t("tools.geocode.sourceAddresses")}
-      </button>
+    <SourceGroup name={name} gaz={gaz} slots={[places.slot, addresses.slot]}>
+      <DownloadButton gaz={gaz} slot={places.slot} label={t("tools.geocode.sourcePlaces")}>
+        <button className="nav-btn tools-run" onClick={places.onClick} title={places.title}>
+          <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+          {t("tools.geocode.sourcePlaces")}
+        </button>
+      </DownloadButton>
+      <DownloadButton gaz={gaz} slot={addresses.slot} label={t("tools.geocode.sourceAddresses")}>
+        <button className="nav-btn tools-run" onClick={addresses.onClick} title={addresses.title}>
+          <span aria-hidden="true">{DOWNLOAD_GLYPH} </span>
+          {t("tools.geocode.sourceAddresses")}
+        </button>
+      </DownloadButton>
     </SourceGroup>
   );
 }
 
 /**
- * One source's import, right under the controls that started it: its progress
- * with a Cancel of its own, or the failure it ended in. Nothing while the
- * source is idle. Sources download side by side, so each says its own.
+ * A download's own control. Idle, it is the control it wraps (`children`);
+ * while its source downloads, the same place holds the progress — a spinner,
+ * what is downloading, and how far it has got — and a click there cancels that
+ * one download. Sources download side by side, so each button says its own,
+ * and nothing is added beside it to shift the rows.
  */
-function ImportStatus({ gaz, slot }: { gaz: Gazetteer; slot: GeoSlot }) {
+function DownloadButton({
+  gaz,
+  slot,
+  label,
+  children,
+}: {
+  gaz: Gazetteer;
+  slot: GeoSlot;
+  /** What the button downloads ("Places"), kept while it runs. */
+  label: string;
+  children: ReactNode;
+}) {
   const { t } = useTranslation();
   const state = gaz.imports[slot];
   const running = state?.phase === "running" ? state : undefined;
   const waited = useElapsed(running?.stage === "waiting");
-  // Said as it is: the shared wrapper prefixes "Scan failed", and a download
-  // is not a scan.
-  if (state?.phase === "error") return <p className="tools-clean">{state.message}</p>;
-  if (!running) return null;
+  if (!running) return <>{children}</>;
   // Each stage says what it is actually doing: waiting on a service that sends
   // nothing until it is ready, looking up the regions a country is fetched
-  // in, receiving bytes, converting them, or writing them away. Only the wait
-  // needs a clock — the others have their own numbers.
+  // in, receiving bytes, converting them, or writing them away. The full
+  // wording goes in the tooltip; the button carries only the number.
   const stage =
     running.stage === "waiting"
-      ? `${t("tools.geocode.waiting")}${waited ? ` ${waited} s` : ""}`
+      ? t("tools.geocode.waiting")
       : running.stage === "regions"
         ? t("tools.geocode.regionsLoading")
         : running.stage === "downloading"
@@ -447,10 +483,29 @@ function ImportStatus({ gaz, slot }: { gaz: Gazetteer; slot: GeoSlot }) {
           : running.stage === "storing"
             ? t("tools.geocode.storing")
             : t("tools.geocode.importing");
-  // The download is named first — a register offers two, and both may run —
-  // then, in a region run, the region on the wire, then the stage.
-  const label = [t(importLabelKey(running.job)), running.note, stage].filter(Boolean).join(" — ");
-  return <ToolsLoading label={label} progress={running} bytes onCancel={() => gaz.cancelImport(slot)} />;
+  // A known length is a percentage; an unannounced one counts what has
+  // arrived; a service still preparing its extract has only a clock; a step
+  // that reports no numbers (converting) has only the spinner.
+  const progress =
+    running.total > 0
+      ? `${Math.round((running.done / running.total) * 100)} %`
+      : running.done > 0
+        ? `${(running.done / 1048576).toFixed(1)} MB`
+        : running.stage === "waiting"
+          ? `${waited} s`
+          : "…";
+  // In a region run the region on the wire leads the tooltip.
+  const detail = [t(importLabelKey(running.job)), running.note, stage].filter(Boolean).join(" — ");
+  return (
+    <button
+      className="nav-btn tools-run tools-geo-running"
+      onClick={() => gaz.cancelImport(slot)}
+      title={`${detail}\n${t("tools.geocode.clickToCancel")}`}
+    >
+      <span className="spinner tools-geo-running-spinner" aria-hidden="true" />
+      {label} <span className="tools-geo-running-pct">{progress}</span>
+    </button>
+  );
 }
 
 /** The ways in: the two national registers (GURS, DGU), any country from
@@ -468,7 +523,6 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
       a.name.localeCompare(b.name, i18n.language),
     );
   }, [i18n.language]);
-  const busy = (slot: GeoSlot) => gaz.imports[slot]?.phase === "running";
   return (
     <>
       {gaz.regions && <RegionPicker gaz={gaz} regions={gaz.regions} />}
@@ -493,15 +547,14 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 out of the locale files. */}
             <RegisterSource
               name={t("tools.geocode.gursName")}
-              places={{ onClick: () => gaz.downloadSlovenia(), title: t("tools.geocode.gursTooltip"), busy: busy("gurs") }}
+              gaz={gaz}
+              places={{ onClick: () => gaz.downloadSlovenia(), title: t("tools.geocode.gursTooltip"), slot: "gurs" }}
               addresses={{
                 onClick: () => gaz.downloadSloveniaAddresses(),
                 title: t("tools.geocode.gursAddressesTooltip"),
-                busy: busy("addresses-SI"),
+                slot: "addresses-SI",
               }}
             />
-            <ImportStatus gaz={gaz} slot="gurs" />
-            <ImportStatus gaz={gaz} slot="addresses-SI" />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceGurs")} ©{" "}
               <a href="https://ipi.eprostor.gov.si/jv/" target="_blank" rel="noreferrer">
@@ -511,15 +564,14 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
             </p>
             <RegisterSource
               name={t("tools.geocode.dguName")}
-              places={{ onClick: () => gaz.downloadCroatia(), title: t("tools.geocode.dguTooltip"), busy: busy("dgu") }}
+              gaz={gaz}
+              places={{ onClick: () => gaz.downloadCroatia(), title: t("tools.geocode.dguTooltip"), slot: "dgu" }}
               addresses={{
                 onClick: () => gaz.downloadCroatiaAddresses(),
                 title: t("tools.geocode.dguAddressesTooltip"),
-                busy: busy("addresses-HR"),
+                slot: "addresses-HR",
               }}
             />
-            <ImportStatus gaz={gaz} slot="dgu" />
-            <ImportStatus gaz={gaz} slot="addresses-HR" />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceDgu")} ©{" "}
               <a href="https://geoportal.dgu.hr/" target="_blank" rel="noreferrer">
@@ -532,21 +584,21 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
                 country picked is the click — the same shape as the map tab's
                 "Add a free preset…". It never holds a selection, so it reads as
                 its own label again the moment the download starts. */}
-            <SourceGroup name="OpenStreetMap">
-              <SelectMenu
-                className="nav-btn tools-run tools-geo-osm"
-                title={t("tools.geocode.countryTooltip")}
-                ariaLabel={t("tools.geocode.countryTooltip")}
-                value=""
-                placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.sourcePlaces")}`}
-                onChange={(code) => {
-                  if (code) gaz.downloadCountry(code);
-                }}
-                options={countries.map(({ code, name }) => ({ value: code, label: name }))}
-                disabled={busy("osm")}
-              />
+            <SourceGroup name="OpenStreetMap" gaz={gaz} slots={["osm"]}>
+              <DownloadButton gaz={gaz} slot="osm" label={t("tools.geocode.sourcePlaces")}>
+                <SelectMenu
+                  className="nav-btn tools-run tools-geo-osm"
+                  title={t("tools.geocode.countryTooltip")}
+                  ariaLabel={t("tools.geocode.countryTooltip")}
+                  value=""
+                  placeholder={`${DOWNLOAD_GLYPH} ${t("tools.geocode.sourcePlaces")}`}
+                  onChange={(code) => {
+                    if (code) gaz.downloadCountry(code);
+                  }}
+                  options={countries.map(({ code, name }) => ({ value: code, label: name }))}
+                />
+              </DownloadButton>
             </SourceGroup>
-            <ImportStatus gaz={gaz} slot="osm" />
             <p className="tools-geo-hint">
               {t("tools.geocode.sourceOsm")} {t("tools.geocode.sourceOsmCredit")}{" "}
               <a href="https://www.openstreetmap.org" target="_blank" rel="noreferrer">
@@ -559,24 +611,24 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
             who would rather the app fetched nothing at all. Named like the rows
             above even though the arrow points the other way — where the data
             comes from is the thing being chosen either way. */}
-        <SourceGroup name="GeoNames">
-          <label className="nav-btn tools-geo-import" aria-disabled={busy("file") || undefined}>
-            <span aria-hidden="true">{UPLOAD_GLYPH} </span>
-            {t("tools.geocode.importBtn")}
-            <input
-              type="file"
-              accept=".txt,.zip"
-              hidden
-              disabled={busy("file")}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                e.target.value = "";
-                if (file) gaz.importFile(file);
-              }}
-            />
-          </label>
+        <SourceGroup name="GeoNames" gaz={gaz} slots={["file"]}>
+          <DownloadButton gaz={gaz} slot="file" label={t("tools.geocode.importBtn")}>
+            <label className="nav-btn tools-geo-import">
+              <span aria-hidden="true">{UPLOAD_GLYPH} </span>
+              {t("tools.geocode.importBtn")}
+              <input
+                type="file"
+                accept=".txt,.zip"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) gaz.importFile(file);
+                }}
+              />
+            </label>
+          </DownloadButton>
         </SourceGroup>
-        <ImportStatus gaz={gaz} slot="file" />
         <p className="tools-geo-hint">
           {t("tools.geocode.sourceGeoNames")}{" "}
           <a href="https://download.geonames.org/export/dump/" target="_blank" rel="noreferrer">

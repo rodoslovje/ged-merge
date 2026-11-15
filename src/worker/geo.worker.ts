@@ -84,7 +84,19 @@ class GeoImportError extends Error {
 
 let current = 0;
 
+/** At most this often within one stage. Unzipping Croatia's addresses reports
+ *  per decompressed chunk — thousands a second — and every report re-renders
+ *  whatever shows the bar: unthrottled, the page stopped responding for the
+ *  whole import. A stage change is always sent at once. */
+const PROGRESS_EVERY_MS = 100;
+let lastStage: GeoStage | undefined;
+let lastSent = 0;
+
 function progress(stage: GeoStage, done: number, total: number): void {
+  const now = Date.now();
+  if (stage === lastStage && now - lastSent < PROGRESS_EVERY_MS) return;
+  lastStage = stage;
+  lastSent = now;
   post({ type: "progress", requestId: current, stage, done, total });
 }
 

@@ -1193,6 +1193,7 @@ export const sl = {
   "tools.geocode.importing": "Uvažanje imenika…",
   "tools.geocode.storing": "Shranjevanje naslovov v ta brskalnik…",
   "tools.geocode.waiting": "Čakanje, da storitev pripravi izvleček…",
+  "tools.geocode.clickToCancel": "Kliknite, da prekličete ta prenos.",
   "tools.geocode.downloading": "Prenašanje…",
   "tools.geocode.workerLoadFailed": "Uvoza ni bilo mogoče zagnati — aplikacija se je medtem verjetno posodobila. Ponovno naložite aplikacijo in poskusite znova.",
   "tools.geocode.importBtn": "Naloži…",
