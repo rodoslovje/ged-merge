@@ -72,9 +72,23 @@ export function detectPrivacyStyle(records: GedNode[]): PrivacyTagStyle {
  * note, a media link or a source. A line below an event is not asked about:
  * nothing there takes it.
  */
-function takesResn(node: GedNode, version: "5.5.1" | "7.0"): boolean {
+function takesResn(node: Pick<GedNode, "level" | "tag">, version: "5.5.1" | "7.0"): boolean {
   if (node.level === 0) return allowsChild(version, [node.tag], "RESN");
   return node.level === 1 && (allowsChild(version, ["INDI", node.tag], "RESN") || allowsChild(version, ["FAM", node.tag], "RESN"));
+}
+
+/**
+ * Whether a private toggle may set the flag on a line like `node` (its level
+ * and tag) for `target`. A strict target writes only the standard's `RESN`,
+ * so where the version has none (see {@link takesResn}) the toggle is
+ * unavailable rather than writing the `_PRIV` extension the health check
+ * would then report. The file's own format keeps the `_PRIV` fallback.
+ */
+export function privateFlagWritable(
+  target: { strict: boolean; version: "5.5.1" | "7.0" },
+  node: Pick<GedNode, "level" | "tag">,
+): boolean {
+  return !target.strict || takesResn(node, target.version);
 }
 
 /** The marker node for `style`, at child level of `parent`. Where the

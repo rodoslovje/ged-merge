@@ -110,7 +110,7 @@ import { NameEditor } from "./edit/NameEditor";
 import { StartPersonChip } from "./edit/StartPersonChip";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
-import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
+import { detectPrivacyStyle, isPrivateNode, privateFlagWritable, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventAddRow } from "./edit/EventAddRow";
 import { AddNoEventSelect, NoEventsRow } from "./edit/NoEventsRow";
@@ -248,7 +248,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverrides = useFormatOverrides();
   // The event menus offer what the target format allows (see offersEventTag).
-  const { eventOffer } = useTargetFormat();
+  const { eventOffer, target: formatTarget } = useTargetFormat();
   const setSettings = useSetSettings();
   // Last-used chart kind — the V shortcut reopens it (falling back to the tree
   // when the relationship diagram was last, since V means a pedigree chart).
@@ -954,6 +954,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     onEditMediaCrop: (addr, crop) => editMediaCropOn(owner, addr, crop),
     onTagPerson: tagPersonOnMedia,
     mediaFields: mediaInfoOffered(dataset.records, formatOverrides),
+    privateUnavailable: (ref) => (privateFlagWritable(formatTarget, { level: ref.xref ? 0 : 1, tag: "OBJE" })
+      ? undefined
+      : t("edit.mediaPrivateUnavailable", { version: formatTarget.version })),
   }));
   const mediaRefCtx = mediaCtxFor({ kind: "individual" });
 

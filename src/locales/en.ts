@@ -1665,6 +1665,8 @@ export const en = {
   "edit.privateTarget.media": "media item",
   "edit.notePrivateOn": "Private note — kept out of publishing and source organizing. Click to remove the flag.",
   "edit.notePrivateOff": "Mark this note as private",
+  "edit.notePrivateUnavailable": "GEDCOM {{version}} has no way to mark a note private. You can mark the person or family private instead.",
+  "edit.mediaPrivateUnavailable": "GEDCOM {{version}} has no way to mark this media item private. You can mark the person or family private instead.",
   "edit.noteBold": "Bold",
   "edit.noteItalic": "Italic",
   "edit.noteUnderline": "Underline",

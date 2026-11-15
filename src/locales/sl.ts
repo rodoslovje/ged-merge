@@ -1911,6 +1911,8 @@ export const sl = {
   "edit.privateTarget.media": "medij",
   "edit.notePrivateOn": "Zasebna opomba — izločena iz objave in urejanja virov. Klik odstrani oznako.",
   "edit.notePrivateOff": "Označi opombo kot zasebno",
+  "edit.notePrivateUnavailable": "V standardu GEDCOM {{version}} opombe ni mogoče označiti kot zasebne. Kot zasebno lahko označite osebo ali družino.",
+  "edit.mediaPrivateUnavailable": "V standardu GEDCOM {{version}} tega medija ni mogoče označiti kot zasebnega. Kot zasebno lahko označite osebo ali družino.",
   "edit.noteBold": "Krepko",
   "edit.noteItalic": "Ležeče",
   "edit.noteUnderline": "Podčrtano",
