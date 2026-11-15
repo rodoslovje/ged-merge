@@ -63,6 +63,10 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\b([Gg])rob\b/g, "$1ròb"],
     // Episode 15: the voice reads a bare "spol" as "spou"; the accent keeps the l.
     [/\b([Ss])pol\b/g, "$1pòl"],
+    // The GEDCOM date keywords are said as words, quickly — in capitals the
+    // voice spells them letter by letter.
+    [/\bABT\b/g, "abt"],
+    [/\bBEF\b/g, "bef"],
   ],
   en: [
     [/gedmerge\.com/g, "GED Merge dot com"],
