@@ -28,8 +28,10 @@ describe("offersEventValue", () => {
     expect(offersEventValue("OCCU", "7.0")).toBe(true);
     expect(offersEventValue("RESI", "7.0")).toBe(true);
     expect(offersEventValue("NCHI", "7.0")).toBe(true);
-    // 5.5.1's table holds its event lines as text.
-    expect(offersEventValue("DEAT", "5.5.1")).toBe(true);
+    // 5.5.1 holds an event line to Y, an attribute to text, RESI to nothing.
+    expect(offersEventValue("DEAT", "5.5.1")).toBe(false);
+    expect(offersEventValue("OCCU", "5.5.1")).toBe(true);
+    expect(offersEventValue("RESI", "5.5.1")).toBe(false);
     // An extension keeps its value; a tag with none is never offered one.
     expect(offersEventValue("_MILT", "7.0")).toBe(true);
     expect(offersEventValue("BIRT", "7.0")).toBe(false);
@@ -44,8 +46,8 @@ describe("merging a death's description", () => {
     const overrides = targetFormatOverrides({}, { strict: true, version });
     const { records } = mergeDecisions(main, compare, confirmed({ "DEAT.value": "incoming" }), NO_MATCHES, tr, [], overrides);
     const out = serializeGedcom(records);
-    if (version === "7.0") expect(out).toContain("1 DEAT\n2 DATE 1950\n2 NOTE died young\n");
-    else expect(out).toContain("1 DEAT died young\n2 DATE 1950\n");
+    // Neither version lets DEAT carry text: it moves into the event's NOTE.
+    expect(out).toContain("1 DEAT\n2 DATE 1950\n2 NOTE died young\n");
     expect(validateConformance({ records })).toEqual(before);
   });
 });
