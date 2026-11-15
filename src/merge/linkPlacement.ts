@@ -483,7 +483,7 @@ export function pendingBookLookups(
 export function previewLinkCitation(records: GedNode[], url: string): SourceCitation | undefined {
   const existing = findExistingSource(records, url, undefined, getSourceLookup(records));
   if (existing) {
-    const node = records.find((r) => r.tag === "SOUR" && r.xref === existing.sourceXref);
+    const node = topRecord(records, "SOUR", existing.sourceXref);
     return {
       sourceId: existing.sourceXref,
       title: node && sourceTitle(node),
@@ -545,6 +545,20 @@ export function previewLinkPlacement(
   };
 }
 
+/**
+ * The first top-level `SOUR` / `OBJE` record with this xref — `records.find`
+ * answered from the cached source lookup, which every helper that adds such a
+ * record refreshes through the source-cache version bump. A hit is checked
+ * against the node itself and a miss falls back to the scan, so a record
+ * added without a bump is still found.
+ */
+function topRecord(records: GedNode[], tag: "SOUR" | "OBJE", xref: string): GedNode | undefined {
+  const lookup = getSourceLookup(records);
+  const hit = (tag === "SOUR" ? lookup.sourceNodes : lookup.objeNodes).get(xref);
+  if (hit && hit.tag === tag && hit.xref === xref) return hit;
+  return records.find((r) => r.tag === tag && r.xref === xref);
+}
+
 /** The file of the page image that would be linked beside the citation: the
  *  one the source already holds for this page, else the link itself — which is
  *  what a page `OBJE` minted for it would carry. */
@@ -559,7 +573,7 @@ function pageImageUrl(records: GedNode[], citation: SourceCitation, url: string)
  * imports. Returns the xref, or undefined when the source is not there.
  */
 function linkObjeToSource(records: GedNode[], sourceXref: string, objeXref: string): string | undefined {
-  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  const sourceNode = topRecord(records, "SOUR", sourceXref);
   if (!sourceNode) return undefined;
   if (!sourceNode.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref)) {
     insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "OBJE", value: objeXref, children: [] }, SOUR_TRAILING_TAGS);
@@ -575,7 +589,7 @@ function pageTitleFor(
   sourceXref: string,
   recognized: RecognizedSourceUrl | undefined,
 ): string | undefined {
-  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  const sourceNode = topRecord(records, "SOUR", sourceXref);
   if (!sourceNode) return undefined;
   return pageObjeTitle(recognized?.site, sourceTitle(sourceNode), recognized?.page, undefined, recognized?.collection);
 }
@@ -621,7 +635,7 @@ function citationTarget(
   sourceXref: string,
   placement: LinkPlacement,
 ): GedNode {
-  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  const sourceNode = topRecord(records, "SOUR", sourceXref);
   const title = (sourceNode && sourceTitle(sourceNode)) || recognized?.proposed.title;
   const tag = citationEventTag(record, records, recognized?.site, title, placement.overrides);
   return (tag && firstChild(record, tag)) || record;
@@ -718,7 +732,7 @@ function mintSource(
   if (!keepFiln) settleSourceFields(source, sourceWriteVersion(placement.overrides), { PERI: true });
   const objeXref = firstChild(source, "OBJE")?.value;
   if (objeXref) {
-    const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
+    const objeNode = topRecord(records, "OBJE", objeXref);
     const objeTitle = pageObjeTitle(recognized.site, title, recognized.page, undefined, recognized.collection);
     if (objeNode && objeTitle && !mediaTitleLine(objeNode)) writeMediaTitle(objeNode, objeTitle);
   }

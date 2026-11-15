@@ -5,7 +5,7 @@ import { localityParts } from "../gedcom/place";
 import { canonicalPlaceToken } from "./place";
 import { cachedFatherName, cachedFindEvent, cachedMotherName } from "./profileCache";
 import { primaryName } from "./relatives";
-import { compareKey, foldToken, isPlaceholderName, jaroWinkler } from "./text";
+import { compareKey, foldToken, givenTokens, isPlaceholderName, jaroWinkler } from "./text";
 import { foldedGivenTokenSimilarity, givenTokenSimilarity } from "./givenVariants";
 
 /**
@@ -355,20 +355,6 @@ export function givenSimilarity(a: string, b: string): number {
     total += best;
   }
   return total / small.length;
-}
-
-const givenTokenCache = new Map<string, string[]>();
-
-/** The folded tokens of a given name, memoized by the name as written: a
- *  file has a few thousand distinct given names and compares them millions
- *  of times, so the split is paid once per spelling, not once per pair. */
-function givenTokens(given: string): string[] {
-  let tokens = givenTokenCache.get(given);
-  if (!tokens) {
-    tokens = foldToken(given).split(" ").filter(Boolean);
-    givenTokenCache.set(given, tokens);
-  }
-  return tokens;
 }
 
 export function dateSimilarity(a: GedDate | undefined, b: GedDate | undefined): number | undefined {

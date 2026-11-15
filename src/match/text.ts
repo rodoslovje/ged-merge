@@ -33,6 +33,7 @@ const FOLD_CACHE_MAX = 200_000;
 export function clearTextCaches(): void {
   foldCache.clear();
   placeholderCache.clear();
+  givenTokenCache.clear();
   jaroWinklerCache = new Map();
   jaroWinklerCacheSize = 0;
 }
@@ -51,6 +52,25 @@ export function foldToken(s: string): string {
     foldCache.set(s, folded);
   }
   return folded;
+}
+
+const givenTokenCache = new Map<string, string[]>();
+
+/** Entries the given-name token cache may hold before it is emptied and
+ *  refilled — the fold cache's bound, for the same reason. */
+export const GIVEN_TOKEN_CACHE_MAX = FOLD_CACHE_MAX;
+
+/** The folded tokens of a given name, memoized by the name as written: a
+ *  file has a few thousand distinct given names and compares them millions
+ *  of times, so the split is paid once per spelling, not once per pair. */
+export function givenTokens(given: string): string[] {
+  let tokens = givenTokenCache.get(given);
+  if (!tokens) {
+    tokens = foldToken(given).split(" ").filter(Boolean);
+    if (givenTokenCache.size >= GIVEN_TOKEN_CACHE_MAX) givenTokenCache.clear();
+    givenTokenCache.set(given, tokens);
+  }
+  return tokens;
 }
 
 /**

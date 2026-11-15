@@ -34,7 +34,12 @@ export function useGedcomWorker(
     const worker = new Worker(new URL("../worker/gedcom.worker.ts", import.meta.url), {
       type: "module",
     });
-    worker.onmessage = (e: MessageEvent<WorkerResponse>) => handlerRef.current(e.data);
+    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+      // A message the replaced worker queued before `reset` terminated it
+      // answers a request the caller has already superseded.
+      if (workerRef.current !== worker) return;
+      handlerRef.current(e.data);
+    };
     worker.onerror = (e: ErrorEvent) => {
       if (workerRef.current !== worker) return; // late event from a replaced worker
       console.error("gedcom worker:", e.message, e);
