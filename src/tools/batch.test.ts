@@ -941,6 +941,30 @@ describe("applyBatchAction", () => {
     expect(obje.children.find((c) => c.tag === "FILE")?.value).toBe("maternal.png");
   });
 
+  it.each(["5.5.1", "7.0"] as const)("leaves an inline-style file nothing strict %s can find", (version) => {
+    // A file of inline media set to a strict target: 7.0 has no inline block,
+    // so the new image is a media record there, and an inline one in 5.5.1.
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS ${version}
+0 @I1@ INDI
+1 NAME A //
+0 @I2@ INDI
+1 NAME B //
+0 TRLR`);
+    const before = validateConformance(ds);
+    // The inline habit, added after the baseline: 7.0 reports it on its own.
+    const habit = { level: 1, tag: "OBJE", children: [{ level: 2, tag: "FILE", value: "existing.jpg", children: [{ level: 3, tag: "FORM", value: "jpg", children: [] }] }] };
+    ds.individuals.get("@I1@")!.raw.children.push(habit);
+    const res = applyBatchAction(ds, ["@I2@"], { kind: "addMedia", file: "maternal.png" }, version);
+    expect(res.changed).toBe(1);
+    const obje = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "OBJE")!;
+    if (version === "7.0") expect(obje.value).toMatch(/^@O\d+@$/);
+    else expect(obje.value).toBeUndefined();
+    ds.individuals.get("@I1@")!.raw.children.pop();
+    expect(validateConformance(ds)).toEqual(before);
+  });
+
   it("adds a source citation with a page, skipping existing citers", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

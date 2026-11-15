@@ -889,7 +889,7 @@ function addMediaBatch(
     (action.xref && ds.records.find((r) => r.tag === "OBJE" && r.xref === action.xref)) ||
     findSharedMediaByFile(ds.records, action.file) ||
     undefined;
-  if (!shared && detectMediaMode(ds.records) === "shared") {
+  if (!shared && detectMediaMode(ds.records, version) === "shared") {
     shared = createMediaRecord(ds.records, action.file, version, action.title);
     extra.push({ type: "record", id: shared.xref!, before: null, after: cloneNode(shared) });
   }

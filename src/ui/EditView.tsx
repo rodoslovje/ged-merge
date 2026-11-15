@@ -612,11 +612,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
-  // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
-  // OBJE + pointer); ties / no photos fall back to shared.
-  const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
   // The version new lines are written in: the strict target's, else the file's.
   const writeVersion = writeVersionOf(formatOverrides);
+  // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
+  // OBJE + pointer); ties / no photos fall back to shared, and 7.0 has only
+  // shared records.
+  const mediaMode = useMemo(() => detectMediaMode(dataset.records, writeVersion), [dataset.records, writeVersion]);
   // The file's privacy-marker dialect (PRIV / _PRIV / RESN) — the person and
   // family lock toggles write markers in the file's own style, unless the
   // Settings → GEDCOM override picks one explicitly.
