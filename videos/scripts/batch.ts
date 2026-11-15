@@ -577,11 +577,12 @@ const scenario: Scenario = {
         en: "One more search: couples with children and no marriage recorded.",
       },
       run: async (d) => {
+        // Filters the viewer has seen added several times by now: quicker.
         await clearFilters(d);
-        await addFilter(d, "tools.batch.crit.relation");
-        const kids = await addFilter(d, "tools.batch.crit.relation");
-        await choose(d, kids.locator(".batch-select").first(), L(d, "tools.batch.relation.children.has"));
-        await addFilter(d, "tools.batch.crit.familyEvent");
+        await addFilter(d, "tools.batch.crit.relation", true);
+        const kids = await addFilter(d, "tools.batch.crit.relation", true);
+        await choose(d, kids.locator(".batch-select").first(), L(d, "tools.batch.relation.children.has"), true, true);
+        await addFilter(d, "tools.batch.crit.familyEvent", true);
       },
     },
     {
