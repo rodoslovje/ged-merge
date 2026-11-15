@@ -21,7 +21,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ |
 | 13 | Kraji in naslovi | `scripts/addresses.ts` | SL z glasom ✓ |
 | 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
-| 15 | Pregled | `scripts/health.ts` | SL osnutek brez glasu ✓ |
+| 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ |
 | 16 | Paketna opravila | — | načrtovano |
 
 Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
