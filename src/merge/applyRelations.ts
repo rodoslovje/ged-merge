@@ -76,6 +76,8 @@ export interface MergeContext {
   /** The `PEDI` the incoming file records on this child's link to this
    *  incoming family (adopted, foster, …), if any. */
   childPedigree: (incomingId: string, incomingFamId: string) => string | undefined;
+  /** The families the incoming file makes this person a child of. */
+  incomingChildOf: (incomingId: string) => readonly string[] | undefined;
   /** Display label for a main id, for the change report. */
   label: (id: string) => string;
   /** A main id (or a record this merge added) as the preview writes a person. */
@@ -399,6 +401,7 @@ export function makeContext(
       const famc = compare.individuals.get(incomingId)?.raw.children.find((c) => c.tag === "FAMC" && c.value === incomingFamId);
       return famc?.children.find((c) => c.tag === "PEDI")?.value?.trim() || undefined;
     },
+    incomingChildOf: (incomingId) => compare.individuals.get(incomingId)?.childOf,
     label: (id) =>
       addedLabels.get(id) ?? displayName(main.individuals.get(id)?.names[0]),
     person: (id) => {
@@ -467,6 +470,11 @@ export function applyFamilyStructure(
      *  branch graft. An explicit tick outranks a suggested match; a graft must
      *  not, or re-importing a branch would duplicate people. */
     explicitPicks?: boolean;
+    /** Every incoming person already has the main record they stand for — a
+     *  whole-file merge resolves everyone before it stitches families — so a
+     *  child whose parents disagree is left out with a note, as a confirmed
+     *  pair is, rather than split into a second record of the same person. */
+    keepIdentity?: boolean;
   },
 ): { refusedChildren: Set<string> } {
   /** Incoming children this family refused to take because the main person they
@@ -570,8 +578,12 @@ export function applyFamilyStructure(
       // second FAMC — not a link, but two birth families on one person, which
       // the health check flags and no merge may mint.
       const otherFamId = childFamilyOf(targetId, ctx);
-      if (otherFamId && otherFamId !== famId) {
-        if (ctx.confirmedPair(targetId, incChild)) {
+      // The incoming person's own new record, which their file places in more
+      // than one family (born into one, adopted into another): a second family
+      // link is what their file says, not a disagreement between two files.
+      const ownCopy = ctx.added.get(incChild) === targetId && (ctx.incomingChildOf(incChild)?.length ?? 0) > 1;
+      if (otherFamId && otherFamId !== famId && !ownCopy) {
+        if (ctx.confirmedPair(targetId, incChild) || opts.keepIdentity) {
           // You confirmed these two are the same person, so the disagreement is
           // about the parents, not the identity — and that is yours to settle.
           // The child is left out and the preview names the parents your file
@@ -991,7 +1003,7 @@ export function applyIndividualFamilies(
  * only there, and re-reading the original `spouseOf` would miss it and mint a
  * duplicate family for the same couple (double FAMS/FAMC on everyone in it).
  */
-function findMainSpouseFamily(
+export function findMainSpouseFamily(
   mainId: string,
   otherMainId: string | undefined,
   ctx: MergeContext,

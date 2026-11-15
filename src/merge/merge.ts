@@ -1,3 +1,4 @@
+import { applyWholeFile } from "./wholeFile";
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { insertGrouped, memoOnContent } from "../gedcom/edit";
@@ -374,6 +375,24 @@ export function confirmedFamilySnapshots(
 }
 
 /**
+ * A whole-file merge: every incoming person and family comes across, joined to
+ * the main record a confirmed pair names, and added as a new record otherwise;
+ * every incoming source, repository, shared note and media record comes too,
+ * used by anyone or not, unless the main file already holds the same one.
+ */
+export interface WholeFileImport {
+  /**
+   * What a matcher candidate nobody confirmed or rejected stands for:
+   * - `"new"` — a different person: the incoming record is added;
+   * - `"join"` — the same person, when the pair passes the identity checks a
+   *   branch import makes (`graftJoinHolds`): the incoming record's relatives
+   *   are linked to the main record, its own facts are not merged.
+   * See `applyWholeFile` for how people and families are placed.
+   */
+  pending: "new" | "join";
+}
+
+/**
  * Apply confirmed match decisions to a clone of the main tree, taking each
  * field the user chose from the incoming side (or "both"). Untouched records are
  * left as identical clones, so serializing the result yields a minimal diff
@@ -400,6 +419,9 @@ export function mergeDecisions(
   /** The reader's Settings → GEDCOM choices, so a place written into the main
    *  by this merge follows them rather than only the main's own habit. */
   overrides?: FormatOverrides,
+  /** Bring the whole incoming file across, not only what the decisions and
+   *  branches name — see {@link WholeFileImport}. */
+  wholeFile?: WholeFileImport,
 ): MergeResult {
   const records = main.records.map(cloneNode);
   // Every PLAC the main file already holds, by node identity. Each write below
@@ -440,6 +462,15 @@ export function mergeDecisions(
   // beside the citation or only under its source).
   const placement = linkPlacementFor(main, overrides, compare);
   const { rejectedPairs, confirmedPairs } = decisionPairs(decisions);
+  // A whole-file merge told to take unreviewed candidates as different people
+  // treats every pair not confirmed as rejected: nobody is joined on the
+  // matcher's word alone.
+  if (wholeFile?.pending === "new") {
+    for (const c of matches.individuals) {
+      const pair = `${c.mainId}|${c.compareId}`;
+      if (!confirmedPairs.has(pair)) rejectedPairs.add(pair);
+    }
+  }
   const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs, placement, { pinned: pinnedAdds(decisions) });
 
   // A family with both spouses confirmed is stitched only once — on the first
@@ -511,6 +542,7 @@ export function mergeDecisions(
   // here on are reported as imported (preview flags them "Incoming").
   ctx.beginGraftPhase();
   applyImportBranches(importBranches, main, compare, ctx);
+  if (wholeFile) applyWholeFile(compare, ctx);
 
   // Every family pointer written onto a person, now that the families it names
   // are whole. Deliberately after the decision loop: `touched` gates the
@@ -551,7 +583,7 @@ export function mergeDecisions(
   // records from compare that are now referenced in the merged output but
   // absent from it (e.g. citations on newly-added people).
   foldMatchedSourcePages(records, compare, sourXrefMap);
-  importSourRecords(records, compare, sourXrefMap, report.customTags);
+  importSourRecords(records, compare, sourXrefMap, report.customTags, wholeFile ? sourXrefMap.values() : undefined);
 
   // Every family is placed too, so an imported sealing to parents can name its
   // main-side family — or, where that family did not come across, lose the
