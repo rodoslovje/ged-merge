@@ -151,11 +151,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   }, [rows]);
   /** Non-standard tags the file actually uses — the convert action's sources. */
   const vendorEventOptions = useMemo(() => eventOptions.filter(isNonStandardTag), [eventOptions]);
-  /** Tags offered by the family-event filter: marriage and separation always
-   *  (finding unions without a marriage, and setting aside couples who did not
-   *  live together) plus whatever the file's unions use. */
+  /** Tags offered by the family-event filter: marriage always (the point of the
+   *  filter is finding unions without it) plus whatever the file's unions use. */
   const familyEventOptions = useMemo(() => {
-    const present = new Set<string>(["MARR", "SEPA"]);
+    const present = new Set<string>(["MARR"]);
     for (const r of rows) for (const tag of r.familyEventTags) present.add(tag);
     return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
