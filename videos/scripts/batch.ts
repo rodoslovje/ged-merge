@@ -218,15 +218,24 @@ const scenario: Scenario = {
     {
       callout: { sl: "Paketna opravila", en: "Batch actions" },
       say: {
-        sl: "Odprimo rodovnik. V Orodjih izberite »Poenoti in paketno uredi«.",
-        en: "Let's open the family tree. In Tools, choose Normalize & batch.",
+        sl: "Odprimo rodovnik.",
+        en: "Let's open the family tree.",
       },
       run: async (d) => {
         await d.card(null, null);
         await d.wait(700);
         await d.upload(d.page.locator(".lb-drop"), MAIN);
         await d.page.locator(".edit-person").first().waitFor();
-        await d.wait(1000);
+        await d.wait(800);
+      },
+    },
+    {
+      // Said as the pointer goes to Tools, not while the file is still loading.
+      say: {
+        sl: "V Orodjih izberite »Poenoti in paketno uredi«.",
+        en: "In Tools, choose Normalize & batch.",
+      },
+      run: async (d) => {
         await d.click(d.page.locator(".seg-btn").nth(2));
         await d.wait(600);
         await d.click(d.page.locator(".tools-tab").nth(BATCH_TAB));
