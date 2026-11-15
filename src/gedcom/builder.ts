@@ -3,7 +3,7 @@ import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
 import { childValue, childrenByTag, firstChild } from "./node";
 import { buildSourceContext, objeInfoOf, resolveSourceCitation, type SourceContext } from "./source";
-import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
+import { isPointer, isPointerNode, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 import { runSteps, type Steps } from "./steps";
@@ -435,8 +435,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const links = collectLinks(node, media);
   const noteNode = firstChild(node, NOTE_TAGS);
   if (noteNode) {
-    const notePtr = noteNode.value?.trim() ?? "";
-    if (isPointer(notePtr)) event.noteXref = notePtr;
+    if (isPointerNode(noteNode)) event.noteXref = noteNode.value!.trim();
     const text = resolveNoteText(noteNode, noteIndex, links);
     const noteStripped = text && stripNoteLinks(text);
     if (noteStripped) event.note = noteStripped;
@@ -570,8 +569,8 @@ export function buildNoteIndex(records: GedNode[]): NoteIndex {
  * any URLs in the resolved text are collected into it.
  */
 function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): string | undefined {
-  const v = node.value?.trim();
-  if (!(v && isPointer(v))) return node.value;
+  if (!isPointerNode(node)) return node.value;
+  const v = node.value!.trim();
   const entry = notes.get(v);
   // A private note's URLs stay inside the note — never surfaced as links,
   // where they'd be one click from becoming a (public) source citation.
@@ -615,7 +614,7 @@ function collectNote(
   out: string[], links: string[], outFull: string[], outRefs?: NoteRef[],
 ): void {
   const ptr = node.value?.trim() ?? "";
-  const isPtr = isPointer(ptr);
+  const isPtr = isPointerNode(node);
   const isPrivate = isPtr ? !!notes.get(ptr)?.private : isPrivateNode(node);
   const text = resolveNoteText(node, notes, links);
   const stripped = text && stripNoteLinks(text);

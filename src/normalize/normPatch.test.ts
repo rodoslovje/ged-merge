@@ -80,6 +80,17 @@ describe("normalization edits", () => {
     expect(applyNormPatch(parseGedcom(enc(wrap("0 @I1@ INDI\n"))).records, patch)).toBe(false);
   });
 
+  it("carries a text-literal at-sign mark (atText) across the replay", () => {
+    const text = wrap("0 @I1@ INDI\n1 NOTE @@I1@@\n");
+    const records = parseGedcom(enc(text)).records;
+    expect(records[1].children[0].atText).toBe("@I1@");
+    const after = records.map((r) => structuredClone(r));
+    delete after[1].children[0].atText;
+    const fresh = parseGedcom(enc(text)).records;
+    expect(applyNormPatch(fresh, diffNormalized(records, after)!)).toBe(true);
+    expect(fresh[1].children[0].atText).toBeUndefined();
+  });
+
   it("an untouched forest yields no edits", () => {
     const records = parseGedcom(enc(wrap("0 @I1@ INDI\n1 NAME A /B/\n"))).records;
     const patch = diffNormalized(records, records.map((r) => structuredClone(r)))!;

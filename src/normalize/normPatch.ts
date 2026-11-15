@@ -23,8 +23,8 @@ import type { GedNode } from "../gedcom/types";
  * Ops, each `[op, record, depth, ...path, ...operands]` (paths in the
  * numbering the node's parent has once earlier ops ran):
  *  - `SCALARS mask` — the node's fields in `SCALAR_FIELDS` order whose bit is
- *    set take the next strings (length -1 = remove the field); bit 5 takes the
- *    next object as `conc`, bit 6 the next object as `upgradedFrom`.
+ *    set take the next strings (length -1 = remove the field); bit 6 takes the
+ *    next object as `conc`, bit 7 the next object as `upgradedFrom`.
  *  - `CHILDREN n e1…en` — the node's children become: `e ≥ 0` its old child at
  *    that index, `e < 0` the object `-e - 1`. Later ops then reach them.
  *  - `REPLACE obj keepXref` — the node (its level or xref changed) is
@@ -48,7 +48,7 @@ export interface NormPatch {
 const OP_SCALARS = 1;
 const OP_CHILDREN = 2;
 const OP_REPLACE = 3;
-const SCALAR_FIELDS = ["tag", "value", "spelling", "reshapedFrom", "verbatim"] as const;
+const SCALAR_FIELDS = ["tag", "value", "spelling", "reshapedFrom", "verbatim", "atText"] as const;
 const CONC_BIT = 1 << SCALAR_FIELDS.length;
 const UPGRADED_BIT = CONC_BIT << 1;
 
