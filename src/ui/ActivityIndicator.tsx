@@ -55,9 +55,10 @@ export function ActivityIndicator() {
   // What runs, then how far it has got — the number set apart from the words,
   // so a list of several reads down its values at a glance.
   const entry = (text: string, value: string) => (
-    <>
-      {text} <span className="activity-value">{value}</span>
-    </>
+    <span className="activity-entry">
+      <span className="activity-label">{text}</span>
+      <span className="activity-value">{value}</span>
+    </span>
   );
   for (const run of running) {
     items.push({

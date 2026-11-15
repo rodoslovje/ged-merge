@@ -224,11 +224,22 @@ button:focus-visible {
   border-radius: 50%;
 }
 /* An entry's value in the list (42 %, 12.3 MB, 8 s), set apart from its words. */
+/* Words left, value right, both on one baseline. */
+.activity-entry {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.activity-label {
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .activity-value {
-  margin-left: 12px;
-  float: right;
+  flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 0.8em;
+  font-size: 0.76rem;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
