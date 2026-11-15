@@ -37,7 +37,7 @@ import { altShiftLabel } from "../../keyboard/shortcuts";
 import type { SourceDialogTarget } from "./types";
 import { harvestedLinksOf, linkEditing } from "./LinksEditor";
 import { linkKey } from "../../normalize/links";
-import { eventRowUpdate } from "./eventRowUpdate";
+import { eventRowUpdate, spellUpdateFor } from "./eventRowUpdate";
 import { AddressStructure } from "./AddressStructure";
 import { eventHasAddressStructure as hasAddressStructure } from "../../gedcom/address";
 import { writeAgeValue } from "../../gedcom/ageValue";
@@ -792,6 +792,8 @@ export function EventFieldsRow({
     }
     if (update.husbandAge !== undefined) update.husbandAge = writeAgeValue(update.husbandAge, version).value;
     if (update.wifeAge !== undefined) update.wifeAge = writeAgeValue(update.wifeAge, version).value;
+    // A typed ordinance status in the target version's spelling.
+    spellUpdateFor(update, target.version);
     commitField(update);
   }
 

@@ -204,14 +204,24 @@ const STAT_ENUM = new Set([
 /** 7.0 status → its 5.5.1 spelling, where the two differ. */
 const STAT_DOWNGRADES: Record<string, string> = { PRE_1970: "PRE-1970", DNS_CAN: "DNS/CAN" };
 
+/** A status in 7.0's spelling, whatever its case and punctuation. */
+const statKey = (value: string) => value.trim().toUpperCase().replace(/[-/ ]/g, "_");
+
+/** An ordinance status as `to` spells it (`pre-1970` → 7.0 `PRE_1970`, 5.5.1
+ *  `PRE-1970`) — the one spelling of the mapping, for the conversion and the
+ *  editor alike. A value neither standard defines comes back as given. */
+export function ordinanceStatusIn(value: string, to: VersionFamily): string {
+  const key = statKey(value);
+  if (!STAT_ENUM.has(key)) return value;
+  return to === "7.0" ? key : (STAT_DOWNGRADES[key] ?? key);
+}
+
 /** Rewrite an ordinance's `STAT` value into the target version's spelling. A
  *  value neither standard defines is left as the file writes it. */
 function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   const raw = node.value?.trim();
-  if (!raw) return;
-  const upper = raw.toUpperCase().replace(/[-/ ]/g, "_");
-  if (!STAT_ENUM.has(upper)) return;
-  const next = to === "7.0" ? upper : (STAT_DOWNGRADES[upper] ?? upper);
+  if (!raw || !STAT_ENUM.has(statKey(raw))) return;
+  const next = ordinanceStatusIn(raw, to);
   if (next === node.value) return;
   const before = describe(node);
   node.value = next;

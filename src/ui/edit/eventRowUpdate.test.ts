@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { eventRowUpdate, type RowFields } from "./eventRowUpdate";
-import { setEventFieldAtIndex } from "../../gedcom/edit";
+import { eventRowUpdate, spellUpdateFor, type RowFields } from "./eventRowUpdate";
+import { applyEventNodeUpdate, setEventFieldAtIndex } from "../../gedcom/edit";
+import { validateConformance } from "../../tools/conformance/conformance";
 import { parseGedcom } from "../../gedcom/parser";
 import { buildDataset } from "../../gedcom/builder";
 import { serializeGedcom } from "../../gedcom/serialize";
@@ -54,5 +55,32 @@ describe("eventRowUpdate", () => {
     expect(eventRowUpdate(fields({ value: field("", "", true) }), {}, true, "Y")).toBeNull();
     expect(eventRowUpdate(fields({ value: field("", "Y es") }), {}, true, "Y")).toEqual({ value: "Y es" });
     expect(eventRowUpdate(fields({ value: field("", ""), place: field("Kranj", "Bled") }), {}, true, "Y")).toEqual({ place: "Bled" });
+  });
+});
+
+describe("spellUpdateFor", () => {
+  const file = (version: string) => buildDataset(parseGedcom(new TextEncoder().encode(
+    `0 HEAD\n1 GEDC\n2 VERS ${version}\n0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BAPL\n2 DATE 1 JAN 1980\n0 TRLR\n`).buffer));
+
+  it.each([["5.5.1", "PRE-1970"], ["7.0", "PRE_1970"]] as const)(
+    "writes a typed ordinance status as strict %s spells it, and leaves it nothing to find",
+    (version, spelled) => {
+      const ds = file(version);
+      const before = validateConformance(ds);
+      const update = eventRowUpdate(fields({ status: field("", "pre-1970") }), {}, false, undefined)!;
+      spellUpdateFor(update, version);
+      expect(update.status).toBe(spelled);
+      const indi = ds.individuals.get("@I1@")!;
+      const bapl = indi.raw.children.find((c) => c.tag === "BAPL")!;
+      applyEventNodeUpdate(indi.raw, bapl, update);
+      expect(serializeGedcom(ds.records)).toContain(`2 STAT ${spelled}\n3 DATE `);
+      expect(validateConformance(ds)).toEqual(before);
+    },
+  );
+
+  it("leaves a status neither standard has as typed", () => {
+    const update = { status: "Pending" };
+    spellUpdateFor(update, "7.0");
+    expect(update.status).toBe("Pending");
   });
 });
