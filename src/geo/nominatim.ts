@@ -221,7 +221,7 @@ export function osmNamesPlace(result: NominatimResult, name: string): boolean {
 }
 
 // One shared queue so concurrent callers still respect the 1 req/s policy.
-const enqueue = createThrottledQueue(INTERVAL_MS);
+const enqueue = createThrottledQueue(INTERVAL_MS, { activity: "places" });
 
 /**
  * Search Nominatim for a free-text place/address string. Requests are

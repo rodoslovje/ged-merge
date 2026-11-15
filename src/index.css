@@ -204,6 +204,50 @@ button:focus-visible {
 .app-head-actions .export-btn {
   font-size: 0.85rem;
 }
+/* Background downloads, beside Undo: a spinner and how many are running. */
+.activity-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 4px 10px;
+}
+.activity-spinner {
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+}
+/* Lingering a moment after the last request: the ring stops, all accent. */
+.activity-spinner--idle {
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+}
+/* An entry's value in the list (42 %, 12.3 MB, 8 s), set apart from its words. */
+/* Words left, value right, both on one baseline. */
+.activity-entry {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.activity-label {
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.activity-value {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.activity-count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
 /* The Save button shows "Save GEDCOM" by default and the short "Save" on
    narrower screens (toggled in the 1100px header media query below). */
 .export-btn-label-short {
@@ -10554,6 +10598,33 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    label rather than words inside both buttons — repeated it would say the same
    thing twice, and what tells the buttons apart is places against addresses. */
 .tools-geo-source { display: grid; justify-items: center; gap: 4px; }
+/* A download in progress, in its own button: spinner, label, number. */
+.tools-geo-running {
+  display: inline-flex;
+  /* Label, value and ✕ share one baseline; only the spinner is centred. */
+  align-items: baseline;
+  gap: 5px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-color: var(--accent);
+}
+.tools-geo-running-spinner { width: 12px; height: 12px; box-sizing: border-box; align-self: center; }
+.tools-geo-running-pct {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+.tools-geo-running-cancel { font-size: 0.8em; color: var(--muted); }
+.tools-geo-running:hover .tools-geo-running-cancel { color: var(--danger); }
+/* A source's failure, under its own buttons, in the source's own grid cell. */
+.tools-geo-source-error {
+  max-width: 18em;
+  font-size: 0.78rem;
+  color: var(--danger);
+  text-align: center;
+}
 .tools-geo-source-name {
   font-size: 0.78rem;
   font-weight: 600;
