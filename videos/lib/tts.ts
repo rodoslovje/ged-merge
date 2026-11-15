@@ -84,8 +84,6 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     // The Settings tab »Urejanje«, as »Urèjanje« (checked by ear; episode 14's
     // bare "Urejanje" the voice reads right as written).
     [/»Urejanje«/g, "»Urèjanje«"],
-    // Its locative, »v Urejanju«, likewise (episode 15).
-    [/\b([Uu])rejanju\b/g, "$1rèjanju"],
     // A button label starting »Dodaj …«, stressed on -daj (checked by ear).
     [/»Dodaj\b/g, "»Dodáj"],
     // »naložì«, stressed on the last syllable (checked by ear).

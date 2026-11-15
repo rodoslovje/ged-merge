@@ -61,16 +61,6 @@ async function openChip(d: Director, label: Text): Promise<void> {
   await d.highlight(null);
 }
 
-/** Run one row's own fix and wait until the check has read the file again. */
-async function fixRow(d: Director, text: string): Promise<void> {
-  const r = row(d, text);
-  await d.highlight(r, 4);
-  await d.wait(2500);
-  await d.click(r.locator(".tools-issue-fix"));
-  await d.highlight(null);
-  await d.wait(1500);
-}
-
 /** Ring a row's fix button and click it as the narration ends: the button
  *  is pressed once the narration has said what it does. */
 async function clickFixWhenSaid(d: Director, text: string, secondsBefore = 1.2): Promise<void> {
@@ -87,7 +77,9 @@ async function clickFixWhenSaid(d: Director, text: string, secondsBefore = 1.2):
 async function prepare(d: Director, label: Text): Promise<void> {
   await d.untilSaid();
   await d.calloutAhead();
-  await openChip(d, label);
+  // Just the filter: the next step rings its rows while it speaks.
+  await d.click(chip(d, label));
+  await d.wait(500);
 }
 
 /** Ring the open confirmation, and confirm it as the narration ends. */
@@ -295,19 +287,34 @@ const scenario: Scenario = {
     {
       callout: { sl: "Popravek v Urejanju", en: "Fixing in Edit" },
       say: {
-        sl: "Začnimo pri smrti pred rojstvom. Klik na ime odpre osebo v Urejanju. Mina Prešeren je umrla leta 1823, v datoteki pa piše 1723. Ena napačna števka povzroči kar tri težave: smrt pred rojstvom, rojstvo po smrti in sina, rojenega po materini smrti.",
-        en: "Let's start with the death before birth. A click on the name opens the person in Edit. Mina Prešeren died in 1823, but the file says 1723. One wrong digit causes three issues: a death before birth, a birth after the death, and a son born after his mother's death.",
+        sl: "Začnimo pri smrti pred rojstvom.",
+        en: "Let's start with the death before birth.",
       },
       run: async (d) => {
         await d.highlight(null);
-        await openChip(d, { sl: "Smrt pred rojstvom", en: "Death before birth" });
-        const mina = row(d, "Mina Prešeren");
-        await d.highlight(mina, 4);
-        await d.wait(2500);
+        await d.click(chip(d, { sl: "Smrt pred rojstvom", en: "Death before birth" }));
+        await d.wait(400);
+        await d.highlight(row(d, "Mina Prešeren"), 4);
+        await d.untilSaid();
+      },
+    },
+    {
+      say: {
+        sl: "Klik na ime odpre to osebo.",
+        en: "A click on the name opens the person.",
+      },
+      run: async (d) => {
         await d.highlight(null);
-        await d.click(mina.locator(".tools-issue-link").first());
+        await d.click(row(d, "Mina Prešeren").locator(".tools-issue-link").first());
         await d.page.locator(".edit-person").first().waitFor();
-        await d.wait(900);
+      },
+    },
+    {
+      say: {
+        sl: "Mina Prešeren je umrla leta 1823, v datoteki pa piše 1723. Ena napačna števka povzroči kar tri težave: smrt pred rojstvom, rojstvo po smrti in sina, rojenega po materini smrti.",
+        en: "Mina Prešeren died in 1823, but the file says 1723. One wrong digit causes three issues: a death before birth, a birth after the death, and a son born after his mother's death.",
+      },
+      run: async (d) => {
         const death = d.page.locator(".edit-person .edit-event").filter({ hasText: d.t({ sl: "Smrt", en: "Death" }) }).first();
         await d.highlight(death, 6);
         await d.untilSaid(2);
@@ -321,6 +328,9 @@ const scenario: Scenario = {
         await d.wait(400);
         await d.page.keyboard.press("Escape");
         await d.wait(700);
+        await d.highlight(null);
+        // Run again before the next sentence says what it shows.
+        await backAndRerun(d);
       },
     },
     {
@@ -329,28 +339,41 @@ const scenario: Scenario = {
         en: "Once the file has changed, you run the check again. All three issues are gone.",
       },
       run: async (d) => {
-        await d.highlight(null);
-        await backAndRerun(d);
         await d.highlight(d.page.locator(".tools-chips").first(), 6);
+        await prepare(d, { sl: "Pokvarjene povezave", en: "Broken links" });
       },
     },
     {
       callout: { sl: "Popravek z enim klikom", en: "One-click fixes" },
       say: {
-        sl: "Nekaterih napak v Urejanju sploh ne vidite: povezave na družino, ki je ni več, otroka, ki je v družini naveden dvakrat, in para, zapisanega v dveh družinah. Te popravite kar tukaj, z gumbom v vrstici.",
-        en: "Some errors you cannot even see in Edit: a link to a family that no longer exists, a child listed twice in one family, and a couple recorded in two families. You fix these right here, with the button on the row.",
+        sl: "Nekaterih napak pri osebi sploh ne vidite, na primer povezave na družino, ki je ni več. Te popravite kar tukaj, z gumbom v vrstici.",
+        en: "Some errors you cannot even see in Edit, such as a link to a family that no longer exists. You fix these right here, with the button on the row.",
       },
       run: async (d) => {
-        await openChip(d, { sl: "Pokvarjene povezave", en: "Broken links" });
-        await fixRow(d, "Ernestina");
-        await openChip(d, { sl: "Podvojeni kazalci", en: "Duplicate pointers" });
-        await fixRow(d, "F36128");
-        await openChip(d, { sl: "Isti par dvakrat", en: "Same couple twice" });
-        await fixRow(d, "Šimen");
-        // The next step's people are on screen before its narration names them.
-        await d.untilSaid();
-        await d.calloutAhead();
-        await openChip(d, { sl: "Spol proti vlogi", en: "Sex vs. role" });
+        await d.highlight(row(d, "Ernestina"), 4);
+        await d.untilSaid(3);
+        await clickFixWhenSaid(d, "Ernestina");
+        await prepare(d, { sl: "Podvojeni kazalci", en: "Duplicate pointers" });
+      },
+    },
+    {
+      say: {
+        sl: "Enako otroka, ki je v družini naveden dvakrat.",
+        en: "The same goes for a child listed twice in one family.",
+      },
+      run: async (d) => {
+        await clickFixWhenSaid(d, "F36128");
+        await prepare(d, { sl: "Isti par dvakrat", en: "Same couple twice" });
+      },
+    },
+    {
+      say: {
+        sl: "In par, zapisan v dveh družinah: gumb ju združi v eno.",
+        en: "And a couple recorded in two families: the button joins them into one.",
+      },
+      run: async (d) => {
+        await clickFixWhenSaid(d, "Šimen");
+        await prepare(d, { sl: "Spol proti vlogi", en: "Sex vs. role" });
       },
     },
     {
@@ -417,8 +440,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Ta pa je le pozabljena povezava, zato ji v Urejanju dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
-        en: "She, though, is just a forgotten link, so in Edit we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
+        sl: "Ta pa je le pozabljena povezava, zato ji dodamo očeta in mater, ki sta že v datoteki: Franceta Prešerna in Ano Jelovšek.",
+        en: "She, though, is just a forgotten link, so we add her father and mother, who are already in the file: France Prešeren and Ana Jelovšek.",
       },
       run: async (d) => {
         await d.highlight(null);
@@ -440,8 +463,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Ko pregled zaženemo znova, Terezije ni več na seznamu.",
-        en: "Once the check runs again, Terezija is off the list.",
+        sl: "Ko pregled zaženemo znova, je ni več na seznamu.",
+        en: "Once the check runs again, she is off the list.",
       },
       run: async (d) => {
         await d.highlight(d.page.locator(".tools-chips").first(), 6);
