@@ -65,8 +65,9 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\b([Ss])pol\b/g, "$1pòl"],
     // The Living filter is »Žívi«, stressed on the first i.
     [/»Živi«/g, "»Žívi«"],
-    // The Normalize & batch tool: »Poenóti in paketno uredi«.
-    [/\b([Pp])oenoti\b/g, "$1oenóti"],
+    // The Normalize & batch tool, »Poenoti in paketno uredi«: spelled »Pòenoti«
+    // for the voice (checked by ear against Poenóti, Poenôti, Po enóti).
+    [/\b([Pp])oenoti\b/g, "$1òenoti"],
     // "umrl" / "umrli" are stressed on the syllabic r: »Umŕli mladi«; "pri
     // umrlih" the voice reads right as written (checked by ear).
     [/\b([Uu])mrl(i|e)?\b/g, "$1mŕl$2"],
