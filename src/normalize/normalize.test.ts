@@ -12,6 +12,7 @@ import {
 import { normalizeDataset } from "./normalize";
 import { entryDate, formatGedDate } from "./date";
 import { parseDate } from "../gedcom/date";
+import { validateConformance } from "../tools/conformance/conformance";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -320,6 +321,18 @@ describe("normalizeDataset", () => {
     expect(chil("@I2@").children).toHaveLength(0);
     // Per-parent mismatch is preserved verbatim — PEDI cannot express it.
     expect(chil("@I3@").children.map((c) => c.tag)).toEqual(["_FREL", "_MREL"]);
+  });
+
+  it("writes the PEDI from _FREL/_MREL uppercase for a 7.0 main", () => {
+    const main7 = "0 HEAD\n1 GEDC\n2 VERS 7.0\n0 @I9@ INDI\n1 NAME Main /Person/\n0 TRLR\n";
+    const profile = inferMainProfile(dataset(main7));
+    const compare = "0 HEAD\n1 GEDC\n2 VERS 7.0\n" +
+      "0 @I1@ INDI\n1 NAME Adopted /Child/\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 CHIL @I1@\n2 _FREL Adopted\n2 _MREL Adopted\n0 TRLR\n";
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const famc = out.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "FAMC")!;
+    expect(famc.children.find((c) => c.tag === "PEDI")?.value).toBe("ADOPTED");
+    expect(validateConformance(out).filter((f) => /PEDI/.test(JSON.stringify(f)))).toEqual([]);
   });
 
   it("does not mutate the input dataset", () => {

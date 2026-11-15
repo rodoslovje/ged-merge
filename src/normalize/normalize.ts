@@ -125,7 +125,7 @@ export function normalizeDataset(
     // (`2 DATE __.__.____`) only disappears in that walk — consolidating
     // first left a stray `_NMR` that the next load would then remove,
     // breaking normalize's fixed-point guarantee.
-    for (const change of [...normalizePedigree(records), ...convertUpdToChan(editable)]) {
+    for (const change of [...normalizePedigree(records, versionFamily(profile.version)), ...convertUpdToChan(editable)]) {
       report.vendorTagsRenamed++;
       record(report.vendorTagExamples, seenVendor, change.before, change.after);
     }
