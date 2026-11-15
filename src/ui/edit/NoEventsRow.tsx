@@ -1,18 +1,19 @@
 import type { NegativeAssertion } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { eventDisplayLabel, UNMARRIED_UNION_GLYPH } from "../../gedcom/eventTags";
 import { AddEventSelect } from "./AddEventSelect";
 import { DropdownMenu } from "../DropdownMenu";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
 
 const REMOVE = "remove";
 
-/** The event's name led by the struck-through mark — not the event's own,
- *  which would say it happened. */
+/** The event's name led by a mark that says it did not happen — not the
+ *  event's own, which would say it did: the never-married couple's ⚯ (as the
+ *  charts and reports draw it), else the struck-through ⊘. */
 function deniedLabel(tag: string, t: Translate) {
   return (
     <span className="edit-event-label-lead">
-      <span className="event-glyph" aria-hidden="true">⊘</span>
+      <span className="event-glyph" aria-hidden="true">{tag === "MARR" ? UNMARRIED_UNION_GLYPH : "⊘"}</span>
       {eventDisplayLabel(tag, t)}
     </span>
   );
