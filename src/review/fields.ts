@@ -438,6 +438,28 @@ function buildParentRows(
 }
 
 /**
+ * The incoming father and mother as the Parents rows show them: each found in
+ * whichever family the incoming person is a child in, and read crossed when the
+ * rows read them crossed. The merge links these ids, so it never stitches in a
+ * parent the review did not offer, or drops one it did.
+ */
+export function incomingParentIds(
+  main: Individual | undefined,
+  compare: Individual,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  confirmed: ReadonlyMap<string, string> | undefined,
+): { father?: string; mother?: string } {
+  const cFather = parentRelative(compare, compareDs, "husband");
+  const cMother = parentRelative(compare, compareDs, "wife");
+  const crossed = parentsAreCrossed(
+    parentRelative(main, mainDs, "husband"), parentRelative(main, mainDs, "wife"), cFather, cMother, confirmed,
+  );
+  const [father, mother] = crossed ? [cMother, cFather] : [cFather, cMother];
+  return { father: father[0]?.id, mother: mother[0]?.id };
+}
+
+/**
  * Do the incoming parents belong in the other slots? Scores the two readings —
  * father↔father + mother↔mother against father↔mother + mother↔father — and
  * says so when crossing them wins and at least one crossed pair is a real match.
