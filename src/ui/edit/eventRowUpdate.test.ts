@@ -84,3 +84,39 @@ describe("spellUpdateFor", () => {
     expect(update.status).toBe("Pending");
   });
 });
+
+describe("an event's time", () => {
+  const file = (version: string, time = "") => buildDataset(parseGedcom(new TextEncoder().encode(
+    `0 HEAD\n1 GEDC\n2 VERS ${version}\n0 @I1@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 DATE 5 MAR 1850\n${time}0 TRLR\n`).buffer));
+  const typeTime = (ds: ReturnType<typeof file>, version: "5.5.1" | "7.0", time: string) => {
+    const update = eventRowUpdate(fields({ date: field("5 MAR 1850", `5 MAR 1850 ${time}`) }), {}, false, undefined)!;
+    update.date = "5 MAR 1850";
+    update.time = time;
+    spellUpdateFor(update, version);
+    const indi = ds.individuals.get("@I1@")!;
+    applyEventNodeUpdate(indi.raw, indi.raw.children.find((c) => c.tag === "BIRT")!, update);
+  };
+
+  it.each([["5.5.1", "_TIME"], ["7.0", "TIME"]] as const)(
+    "goes on the line strict %s has for it, and leaves it nothing to find",
+    (version, tag) => {
+      const ds = file(version);
+      const before = validateConformance(ds);
+      typeTime(ds, version, "14:30");
+      const out = serializeGedcom(ds.records);
+      expect(out).toContain(`2 DATE 5 MAR 1850\n3 ${tag} 14:30\n`);
+      expect(validateConformance(ds)).toEqual(before);
+      // And reads back as the event's time.
+      const back = buildDataset(parseGedcom(new TextEncoder().encode(out).buffer));
+      expect(back.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")?.time).toBe("14:30");
+    },
+  );
+
+  it("moves a time on the other version's line when it is edited", () => {
+    const ds = file("5.5.1", "3 TIME 9:00\n");
+    typeTime(ds, "5.5.1", "14:30");
+    const out = serializeGedcom(ds.records);
+    expect(out).toContain("3 _TIME 14:30\n");
+    expect(out).not.toContain("3 TIME");
+  });
+});

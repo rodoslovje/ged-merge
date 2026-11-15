@@ -317,6 +317,13 @@ const TIME_EXTENSION = "_TIME";
  *  people, families and events but not on a media record. */
 const OBJE_RESN_EXTENSION = "_RESN";
 
+/** The line an event date's time is written on in `version`: 7.0's `TIME`,
+ *  5.5.1's `_TIME` (it times only a header's and a change stamp's date) — the
+ *  conversion's own forms, so an edit and a conversion agree. */
+export function eventTimeTag(version: VersionFamily): "TIME" | "_TIME" {
+  return version === "7.0" ? "TIME" : TIME_EXTENSION;
+}
+
 /**
  * The last 7.0 lines a 5.5.1 file cannot hold, once every other conversion
  * has run: an event date's `TIME` (see {@link TIME_EXTENSION}). A `PHRASE` the conversions did not fold into their own 5.5.1 form

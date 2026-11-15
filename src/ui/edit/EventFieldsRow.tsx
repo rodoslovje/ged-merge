@@ -792,7 +792,7 @@ export function EventFieldsRow({
     }
     if (update.husbandAge !== undefined) update.husbandAge = writeAgeValue(update.husbandAge, version).value;
     if (update.wifeAge !== undefined) update.wifeAge = writeAgeValue(update.wifeAge, version).value;
-    // A typed ordinance status in the target version's spelling.
+    // A typed ordinance status and a time as the target version writes them.
     spellUpdateFor(update, target.version);
     commitField(update);
   }
