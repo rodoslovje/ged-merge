@@ -1200,6 +1200,17 @@ describe("mergeDecisions — links", () => {
     expect(out).not.toContain("_FID BBBB-222");
   });
 
+  it("writes a strict 7.0 target's carried _UID as the standard UID", () => {
+    const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+    const main = dataset(wrap7("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(wrap7(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 _UID 0C4F6E2A-1B2C-4D5E-8F90-123456789ABC\n",
+    ));
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr, [], { standard: "7.0" }).records);
+    expect(out).toContain("1 UID 0C4F6E2A-1B2C-4D5E-8F90-123456789ABC");
+    expect(out).not.toContain("_UID");
+  });
+
   it("writes a strict target's record link as _URL even when the main uses _WEBTAG", () => {
     const main = dataset(
       wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _WEBTAG\n2 URL https://example.com/old\n"),

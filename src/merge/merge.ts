@@ -498,7 +498,7 @@ export function mergeDecisions(
       // Carry the incoming record's unique ids (`_UID`/`UID`) onto the merged
       // main record: the next import of the same compare lineage then
       // auto-matches this person by identity instead of by name/date score.
-      carryUids(target, incoming.raw);
+      carryUids(target, incoming.raw, overrides?.standard);
       sortEventsByDate(target);
     }
   }
@@ -711,7 +711,10 @@ const UID_BEFORE_TAGS = ["CHAN", "CREA"] as const;
  * CHAN/CREA. This keeps a second UID next to the first and both ahead of the
  * audit stamps, matching how the rest of the edit layer writes.
  */
-function carryUids(target: GedNode, incoming: GedNode): void {
+function carryUids(target: GedNode, incoming: GedNode, standard?: FormatOverrides["standard"]): void {
+  // A strict target writes its version's form — 7.0's standard UID, 5.5.1's
+  // _UID extension — whatever tag the incoming record used.
+  const tagFor = (tag: string) => (standard === "7.0" ? "UID" : standard ? "_UID" : tag);
   const canon = (v: string) => v.replace(/[{}\s-]/g, "").toUpperCase();
   const existing = new Set(
     target.children.filter((c) => UID_TAGS.has(c.tag) && c.value?.trim()).map((c) => canon(c.value!)),
@@ -720,7 +723,7 @@ function carryUids(target: GedNode, incoming: GedNode): void {
     if (!UID_TAGS.has(child.tag) || !child.value?.trim()) continue;
     if (existing.has(canon(child.value))) continue;
     existing.add(canon(child.value));
-    insertGrouped(target, { level: 0, tag: child.tag, value: child.value.trim(), children: [] }, UID_BEFORE_TAGS);
+    insertGrouped(target, { level: 0, tag: tagFor(child.tag), value: child.value.trim(), children: [] }, UID_BEFORE_TAGS);
   }
 }
 
