@@ -33,12 +33,19 @@ function record(records: GedNode[], xref: string): GedNode {
   return rec!;
 }
 
-/** Conformance findings on media-type lines other than their value's case
- *  (MEDI's 7.0 casing is a separate conversion). */
+/** Conformance findings on media-type lines. */
 function placement(records: GedNode[]) {
-  return validateConformance({ records }).filter(
-    (i) => i.messageKey !== "tools.validate.struct.issue.enumCase" && /TYPE|MEDI/.test(JSON.stringify(i)),
-  );
+  return validateConformance({ records }).filter((i) => /TYPE|MEDI/.test(JSON.stringify(i)));
+}
+
+/** Conformance findings outside the header, with `records` read as a
+ *  `version` file (the fixtures' header is a bare minimum). */
+function findings(records: GedNode[], version: "5.5.1" | "7.0") {
+  const head = records.find((r) => r.tag === "HEAD")!;
+  firstChild(firstChild(head, "GEDC")!, "VERS")!.value = version;
+  return validateConformance({ records })
+    .filter((i) => i.recordTag !== "HEAD" && i.recordTag !== "TRLR")
+    .map((i) => `${i.recordId ?? i.recordTag} ${i.messageKey} ${i.sample ?? ""}`);
 }
 
 describe("migrateVersion 5.5.1 → 7.0", () => {
@@ -225,7 +232,7 @@ describe("migrateVersion 5.5.1 → 7.0", () => {
     const m1File = firstChild(record(records, "@M1@"), "FILE")!;
     const m1Form = firstChild(m1File, "FORM")!;
     expect(m1Form.value).toBe("image/jpeg");
-    expect(childValue(m1Form, "MEDI")).toBe("photo");
+    expect(childValue(m1Form, "MEDI")).toBe("PHOTO");
     const m2 = record(records, "@M2@");
     expect(firstChild(m2, "FORM")).toBeUndefined();
     expect(firstChild(m2, "TITL")).toBeUndefined();
@@ -445,7 +452,7 @@ describe("migrateVersion 7.0 → 5.5.1", () => {
     expect(firstChild(indi, "_NO")!.value).toBe("MARR");
     const form = firstChild(firstChild(record(records, "@M1@"), "FILE")!, "FORM")!;
     expect(form.value).toBe("jpg");
-    expect(childValue(form, "TYPE")).toBe("PHOTO");
+    expect(childValue(form, "TYPE")).toBe("photo");
   });
 
   it("keeps a note's MIME, LANG and TRAN as extension tags, not as a name variant", () => {
@@ -736,5 +743,61 @@ describe("migrateVersion — the events lifted as first-class ones", () => {
     expect(findByPath(indi, ["BAPL", "STAT"])!.value).toBe("PRE-1970");
     expect(findByPath(indi, ["CONL", "STAT"])!.value).toBe("Waiting");
     expect(findByPath(record(records, "@F1@"), ["SLGS", "STAT"])!.value).toBe("DNS/CAN");
+  });
+});
+
+describe("migrateVersion — PEDI, FAMC.STAT, MEDI and RESN in the target's spelling", () => {
+  const V551 =
+    "0 @I1@ INDI\n1 RESN privacy\n1 FAMC @F1@\n2 PEDI birth\n2 STAT proven\n1 FAMC @F2@\n2 PEDI foster\n" +
+    "0 @F1@ FAM\n1 CHIL @I1@\n0 @F2@ FAM\n1 CHIL @I1@\n0 @R1@ REPO\n1 NAME Archive\n" +
+    "0 @S1@ SOUR\n1 TITL Register\n1 REPO @R1@\n2 CALN 12/34\n3 MEDI book\n" +
+    "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n3 TYPE photo\n";
+
+  it("upgrades them to 7.0's upper case, valid there, and brings them back", () => {
+    const { records, changes } = migrated("5.5.1", V551, "7.0");
+    const indi = record(records, "@I1@");
+    expect(childValue(indi, "RESN")).toBe("PRIVACY");
+    const [famc1, famc2] = childrenByTag(indi, "FAMC");
+    expect([childValue(famc1, "PEDI"), childValue(famc1, "STAT"), childValue(famc2, "PEDI")]).toEqual(["BIRTH", "PROVEN", "FOSTER"]);
+    expect(findByPath(record(records, "@S1@"), ["REPO", "CALN", "MEDI"])!.value).toBe("BOOK");
+    expect(findByPath(record(records, "@M1@"), ["FILE", "FORM", "MEDI"])!.value).toBe("PHOTO");
+    expect(changes).toContainEqual({ before: "PEDI birth", after: "PEDI BIRTH" });
+    expect(findings(records, "7.0")).toEqual([]);
+
+    migrateVersion(records, "7.0", "5.5.1", () => {});
+    expect(findings(records, "5.5.1")).toEqual([]);
+    expect(serializeGedcom(records)).toBe(head("5.5.1") + V551 + "0 TRLR\n");
+  });
+
+  it("keeps a 5.5.1 media type 7.0 does not list as OTHER with a PHRASE", () => {
+    const { records } = migrated("5.5.1", "0 @S1@ SOUR\n1 REPO\n2 CALN 1\n3 MEDI Microfilm\n", "7.0");
+    const medi = findByPath(record(records, "@S1@"), ["REPO", "CALN", "MEDI"])!;
+    expect(medi.value).toBe("OTHER");
+    expect(childValue(medi, "PHRASE")).toBe("Microfilm");
+    expect(findings(records, "7.0")).toEqual([]);
+  });
+
+  it("downgrades a 7.0 file's values to 5.5.1's, narrowing a RESN list to its strongest", () => {
+    const { records, changes } = migrated(
+      "7.0",
+      "0 @I1@ INDI\n1 RESN PRIVACY, LOCKED\n1 FAMC @F1@\n2 PEDI BIRTH\n2 STAT CHALLENGED\n" +
+        "1 FAMC @F2@\n2 PEDI OTHER\n3 PHRASE Foster\n1 BIRT\n2 RESN LOCKED, CONFIDENTIAL\n" +
+        "0 @F1@ FAM\n1 CHIL @I1@\n0 @F2@ FAM\n1 CHIL @I1@\n0 @R1@ REPO\n1 NAME Archive\n" +
+        "0 @S1@ SOUR\n1 TITL Register\n1 REPO @R1@\n2 CALN 1\n3 MEDI OTHER\n4 PHRASE Film\n2 CALN 2\n3 MEDI ELECTRONIC\n" +
+        "0 @M1@ OBJE\n1 FILE a.jpg\n2 FORM image/jpeg\n3 MEDI PHOTO\n",
+      "5.5.1",
+    );
+    const indi = record(records, "@I1@");
+    expect(childValue(indi, "RESN")).toBe("privacy");
+    expect(findByPath(indi, ["BIRT", "RESN"])!.value).toBe("confidential");
+    const [famc1, famc2] = childrenByTag(indi, "FAMC");
+    expect([childValue(famc1, "PEDI"), childValue(famc1, "STAT")]).toEqual(["birth", "challenged"]);
+    expect(famc2.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["PEDI foster"]);
+    const calns = childrenByTag(firstChild(record(records, "@S1@"), "REPO")!, "CALN");
+    expect(calns.map((c) => childValue(c, "MEDI"))).toEqual(["film", "electronic"]);
+    expect(findByPath(record(records, "@M1@"), ["FILE", "FORM", "TYPE"])!.value).toBe("photo");
+    expect(changes).toContainEqual({ before: "RESN PRIVACY, LOCKED", after: "RESN privacy" });
+    expect(changes).toContainEqual({ before: "PEDI OTHER", after: "PEDI foster" });
+    expect(findings(records, "5.5.1")).toEqual([]);
   });
 });

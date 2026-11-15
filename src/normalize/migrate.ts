@@ -6,6 +6,7 @@ import { hangMediaLinesUnderFile, MIME_TO_EXT, mimeFormOf, relevelRecords } from
 import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
+import { enumValuesAt } from "../tools/conformance/allows";
 import { walkNodes } from "./walk";
 
 /**
@@ -48,6 +49,10 @@ import { walkNodes } from "./walk";
  *                                        themselves, `TEMP`, `STAT`.`DATE`
  *                                        and the sealing's `FAMC` are spelled
  *                                        alike in both
+ *  - enumerations                      : `PEDI`, a child link's `STAT`, `MEDI`
+ *                                        and `RESN` lower case ⇄ upper case,
+ *                                        from the spec tables; 7.0 `OTHER` +
+ *                                        `PHRASE`; a `RESN` list → its strongest
  *  - 7-only structures on downgrade    : `UID` → `_UID`, `CREA` → `_CREA`,
  *                                        `NO` → `_NO`, `SDATE` → `_SDATE` (all
  *                                        but `_CREA` restored on the way up), a
@@ -98,6 +103,8 @@ export function migrateVersion(
     extractInlineMedia(records, ctx);
     upgradeFamilyAssociations(migratable, ctx);
   } else downgrade(migratable, ctx);
+  // After the media moves, so every enumeration sits where the target has it.
+  migrateEnums(records.filter((r) => !SKIP_ROOTS.has(r.tag)), ctx, to);
   return ctx.changed;
 }
 
@@ -147,6 +154,88 @@ function migrateStat(node: GedNode, ctx: MigrateCtx, to: VersionFamily): void {
   const before = describe(node);
   node.value = next;
   report(ctx, node, before);
+}
+
+/**
+ * Depth-first visit with the tags from the record down to the node (the
+ * record's first) and the nodes along that path. Extension subtrees are not
+ * entered: what lies under a `_` tag is the extension's own business.
+ */
+function walkWithPath(records: GedNode[], visit: (node: GedNode, path: string[], line: GedNode[]) => void): void {
+  const path: string[] = [];
+  const line: GedNode[] = [];
+  const go = (node: GedNode): void => {
+    path.push(node.tag);
+    line.push(node);
+    visit(node, path, line);
+    for (const child of [...node.children]) if (!child.tag.startsWith("_")) go(child);
+    path.pop();
+    line.pop();
+  };
+  for (const rec of records) go(rec);
+}
+
+/** The enumerations {@link migrateEnums} respells: `PEDI`, a child link's
+ *  `STAT`, `MEDI` (5.5.1's `TYPE` under a media `FORM`) and `RESN`. ROLE, a
+ *  name's TYPE and an ordinance's STAT have conversions of their own. */
+function isRespelledEnum(tag: string, parentTag: string | undefined): boolean {
+  return tag === "PEDI" || tag === "MEDI" || tag === "RESN"
+    || (tag === "STAT" && parentTag === "FAMC") || (tag === "TYPE" && parentTag === "FORM");
+}
+
+/** 5.5.1's `RESN` holds one value where 7.0's holds a list: the strongest
+ *  restriction of the list is the one kept. */
+const RESN_STRENGTH = ["confidential", "privacy", "locked"];
+
+/**
+ * Spell `PEDI`, a child link's `STAT`, `MEDI` and `RESN` as the target version
+ * does, with the values the spec tables give for the line's place. 7.0 is
+ * upper case, and a value outside its set becomes `OTHER` with the value as
+ * its `PHRASE`. 5.5.1 is lower case: an `OTHER` takes its `PHRASE` when that
+ * is a 5.5.1 value, and is dropped otherwise, the `PHRASE` left in its place
+ * for {@link downgradeLeftovers} to keep as a note. A 7.0 `RESN` list narrows
+ * to its strongest restriction.
+ */
+function migrateEnums(records: GedNode[], ctx: MigrateCtx, to: VersionFamily): void {
+  walkWithPath(records, (node, path, line) => {
+    const raw = node.value?.trim();
+    if (!raw || !isRespelledEnum(node.tag, path[path.length - 2])) return;
+    const set = enumValuesAt(to, path);
+    if (!set) return;
+    const before = describe(node);
+    const find = (v: string) => set.find((s) => s.toLowerCase() === v.toLowerCase());
+    const items = node.tag === "RESN" ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [raw];
+    const phrase = firstChild(node, "PHRASE");
+    if (to === "7.0") {
+      const hits = items.map(find);
+      let next: string | undefined;
+      if (hits.every((h) => h !== undefined)) next = hits.join(", ");
+      else if (items.length === 1 && set.includes("OTHER") && !raw.startsWith("_")) {
+        next = "OTHER";
+        if (!phrase) node.children.unshift(plain("PHRASE", raw));
+      }
+      if (next === undefined || next === node.value) return;
+      node.value = next;
+      report(ctx, node, before);
+      return;
+    }
+    const other = items.length === 1 && raw.toUpperCase() === "OTHER";
+    const hits = (other ? [phrase?.value?.trim() ?? ""] : items).map(find);
+    if (hits.every((h): h is string => h !== undefined)) {
+      const rank = (v: string) => (RESN_STRENGTH.includes(v) ? RESN_STRENGTH.indexOf(v) : RESN_STRENGTH.length);
+      const next = [...hits].sort((a, b) => rank(a) - rank(b))[0];
+      if (next === node.value && !other) return;
+      node.value = next;
+      if (other) node.children = node.children.filter((c) => c !== phrase);
+      report(ctx, node, before);
+    } else if (other) {
+      // 5.5.1 has no OTHER: the line goes, and what its PHRASE said stays.
+      const parent = line[line.length - 2];
+      parent.children.splice(parent.children.indexOf(node), 1, ...(phrase ? [phrase] : []));
+      ctx.changed++;
+      ctx.onChange(before, "—");
+    }
+  });
 }
 
 /** Rewrite a name's `TYPE` into the target version's terms. 7.0 has a closed,
@@ -281,13 +370,6 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       migrateStat(node, ctx, "7.0");
     } else if (node.tag === "NAME" && node.level > 0) {
       migrateNameType(node, ctx, "7.0");
-    } else if (node.tag === "PEDI" && node.value !== undefined) {
-      const upper = node.value.trim().toUpperCase();
-      if (upper !== node.value && ["ADOPTED", "BIRTH", "FOSTER", "SEALING"].includes(upper)) {
-        const before = describe(node);
-        node.value = upper;
-        report(ctx, node, before);
-      }
     }
   });
 }
