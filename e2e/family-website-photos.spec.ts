@@ -64,7 +64,7 @@ test("the family website with photos downloads as a ZIP that works from disk", a
   }
   await page.goto(pathToFileURL(path.join(site, "index.html")).href);
   // Franc's face on the front page opens his page, with his photo.
-  await page.locator(".site-tray-face", { hasText: "Franc" }).click();
+  await page.getByRole("listitem", { name: "Franc Zorman" }).click();
   await expect(page.locator(".site-person-name")).toContainText("Franc");
   await expect(page.locator(".site-person img")).toHaveCount(1);
 });

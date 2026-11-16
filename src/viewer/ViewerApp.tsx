@@ -33,6 +33,9 @@ import { chartViewOf, chartViewWords } from "./chartRoute";
 import { Highlights } from "./Highlights";
 import { PersonCharts } from "./PersonCharts";
 import { PhotoTray } from "./PhotoTray";
+import { ShortcutsModal } from "../ui/ShortcutsModal";
+import { KEY, SITE_SHORTCUT_GROUPS, familyStepFor, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
+import { familyStepTarget } from "../gedcom/familyNav";
 import { PersonMedia } from "../ui/PersonMedia";
 import { MapIcon } from "../ui/icons/MapIcon";
 
@@ -212,6 +215,66 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     else openPerson(xref);
   };
 
+  // The keyboard, with the app's own keys (SITE_SHORTCUT_GROUPS lists them):
+  // `/` the search, `?` the list, H the start person, V the charts, S the
+  // relationship, Alt+arrows a step through the family, ⌫ back. A chart page
+  // keeps its own letters (ChartsHub's).
+  const [showKeys, setShowKeys] = useState(false);
+  const shownPerson = route.page === "person" ? xrefOf(route.id) : undefined;
+  // The person before this one: a partner step toggles between the two.
+  const lastPerson = useRef<{ now?: string; before?: string }>({});
+  useEffect(() => {
+    if (shownPerson && shownPerson !== lastPerson.current.now) lastPerson.current = { now: shownPerson, before: lastPerson.current.now };
+  }, [shownPerson]);
+  const onKey = useRef<(e: KeyboardEvent) => void>(() => {});
+  useEffect(() => {
+    onKey.current = (e) => {
+      const editable = isEditableTarget(e.target);
+      if (e.key === "F1" || (e.key === "?" && !editable)) {
+        e.preventDefault();
+        setShowKeys((v) => (!v && isModalOpen() ? v : !v));
+        return;
+      }
+      if (editable || isModalOpen() || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
+      if (e.altKey) {
+        const step = familyStepFor(e.key, e.shiftKey);
+        if (!step || !shownPerson) return;
+        e.preventDefault();
+        const to = familyStepTarget(ds, shownPerson, step, lastPerson.current.before);
+        if (to) openPerson(to);
+        return;
+      }
+      if (e.key === "Backspace" && !e.shiftKey) {
+        e.preventDefault();
+        history.back();
+        return;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        setSearching(true);
+        return;
+      }
+      if (route.page === "charts" || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      const here = shownPerson ?? chartsRoot;
+      if (key === KEY.home && startXref) {
+        e.preventDefault();
+        openPerson(startXref);
+      } else if (key === KEY.tree && here) {
+        e.preventDefault();
+        openCharts(here);
+      } else if (key === KEY.relationship && shownPerson && startXref && shownPerson !== startXref) {
+        e.preventDefault();
+        go({ page: "charts", id: pubId(shownPerson), kind: "relationship" });
+      }
+    };
+  });
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => onKey.current(e);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
   const header = (
     <header className="app-head site-head">
       <div className="app-head-top">
@@ -256,12 +319,22 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             type="button"
             className={`nav-btn icon-only site-toggle site-search-btn${searching ? " active" : ""}`}
             onClick={() => setSearching((s) => !s)}
-            title={t("site.search.label")}
+            title={keyHint(t("site.search.label"), "/")}
             aria-label={t("site.search.label")}
             aria-expanded={searching}
           >
             <SearchIcon size={16} />
           </button>
+          <button
+            type="button"
+            className="nav-btn icon-only site-toggle site-keys"
+            onClick={() => setShowKeys(true)}
+            title={keyHint(t("shortcuts.title"), "?")}
+            aria-label={t("shortcuts.title")}
+          >
+            ?
+          </button>
+          <ShortcutsModal isOpen={showKeys} onClose={() => setShowKeys(false)} groups={SITE_SHORTCUT_GROUPS} />
         </div>
       </div>
       {searching && (
@@ -606,7 +679,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
       {person?.living && <p className="site-note">{t(person.deceased ? "site.person.recentDead" : "site.person.living")}</p>}
       {/* Their photos: a strip that opens each in the viewer, with the people
           tagged on it. */}
-      <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate }} />
+      <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate, hideFile: true }} />
       <EventRows events={person?.events} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
 

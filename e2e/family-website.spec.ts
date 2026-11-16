@@ -77,6 +77,21 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.goBack();
   await expect(page.locator(".site-person-name")).toContainText("Franc");
 
+  // The keyboard, as in the app: `?` lists the keys, `/` opens the search,
+  // Alt+↓ his eldest child, ⌫ back to him.
+  await page.keyboard.press("?");
+  await expect(page.locator(".shortcuts-modal")).toContainText("Open the start person");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".shortcuts-modal")).toHaveCount(0);
+  await page.keyboard.press("/");
+  await expect(page.locator(".site-search-pop input")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".site-search-pop")).toHaveCount(0);
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(page.locator(".site-person-name")).not.toContainText("Franc");
+  await page.keyboard.press("Backspace");
+  await expect(page.locator(".site-person-name")).toContainText("Franc");
+
   // The visitor makes Franc their start person — from the start person's chip,
   // as in the app's Edit view: relatives are named from him.
   await page.locator(".site-person-kinship .start-chip").click();

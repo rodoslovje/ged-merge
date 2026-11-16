@@ -146,56 +146,82 @@
   margin-left: auto;
 }
 
-/* ── Faces from the family's photos, atop the front page ─────── */
+/* ── A strip of the family's photos, atop the front page ─────── */
 
+/* Whole photos, one height, edge to edge with no gaps; on a narrow screen
+   the rest scroll in sideways, without a scrollbar. */
 .site-tray {
   display: flex;
-  gap: 12px;
+  height: 120px;
   overflow-x: auto;
-  padding: 4px 2px 12px;
-  margin-bottom: 8px;
-  scrollbar-width: thin;
+  overflow-y: hidden;
+  margin-bottom: 24px;
+  border-block: 1px solid var(--border);
+  background: var(--panel);
+  scrollbar-width: none;
 }
-.site-tray-face {
+.site-tray::-webkit-scrollbar {
+  display: none;
+}
+.site-tray-photo {
   flex: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 96px;
+  height: 100%;
   padding: 0;
   background: none;
   border: none;
-  color: var(--text);
-  font: inherit;
   cursor: pointer;
 }
-.site-tray-img {
+.site-tray-photo img {
   display: block;
-  width: 88px;
-  height: 88px;
-  overflow: hidden;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--panel);
-}
-.site-tray-img img {
-  width: 100%;
   height: 100%;
-  object-fit: cover;
+  width: auto;
 }
-.site-tray-face:hover .site-tray-img,
-.site-tray-face:focus-visible .site-tray-img {
+.site-tray-photo:hover img,
+.site-tray-photo:focus-visible img {
+  opacity: 0.8;
+}
+.site-tray-photo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* The arrows at the strip's ends, over its photos. */
+.site-tray-wrap {
+  position: relative;
+}
+.site-tray-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  opacity: 0.85;
+  cursor: pointer;
+}
+.site-tray-arrow:hover,
+.site-tray-arrow:focus-visible {
+  opacity: 1;
   border-color: var(--accent);
 }
-.site-tray-name {
-  width: 100%;
-  font-size: 0.75rem;
-  color: var(--muted);
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.site-tray-back {
+  left: 6px;
+}
+.site-tray-on {
+  right: 6px;
+}
+@media (max-width: 560px) {
+  .site-tray {
+    height: 88px;
+  }
 }
 
 /* ── Highlights on the front page ───────────────────────────── */
