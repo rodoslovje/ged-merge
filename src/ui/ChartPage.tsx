@@ -6,6 +6,7 @@ import { ChartTrailNav } from "./ChartTrail";
 import { MenuIcon } from "./icons/MenuIcon";
 import { usePhone } from "./usePhone";
 import { useChartSettings } from "./ChartSettingsContext";
+import { usePublishedView } from "./PublishedView";
 
 // The shared full-page chart/report scaffold: Back button + title toolbar with
 // the settings/export actions on the right, then the controls row (kind
@@ -38,11 +39,14 @@ interface Props {
 export function ChartPage({ backLabel, onBack, title, actions, controlsLeft, controlsRight, children }: Props) {
   const phone = usePhone();
   const { settings } = useChartSettings();
+  const published = usePublishedView();
   const hasControls = !!(controlsLeft || controlsRight);
   return (
     <div className={`tree-page${settings.emphasizeDirect ? " chart-direct" : ""}`}>
       <div className="tree-toolbar">
-        <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />
+        {/* The family website leaves going back to the browser's own Back: its
+            charts are pages with addresses, not an overlay to close. */}
+        {!published && <BackButton label={backLabel} shortcutHint="Esc" onClick={onBack} />}
         <ChartTrailNav />
         <h2 className="tree-title">{title}</h2>
         {phone ? (

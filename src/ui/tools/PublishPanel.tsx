@@ -17,6 +17,7 @@ import {
   type StartPage,
 } from "../../publish/model";
 import { publishedHtml, siteFileName } from "../../publish/page";
+import { clearStoredPublish, readStoredPublish, writeStoredPublish } from "../../publish/stored";
 import type { NameOrder } from "../../gedcom/nameDisplay";
 import { baseStem, downloadText } from "../download";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -28,6 +29,7 @@ import { ToolsIntro, ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 
 /** The app's display settings a site carries (see {@link SiteDisplay}). */
+const PERSIST_KEYS = ["persistWorkspace"] as const;
 const DISPLAY_KEYS = ["order", "uppercaseSurname", "marriedSurname", "dateDisplay", "showAge", "showKinship", "emphasizeDirect"] as const;
 
 /** The on/off display settings, with their labels in Settings. */
@@ -63,12 +65,21 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
   // The site shows people as the app does for its author, unless changed here;
   // a file's own date text reads poorly to relatives, so dates default to words.
   const appDisplay = useSettingsSlice(DISPLAY_KEYS);
-  const [options, setOptions] = useState<PublishOptions>(() =>
-    defaultPublishOptions(baseStem(fileName), i18n.language, { ...appDisplay, dateDisplay: appDisplay.dateDisplay || DATE_DISPLAY_WORDS }),
-  );
+  // With the workspace kept in the browser, the choices made for this file
+  // last time come back; without it nothing is kept (see publish/stored.ts).
+  const { persistWorkspace } = useSettingsSlice(PERSIST_KEYS);
+  const [stored] = useState(() => {
+    const defaults = defaultPublishOptions(baseStem(fileName), i18n.language, { ...appDisplay, dateDisplay: appDisplay.dateDisplay || DATE_DISPLAY_WORDS });
+    return (persistWorkspace ? readStoredPublish(fileName, defaults) : undefined) ?? { options: defaults };
+  });
+  const [options, setOptions] = useState<PublishOptions>(stored.options);
   const display = options.display;
   const setDisplay = (patch: Partial<SiteDisplay>) => setOptions((o) => ({ ...o, display: { ...o.display, ...patch } }));
-  const [ownStart, setOwnStart] = useState<string | undefined>();
+  const [ownStart, setOwnStart] = useState<string | undefined>(stored.start);
+  useEffect(() => {
+    if (persistWorkspace) writeStoredPublish(fileName, ownStart ? { options, start: ownStart } : { options });
+    else clearStoredPublish();
+  }, [persistWorkspace, fileName, options, ownStart]);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);

@@ -250,7 +250,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
         )}
         {tool === "publish" && (
-          <PublishPanel dataset={dataset} fileName={fileName} startId={startId} editVersion={editVersion} active={active} />
+          <PublishPanel key={fileName} dataset={dataset} fileName={fileName} startId={startId} editVersion={editVersion} active={active} />
         )}
         {tool === "stats" && (
           <StatsPanel dataset={dataset} fileName={fileName} editVersion={editVersion} onNavigate={onNavigate} onOpenRelationship={onOpenRelationship} active={active} startId={startId} view={view} onViewChange={onViewChange} />

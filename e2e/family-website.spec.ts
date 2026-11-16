@@ -101,6 +101,14 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.reload();
   await expect(page.getByRole("tab", { name: "Timeline" })).toHaveAttribute("aria-selected", "true");
 
+  // The view travels with it: the grid, one direction.
+  await page.goto(timelineUrl.replace(/\/timeline$/, "/tree/grid/ancestors"));
+  await page.reload();
+  await expect(page.getByRole("tab", { name: /^Grid/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /^Ancestors/ })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: /^Descendants/ }).click();
+  await expect(page).toHaveURL(/\/tree\/grid\/descendants$/);
+
   // Statistics.
   await page.locator(".site-nav a", { hasText: "Statistics" }).click();
   await expect(page.locator(".site-stats .stats-tile-value").first()).toBeVisible();

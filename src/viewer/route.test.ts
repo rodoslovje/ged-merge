@@ -8,6 +8,7 @@ describe("site routes", () => {
       { page: "person", id: "p1x9k" },
       { page: "charts", id: "p1x9k" },
       { page: "charts", id: "p1x9k", kind: "fan" },
+      { page: "charts", id: "p1x9k", kind: "tree", view: ["grid", "ancestors"] },
       { page: "stats" },
       { page: "stats", view: "names" },
     ];

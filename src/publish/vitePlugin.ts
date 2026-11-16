@@ -75,6 +75,9 @@ async function buildViewer(root: string, define: Record<string, string>): Promis
     root,
     base: "./",
     logLevel: "warn",
+    // Always a production build, also when the dev server asks for it: the
+    // site is what relatives get, never a development React.
+    mode: "production",
     define,
     plugins: [react(), noFaceModels()],
     build: {

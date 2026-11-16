@@ -27,6 +27,8 @@ import { useDatasetDerivations } from "../ui/DatasetDerivations";
 import { lineageClass, type KinshipResolver } from "../match/kinship";
 import { useTheme } from "../ui/useTheme";
 import { nameMatches, parseRoute, routeHash, startRoute, type Route } from "./route";
+import { chartViewOf, chartViewWords } from "./chartRoute";
+import type { ChartDirection } from "../chart/treeLayout";
 
 /** Search results listed at most; the reader narrows the query for more. */
 const SEARCH_LIMIT = 100;
@@ -108,22 +110,40 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const otherTheme = theme === "dark" ? "light" : "dark";
   const otherLang = SUPPORTED_LANGUAGES.find((l) => l !== i18n.language) ?? "en";
   const setSettings = useSetSettings();
-  const { settings: chartSettings, setKind } = useChartSettings();
-  // Each chart of each person has its own address (`#/c/<person>/<kind>`): an
-  // address names the chart to draw, and switching charts updates the address.
-  // `applied` is the last kind the address chose, so a switch made in the hub
+  const { settings: chartSettings, setKind, set: setChartSettings } = useChartSettings();
+  // Ancestors, descendants or both: the site keeps it, so the address can.
+  const [direction, setDirection] = useState<ChartDirection>("both");
+  // Each view of each person's chart has its own address
+  // (`#/c/<person>/<kind>/<view words>`, see `chartRoute.ts`): an address names
+  // the chart and how it is drawn, and changing either updates the address.
+  // `applied` is the last address put into effect, so a change made in the hub
   // is not undone by the address it is still on.
   const applied = useRef<string | undefined>(undefined);
+  const shownWords = chartViewWords(chartSettings.kind, chartSettings, direction);
+  const shownKey = [chartSettings.kind, ...shownWords].join("/");
+  // The view an address was just put into effect as, until the charts show it:
+  // the settings arrive a render later, and the view on screen in between is
+  // not a change of the reader's to write back into the address.
+  const awaiting = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (route.page !== "charts") return;
-    if (isHubKind(route.kind) && route.kind !== applied.current) {
-      applied.current = route.kind;
+    const addressKey = [route.kind, ...(route.view ?? [])].join("/");
+    if (isHubKind(route.kind) && addressKey !== applied.current) {
+      applied.current = addressKey;
+      const view = chartViewOf(route.kind, route.view ?? []);
+      awaiting.current = [route.kind, ...chartViewWords(route.kind, { ...chartSettings, ...view.settings }, view.direction)].join("/");
       if (route.kind !== chartSettings.kind) setKind(route.kind);
+      setChartSettings(view.settings);
+      setDirection(view.direction);
       return;
     }
-    if (route.kind !== chartSettings.kind) replace({ ...route, kind: chartSettings.kind });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- replace is a fresh closure each render
-  }, [route, chartSettings.kind, setKind]);
+    if (awaiting.current !== undefined) {
+      if (shownKey !== awaiting.current) return;
+      awaiting.current = undefined;
+    }
+    if (addressKey !== shownKey) replace({ page: "charts", id: route.id, kind: chartSettings.kind, view: shownWords.length ? shownWords : undefined });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- replace and shownWords are fresh each render; shownKey stands for them
+  }, [route, shownKey, setKind, setChartSettings]);
   // The site has no Settings page: people are shown as the author chose when
   // publishing (names, dates, ages, kinship), and the map may load its tiles.
   useEffect(() => {
@@ -154,7 +174,12 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   }), [tree]);
   const [relationFrom, setRelationFrom] = useState<string | undefined>();
   const openPerson = (xref: string) => go({ page: "person", id: pubId(xref) });
-  const openCharts = (xref: string) => go({ page: "charts", id: pubId(xref), kind: chartSettings.kind });
+  // A person's charts, drawn as the charts are now. Re-rooting on the person
+  // already shown (the hub does so as it opens) leaves the address alone.
+  const openCharts = (xref: string) => {
+    if (route.page === "charts" && xrefOf(route.id) === xref) return;
+    go({ page: "charts", id: pubId(xref), kind: chartSettings.kind, view: shownWords.length ? shownWords : undefined });
+  };
   // The header's search: the front page's search box, focused. A counter, so
   // a second press on the front page focuses it again.
   const [searchNonce, setSearchNonce] = useState(0);
@@ -241,6 +266,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           backLabel={t("site.back.person")}
           onBack={() => openPerson(rootId)}
           onNavigate={openPerson}
+          direction={direction}
+          onDirectionChange={setDirection}
         />
         {footer}
       </div>
