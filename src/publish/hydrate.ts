@@ -61,7 +61,27 @@ export function hydrateTree(tree: PublishedTree): Dataset {
     if (p.deceased && !p.events?.some((e) => e.tag === "DEAT")) children.push(node(1, "DEAT", "Y"));
     for (const f of famc.get(p.id) ?? []) children.push(node(1, "FAMC", ref(f)));
     for (const f of fams.get(p.id) ?? []) children.push(node(1, "FAMS", ref(f)));
+    // Their photos: links to the shared media records below, each with the
+    // region that shows them — what the app's galleries and tags read.
+    for (const l of p.photos ?? []) {
+      const crop = l.crop
+        ? [node(2, "CROP", undefined, [
+          node(3, "TOP", String(l.crop.top)),
+          node(3, "LEFT", String(l.crop.left)),
+          node(3, "WIDTH", String(l.crop.width)),
+          node(3, "HEIGHT", String(l.crop.height)),
+        ])]
+        : [];
+      children.push(node(1, "OBJE", ref(l.photo), crop));
+    }
     records.push(node(0, "INDI", undefined, children, ref(p.id)));
+  }
+  for (const photo of tree.photos ?? []) {
+    const children: GedNode[] = [node(1, "FILE", photo.path, photo.title ? [node(2, "TITL", photo.title)] : [])];
+    if (photo.date) children.push(node(1, "DATE", photo.date));
+    if (photo.place) children.push(node(1, "PLAC", photo.place));
+    if (photo.description) children.push(node(1, "_DSCR", photo.description));
+    records.push(node(0, "OBJE", undefined, children, ref(photo.id)));
   }
   for (const f of tree.families) {
     const children: GedNode[] = [];

@@ -7,6 +7,7 @@ import { runSteps, type Steps } from "../gedcom/steps";
 import type { NameOrder } from "../gedcom/nameDisplay";
 import { marriedSurnamesOf } from "../match/relatives";
 import { unionMarriage } from "../gedcom/union";
+import { planSitePhotos, type PubPhoto, type PubPhotoLink } from "./photos";
 import { detectAddress } from "../tools/addresses";
 import { noteToText } from "../gedcom/noteHtml";
 import type { GeoCoord, NoteRef, SourceCitation } from "../gedcom/types";
@@ -126,7 +127,7 @@ export function defaultPublishOptions(
     exports: false,
     url: "",
     display,
-    include: { sources: false, notes: false, addresses: false },
+    include: { sources: false, notes: false, addresses: false, photos: false },
     map,
     lang,
   };
@@ -136,8 +137,11 @@ export interface SiteIncludes {
   sources: boolean;
   notes: boolean;
   addresses: boolean;
+  /** Photos: the website is then a ZIP, the page and its photos (see
+   *  `photos.ts` for which photos may go in). */
+  photos: boolean;
 }
-export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "addresses", "notes"];
+export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "addresses", "notes", "photos"];
 
 /** A source citation as the site shows it: the source, the cited page, a link. */
 export interface PubSource {
@@ -172,6 +176,8 @@ export interface PubPerson {
   sex?: "M" | "F" | "X";
   /** Married surnames, for the "married surname" name display. */
   married?: string[];
+  /** Their photos, in their order (see `photos.ts`). */
+  photos?: PubPhotoLink[];
   /** Living, published without their details (see {@link LivingMode}). */
   living?: true;
   /** Among those, dead within the protected years (see `recentDeathYears`):
@@ -217,6 +223,8 @@ export interface PublishedTree {
   display?: SiteDisplay;
   /** The map's base and layers. */
   map?: SiteMap;
+  /** The photos the people's pages show (see `photos.ts`). */
+  photos?: PubPhoto[];
   people: PubPerson[];
   families: PubFamily[];
 }
@@ -229,6 +237,10 @@ export interface PublishSummary {
   livingHidden: number;
   /** People flagged private, never published. */
   privateHidden: number;
+  /** Photos published, and photos left out because someone hidden is on them
+   *  (or they are private) — with photos chosen. */
+  photos: number;
+  photosWithheld: number;
 }
 
 /** Events a site shows: every life event the app knows, minus the LDS
@@ -394,6 +406,9 @@ const RECORDS_PER_STEP = 1_000;
 export interface PublishResult {
   tree: PublishedTree;
   summary: PublishSummary;
+  /** The photos to put in the website's ZIP: its path there, and the `FILE`
+   *  of the author's media folder it is read from. */
+  files: { path: string; source: string }[];
 }
 
 /** Build the site's data from the main file. `now` pins "living" in tests. */
@@ -442,7 +457,8 @@ export function* buildPublishedTreeSteps(
     if (why) (why === "declared" ? privateIds : living).add(indi.id);
   }
 
-  const summary: PublishSummary = { people: 0, families: 0, livingReduced: 0, livingHidden: 0, privateHidden: 0 };
+  const summary: PublishSummary = { people: 0, families: 0, livingReduced: 0, livingHidden: 0, privateHidden: 0, photos: 0, photosWithheld: 0 };
+  const byXref = new Map<string, PubPerson>();
   const taken = new Set<string>();
   const idOf = new Map<string, string>();
   const people: PubPerson[] = [];
@@ -462,7 +478,9 @@ export function* buildPublishedTreeSteps(
     }
     const id = hashId("p", indi.uids?.[0] ?? indi.id, taken);
     idOf.set(indi.id, id);
-    people.push(pubPerson(indi, id, isLiving ? opts.living : "all", isLiving, ctx));
+    const person = pubPerson(indi, id, isLiving ? opts.living : "all", isLiving, ctx);
+    people.push(person);
+    byXref.set(indi.id, person);
     if (isLiving && opts.living !== "all") summary.livingReduced++;
   }
 
@@ -494,6 +512,24 @@ export function* buildPublishedTreeSteps(
     families.push(out);
   }
 
+  // Photos: none with anyone hidden on them, and only on the pages of people
+  // published with their details.
+  const files: PublishResult["files"] = [];
+  let photos: PubPhoto[] = [];
+  if (opts.include.photos) {
+    const withheld = (id: string) => opts.living !== "all" && (living.has(id) || !checked.has(id));
+    const plan = yield* planSitePhotos(
+      ds,
+      (id) => byXref.has(id) && !withheld(id),
+      (id) => privateIds.has(id) || withheld(id),
+    );
+    photos = plan.photos;
+    for (const [xref, links] of plan.links) byXref.get(xref)!.photos = links;
+    for (const [path, source] of plan.sources) files.push({ path, source });
+    summary.photos = plan.photos.length;
+    summary.photosWithheld = plan.withheld;
+  }
+
   summary.people = people.length;
   summary.families = families.length;
   const tree: PublishedTree = {
@@ -517,7 +553,8 @@ export function* buildPublishedTreeSteps(
   // The person's pages need the person; without one the site opens at home.
   if (opts.startPage === "stats" || (opts.startPage !== "home" && start)) tree.startPage = opts.startPage;
   progress?.(total, total);
-  return { tree, summary };
+  if (photos.length) tree.photos = photos;
+  return { tree, summary, files };
 }
 
 function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boolean, ctx: Ctx): PubPerson {
