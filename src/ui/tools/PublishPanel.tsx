@@ -25,6 +25,7 @@ import { zipFiles, type ZipFile } from "../../publish/zip";
 import { withoutPhotos } from "../../publish/photos";
 import { StartPersonSelector } from "../StartPersonSelector";
 import { SelectMenu } from "../DropdownMenu";
+import { PublishPhotoFolders } from "./PublishPhotoFolders";
 import { overlayDisplayName, useSettingsSlice } from "../SettingsContext";
 import { BASEMAPS, CUSTOM_BASEMAP } from "../map/basemapPresets";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../../locales/i18n";
@@ -336,6 +337,9 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
               <button type="button" className="tools-issue-link" onClick={() => void media.openFolder()}>{t("media.chooseFolder")}</button>
             )}
           </p>
+        )}
+        {options.include.photos && (
+          <PublishPhotoFolders dataset={dataset} value={options.photoFolders} onChange={(photoFolders) => set({ photoFolders })} />
         )}
       </div>
 

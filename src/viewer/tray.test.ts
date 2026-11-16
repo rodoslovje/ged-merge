@@ -28,4 +28,17 @@ describe("trayFaces", () => {
       { id: "d", link: { photo: "group2" } },
     ]);
   });
+
+  it("leaves out the photos of folders kept to the person pages", () => {
+    const t = tree([
+      { id: "a", photos: [{ photo: "record" }, { photo: "portrait" }] },
+      { id: "b", photos: [{ photo: "record2" }] },
+    ]);
+    t.photos = [
+      { id: "record", path: "photos/record.jpg", tray: false },
+      { id: "record2", path: "photos/record2.jpg", tray: false },
+      { id: "portrait", path: "photos/portrait.jpg" },
+    ];
+    expect(trayFaces(t)).toEqual([{ id: "a", link: { photo: "portrait" } }]);
+  });
 });

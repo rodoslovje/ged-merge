@@ -128,6 +128,9 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // language (the site has two). Their tooltips name it in full.
   const otherTheme = theme === "dark" ? "light" : "dark";
   const otherLang = SUPPORTED_LANGUAGES.find((l) => l !== i18n.language) ?? "en";
+  // The button shows the language the site is in; its tooltip names the switch.
+  const lang = SUPPORTED_LANGUAGES.find((l) => l !== otherLang) ?? "sl";
+  const langSwitch = `${LANGUAGE_NAMES[lang]} → ${LANGUAGE_NAMES[otherLang]}`;
   const setSettings = useSetSettings();
   const { settings: chartSettings, setKind, set: setChartSettings } = useChartSettings();
   // Ancestors, descendants or both: the site keeps it, so the address can.
@@ -311,11 +314,10 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             type="button"
             className="nav-btn icon-only site-toggle site-lang"
             onClick={() => void i18n.changeLanguage(otherLang)}
-            title={LANGUAGE_NAMES[otherLang]}
-            aria-label={LANGUAGE_NAMES[otherLang]}
-            lang={otherLang}
+            title={langSwitch}
+            aria-label={langSwitch}
           >
-            {LANGUAGE_FLAGS[otherLang]}
+            {LANGUAGE_FLAGS[lang]}
           </button>
           <button
             type="button"

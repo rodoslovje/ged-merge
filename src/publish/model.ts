@@ -7,7 +7,7 @@ import { runSteps, type Steps } from "../gedcom/steps";
 import type { NameOrder } from "../gedcom/nameDisplay";
 import { marriedSurnamesOf } from "../match/relatives";
 import { unionMarriage } from "../gedcom/union";
-import { planSitePhotos, type PubPhoto, type PubPhotoLink } from "./photos";
+import { planSitePhotos, type PhotoUse, type PubPhoto, type PubPhotoLink } from "./photos";
 import { detectAddress } from "../tools/addresses";
 import { noteToText } from "../gedcom/noteHtml";
 import type { GeoCoord, NoteRef, SourceCitation } from "../gedcom/types";
@@ -105,6 +105,9 @@ export interface PublishOptions {
   /** What the site also shows beside names, dates and places. Without
    *  addresses a house's coordinate gives way to its settlement's. */
   include: SiteIncludes;
+  /** Where each folder's photos go (see `photos.ts`); a folder not named
+   *  follows the one above it, and by default all go in, strip too. */
+  photoFolders: Record<string, PhotoUse>;
   map: SiteMap;
   /** The site's language on first open. */
   lang: string;
@@ -128,6 +131,7 @@ export function defaultPublishOptions(
     url: "",
     display,
     include: { sources: false, notes: false, addresses: false, photos: false },
+    photoFolders: {},
     map,
     lang,
   };
@@ -522,6 +526,7 @@ export function* buildPublishedTreeSteps(
       ds,
       (id) => byXref.has(id) && !withheld(id),
       (id) => privateIds.has(id) || withheld(id),
+      opts.photoFolders,
     );
     photos = plan.photos;
     for (const [xref, links] of plan.links) byXref.get(xref)!.photos = links;

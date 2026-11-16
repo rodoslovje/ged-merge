@@ -365,9 +365,10 @@
 
 /* ── Person page ────────────────────────────────────────────── */
 
-/* The head (name, then the chart tiles at the right) takes the page's whole
-   width; what follows keeps a reading width. */
-.site-person > :not(.site-person-head) {
+/* The head (name, then the chart tiles at the right), the photos and the
+   events take the page's whole width, so an event and its ages keep to one
+   line; the notes and the family below keep a reading width. */
+.site-person > :not(.site-person-head, .site-events, .person-media) {
   max-width: 760px;
 }
 

@@ -14,14 +14,49 @@ import type { PublishedTree } from "./model";
  * out, however many of the others are long dead. A photo flagged private stays
  * out too, and only local image files count (not PDFs, not web links).
  *
+ * The author also says, folder by folder of the media folder, where a photo
+ * goes: left out, on the person pages, or there and in the front page's strip
+ * too (see {@link PhotoUse}).
+ *
  * In the website's ZIP a photo sits at `photos/<id>.<ext>`; `sources` says
  * which file of the author's media folder each one is read from.
  */
+
+/** Where a folder's photos go: nowhere, the person pages, or those and the
+ *  front page's strip (the default). */
+export type PhotoUse = "out" | "pages" | "tray";
+export const PHOTO_USES: PhotoUse[] = ["out", "pages", "tray"];
+
+/** The folder a `FILE` sits in, `/`-separated ("" for the media folder itself). */
+export function folderOf(file: string): string {
+  const path = file.replace(/\\/g, "/").replace(/^(\.\/)+|^\/+/, "");
+  const at = path.lastIndexOf("/");
+  return at < 0 ? "" : path.slice(0, at);
+}
+
+/** A `FILE` that is a web address, not a file of the media folder. */
+const isWebLink = (file: string) => /^[a-z][a-z0-9+.-]*:\/\//i.test(file);
+
+/** Where a photo goes: its folder's choice, else the nearest folder's above
+ *  it, else the strip too. "" is the files directly in the media folder only,
+ *  not a default for every folder. */
+export function photoUseOf(folders: Readonly<Record<string, PhotoUse>>, file: string): PhotoUse {
+  let folder = folderOf(file);
+  for (;;) {
+    const use = folders[folder];
+    if (use && PHOTO_USES.includes(use)) return use;
+    const at = folder.lastIndexOf("/");
+    if (at < 0) return "tray";
+    folder = folder.slice(0, at);
+  }
+}
 
 export interface PubPhoto {
   id: string;
   /** The photo's path in the website's ZIP (`photos/o1x2.jpg`). */
   path: string;
+  /** Its folder keeps it out of the front page's strip. */
+  tray?: false;
   title?: string;
   date?: string;
   place?: string;
@@ -61,6 +96,26 @@ interface Candidate {
 /** The identity of a photo: its shared record, or its file for an inline one. */
 const keyOf = (ref: MediaRef) => ref.xref ?? `file:${ref.file}`;
 
+/** The photos of the people and families, by folder: how many each folder
+ *  holds — for the author's choice per folder. Web links are not counted. */
+export function photoFolderCounts(ds: Dataset): Map<string, number> {
+  const seen = new Set<string>();
+  const counts = new Map<string, number>();
+  const visit = (raw: GedNode) => {
+    for (const ref of collectMediaRefs(raw, ds.records)) {
+      if (mediaKindOf(ref.file) !== "image" || isWebLink(ref.file)) continue;
+      const key = keyOf(ref);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const folder = folderOf(ref.file);
+      counts.set(folder, (counts.get(folder) ?? 0) + 1);
+    }
+  };
+  for (const indi of ds.individuals.values()) visit(indi.raw);
+  for (const fam of ds.families.values()) visit(fam.raw);
+  return counts;
+}
+
 /** A short, stable id: FNV-1a of the key, in base 36. */
 function photoId(key: string, taken: Set<string>): string {
   let h = 0x811c9dc5;
@@ -80,12 +135,14 @@ const extensionOf = (file: string) => file.match(/\.([a-z0-9]{1,5})$/i)?.[1].toL
 /**
  * Plan the photos. `published(id)` says a person is on the site with their
  * details (only they get a gallery); `hidden(id)` says a person must not be
- * seen on any photo. `yieldEvery` paces a stepped caller.
+ * seen on any photo; `folders` where each folder's photos go. `yieldEvery`
+ * paces a stepped caller.
  */
 export function* planSitePhotos(
   ds: Dataset,
   published: (id: string) => boolean,
   hidden: (id: string) => boolean,
+  folders: Readonly<Record<string, PhotoUse>> = {},
   yieldEvery = 1_000,
 ): Generator<void, PhotoPlan, void> {
   const candidates = new Map<string, Candidate>();
@@ -95,7 +152,8 @@ export function* planSitePhotos(
   let n = 0;
   const visit = (raw: GedNode, owner: (ref: MediaRef) => Owner) => {
     for (const ref of collectMediaRefs(raw, ds.records)) {
-      if (mediaKindOf(ref.file) !== "image") continue;
+      if (mediaKindOf(ref.file) !== "image" || isWebLink(ref.file)) continue;
+      if (photoUseOf(folders, ref.file) === "out") continue;
       const key = keyOf(ref);
       let c = candidates.get(key);
       if (!c) candidates.set(key, (c = { ref, owners: [], private: false }));
@@ -135,6 +193,7 @@ export function* planSitePhotos(
     const id = photoId(key, taken);
     const path = `photos/${id}.${extensionOf(c.ref.file)}`;
     const photo: PubPhoto = { id, path };
+    if (photoUseOf(folders, c.ref.file) === "pages") photo.tray = false;
     if (c.ref.title) photo.title = c.ref.title;
     if (c.ref.date) photo.date = c.ref.date;
     if (c.ref.place) photo.place = c.ref.place;

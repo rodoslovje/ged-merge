@@ -13,15 +13,17 @@ export const TRAY_SIZE = 40;
 /**
  * A photo for each person on the front page: one of them alone where they have
  * it, and a group photo only when it is the one photo they have. People with
- * neither are not offered, and a photo is offered once.
+ * neither are not offered, and a photo is offered once. Only photos whose
+ * folder the author left in the strip count (see `PhotoUse`).
  */
 export function trayFaces(tree: PublishedTree): { id: string; link: PubPhotoLink }[] {
+  const pagesOnly = new Set((tree.photos ?? []).filter((p) => p.tray === false).map((p) => p.id));
   const peopleOn = new Map<string, number>();
   for (const p of tree.people) for (const l of p.photos ?? []) peopleOn.set(l.photo, (peopleOn.get(l.photo) ?? 0) + 1);
   const out: { id: string; link: PubPhotoLink }[] = [];
   const taken = new Set<string>();
   for (const p of tree.people) {
-    const links = p.photos ?? [];
+    const links = (p.photos ?? []).filter((l) => !pagesOnly.has(l.photo));
     const alone = links.find((l) => peopleOn.get(l.photo) === 1);
     const pick = alone ?? (links.length === 1 ? links[0] : undefined);
     if (!pick || taken.has(pick.photo)) continue;

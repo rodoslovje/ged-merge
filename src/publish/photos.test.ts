@@ -4,6 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { buildPublishedTree, defaultPublishOptions, type PublishOptions } from "./model";
 import { hydrateTree } from "./hydrate";
 import { collectMediaRefs } from "../gedcom/media";
+import { folderOf, photoFolderCounts, photoUseOf } from "./photos";
 
 const dataset = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 const NOW = new Date("2026-06-01");
@@ -120,5 +121,30 @@ describe("site photos", () => {
     const pathOf = (id: string) => tree.photos!.find((p) => p.id === id)!.path;
     expect(refs.map((r) => r.file)).toEqual(person(tree, "Janez").photos!.map((l) => pathOf(l.photo)));
     expect(refs[1].crop).toEqual({ top: 1, left: 2, width: 3, height: 4 });
+  });
+});
+
+describe("photos by folder", () => {
+  it("follow their folder's choice, else the nearest one above", () => {
+    const folders = { records: "out", "records/matricula": "pages", "": "pages" } as const;
+    expect(photoUseOf(folders, "records/familysearch/b.jpg")).toBe("out");
+    expect(photoUseOf(folders, "records/matricula/marriage/a.jpg")).toBe("pages");
+    expect(photoUseOf(folders, "portraits/c.jpg")).toBe("tray");
+    // "" is the files directly in the media folder, not every folder.
+    expect(photoUseOf(folders, "d.jpg")).toBe("pages");
+    expect(folderOf("./portraits\\old/e.jpg")).toBe("portraits/old");
+  });
+
+  it("leave a folder out of the ZIP, or out of the front page's strip", () => {
+    // janez.jpg sits in "photos", marko-janez.png in the media folder itself.
+    const out = site({ photoFolders: { photos: "out" } });
+    expect(out.files.map((f) => f.source)).toEqual(["marko-janez.png"]);
+    expect(out.summary).toMatchObject({ photos: 1, photosWithheld: 3 });
+    const pages = site({ photoFolders: { "": "pages" } });
+    expect(pages.tree.photos!.map((p) => [p.path.endsWith(".png"), p.tray])).toEqual([[false, undefined], [true, false]]);
+  });
+
+  it("are counted by folder, without web links", () => {
+    expect(photoFolderCounts(ds)).toEqual(new Map([["photos", 1], ["", 4]]));
   });
 });

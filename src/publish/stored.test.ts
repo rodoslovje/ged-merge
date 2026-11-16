@@ -6,7 +6,10 @@ const defaults = defaultPublishOptions("Rodbina", "sl");
 
 describe("mergeStoredOptions", () => {
   it("keeps what was stored, field by field", () => {
-    const stored = { ...defaults, title: "Novak", living: "hide", intro: { sl: "Pozdravljeni", en: "Hello" }, include: { ...defaults.include, notes: true } };
+    const stored = {
+      ...defaults, title: "Novak", living: "hide", intro: { sl: "Pozdravljeni", en: "Hello" }, include: { ...defaults.include, notes: true },
+      photoFolders: { portraits: "tray", records: "out", "records/matricula": "pages" },
+    };
     expect(mergeStoredOptions(defaults, stored)).toEqual(stored);
   });
 

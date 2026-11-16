@@ -10248,6 +10248,14 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-publish .tools-publish-dates { flex-direction: row; align-items: center; gap: 10px; margin: 10px 0; font-size: 0.9rem; }
 .tools-publish .tools-privacy-group > .tools-norm-summary { margin: 0; }
 .tools-publish-intro { display: flex; align-items: flex-start; gap: 8px; max-width: 42rem; }
+/* Photos by folder: a row per folder (indented under the one above), its
+   photo count, and where its photos go. */
+.tools-publish-folder-list { display: flex; flex-direction: column; gap: 2px; max-width: 34rem; max-height: 320px; overflow-y: auto; margin-top: 8px; padding-right: 4px; }
+.tools-publish-folder { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 0.9rem; }
+.tools-publish-folder-toggle { flex: none; width: 18px; padding: 0; background: none; border: none; color: var(--muted); font: inherit; cursor: pointer; text-align: center; }
+.tools-publish-folder-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tools-publish-folder-count { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tools-publish-folder-use { flex: none; width: 15rem; }
 .tools-publish-intro + .tools-publish-intro { margin-top: 6px; }
 .tools-publish-intro-lang { flex: none; font-size: 1.1rem; line-height: 2; }
 
