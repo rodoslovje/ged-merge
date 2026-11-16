@@ -14,6 +14,8 @@ import { sexClass } from "../ui/sex";
 import { ChartIcon } from "../ui/icons/ChartIcon";
 import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
+import { StatsIcon } from "../ui/icons/StatsIcon";
+import { LogoMark } from "../ui/icons/LogoMark";
 import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
@@ -172,7 +174,9 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
               <ChartIcon size={16} /> {t("site.nav.charts")}
             </a>
           )}
-          <a className={`nav-btn${route.page === "stats" ? " active" : ""}`} href="#/stats">{t("site.nav.stats")}</a>
+          <a className={`nav-btn${route.page === "stats" ? " active" : ""}`} href="#/stats">
+            <StatsIcon size={16} /> {t("site.nav.stats")}
+          </a>
         </nav>
         <div className="site-prefs">
           <div className="site-startpick">
@@ -220,6 +224,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     </header>
   );
 
+  const footer = <SiteFooter created={tree.created} />;
+
   if (route.page === "charts" && ds.individuals.has(xrefOf(route.id))) {
     const rootId = xrefOf(route.id);
     return (
@@ -236,6 +242,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           onBack={() => openPerson(rootId)}
           onNavigate={openPerson}
         />
+        {footer}
       </div>
     );
   }
@@ -285,13 +292,24 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     <div className="app site">
       {header}
       <main className="site-main">{body}</main>
-      <footer className="site-foot">
-        {t("site.footer.madeWith")}{" "}
-        <a href="https://gedmerge.com" target="_blank" rel="noopener">gedmerge.com</a>
-        {" · "}
-        <time dateTime={tree.created}>{new Date(tree.created).toLocaleDateString(i18n.language)}</time>
-      </footer>
+      {footer}
     </div>
+  );
+}
+
+/** The foot of every page: made with GED Merge (its mark, linked to
+ *  gedmerge.com), on the day the site was published. */
+function SiteFooter({ created }: { created: string }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <footer className="site-foot">
+      {t("site.footer.madeWith")}{" "}
+      <a className="site-foot-brand" href="https://gedmerge.com" target="_blank" rel="noopener">
+        <LogoMark size={16} /> GED Merge
+      </a>
+      <span aria-hidden="true">·</span>
+      <time dateTime={created}>{new Date(created).toLocaleDateString(i18n.language)}</time>
+    </footer>
   );
 }
 

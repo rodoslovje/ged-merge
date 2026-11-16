@@ -11,6 +11,17 @@
   overflow: visible;
 }
 
+/* The charts use the whole window, but their header and footer keep the width
+   they have on every other page (1100px less the page's side padding), so the
+   header does not jump wider on the way into a chart. */
+.app.site.tree-shell > .site-head,
+.app.site.tree-shell > .site-foot {
+  width: 100%;
+  max-width: calc(1100px - 48px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* One row: the title (shortened with an ellipsis when it must give way), the
    three pages, then the start person, theme, language and search on the right.
    Below 880px the controls take a row of their own. */
@@ -83,11 +94,30 @@
   padding: 24px 0;
 }
 
+/* On every page, the charts too: below the content, or at the window's foot
+   when the content is short (the page is a column at least a window tall). */
 .site-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   color: var(--muted);
   font-size: 0.8rem;
-  padding: 16px 0 8px;
+  padding: 12px 0 8px;
+  margin-top: 8px;
   border-top: 1px solid var(--border);
+}
+.site-foot-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.site-foot-brand:hover {
+  text-decoration: underline;
 }
 
 /* ── Front page ─────────────────────────────────────────────── */
