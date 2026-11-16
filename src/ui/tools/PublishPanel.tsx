@@ -123,7 +123,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- editVersion: the dataset is mutated in place
-  }, [active, dataset, settled.scope, settled.partners, settled.living, settled.include, siteStart, editVersion]);
+  }, [active, dataset, settled.scope, settled.partners, settled.living, settled.recentDeathYears, settled.include, siteStart, editVersion]);
 
   // The download's three steps, each named while it runs: loading the viewer
   // (a large chunk, fetched on the first export), walking the file — in slices,
@@ -259,6 +259,20 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             </label>
           ))}
         </div>
+        {/* The recently dead, published as the living are — the Privacy tool's
+            own choice, worded as there. */}
+        <label className="tools-privacy-inline tools-publish-recent">
+          {t("tools.privacy.recentDeath")}
+          <input
+            type="number"
+            min={0}
+            className="tools-privacy-num"
+            value={options.recentDeathYears}
+            onChange={(e) => set({ recentDeathYears: Math.max(0, Number(e.target.value) || 0) })}
+          />
+          {t("tools.privacy.recentDeathYears")}
+          {options.recentDeathYears === 0 && <span className="muted"> {t("tools.privacy.recentDeathOff")}</span>}
+        </label>
         <p className="tools-fix-hint">{t("tools.publish.livingHint")}</p>
       </div>
 

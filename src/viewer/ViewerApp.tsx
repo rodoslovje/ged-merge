@@ -594,7 +594,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           timeline={!(person?.living && !person.events?.length)}
         />
       </header>
-      {person?.living && <p className="site-note">{t("site.person.living")}</p>}
+      {person?.living && <p className="site-note">{t(person.deceased ? "site.person.recentDead" : "site.person.living")}</p>}
       <EventRows events={person?.events} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
 

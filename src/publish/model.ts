@@ -2,6 +2,7 @@ import type { Dataset, GedEvent, Individual } from "../gedcom/types";
 import { ALL_EVENT_TAGS, LDS_ORDINANCE_TAGS } from "../gedcom/eventTags";
 import { computeKinship } from "../tools/batch";
 import { defaultPrivacyOptions, livingReason } from "../tools/privacy";
+import { isDeceased } from "../gedcom/lifespan";
 import { runSteps, type Steps } from "../gedcom/steps";
 import type { NameOrder } from "../gedcom/nameDisplay";
 import { marriedSurnamesOf } from "../match/relatives";
@@ -90,6 +91,9 @@ export interface PublishOptions {
    *  so their families read whole. */
   partners: boolean;
   living: LivingMode;
+  /** People who died within this many years are published as the living are
+   *  (0 = off). Slovenia's data protection act (ZVOP-2) asks for 20. */
+  recentDeathYears: number;
   startPage: StartPage;
   /** Let visitors download charts, reports and statistics (SVG, PDF, CSV…). */
   exports: boolean;
@@ -117,6 +121,7 @@ export function defaultPublishOptions(
     scope: "all",
     partners: true,
     living: "initials",
+    recentDeathYears: 20,
     startPage: "home",
     exports: false,
     url: "",
@@ -132,7 +137,7 @@ export interface SiteIncludes {
   notes: boolean;
   addresses: boolean;
 }
-export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "notes", "addresses"];
+export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "addresses", "notes"];
 
 /** A source citation as the site shows it: the source, the cited page, a link. */
 export interface PubSource {
@@ -169,6 +174,9 @@ export interface PubPerson {
   married?: string[];
   /** Living, published without their details (see {@link LivingMode}). */
   living?: true;
+  /** Among those, dead within the protected years (see `recentDeathYears`):
+   *  shown as dead, without a date. */
+  deceased?: true;
   events?: PubEvent[];
   notes?: string[];
   sources?: PubSource[];
@@ -420,7 +428,9 @@ export function* buildPublishedTreeSteps(
   };
   const inScope = scopeIds(ds, opts, startId);
   const ctx: Ctx = { include: opts.include, settlements: opts.include.addresses ? new Map() : settlementCoords(ds) };
-  const privacy = defaultPrivacyOptions();
+  // The dead of the last `recentDeathYears` count as living too (Slovenia's
+  // ZVOP-2 asks for 20 years), as the Privacy tool counts them.
+  const privacy = { ...defaultPrivacyOptions(), alsoRecentlyDeceasedYears: opts.recentDeathYears };
   const year = now.getFullYear();
   const privateIds = new Set<string>();
   const living = new Set<string>();
@@ -526,7 +536,12 @@ function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boo
     if (married.length) out.married = married;
   }
   if (indi.sex === "M" || indi.sex === "F" || indi.sex === "X") out.sex = indi.sex;
-  if (isLiving && mode !== "all") out.living = true;
+  if (isLiving && mode !== "all") {
+    out.living = true;
+    // Dead within the protected years: published as the living are, but known
+    // to be dead — the charts draw them so, without a date.
+    if (isDeceased(indi)) out.deceased = true;
+  }
   if (mode === "all") {
     const events = pubEvents(indi.events, ctx);
     if (events) out.events = events;

@@ -1,5 +1,6 @@
 import type { PublishedTree } from "./model";
 import { PUBLISHED_FORMAT } from "./model";
+import FAVICON_SVG from "../ui/icons/favicon.svg?raw";
 
 /** The family website's viewer, built once into one script and one stylesheet
  *  (see `vitePlugin.ts`). */
@@ -35,6 +36,10 @@ export function inlineSafe(code: string, tag: "script" | "style"): string {
 const THEME_BOOT =
   'try{var s=localStorage.getItem("gedmerge.theme");document.documentElement.setAttribute("data-theme",s==="light"||s==="dark"?s:matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}';
 
+/** The site's icon until its own is found (see `viewer/favicon.ts`): GED
+ *  Merge's, inline, so it shows from disk too. */
+export const DEFAULT_FAVICON = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG.trim())}`;
+
 /** The whole site as one self-contained HTML file: open it from disk, or put it
  *  on any static web server. */
 export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string {
@@ -47,6 +52,7 @@ export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string
 <meta name="robots" content="noindex, nofollow">
 <meta name="generator" content="GED Merge (${PUBLISHED_FORMAT})">
 <title>${title}</title>
+<link rel="icon" type="image/svg+xml" href="${DEFAULT_FAVICON}">
 <script>${THEME_BOOT}</script>
 <style>${inlineSafe(bundle.css, "style")}</style>
 </head>

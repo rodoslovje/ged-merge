@@ -154,6 +154,20 @@ describe("buildPublishedTree", () => {
     expect(summary.livingReduced).toBe(2);
   });
 
+  it("publishes the recently dead as the living, for as many years as chosen", () => {
+    const recent = dataset(SAMPLE.replace("1 DEAT\n2 DATE 1999", "1 DEAT\n2 DATE 2010"));
+    const mojca = (years: number) =>
+      buildPublishedTree(recent, opts({ recentDeathYears: years }), "@I1@", NOW).tree.people.find((p) => p.surname === "Z." || p.surname === "Zupan");
+    expect(mojca(20)).toMatchObject({ given: "M.", surname: "Z.", living: true, deceased: true });
+    expect(mojca(20)!.events).toBeUndefined();
+    expect(mojca(0)).toMatchObject({ given: "Mojca", surname: "Zupan" });
+    expect(mojca(0)!.living).toBeUndefined();
+    // Read back, they are dead — with no date to say when.
+    const tree = buildPublishedTree(recent, opts({ recentDeathYears: 20 }), "@I1@", NOW).tree;
+    const back = hydrateTree(tree).individuals.get(`@${mojca(20)!.id}@`)!;
+    expect(back.events).toEqual([{ tag: "DEAT", value: "Y" }]);
+  });
+
   it("keeps a living person's given name only", () => {
     const { tree } = build({ living: "given" });
     expect(byName(tree, "Ana")).toEqual({ id: byName(tree, "Ana")!.id, given: "Ana", sex: "F", living: true });
@@ -366,6 +380,7 @@ describe("publishedHtml", () => {
     const html = publishedHtml(tree, { js: 'const s = "</script>";', css: "a{}/*</style>*/" });
     expect(html).toContain("<title>Rodbina &lt;/script&gt; &amp; co</title>");
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
+    expect(html).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,');
     expect(html.match(/<\/script>/g)).toHaveLength(3);
     expect(html.match(/<\/style>/g)).toHaveLength(1);
     const json = html.match(/<script type="application\/json"[^>]*>(.*?)<\/script>/s)![1];
