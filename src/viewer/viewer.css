@@ -636,6 +636,14 @@
   gap: 4px 10px;
   padding-block: 3px;
 }
+/* A relative's life years, between the name and the kinship label. */
+.site-kin-years {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
 /* The front page's matches: a row that lights up under the pointer. */
 .site-search .site-person-list li {
   padding: 6px 10px;

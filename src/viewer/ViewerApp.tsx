@@ -111,11 +111,26 @@ function writeStored(key: string, value: string | undefined): void {
 
 /** A person link followed by how they are related to the start person, in the
  *  lineage colours the app uses. */
-function KinLink({ ds, id, kin, onNavigate }: { ds: Dataset; id: string; kin?: KinshipResolver; onNavigate: (id: string) => void }) {
+function KinLink({ ds, id, kin, onNavigate, years }: {
+  ds: Dataset;
+  id: string;
+  kin?: KinshipResolver;
+  onNavigate: (id: string) => void;
+  /** The life years in figures between the name and the kinship label, as the
+   *  person heading sets them (the family lists and the search's matches). */
+  years?: boolean;
+}) {
   const label = kin?.label(id);
+  const indi = years ? ds.individuals.get(id) : undefined;
+  const span = indi ? lifespanOf(indi) : undefined;
   return (
     <>
-      <PersonLink dataset={ds} id={id} fallback={id} onNavigate={onNavigate} />
+      <PersonLink dataset={ds} id={id} fallback={id} onNavigate={onNavigate} noYears={years} />
+      {indi && span && (
+        <span className="site-kin-years gm-data">
+          <YearsText text={span} approx={lifespanApproxOf(indi)} />
+        </span>
+      )}
       {label && <span className={`person-kinship ${lineageClass(kin?.lineage(id), kin?.direct(id))}`}>{label}</span>}
     </>
   );
@@ -568,7 +583,7 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
                 <ul className="site-person-list">
                   {results.slice(0, SEARCH_LIMIT).map((indi) => (
                     <li key={indi.id}>
-                      <KinLink ds={ds} id={indi.id} kin={kin} onNavigate={onNavigate} />
+                      <KinLink ds={ds} id={indi.id} kin={kin} onNavigate={onNavigate} years />
                     </li>
                   ))}
                 </ul>
@@ -713,7 +728,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
   const nameOf = useNameOf();
   const indi = ds.individuals.get(id)!;
   const link = (pid: string | undefined) => pid && ds.individuals.has(pid)
-    ? <KinLink ds={ds} id={pid} kin={kin} onNavigate={onNavigate} />
+    ? <KinLink ds={ds} id={pid} kin={kin} onNavigate={onNavigate} years />
     : null;
   const startIndi = startId ? ds.individuals.get(startId) : undefined;
   const { showAge } = useSettingsSlice(AGE_KEYS);
