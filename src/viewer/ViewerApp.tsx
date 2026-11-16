@@ -161,8 +161,18 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // layers they chose, and may load its tiles.
   useEffect(() => {
     const map = tree.map ? { mapBasemap: tree.map.basemap, mapTileUrl: tree.map.tileUrl, mapOverlays: tree.map.overlays } : {};
-    setSettings({ ...DEFAULT_SITE_DISPLAY, ...tree.display, ...map, allowMapTiles: true, showXref: false });
-  }, [setSettings, tree.display, tree.map]);
+    const display = { ...DEFAULT_SITE_DISPLAY, ...tree.display };
+    setSettings({ ...display, ...map, allowMapTiles: true, showXref: false });
+    // The charts' own switches for the same things start from the author's
+    // choice too: they seed from the display only on their first render, before
+    // this has run.
+    setChartSettings({
+      showAge: display.showAge,
+      showMarriedName: display.marriedSurname,
+      showKinship: display.showKinship,
+      emphasizeDirect: display.emphasizeDirect,
+    });
+  }, [setSettings, setChartSettings, tree.display, tree.map]);
   useEffect(() => { document.title = tree.title || t("site.untitled"); }, [tree.title, t]);
 
   // The start person relationships are named from: the author's, until the
@@ -508,19 +518,17 @@ function SiteFooter({ created, home }: { created: string; home?: { label: string
   const { t, i18n } = useTranslation();
   return (
     <footer className="site-foot">
-      {t("site.footer.madeWith")}{" "}
-      <a className="site-foot-brand" href="https://gedmerge.com" target="_blank" rel="noopener">
-        <LogoMark size={16} /> GED Merge
-      </a>
-      <span aria-hidden="true">·</span>
-      {/* The author's own site again — on a phone the header has no room. */}
-      {home && (
-        <>
-          <a href={home.url}>{home.label}</a>
-          <span aria-hidden="true">·</span>
-        </>
-      )}
-      <time dateTime={created}>{new Date(created).toLocaleDateString(i18n.language)}</time>
+      {/* The author's own site at the left (on a phone the header has no room
+          for it); the credit and the date at the right. */}
+      {home && <a className="site-foot-home" href={home.url}>{home.label}</a>}
+      <span className="site-foot-credit">
+        {t("site.footer.madeWith")}{" "}
+        <a className="site-foot-brand" href="https://gedmerge.com" target="_blank" rel="noopener">
+          <LogoMark size={16} /> GED Merge
+        </a>
+        <span aria-hidden="true">·</span>
+        <time dateTime={created}>{new Date(created).toLocaleDateString(i18n.language)}</time>
+      </span>
     </footer>
   );
 }
@@ -755,7 +763,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
   const person = pub.people.get(id);
   // The start person's control, as in the app's Edit view: the kinship label
   // itself opens the menu (go to the start person, make this one the start,
-  // choose another, clear), a bare ⌂ where there is no label.
+  // choose another, clear), a bare target where there is no label.
   const kinship = kin?.label(id);
   const bareHome = !!startId && !kinship;
   const startChip = (
@@ -793,7 +801,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
             <span className="site-person-years">
               <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
             </span>
-            {/* No kinship to name: the bare ⌂ rides after the years rather
+            {/* No kinship to name: the bare target rides after the years rather
                 than taking a line of its own. */}
             {bareHome && startChip}
           </div>
