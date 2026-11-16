@@ -38,10 +38,11 @@
   gap: 16px;
 }
 
+/* The site's name in GED Merge's own green — a quiet tribute. */
 .site-title {
   font-family: var(--font-serif);
   font-size: 1.35rem;
-  color: var(--text);
+  color: var(--accent);
   text-decoration: none;
   margin-right: auto;
   min-width: 0;
@@ -68,6 +69,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Every header button answers a pointer or the keyboard as the chart tiles do:
+   green border and green text (the app's own only turns the border green). */
+.site-head .nav-btn:hover:not(:disabled),
+.site-head .nav-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .site-nav .nav-btn.active {
