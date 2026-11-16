@@ -164,9 +164,11 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
         for (const [i, f] of result.files.entries()) {
           if (!alive()) return;
           setPhase({ step: "photos", done: i, total: result.files.length });
-          const url = await media.resolveFile(f.source);
-          const data = url ? await fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null) : null;
-          if (data) photos.push({ name: f.path, data: new Uint8Array(data) });
+          // The original file, so the photo keeps its time in the ZIP (an
+          // unchanged photo is then skipped by rsync on the next upload).
+          const file = (await media.resolveFileObject?.(f.source)) ?? null;
+          const data = file ? await file.arrayBuffer().catch(() => null) : null;
+          if (file && data) photos.push({ name: f.path, data: new Uint8Array(data), modified: new Date(file.lastModified) });
           else missing.add(f.path);
         }
         if (missing.size) {

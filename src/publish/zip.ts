@@ -4,12 +4,20 @@
  * deflating them would cost time for nothing; the page is small beside them.
  * Names are UTF-8 (general-purpose bit 11). No ZIP64: a family's website is
  * far from 4 GB. `geo/zip.ts` reads these back.
+ *
+ * Each file keeps its own modification time — a photo the time of its
+ * original — in the DOS fields (local time, 2-second steps) and, to the
+ * second in UTC, in the extended-timestamp field (0x5455) `unzip` restores.
+ * Unpacked, an unchanged photo then has an unchanged time, so `rsync` to the
+ * web server skips it.
  */
 
 export interface ZipFile {
   /** The path inside the archive, `/`-separated (`photos/o1x.jpg`). */
   name: string;
   data: Uint8Array;
+  /** When the file was last changed; the archive's time when omitted. */
+  modified?: Date;
 }
 
 const CRC_TABLE = (() => {
@@ -39,10 +47,21 @@ function dosDateTime(d: Date): { time: number; date: number } {
 
 const UTF8_NAMES = 0x0800;
 
+/** The extended-timestamp extra field, modification time only (9 bytes);
+ *  the local and central headers carry the same. */
+function unixTimeField(d: Date): Uint8Array {
+  const field = new Uint8Array(9);
+  const v = new DataView(field.buffer);
+  v.setUint16(0, 0x5455, true);
+  v.setUint16(2, 5, true);
+  v.setUint8(4, 1); // the modification time is present
+  v.setUint32(5, Math.max(0, Math.floor(d.getTime() / 1000)), true);
+  return field;
+}
+
 /** The archive's bytes: every file stored, then the central directory. */
 export function zipFiles(files: ZipFile[], when: Date = new Date()): Uint8Array<ArrayBuffer> {
   const enc = new TextEncoder();
-  const { time, date } = dosDateTime(when);
   const parts: Uint8Array[] = [];
   const central: Uint8Array[] = [];
   let offset = 0;
@@ -50,7 +69,10 @@ export function zipFiles(files: ZipFile[], when: Date = new Date()): Uint8Array<
   for (const f of files) {
     const name = enc.encode(f.name);
     const crc = crc32(f.data);
-    const local = new Uint8Array(30 + name.length);
+    const modified = f.modified ?? when;
+    const { time, date } = dosDateTime(modified);
+    const extra = unixTimeField(modified);
+    const local = new Uint8Array(30 + name.length + extra.length);
     const lv = new DataView(local.buffer);
     lv.setUint32(0, 0x04034b50, true);
     lv.setUint16(4, 20, true);
@@ -62,11 +84,12 @@ export function zipFiles(files: ZipFile[], when: Date = new Date()): Uint8Array<
     lv.setUint32(18, f.data.length, true);
     lv.setUint32(22, f.data.length, true);
     lv.setUint16(26, name.length, true);
-    lv.setUint16(28, 0, true);
+    lv.setUint16(28, extra.length, true);
     local.set(name, 30);
+    local.set(extra, 30 + name.length);
     parts.push(local, f.data);
 
-    const entry = new Uint8Array(46 + name.length);
+    const entry = new Uint8Array(46 + name.length + extra.length);
     const cv = new DataView(entry.buffer);
     cv.setUint32(0, 0x02014b50, true);
     cv.setUint16(4, 20, true);
@@ -79,8 +102,10 @@ export function zipFiles(files: ZipFile[], when: Date = new Date()): Uint8Array<
     cv.setUint32(20, f.data.length, true);
     cv.setUint32(24, f.data.length, true);
     cv.setUint16(28, name.length, true);
+    cv.setUint16(30, extra.length, true);
     cv.setUint32(42, offset, true);
     entry.set(name, 46);
+    entry.set(extra, 46 + name.length);
     central.push(entry);
     offset += local.length + f.data.length;
   }

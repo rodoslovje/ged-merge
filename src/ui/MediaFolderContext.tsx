@@ -35,6 +35,9 @@ interface MediaFolderCtx {
   openFolder(): Promise<void>;
   clearFolder(): void;
   resolveFile(filePath: string): Promise<string | null>;
+  /** The file itself, with its name and modification time — what a copy of it
+   *  keeps (the family website's ZIP). Null where there is no folder file. */
+  resolveFileObject?(filePath: string): Promise<File | null>;
   /** Whether files outside the chosen folder can be dragged in (handle mode —
    *  Chrome/Edge). False in the Firefox/Safari filemap fallback, which can
    *  still reference files already inside the folder (see `listMediaFiles`). */
@@ -193,6 +196,8 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   // absent in the current folder — without the latter, every unresolvable file
   // re-runs the full path probe + recursive basename scan on each lookup.
   const blobCache = useRef(new Map<string, string | null>());
+  // The file behind each URL in `blobCache`, for resolveFileObject.
+  const fileCache = useRef(new Map<string, File>());
   // Hidden <input webkitdirectory> for Firefox fallback
   const inputRef = useRef<HTMLInputElement | null>(null);
   // App-styled confirm/alert dialog (replaces native window.confirm/alert).
@@ -235,6 +240,7 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   function revokeAll() {
     for (const url of blobCache.current.values()) if (url) URL.revokeObjectURL(url);
     blobCache.current = new Map();
+    fileCache.current = new Map();
   }
 
   // Restore persisted handle on mount (Chrome/Edge; Firefox IDB rejects handles)
@@ -367,9 +373,15 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       }
       const url = URL.createObjectURL(file);
       blobCache.current.set(filePath, url);
+      fileCache.current.set(filePath, file);
       return url;
     },
     [folder],
+  );
+
+  const resolveFileObject = useCallback(
+    async (filePath: string): Promise<File | null> => ((await resolveFile(filePath)) ? fileCache.current.get(filePath) ?? null : null),
+    [resolveFile],
   );
 
   const listMediaFiles = useCallback(async (): Promise<string[]> => {
@@ -449,6 +461,7 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
         openFolder,
         clearFolder,
         resolveFile,
+        resolveFileObject,
         canReferenceFiles: folder?.kind === "handle",
         listMediaFiles,
         resolveDroppedHandle,

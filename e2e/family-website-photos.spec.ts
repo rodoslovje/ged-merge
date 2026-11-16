@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { mkdirSync, readFileSync, utimesSync, writeFileSync } from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
 import { tmpdir } from "./tmpdir";
@@ -16,6 +16,9 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 
 mkdirSync(MEDIA, { recursive: true });
 writeFileSync(path.join(MEDIA, "franc.png"), PNG);
+// The original's time, which the ZIP keeps (so rsync skips an unchanged photo).
+const TAKEN = new Date(Date.UTC(2015, 2, 4, 10, 20, 30));
+utimesSync(path.join(MEDIA, "franc.png"), TAKEN, TAKEN);
 writeFileSync(path.join(MEDIA, "group.png"), PNG);
 writeFileSync(FILE, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
@@ -55,6 +58,8 @@ test("the family website with photos downloads as a ZIP that works from disk", a
   const buffer = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength);
   const entries = zipEntries(buffer);
   expect(entries.map((e) => e.name.replace(/\/o[0-9a-z]+\./, "/ID."))).toEqual(["index.html", "photos/ID.png"]);
+  // The extended-timestamp field, just before the photo's data.
+  expect(new DataView(buffer).getUint32(entries[1].dataStart - 4, true)).toBe(TAKEN.getTime() / 1000);
 
   // Unpacked, as a relative would.
   const site = path.join(DIR, "site");

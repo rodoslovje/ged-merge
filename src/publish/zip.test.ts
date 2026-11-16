@@ -20,6 +20,18 @@ describe("zipFiles", () => {
     }
   });
 
+  it("keeps each file's own time, to the second in UTC and in the DOS fields", () => {
+    const photo = new Date(Date.UTC(2019, 4, 7, 9, 15, 33));
+    const zip = zipFiles([{ name: "photos/o1.jpg", data: new Uint8Array([1]), modified: photo }], new Date(2026, 10, 16));
+    const v = new DataView(zip.buffer);
+    const [entry] = zipEntries(zip.buffer);
+    // The local header's extra field ends where the data starts.
+    expect(v.getUint16(entry.dataStart - 9, true)).toBe(0x5455);
+    expect(v.getUint32(entry.dataStart - 4, true)).toBe(photo.getTime() / 1000);
+    const dosDate = v.getUint16(12, true);
+    expect([(dosDate >> 9) + 1980, (dosDate >> 5) & 15, dosDate & 31]).toEqual([photo.getFullYear(), photo.getMonth() + 1, photo.getDate()]);
+  });
+
   it("computes the standard CRC-32", () => {
     expect(crc32(new TextEncoder().encode("123456789"))).toBe(0xcbf43926);
   });
