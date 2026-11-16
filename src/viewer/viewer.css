@@ -602,6 +602,7 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 4px 10px;
+  padding-block: 3px;
 }
 /* The front page's matches: a row that lights up under the pointer. */
 .site-search .site-person-list li {
@@ -617,8 +618,20 @@
 /* The head (name, then the chart tiles at the right), the photos and the
    events take the page's whole width, so an event and its ages keep to one
    line; the notes and the family below keep a reading width. */
-.site-person > :not(.site-person-head, .site-events, .person-media) {
+.site-person > :not(.site-person-head, .site-events, .person-media, .site-family) {
   max-width: 760px;
+}
+
+/* The family as cards on a grid: parents and siblings side by side where
+   there is room, each family of their own across the whole width. */
+.site-family {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.site-section-family {
+  grid-column: 1 / -1;
 }
 
 /* Words for a screen reader only. */
@@ -876,9 +889,11 @@
 }
 
 .site-section {
-  margin-top: 24px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin: 0;
+  padding: 16px 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .site-section h3 {
@@ -887,7 +902,7 @@
 
 .site-section h4 {
   margin: 12px 0 4px;
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   color: var(--muted);
   font-weight: 500;
 }

@@ -772,46 +772,51 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
       <EventRows events={person?.events} ages={showAge ? personEventAges(ds, indi, t) : undefined} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
 
-      {parentFams.length > 0 && (
-        <section className="site-section">
-          <h3>{t("site.person.parents")}</h3>
-          {parentFams.map((f) => (
-            <ul key={f.id} className="site-person-list">
-              {f.husband && <li>{link(f.husband)}</li>}
-              {f.wife && <li>{link(f.wife)}</li>}
-            </ul>
-          ))}
-        </section>
-      )}
-
-      {ownFams.map((f) => {
-        const partner = f.husband === id ? f.wife : f.husband;
-        return (
-          <section key={f.id} className="site-section">
-            <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
-            {partner && <p className="site-partner">{link(partner)}</p>}
-            <EventRows events={pub.families.get(f.id)?.events} family ages={showAge ? familyEventAges(ds, f, t) : undefined} />
-            <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
-            {f.children.length > 0 && (
-              <>
-                <h4>{t("site.person.children", { count: f.children.length })}</h4>
-                <ul className="site-person-list">
-                  {f.children.map((c) => <li key={c}>{link(c)}</li>)}
-                </ul>
-              </>
-            )}
+      {/* The family as cards: parents and siblings side by side where there
+          is room, each family of their own (its events, its children) across
+          the whole width. */}
+      <div className="site-family">
+        {parentFams.length > 0 && (
+          <section className="site-section">
+            <h3>{t("site.person.parents")}</h3>
+            {parentFams.map((f) => (
+              <ul key={f.id} className="site-person-list">
+                {f.husband && <li>{link(f.husband)}</li>}
+                {f.wife && <li>{link(f.wife)}</li>}
+              </ul>
+            ))}
           </section>
-        );
-      })}
+        )}
 
-      {siblings.length > 0 && (
-        <section className="site-section">
-          <h3>{t("site.person.siblings", { count: siblings.length })}</h3>
-          <ul className="site-person-list">
-            {siblings.map((c) => <li key={c}>{link(c)}</li>)}
-          </ul>
-        </section>
-      )}
+        {siblings.length > 0 && (
+          <section className="site-section">
+            <h3>{t("site.person.siblings", { count: siblings.length })}</h3>
+            <ul className="site-person-list">
+              {siblings.map((c) => <li key={c}>{link(c)}</li>)}
+            </ul>
+          </section>
+        )}
+
+        {ownFams.map((f) => {
+          const partner = f.husband === id ? f.wife : f.husband;
+          return (
+            <section key={f.id} className="site-section site-section-family">
+              <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
+              {partner && <p className="site-partner">{link(partner)}</p>}
+              <EventRows events={pub.families.get(f.id)?.events} family ages={showAge ? familyEventAges(ds, f, t) : undefined} />
+              <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
+              {f.children.length > 0 && (
+                <>
+                  <h4>{t("site.person.children", { count: f.children.length })}</h4>
+                  <ul className="site-person-list">
+                    {f.children.map((c) => <li key={c}>{link(c)}</li>)}
+                  </ul>
+                </>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </article>
   );
 }
