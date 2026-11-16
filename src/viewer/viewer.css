@@ -240,6 +240,13 @@
   margin-top: 8px;
   border-top: 1px solid var(--border);
 }
+.site-foot-credit {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
 .site-foot-brand {
   display: inline-flex;
   align-items: center;
@@ -741,7 +748,8 @@
   background: color-mix(in oklch, var(--sex-other) 16%, transparent);
 }
 
-.site-person-name {
+/* More weight than the app's own `.app h1`, now the name is the page's h1. */
+.app.site .site-person-name {
   font-family: var(--font-serif);
   font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.5rem);
   font-weight: 500;
@@ -836,6 +844,11 @@
   margin: 4px 0 0;
   font-size: 0.9rem;
 }
+/* The kinship pill's text lines up with the name above it. */
+.site-person-kinship .person-kinship.start-chip { margin-left: -6px; }
+/* Where there is no kinship, the bare target at the size of the header's
+   other icons, so it can be found. */
+.app.site .site-person-title .start-chip--icon svg { width: 16px; height: 16px; }
 
 .site-note {
   color: var(--muted);
