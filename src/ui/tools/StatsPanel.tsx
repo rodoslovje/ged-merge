@@ -18,6 +18,8 @@ import {
 } from "../../stats/aggregate";
 import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
 import { migrationStats } from "../../stats/migration";
+import { NO_PLACE, OTHER, placeDecades, placeFlows, placeStack, type FlowLevel } from "../../stats/placeFlows";
+import { DecadeGrid, FlowChart, MultiStackChart, type Swatch } from "./PlaceCharts";
 import { COUPLE_KINSHIP, lineageStats, relatedCouples, type CoupleKinship } from "../../stats/lineage";
 import { researchStats, type SourcedTag } from "../../stats/research";
 import { eventDisplayLabel, familyEventLabel } from "../../gedcom/eventTags";
@@ -215,6 +217,10 @@ export function StatsPanel({
   const deaths = useMemo(() => (scoped && page === "deaths" ? deathStats(scoped) : undefined), [scoped, page]);
   const jobs = useMemo(() => (scoped && page === "occupations" ? occupationStats(scoped) : undefined), [scoped, page]);
   const moves = useMemo(() => (scoped && page === "migration" ? migrationStats(scoped) : undefined), [scoped, page]);
+  const [flowLevel, setFlowLevel] = useState<FlowLevel>("place");
+  const flows = useMemo(() => (scoped && page === "migration" ? placeFlows(scoped, flowLevel) : undefined), [scoped, page, flowLevel]);
+  const grid = useMemo(() => (scoped && page === "migration" ? placeDecades(scoped) : undefined), [scoped, page]);
+  const stack = useMemo(() => (scoped && page === "migration" ? placeStack(scoped) : undefined), [scoped, page]);
   const research = useMemo(() => (scoped && page === "research" ? researchStats(scoped) : undefined), [scoped, page]);
   // The same, for the father's and the mother's side of the line's person apart.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
@@ -601,6 +607,106 @@ export function StatsPanel({
       return [tagLabel(s), side(researchBySide.paternal), side(researchBySide.maternal)];
     }),
   ]);
+  /** The place cards of the migration page: from the parents' birth places to
+   *  the children's, births by decade and place, and places by decade. One
+   *  place keeps one colour on every card. */
+  const placesCards = () => {
+    if (!flows || !grid || !stack) return null;
+    const swatches = new Map<string, Swatch>();
+    const swatchOf = (key: string): Swatch => {
+      if (key === OTHER) return "other";
+      if (key === NO_PLACE) return "none";
+      let s = swatches.get(key);
+      if (s === undefined) swatches.set(key, (s = swatches.size));
+      return s;
+    };
+    for (const p of stack.parts) swatchOf(p.key);
+    const flowName = (key: string, label: string) =>
+      key === OTHER ? t("stats.otherPlaces") : flowLevel === "place" ? shortPlace(label, home) : countryName(key);
+    const flowFull = (key: string, label: string) =>
+      key === OTHER ? t("stats.otherPlaces") : flowLevel === "place" ? label : countryName(key);
+    // At the country level the countries take their own colours.
+    const flowSwatch = (key: string) => (flowLevel === "place" ? swatchOf(key) : key === OTHER ? "other" : flowCountries.indexOf(key));
+    const flowCountries = [...new Set([...flows.parents, ...flows.children].map((n) => n.key).filter((k) => k !== OTHER))];
+    const parentLabel = new Map(flows.parents.map((n) => [n.key, n.label]));
+    const childLabel = new Map(flows.children.map((n) => [n.key, n.label]));
+    const flowTitle = (from: string, to: string) => `${flowFull(from, parentLabel.get(from)!)} → ${flowFull(to, childLabel.get(to)!)}`;
+    const flowKey = (from: string, to: string) => `${from}>${to}`;
+    csvOf.set("placeFlows", () => [[t("stats.parentBornIn"), t("stats.childBornIn"), t("stats.csv.pairs"), t("stats.csv.count")], ...flows.flows.map((f) => [flowFull(f.from, parentLabel.get(f.from)!), flowFull(f.to, childLabel.get(f.to)!), f.count, f.ids.length])]);
+
+    const partName = (key: string, label: string) => (key === OTHER ? t("stats.otherPlaces") : key === NO_PLACE ? t("stats.noBirthPlace") : shortPlace(label, home));
+    const partFull = (key: string, label: string) => (key === OTHER ? t("stats.otherPlaces") : key === NO_PLACE ? t("stats.noBirthPlace") : label);
+    const decadeLabel = (d: number) => t("stats.decade", { decade: d, end: d + 9 });
+    csvOf.set("placeStack", () => [
+      [t("stats.decadeCol"), ...stack.parts.map((p) => partFull(p.key, p.label)), t("stats.csv.count")],
+      ...stack.decades.map((d) => [decadeLabel(d.decade), ...d.parts.map((ids) => ids.length), d.count]),
+    ]);
+    csvOf.set("placeDecades", () => [[t("stats.birthPlaces"), t("stats.decadeCol"), t("stats.csv.count")], ...grid.rows.flatMap((r) => [...r.byDecade].sort((a, b) => a[0] - b[0]).map(([d, ids]) => [r.label, decadeLabel(d), ids.length]))]);
+
+    return (
+      <>
+        {grid.first !== undefined && grid.last !== undefined && card("placeDecades", t("stats.placeDecades"), t("stats.placeDecadesNote", { count: grid.rows.length }), (
+          <DecadeGrid
+            rows={grid.rows.map((r) => ({ key: r.key, label: shortPlace(r.label, home), tip: `${r.label}: ${t("stats.nPeople", { count: r.count })}`, cells: new Map([...r.byDecade].map(([d, ids]) => [d, ids.length])) }))}
+            first={grid.first}
+            last={grid.last}
+            max={grid.max}
+            format={num}
+            decadeLabel={String}
+            picked={pickedIn("placeDecades")}
+            tip={(r, d, n) => `${grid.rows.find((x) => x.key === r.key)!.label} — ${decadeLabel(d)}: ${t("stats.nPeople", { count: n })}`}
+            onPick={(row, d) => {
+              const r = grid.rows.find((x) => x.key === row)!;
+              choose("placeDecades", `${row}:${d}`, `${r.label} — ${decadeLabel(d)}`, r.byDecade.get(d) ?? []);
+            }}
+          />
+        ), true)}
+        {card("placeStack", t("stats.placeStack"), t("stats.nPeople", { count: stack.people }), (
+          <MultiStackChart
+            format={num}
+            picked={pickedIn("placeStack")}
+            parts={stack.parts.map((p) => ({ key: p.key, label: partName(p.key, p.label), count: p.count, swatch: swatchOf(p.key) }))}
+            columns={stack.decades.map((d) => ({
+              key: String(d.decade),
+              label: String(d.decade),
+              values: d.parts.map((ids) => ids.length),
+              tips: d.parts.map((ids, i) => `${decadeLabel(d.decade)} — ${partFull(stack.parts[i].key, stack.parts[i].label)}: ${num(ids.length)} / ${num(d.count)}`),
+              top: d.count ? num(d.count) : undefined,
+            }))}
+            onPick={(column, part) => {
+              const d = stack.decades.find((x) => String(x.decade) === column)!;
+              const p = stack.parts[part];
+              choose("placeStack", `${column}:${part}`, `${decadeLabel(d.decade)} — ${partFull(p.key, p.label)}`, d.parts[part]);
+            }}
+          />
+        ), true)}
+        {card("placeFlows", t("stats.placeFlows"), flows.pairs ? t("stats.nPairs", { count: flows.pairs }) : null, (
+          <>
+            <div className="stats-flow-level">
+              <Segmented
+                label={t("stats.flowLevel")}
+                value={flowLevel}
+                onChange={setFlowLevel}
+                items={(["place", "country"] as const).map((l) => ({ key: l, label: t(`stats.flowLevel.${l}`) }))}
+              />
+            </div>
+            <FlowChart
+              heads={[t("stats.parentBornIn"), t("stats.childBornIn")]}
+              format={num}
+              picked={pickedIn("placeFlows")}
+              from={flows.parents.map((n) => ({ key: n.key, label: flowName(n.key, n.label), count: n.count, swatch: flowSwatch(n.key), tip: `${flowFull(n.key, n.label)}: ${t("stats.nPairs", { count: n.count })}` }))}
+              to={flows.children.map((n) => ({ key: n.key, label: flowName(n.key, n.label), count: n.count, swatch: flowSwatch(n.key), tip: `${flowFull(n.key, n.label)}: ${t("stats.nPairs", { count: n.count })}` }))}
+              flows={flows.flows.map((f) => ({ key: flowKey(f.from, f.to), from: f.from, to: f.to, count: f.count, tip: `${flowTitle(f.from, f.to)}: ${t("stats.nPairs", { count: f.count })}` }))}
+              onPick={(key) => {
+                const f = flows.flows.find((x) => flowKey(x.from, x.to) === key)!;
+                choose("placeFlows", key, flowTitle(f.from, f.to), f.ids);
+              }}
+            />
+          </>
+        ), true)}
+      </>
+    );
+  };
   if (related) csvOf.set("relatedCouples", () => [[t("stats.relatedCouples"), t("stats.csv.count")], ...COUPLE_KINSHIP.map((k) => [t(`stats.kin.${k}`), related.byKind[k].length])]);
 
   return (
@@ -1004,10 +1110,28 @@ export function StatsPanel({
               {moves.distanceMean && <StatTile label={t("stats.meanDistance")} value={t("stats.km", { value: num(Math.round(moves.distanceMean.value)) })} sub={t("stats.nPeople", { count: moves.distanceMean.n })} />}
               <StatTile label={t("stats.emigrants")} value={num(moves.emigrants.n)} sub={pct(moves.emigrants.n, moves.emigrants.of)} onClick={moves.emigrants.n ? () => choose("moveTiles", "emigrants", t("stats.emigrants"), moves.emigrants.ids) : undefined} picked={pickedIn("moveTiles") === "emigrants"} />
               <StatTile label={t("stats.samePlaceCouples")} value={num(moves.samePlaceCouples.n)} sub={pct(moves.samePlaceCouples.n, moves.samePlaceCouples.of)} onClick={moves.samePlaceCouples.n ? () => choose("moveTiles", "samePlace", t("stats.samePlaceCouples"), moves.samePlaceCouples.ids, true) : undefined} picked={pickedIn("moveTiles") === "samePlace"} />
+              {grid && <StatTile label={t("stats.birthPlacesNamed")} value={num(grid.places)} />}
+              {stack && stack.parts[0] && stack.parts[0].key !== OTHER && stack.parts[0].key !== NO_PLACE && (
+                <StatTile
+                  label={t("stats.topBirthPlace")}
+                  value={shortPlace(stack.parts[0].label, home)}
+                  sub={t("stats.topBirthPlaceSub", { share: pct(stack.parts[0].count, stack.people), of: num(stack.people) })}
+                />
+              )}
+              {flows && flows.pairs > 0 && (
+                <StatTile
+                  label={t(`stats.bornElsewhere.${flowLevel}`)}
+                  value={pct(flows.moved, flows.pairs)}
+                  sub={t("stats.nPairs", { count: flows.pairs })}
+                  onClick={flows.moved ? () => choose("moveTiles", "elsewhere", t(`stats.bornElsewhere.${flowLevel}`), flows.movedIds) : undefined}
+                  picked={pickedIn("moveTiles") === "elsewhere"}
+                />
+              )}
               {pick?.card === "moveTiles" && (
                 <PickList key={`moveTiles:${pick.key}`} pick={pick} dataset={dataset} fileName={fileName} onNavigate={onNavigate} onClose={() => setPick(null)} />
               )}
             </section>
+            {flows && grid && stack && placesCards()}
             {!moves.distanceMean && <p className="muted stats-empty stats-note">{t("stats.noDistances")}</p>}
             {moves.distanceMean && card("distance", t("stats.distance"), t("stats.nPeople", { count: total(moves.distance) }), buckets("distance", t("stats.distance"), moves.distance, { label: distanceLabel }))}
             {moves.distanceMean && card("distanceByCentury", t("stats.meanDistance"), null, centuries("distanceByCentury", t("stats.meanDistance"), moves.distanceByCentury, (v) => t("stats.km", { value: num(Math.round(v)) })))}

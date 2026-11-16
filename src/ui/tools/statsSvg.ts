@@ -71,7 +71,23 @@ function paint(root: HTMLElement, skip: (node: Element) => boolean): { svg: SVGS
   };
 
   const visit = (node: Element, into: SVGElement) => {
-    if (skip(node) || node instanceof SVGElement) return;
+    if (skip(node)) return;
+    // The flow's ribbons are the one drawing made of paths: copied as they
+    // stand, each with the colour it is painted in.
+    if (node instanceof SVGSVGElement && node.classList.contains("stats-flow-links")) {
+      const r = node.getBoundingClientRect();
+      const copy = el("svg", {
+        x: x(r.left), y: y(r.top), width: r.width, height: r.height,
+        viewBox: node.getAttribute("viewBox") ?? "", preserveAspectRatio: "none",
+      });
+      for (const path of node.querySelectorAll("path")) {
+        const ps = getComputedStyle(path);
+        copy.appendChild(el("path", { d: path.getAttribute("d") ?? "", fill: ps.fill, "fill-opacity": ps.fillOpacity }));
+      }
+      into.appendChild(copy);
+      return;
+    }
+    if (node instanceof SVGElement) return;
     const cs = getComputedStyle(node);
     if (cs.display === "none" || cs.visibility === "hidden") return;
     const r = node.getBoundingClientRect();
