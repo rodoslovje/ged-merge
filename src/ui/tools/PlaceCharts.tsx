@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { tipProps } from "../IconTip";
 
@@ -241,10 +241,16 @@ export function DecadeGrid({
   const decades: number[] = [];
   for (let d = first; d <= last; d += 10) decades.push(d);
   const every = decades.length > 16 ? 2 : 1;
+  // A grid wider than its card opens on the latest decades; the places stay in view.
+  const scroller = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [first, last]);
   return (
-    <div className="stats-grid-scroll">
-      <div className="stats-decades" style={{ gridTemplateColumns: `minmax(6em, 11em) repeat(${decades.length}, minmax(28px, 1fr))` }}>
-        <span />
+    <div className="stats-grid-scroll" ref={scroller}>
+      <div className="stats-decades" style={{ gridTemplateColumns: `max-content repeat(${decades.length}, minmax(28px, 1fr))` }}>
+        <span className="stats-decade-corner" />
         {decades.map((d, i) => <span key={d} className="stats-decade-head">{i % every === 0 ? decadeLabel(d) : ""}</span>)}
         {rows.map((r) => (
           <div key={r.key} className="stats-decade-row">

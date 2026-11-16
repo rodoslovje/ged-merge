@@ -9846,7 +9846,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-decades { display: grid; gap: 3px; align-items: stretch; min-width: min-content; }
 .stats-decade-row { display: contents; }
 .stats-decade-head { font-size: 0.7rem; color: var(--muted); white-space: nowrap; overflow: visible; }
-.stats-decade-label { font-size: 0.8rem; padding-right: 8px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: center; }
+.stats-decade-label { font-size: 0.8rem; padding-right: 8px; text-align: right; white-space: nowrap; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
+/* The places and their corner stay put while the decades scroll under them. */
+.stats-decade-label, .stats-decade-corner { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 3px 0 0 var(--panel); }
 .stats-decade-cell {
   min-height: 28px;
   padding: 0;
