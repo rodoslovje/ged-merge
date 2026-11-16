@@ -9,6 +9,33 @@
   color: var(--accent);
 }
 
+/* The site reads as a page, not a tool: a full-size body and an open line
+   height (the app's own panels are set smaller and tighter). */
+.app.site {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+/* One type ramp for the site's own headings: the page's title, a section's
+   heading, and the small uppercase label over a block. */
+.site-page-title,
+.site-highlights h2 {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.site-highlights h3,
+.site-section h3,
+.site-search-label {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 /* The front, person and statistics pages scroll as a page; the charts keep
    the app's full-height shell, which their canvas sizes itself in. */
 .app.site:not(.tree-shell) {
@@ -73,6 +100,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 40px;
 }
 
 /* Every header button answers a pointer or the keyboard as the chart tiles do:
@@ -132,7 +160,7 @@
   flex-wrap: wrap;
   gap: 6px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   padding: 12px 0 8px;
   margin-top: 8px;
   border-top: 1px solid var(--border);
@@ -157,8 +185,9 @@
 
 .site-hero h1 {
   font-family: var(--font-serif);
-  font-size: 2.25rem;
-  line-height: 1.15;
+  font-size: clamp(2.25rem, 1.6rem + 2.4vw, 3.25rem);
+  font-weight: 500;
+  line-height: 1.1;
   letter-spacing: -0.01em;
   margin: 0 0 14px;
 }
@@ -331,12 +360,9 @@
   margin-top: 40px;
 }
 .site-highlights h2 {
-  font-family: var(--font-serif);
-  font-size: 1.35rem;
   margin: 0 0 12px;
 }
 .site-highlights h3 {
-  font-size: 1rem;
   margin: 24px 0 8px;
 }
 .site-couple {
@@ -396,7 +422,6 @@
 
 .site-search-label {
   display: block;
-  font-weight: 600;
   margin-bottom: 6px;
 }
 
@@ -450,7 +475,9 @@
 
 .site-person-name {
   font-family: var(--font-serif);
-  font-size: 1.75rem;
+  font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.15;
   margin: 0;
 }
 
@@ -636,7 +663,6 @@
 
 .site-section h3 {
   margin: 0 0 8px;
-  font-size: 1rem;
 }
 
 .site-section h4 {
