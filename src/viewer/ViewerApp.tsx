@@ -528,16 +528,20 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
           {/* The search under the words, beside the cover photo. */}
           <section className="site-search">
             <label className="site-search-label" htmlFor="site-search">{t("site.search.label")}</label>
-            <input
-              id="site-search"
-              ref={searchRef}
-              type="search"
-              className="tools-search-input site-search-input"
-              value={query}
-              placeholder={t("site.search.placeholder")}
-              onChange={(e) => setQuery(e.target.value)}
-              autoComplete="off"
-            />
+            {/* The field with its magnifier inside, at the left. */}
+            <span className="site-search-field">
+              <SearchIcon size={16} />
+              <input
+                id="site-search"
+                ref={searchRef}
+                type="search"
+                className="tools-search-input site-search-input"
+                value={query}
+                placeholder={t("site.search.placeholder")}
+                onChange={(e) => setQuery(e.target.value)}
+                autoComplete="off"
+              />
+            </span>
             {/* The search first; the start person is the other way in. */}
             {startId && ds.individuals.has(startId) && (
               <p className="site-start">

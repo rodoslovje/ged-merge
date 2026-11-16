@@ -242,16 +242,20 @@
   grid-column: 1;
   grid-row: 1;
 }
+/* The cover as a print on the page: no frame, rounder, a soft shadow. */
 .site-cover {
   grid-column: 2;
   grid-row: 1;
   display: block;
   width: 100%;
   height: auto;
-  max-height: 360px;
+  aspect-ratio: 4 / 3;
+  max-height: 420px;
   object-fit: cover;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius-lg) * 1.4);
+  box-shadow:
+    0 1px 2px color-mix(in oklch, var(--text) 12%, transparent),
+    0 8px 24px color-mix(in oklch, var(--text) 14%, transparent);
 }
 @media (max-width: 720px) {
   .site-hero.has-cover {
@@ -265,8 +269,10 @@
 
 .site-intro {
   white-space: pre-line;
-  max-width: 65ch;
-  line-height: 1.6;
+  max-width: 60ch;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--text);
 }
 
 .site-search-count {
@@ -277,8 +283,14 @@
   margin-top: 28px;
   max-width: 640px;
 }
+/* The start person: the other way in, as a small pill under the field. */
 .site-search .site-start {
-  margin: 10px 0 0;
+  display: inline-block;
+  margin: 12px 0 0;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--panel-2);
+  font-size: 0.875rem;
 }
 
 /* The header's search, opened under the header row on any page: over the gap
@@ -463,9 +475,32 @@
   margin-bottom: 6px;
 }
 
-.site-search-input {
+/* The front page's search: a tall rounded field, its magnifier inside. */
+.site-search-field {
+  position: relative;
+  display: block;
+}
+.site-search-field > svg {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.app.site .site-search-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px 0 44px;
   font-size: 1rem;
-  padding: 8px 12px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+}
+.app.site .site-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .site-person-list {
@@ -483,6 +518,14 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 4px 10px;
+}
+/* The front page's matches: a row that lights up under the pointer. */
+.site-search .site-person-list li {
+  padding: 6px 10px;
+  border-radius: var(--radius);
+}
+.site-search .site-person-list li:hover {
+  background: var(--panel-2);
 }
 
 /* ── Person page ────────────────────────────────────────────── */
