@@ -16,11 +16,12 @@ import { ChartSettingsProvider } from "../ui/ChartSettingsContext";
 import { MediaFolderProvider } from "../ui/MediaFolderContext";
 import { MediaViewerProvider } from "../ui/MediaViewer";
 import { DatasetDerivationsProvider } from "../ui/DatasetDerivations";
-import { PublishedViewContext } from "../ui/PublishedView";
+import { PublishedViewContext, type PublishedView } from "../ui/PublishedView";
+import { setExportSite } from "../ui/exportSvg";
 import { ChangeJournal } from "../state/mainSync";
 import { DATA_ELEMENT_ID } from "../publish/page";
 import { PUBLISHED_FORMAT, type PublishedTree } from "../publish/model";
-import { hydrateTree } from "../publish/hydrate";
+import { hydrateTree, xrefOf } from "../publish/hydrate";
 import { ViewerApp } from "./ViewerApp";
 
 const LANG_KEY = "gedmerge-site.lang";
@@ -47,8 +48,12 @@ function startLanguage(tree: PublishedTree): string {
 function Site({ tree }: { tree: PublishedTree }) {
   const ds = useMemo(() => hydrateTree(tree), [tree]);
   const changes = useMemo(() => new ChangeJournal(), []);
+  const view = useMemo<PublishedView>(() => ({
+    exports: !!tree.exports,
+    reduced: new Set(tree.people.filter((p) => p.living).map((p) => xrefOf(p.id))),
+  }), [tree]);
   return (
-    <PublishedViewContext.Provider value>
+    <PublishedViewContext.Provider value={view}>
       <DatasetProvider dataset={ds}>
         <DatasetDerivationsProvider dataset={ds} version={0} changes={changes}>
           <ViewerApp tree={tree} ds={ds} />
@@ -59,6 +64,8 @@ function Site({ tree }: { tree: PublishedTree }) {
 }
 
 const tree = readTree();
+// Exports name the site's own address, when the author gave one.
+setExportSite(tree.url);
 void i18n.changeLanguage(startLanguage(tree));
 i18n.on("languageChanged", (lng) => {
   document.documentElement.lang = lng;

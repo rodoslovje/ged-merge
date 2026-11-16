@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual } from "../gedcom/types";
 import type { PublishedTree } from "../publish/model";
@@ -13,15 +13,15 @@ import { useNameOf, useSetSettings } from "../ui/SettingsContext";
 import { sexClass } from "../ui/sex";
 import { ChartIcon } from "../ui/icons/ChartIcon";
 import { HomeIcon } from "../ui/icons/HomeIcon";
+import { SearchIcon } from "../ui/icons/SearchIcon";
 import { lifespanOf } from "../gedcom/lifespan";
 import { displayDate } from "../gedcom/dateDisplay";
 import { customEventLabel, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
-import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES, type Language } from "../locales/i18n";
-import { PickerMenu } from "../ui/PickerMenu";
+import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
 import { useDatasetDerivations } from "../ui/DatasetDerivations";
 import { lineageClass, type KinshipResolver } from "../match/kinship";
-import { THEME_MODES, useTheme, type ThemeMode } from "../ui/useTheme";
+import { useTheme } from "../ui/useTheme";
 import { nameMatches, parseRoute, routeHash, startRoute, type Route } from "./route";
 
 /** Search results listed at most; the reader narrows the query for more. */
@@ -43,7 +43,6 @@ function useRoute(start: Route): [Route, (r: Route) => void] {
   return [route, (r) => { location.hash = routeHash(r); }];
 }
 
-const THEME_GLYPH: Record<ThemeMode, string> = { auto: "☀☾", light: "☀", dark: "☾" };
 
 /** The visitor's own start person, kept in their browser. */
 const START_KEY = "gedmerge-site.start";
@@ -81,7 +80,11 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const { t, i18n } = useTranslation();
   const start = useMemo(() => startRoute(tree.startPage, tree.start), [tree]);
   const [route, go] = useRoute(start);
-  const { themeMode, changeThemeMode } = useTheme();
+  const { theme, changeThemeMode } = useTheme();
+  // The two toggles show what a click switches to: the other theme, the other
+  // language (the site has two). Their tooltips name it in full.
+  const otherTheme = theme === "dark" ? "light" : "dark";
+  const otherLang = SUPPORTED_LANGUAGES.find((l) => l !== i18n.language) ?? "en";
   const setSettings = useSetSettings();
   const { setKind } = useChartSettings();
   // The site has no Settings page: dates read in words, in the reader's
@@ -108,6 +111,13 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const [relationFrom, setRelationFrom] = useState<string | undefined>();
   const openPerson = (xref: string) => go({ page: "person", id: pubId(xref) });
   const openCharts = (xref: string) => go({ page: "charts", id: pubId(xref) });
+  // The header's search: the front page's search box, focused. A counter, so
+  // a second press on the front page focuses it again.
+  const [searchNonce, setSearchNonce] = useState(0);
+  const openSearch = () => {
+    if (route.page !== "home") go({ page: "home" });
+    setSearchNonce((n) => n + 1);
+  };
 
   const header = (
     <header className="app-head site-head">
@@ -135,20 +145,34 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
               startClickTitle={ownStart ? t("site.startPick.reset") : t("start.goto")}
             />
           </div>
-          <PickerMenu
-            className="site-picker site-theme"
-            label={t("settings.appearance.title")}
-            value={themeMode}
-            onChange={changeThemeMode}
-            items={THEME_MODES.map((m) => ({ key: m, label: `${THEME_GLYPH[m]} ${t(`settings.theme.${m}`)}` }))}
-          />
-          <PickerMenu
-            className="site-picker site-lang"
-            label={t("settings.language.title")}
-            value={i18n.language as Language}
-            onChange={(lng) => void i18n.changeLanguage(lng)}
-            items={SUPPORTED_LANGUAGES.map((lng) => ({ key: lng, label: LANGUAGE_LABELS[lng] }))}
-          />
+          <button
+            type="button"
+            className="nav-btn icon-only site-toggle site-theme"
+            onClick={() => changeThemeMode(otherTheme)}
+            title={t(`site.theme.${otherTheme}`)}
+            aria-label={t(`site.theme.${otherTheme}`)}
+          >
+            {otherTheme === "light" ? "☀" : "☾"}
+          </button>
+          <button
+            type="button"
+            className="nav-btn icon-only site-toggle site-lang"
+            onClick={() => void i18n.changeLanguage(otherLang)}
+            title={LANGUAGE_NAMES[otherLang]}
+            aria-label={LANGUAGE_NAMES[otherLang]}
+            lang={otherLang}
+          >
+            {LANGUAGE_FLAGS[otherLang]}
+          </button>
+          <button
+            type="button"
+            className="nav-btn icon-only site-toggle site-search-btn"
+            onClick={openSearch}
+            title={t("site.search.label")}
+            aria-label={t("site.search.label")}
+          >
+            <SearchIcon size={16} />
+          </button>
         </div>
       </div>
     </header>
@@ -212,7 +236,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       </div>
     );
   } else {
-    body = <HomePage tree={tree} ds={ds} startId={startXref} kin={kin} onNavigate={openPerson} />;
+    body = <HomePage tree={tree} ds={ds} startId={startXref} kin={kin} focusNonce={searchNonce} onNavigate={openPerson} />;
   }
 
   return (
@@ -220,7 +244,10 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       {header}
       <main className="site-main">{body}</main>
       <footer className="site-foot">
-        {t("site.footer", { date: new Date(tree.created).toLocaleDateString(i18n.language) })}
+        {t("site.footer.madeWith")}{" "}
+        <a href="https://gedmerge.com" target="_blank" rel="noopener">gedmerge.com</a>
+        {" · "}
+        <time dateTime={tree.created}>{new Date(tree.created).toLocaleDateString(i18n.language)}</time>
       </footer>
     </div>
   );
@@ -228,10 +255,22 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
 
 const EMPTY = new Set<string>();
 
-function HomePage({ tree, ds, startId, kin, onNavigate }: { tree: PublishedTree; ds: Dataset; startId?: string; kin?: KinshipResolver; onNavigate: (id: string) => void }) {
+function HomePage({ tree, ds, startId, kin, focusNonce, onNavigate }: {
+  tree: PublishedTree;
+  ds: Dataset;
+  startId?: string;
+  kin?: KinshipResolver;
+  /** Bumped by the header's search button: focus the search box. */
+  focusNonce: number;
+  onNavigate: (id: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf();
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (focusNonce) searchRef.current?.focus();
+  }, [focusNonce]);
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const out: Individual[] = [];
@@ -261,6 +300,7 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: { tree: PublishedTree;
         <label className="site-search-label" htmlFor="site-search">{t("site.search.label")}</label>
         <input
           id="site-search"
+          ref={searchRef}
           type="search"
           className="tools-search-input site-search-input"
           value={query}

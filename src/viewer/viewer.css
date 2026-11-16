@@ -11,11 +11,13 @@
   overflow: visible;
 }
 
+/* One row: the title (shortened with an ellipsis when it must give way), the
+   three pages, then the start person, theme, language and search on the right.
+   Below 880px the controls take a row of their own. */
 .site-head .app-head-top {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;
 }
 
 .site-title {
@@ -24,6 +26,10 @@
   color: var(--text);
   text-decoration: none;
   margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .site-nav,
@@ -31,6 +37,12 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: none;
+}
+
+.site-toggle {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .site-nav .nav-btn {
@@ -47,25 +59,23 @@
 
 /* The visitor's start person: the app's picker, at header size. */
 .site-startpick {
-  width: 240px;
+  width: 220px;
   max-width: 100%;
   margin-right: 4px;
 }
 
-/* Theme and language: the app's picker, sized to its value and opening
-   leftwards from the page's right edge. */
-.site-picker .picker-menu-btn {
-  width: auto;
-  padding: 4px 10px;
-  font-weight: 500;
-  font-size: 0.85rem;
-}
-.site-picker .picker-menu-value {
-  color: var(--text);
-}
-.site-picker .picker-menu-popover {
-  left: auto;
-  right: 0;
+@media (max-width: 880px) {
+  .site-head .app-head-top {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .site-prefs {
+    width: 100%;
+  }
+  .site-startpick {
+    flex: 1 1 auto;
+    width: auto;
+  }
 }
 
 .site-main {
@@ -235,13 +245,8 @@
   .site-title {
     width: 100%;
   }
-  .site-prefs {
-    flex-wrap: wrap;
-    width: 100%;
-  }
   .site-startpick {
-    width: 100%;
-    margin-right: 0;
+    min-width: 0;
   }
   .site-events {
     grid-template-columns: 1fr;

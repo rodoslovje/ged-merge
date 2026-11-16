@@ -154,6 +154,16 @@ describe("buildPublishedTree", () => {
     expect(summary.livingReduced).toBe(2);
   });
 
+  it("keeps a living person's given name only", () => {
+    const { tree } = build({ living: "given" });
+    expect(byName(tree, "Ana")).toEqual({ id: byName(tree, "Ana")!.id, given: "Ana", sex: "F", living: true });
+  });
+
+  it("carries the export switch and the site's address", () => {
+    expect(build().tree).not.toHaveProperty("exports");
+    expect(build({ exports: true, url: " https://tree.example.org " }).tree).toMatchObject({ exports: true, url: "https://tree.example.org" });
+  });
+
   it("keeps a living person's name only", () => {
     const { tree } = build({ living: "name" });
     expect(byName(tree, "Ana")).toMatchObject({ surname: "Novak", living: true });

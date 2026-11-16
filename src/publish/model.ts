@@ -24,9 +24,11 @@ import { runSteps, type Steps } from "../gedcom/steps";
 export const PUBLISHED_FORMAT = "gedmerge-site";
 export const PUBLISHED_VERSION = 1;
 
-/** What a living person keeps on the site. */
-export type LivingMode = "hide" | "initials" | "name" | "all";
-export const LIVING_MODES: LivingMode[] = ["hide", "initials", "name", "all"];
+/** What a living person keeps on the site: nothing, initials, the given name
+ *  alone (which says next to nothing on its own — the youngest generations
+ *  carry no surname either), the full name, or everything. */
+export type LivingMode = "hide" | "initials" | "given" | "name" | "all";
+export const LIVING_MODES: LivingMode[] = ["hide", "initials", "given", "name", "all"];
 
 /** Who is published: everyone, the start person's blood relatives, or their
  *  direct line (ancestors and descendants). */
@@ -48,12 +50,17 @@ export interface PublishOptions {
   partners: boolean;
   living: LivingMode;
   startPage: StartPage;
+  /** Let visitors download charts, reports and statistics (SVG, PDF, CSV…). */
+  exports: boolean;
+  /** Where the site will be hosted (`https://tree.example.org`): named in the
+   *  footer of its exports in place of gedmerge.com. Empty for none. */
+  url: string;
   /** The site's language on first open. */
   lang: string;
 }
 
 export function defaultPublishOptions(title: string, lang: string): PublishOptions {
-  return { title, intro: "", scope: "all", partners: true, living: "initials", startPage: "home", lang };
+  return { title, intro: "", scope: "all", partners: true, living: "initials", startPage: "home", exports: false, url: "", lang };
 }
 
 export interface PubEvent {
@@ -76,7 +83,7 @@ export interface PubPerson {
   given?: string;
   surname?: string;
   sex?: "M" | "F" | "X";
-  /** Living, published reduced (see {@link LivingMode}). */
+  /** Living, published without their details (see {@link LivingMode}). */
   living?: true;
   events?: PubEvent[];
 }
@@ -101,6 +108,10 @@ export interface PublishedTree {
   start?: string;
   /** The page a visitor lands on; absent is the front page. */
   startPage?: StartPage;
+  /** Downloads are offered on the site. */
+  exports?: true;
+  /** The site's own address, for the footer of its exports. */
+  url?: string;
   people: PubPerson[];
   families: PubFamily[];
 }
@@ -284,6 +295,8 @@ export function* buildPublishedTreeSteps(
     families,
   };
   if (opts.intro.trim()) tree.intro = opts.intro.trim();
+  if (opts.exports) tree.exports = true;
+  if (opts.url.trim()) tree.url = opts.url.trim();
   const start = startId ? idOf.get(startId) : undefined;
   if (start) tree.start = start;
   // The person's pages need the person; without one the site opens at home.
@@ -303,10 +316,10 @@ function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boo
   } else {
     const given = name?.given?.trim() ?? (name?.surname ? undefined : name?.full.replace(/\//g, "").trim());
     if (given) out.given = given;
-    if (name?.surname?.trim()) out.surname = name.surname.trim();
+    if (mode !== "given" && name?.surname?.trim()) out.surname = name.surname.trim();
   }
   if (indi.sex === "M" || indi.sex === "F" || indi.sex === "X") out.sex = indi.sex;
-  if (isLiving) out.living = true;
+  if (isLiving && mode !== "all") out.living = true;
   if (mode === "all") {
     const events = pubEvents(indi.events);
     if (events) out.events = events;

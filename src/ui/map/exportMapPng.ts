@@ -11,7 +11,7 @@ import {
   HEADER_H,
   MARGIN_X,
   SANS,
-  SITE,
+  exportSiteLink,
 } from "../exportSvg";
 import { downloadBlob } from "../download";
 import {
@@ -324,7 +324,7 @@ export function exportMapPng(
   const timestamp = new Date().toLocaleString();
   const titleNeeds = textW(title, `600 18px ${SANS}`) + 2 * MARGIN_X;
   const footerNeeds =
-    2 * MARGIN_X + BADGE_SIZE + 8 + textW(SITE, `600 12px ${SANS}`) + FOOTER_GAP + textW(timestamp, `12px ${SANS}`);
+    2 * MARGIN_X + BADGE_SIZE + 8 + textW(exportSiteLink().label, `600 12px ${SANS}`) + FOOTER_GAP + textW(timestamp, `12px ${SANS}`);
   const mapsW = rects.reduce((sum, r) => sum + r.width, 0) + PANE_GAP * (panes.length - 1);
   const mapsH = Math.max(...rects.map((r) => r.height));
   const totalW = Math.ceil(Math.max(mapsW, titleNeeds, footerNeeds));
@@ -375,8 +375,8 @@ export function exportMapPng(
   ctx.textAlign = "left";
   ctx.font = `600 12px ${SANS}`;
   const siteX = MARGIN_X + BADGE_SIZE + 8;
-  ctx.fillText(SITE, siteX, footTextY);
-  ctx.fillRect(siteX, footTextY + 2, ctx.measureText(SITE).width, 0.75);
+  ctx.fillText(exportSiteLink().label, siteX, footTextY);
+  ctx.fillRect(siteX, footTextY + 2, ctx.measureText(exportSiteLink().label).width, 0.75);
   ctx.textAlign = "right";
   ctx.font = `12px ${SANS}`;
   ctx.globalAlpha = 0.7;

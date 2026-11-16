@@ -46,7 +46,7 @@ import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { BarList, ColumnChart, PairBarList, StackedColumnChart, StatTile, toneClass, type BarRow, type Column, type PairRow, type StackedColumn, type StackTone, type Tone } from "./StatsCharts";
 import type { ToolView } from "../ToolsView";
-import { usePublishedView } from "../PublishedView";
+import { useExportsAllowed, usePublishedView } from "../PublishedView";
 
 /** The statistics pages; the overview is the tool's front page. */
 const PAGES = ["tree", "names", "lifespan", "families", "births", "deaths", "occupations", "migration", "generations", "research"] as const;
@@ -1263,6 +1263,7 @@ function PickList({ pick, dataset, fileName, onNavigate, onClose, onRelate }: {
 }) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf();
+  const exportsAllowed = useExportsAllowed();
   // The whole list, windowed: a bar can stand for half a million people, and
   // only the rows in the scroll box are ever mounted.
   const virtual = useVirtualList({ count: pick.ids.length, estimate: 34, itemsKey: pick.ids });
@@ -1287,9 +1288,9 @@ function PickList({ pick, dataset, fileName, onNavigate, onClose, onRelate }: {
         <strong>{pick.title}</strong>
         <span className="muted">{pick.families ? t("stats.nFamilies", { count: pick.ids.length }) : t("stats.nPeople", { count: pick.ids.length })}</span>
         <span className="stats-pick-tools">
-          <button type="button" className="stats-info" onClick={download} {...tipProps(t("stats.downloadList"))}>
+          {exportsAllowed && <button type="button" className="stats-info" onClick={download} {...tipProps(t("stats.downloadList"))}>
             <DownloadIcon size={14} />
-          </button>
+          </button>}
           <button type="button" className="tools-issue-link stats-pick-close" onClick={onClose} aria-label={t("stats.closeList")}>✕</button>
         </span>
       </div>

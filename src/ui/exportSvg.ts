@@ -306,8 +306,26 @@ const XLINK_NS = "http://www.w3.org/1999/xlink";
 // Band geometry/branding constants are exported: the map's PNG export draws
 // the same header/footer on canvas.
 export const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
-export const SITE = "gedmerge.com";
+const SITE = "gedmerge.com";
 const SITE_URL = "https://gedmerge.com";
+
+/** The address an export's footer names and links to: gedmerge.com, or on a
+ *  family website the address its author hosts it at. */
+let exportSite = { label: SITE, url: SITE_URL };
+
+/** Name another address in every export's footer (the family website's own),
+ *  or gedmerge.com again with none. */
+export function setExportSite(url: string | undefined): void {
+  const clean = url?.trim();
+  exportSite = clean
+    ? { label: clean.replace(/^https?:\/\//i, "").replace(/\/+$/, ""), url: /^https?:\/\//i.test(clean) ? clean : `https://${clean}` }
+    : { label: SITE, url: SITE_URL };
+}
+
+/** The footer's address: its text and its link. */
+export function exportSiteLink(): { label: string; url: string } {
+  return exportSite;
+}
 
 // Brand badge colours, fixed so the footer logo stays on-brand regardless of the
 // diagram's (theme-dependent) export colours. Mirrors public/app-icon.svg.
@@ -523,7 +541,7 @@ export function wrapWithBands(
     opts.subtitle ? textWidth(opts.subtitle, `12px ${SANS}`) : 0,
   ) + 2 * MARGIN_X;
   const footerNeeds =
-    2 * MARGIN_X + BADGE_SIZE + 8 + textWidth(SITE, `600 12px ${SANS}`) +
+    2 * MARGIN_X + BADGE_SIZE + 8 + textWidth(exportSite.label, `600 12px ${SANS}`) +
     FOOTER_GAP + textWidth(timestamp, `12px ${SANS}`);
   const totalW = Math.ceil(Math.max(diagramW, titleNeeds, footerNeeds));
   const bandH = Math.max(diagramH, MIN_DIAGRAM_H);
@@ -622,12 +640,12 @@ export function wrapWithBands(
   // Small green brand badge, vertically centred in the footer band, with the
   // site name as a clickable link beside it (works in browsers and print-to-PDF).
   const link = document.createElementNS(SVG_NS, "a");
-  link.setAttributeNS(XLINK_NS, "xlink:href", SITE_URL);
-  link.setAttribute("href", SITE_URL);
+  link.setAttributeNS(XLINK_NS, "xlink:href", exportSite.url);
+  link.setAttribute("href", exportSite.url);
   link.setAttribute("target", "_blank");
   link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - BADGE_SIZE) / 2, BADGE_SIZE));
   link.appendChild(
-    svgText(SITE, MARGIN_X + BADGE_SIZE + 8, footTextY, {
+    svgText(exportSite.label, MARGIN_X + BADGE_SIZE + 8, footTextY, {
       "font-family": SANS,
       "font-size": "12",
       "font-weight": "600",

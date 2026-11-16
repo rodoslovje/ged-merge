@@ -6,8 +6,14 @@ import { sl } from "./sl";
 export const SUPPORTED_LANGUAGES = ["en", "sl"] as const;
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
-/** Each language in its own name, behind its flag — the language pickers. */
-export const LANGUAGE_LABELS: Record<Language, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
+/** Each language's flag, and the language in its own name behind it — the
+ *  language pickers. */
+export const LANGUAGE_FLAGS: Record<Language, string> = { en: "🇬🇧", sl: "🇸🇮" };
+export const LANGUAGE_NAMES: Record<Language, string> = { en: "English", sl: "Slovenščina" };
+export const LANGUAGE_LABELS: Record<Language, string> = {
+  en: `${LANGUAGE_FLAGS.en} ${LANGUAGE_NAMES.en}`,
+  sl: `${LANGUAGE_FLAGS.sl} ${LANGUAGE_NAMES.sl}`,
+};
 
 /** Minimal shape of react-i18next's `t()` shared by helpers that take it. */
 export type Translate = (key: string, opts?: Record<string, unknown>) => string;

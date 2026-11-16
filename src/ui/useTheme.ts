@@ -23,7 +23,7 @@ function detectThemeMode(): ThemeMode {
  * localStorage and kept in sync with the inline boot script in index.html, and
  * mirrored onto the document's `data-theme` attribute.
  */
-export function useTheme(): { themeMode: ThemeMode; changeThemeMode: (mode: ThemeMode) => void } {
+export function useTheme(): { themeMode: ThemeMode; theme: Theme; changeThemeMode: (mode: ThemeMode) => void } {
   const [themeMode, setThemeMode] = useState<ThemeMode>(detectThemeMode);
   const [osPref, setOsPref] = useState<Theme>(osTheme);
   useEffect(() => {
@@ -47,5 +47,5 @@ export function useTheme(): { themeMode: ThemeMode; changeThemeMode: (mode: Them
     }
   }
 
-  return { themeMode, changeThemeMode };
+  return { themeMode, theme, changeThemeMode };
 }

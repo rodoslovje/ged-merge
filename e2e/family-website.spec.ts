@@ -36,7 +36,9 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.locator(".tools-tab", { hasText: "Family website" }).click();
   await expect(page.locator(".tools-publish")).toContainText("The website will show 3 people and 1 families.");
-  await page.locator(".tools-publish-field input").fill("Rodbina Zorman");
+  await page.locator(".tools-publish-field input").first().fill("Rodbina Zorman");
+  // Downloads are off unless the author allows them; this site allows them.
+  await page.getByLabel("Let visitors download charts, reports and statistics").check();
 
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download website (.html)" }).click();
@@ -62,6 +64,12 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.locator(".site-person-list .person-ref").first().click();
   await expect(page.locator(".site-person-name")).toContainText("Franc");
   await expect(page.locator(".site-events").first()).toContainText("Škofja Loka");
+
+  // The header's search button takes the reader back to the search box.
+  await page.locator(".site-search-btn").click();
+  await expect(page.locator("#site-search")).toBeFocused();
+  await page.locator("#site-search").fill("franc");
+  await page.locator(".site-person-list .person-ref").first().click();
 
   // The visitor makes Franc their start person: relatives are named from him.
   await page.getByRole("button", { name: "Make start person" }).click();

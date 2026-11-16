@@ -110,6 +110,21 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             onChange={(e) => set({ intro: e.target.value })}
           />
         </label>
+        <label className="tools-publish-field">
+          <span className="tools-privacy-legend">{t("tools.publish.url")}</span>
+          <input
+            type="url"
+            className="tools-publish-input"
+            value={options.url}
+            placeholder="https://tree.example.org"
+            onChange={(e) => set({ url: e.target.value })}
+          />
+          <span className="tools-fix-hint">{t("tools.publish.urlHint")}</span>
+        </label>
+        <label className="tools-norm-check">
+          <input type="checkbox" checked={options.exports} onChange={() => set({ exports: !options.exports })} />
+          <span>{t("tools.publish.exports")}</span>
+        </label>
       </div>
 
       <div className="tools-privacy-group">
