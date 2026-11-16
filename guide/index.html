@@ -1789,7 +1789,7 @@
                 <li><strong>Living people</strong> — left out, or shown with their initials, their given name, their given name and surname, or all their details. People who died in the last 20 years — what Slovenia's data protection act (ZVOP-2) asks; the number is yours to change — are published as the living are, marked as deceased but without a date. People marked private are never published.</li>
                 <li><strong>Who is published</strong> — everyone in the file, the start person's blood relatives, or their ancestors and descendants, with or without their spouses.</li>
                 <li><strong>Also publish</strong> — sources, addresses and notes, each off until you tick it. Without addresses, an event at a house is shown at its settlement, on the map too.</li>
-                <li><strong>Photos</strong> — the photos of your media folder, folder by folder: left out, on the person pages, or there and in the strip of photos atop the front page. A photo with anyone hidden on it — a group photo too — is never published. With photos the website downloads as a ZIP: <code>index.html</code> and a <code>photos</code> folder. Each photo keeps its original's time, so after unpacking, <code>rsync</code> to your server sends only the photos that changed.</li>
+                <li><strong>Photos</strong> — the photos of your media folder, folder by folder: left out, on the person pages, or there and in the strip of photos atop the front page. A photo with anyone hidden on it — a group photo too — is never published. With photos the website downloads as a ZIP: <code>index.html</code> and a <code>photos</code> folder. Each photo keeps its original's time, so after unpacking, <code>rsync</code> to your server sends only the photos that changed. A <em>Cover photo</em> of your choice stands beside the title on the front page and is the picture a shared link shows; it is yours to choose, so it goes in whoever is on it, though only as the cover.</li>
                 <li><strong>Map</strong> — the base map, and which of your extra layers (Settings → Map) visitors may switch on.</li>
                 <li><strong>How people are shown</strong> — name order, date display, ages and kinship labels, starting from your own settings.</li>
                 <li><strong>Downloads</strong> — whether visitors may download the charts, reports and statistics.</li>
@@ -1804,7 +1804,10 @@
               person's page, a small map of their places and tiles for the fan, the timeline and the relationship
               sit beside the name, their photos open in the viewer with the people tagged on them, ages show beside each
               event as in Edit, and a person picked on a chart opens their page. The website answers the app's keyboard
-              shortcuts — <kbd>?</kbd> lists them. With your
+              shortcuts — <kbd>?</kbd> lists them. A link to the website, shared on Facebook, WhatsApp and the like, shows its
+              title, your words and the cover photo; the photo needs the <em>Website address</em>, as a preview finds it
+              only by its full address. A link to a relationship diagram names both people, so it shows the same two to
+              anyone. With your
               workspace kept in the browser, these choices are remembered for each file.
             </p>
             <h3 id="tool-sources">Sources</h3>
@@ -2532,7 +2535,7 @@
                 and is left off rather than cut short.</li>
               <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
                 below.</li>
-              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
+              <li><strong>Relationship</strong> (<span class="gm-key">K</span>) — traces how the selected person is
                 related to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>); if none is set
                 yet, it prompts for one inline. The diagram lays out the chain of relatives between the two, labelled
                 with the exact kinship (e.g. <em>2nd cousin +1</em>, the notation of <a href="#home-person">§7</a>). The chart opens on the
@@ -3571,7 +3574,8 @@
                 <tr><td><span class="gm-key">Enter</span></td><td>Save the field you're editing and step to the next one — the event's <strong>+ Add</strong> button after the last (Edit) — or open the highlighted row: the comparison in Merge, a duplicate pair or group in Tools, the record in the health check</td></tr>
                 <tr><td><span class="gm-key">1</span> · <span class="gm-key">2</span> · <span class="gm-key">3</span></td><td>In the comparison (Merge): keep <strong>Main</strong> · take <strong>Incoming</strong> · keep <strong>Both</strong> for the highlighted field; <span class="gm-key">Esc</span> returns to the match list</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Open the person's chart (tree, grid, fan, circle)</td></tr>
-                <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram</td></tr>
+                <tr><td><span class="gm-key">K</span></td><td>Open the relationship diagram</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span></td><td>Open the person's fan · timeline · map</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Go to the start person (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↑</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↑</span></td><td>Open the father · the mother (Edit, and on a chart)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Open the previous · next sibling, by birth (Edit)</td></tr>
@@ -3596,6 +3600,7 @@
               <thead><tr><th>Keys</th><th>Action</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Switch chart kind (Tree … Report)</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span> · <span class="gm-key">K</span></td><td>Switch to the fan · timeline · map · relationship</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Ancestors / Descendants</td></tr>
                 <tr><td><span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span></td><td>Compare Tree: confirm / reject / defer the selected pair (while a pair is selected, D defers it instead of showing descendants)</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Zoom in / out</td></tr>

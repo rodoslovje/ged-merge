@@ -156,6 +156,19 @@ describe("relationshipChartLayout", () => {
     expect(chart.rootKey).toBe("@I1@");
   });
 
+  it("hangs a descent straight below the start person, the other parent beside them", () => {
+    // Grandmother @I5@ to her grandson @I8@: her husband @I4@ is the other
+    // parent of their son @I6@, so he stands beside her, off the line.
+    const chart = buildRelationshipChart(ds, bloodPath(ds, "@I5@", "@I8@")!);
+    const box = (id: string) => chart.boxes.find((b) => b.id === id)!;
+    expect(box("@I5@").x).toBe(box("@I6@").x);
+    expect(box("@I6@").x).toBe(box("@I8@").x);
+    expect(box("@I4@").onSpine).toBe(false);
+    expect(box("@I4@").y).toBe(box("@I5@").y);
+    // The son's wife lines up under her father-in-law.
+    expect(box("@I7@").x).toBe(box("@I4@").x);
+  });
+
   it("draws an in-law path with a spouse hop and one couple", () => {
     const chart = buildRelationshipChart(ds, shortestPath(ds, "@I1@", "@I10@")!);
 

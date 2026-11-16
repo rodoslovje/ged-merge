@@ -148,3 +148,32 @@ describe("photos by folder", () => {
     expect(photoFolderCounts(ds)).toEqual(new Map([["photos", 1], ["", 4]]));
   });
 });
+
+describe("the cover photo", () => {
+  const coverOf = (r: ReturnType<typeof site>) => r.tree.photos!.find((p) => p.id === r.tree.cover);
+  const inGalleries = (r: ReturnType<typeof site>, id: string) => r.tree.people.some((p) => p.photos?.some((l) => l.photo === id));
+
+  it("goes in whoever is on it — the author's choice — but as the cover only", () => {
+    const r = site({ cover: "group-with-ana.jpg" });
+    const cover = coverOf(r)!;
+    expect(cover).toMatchObject({ tray: false });
+    expect(r.files.find((f) => f.path === cover.path)?.source).toBe("group-with-ana.jpg");
+    expect(inGalleries(r, cover.id)).toBe(false);
+    expect(r.summary).toMatchObject({ photos: 3, photosWithheld: 2 });
+  });
+
+  it("is an ordinary photo where it could go in anyway, and goes in from a folder left out", () => {
+    const r = site({ cover: "marko-janez.png" });
+    expect(inGalleries(r, r.tree.cover!)).toBe(true);
+    const out = site({ cover: "photos/janez.jpg", photoFolders: { photos: "out" } });
+    expect(coverOf(out)).toBeDefined();
+    expect(inGalleries(out, out.tree.cover!)).toBe(false);
+  });
+
+  it("may be a photo nobody in the file is linked to, and never a document", () => {
+    const r = site({ cover: "landscape.jpg" });
+    expect(r.files.find((f) => f.path === coverOf(r)!.path)?.source).toBe("landscape.jpg");
+    expect(site({ cover: "letter.pdf" }).tree.cover).toBeUndefined();
+    expect(site({ include: { ...defaultPublishOptions("x", "sl").include, photos: false }, cover: "landscape.jpg" }).tree.cover).toBeUndefined();
+  });
+});

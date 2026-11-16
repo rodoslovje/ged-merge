@@ -144,6 +144,39 @@
   margin: 0 0 12px;
 }
 
+/* The cover photo: right of the title and intro, whole, up to 40% of the
+   width; above them on a tablet or phone. */
+.site-hero.has-cover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 40%);
+  gap: 32px;
+  align-items: start;
+}
+.site-hero-text {
+  grid-column: 1;
+  grid-row: 1;
+}
+.site-cover {
+  grid-column: 2;
+  grid-row: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+@media (max-width: 720px) {
+  .site-hero.has-cover {
+    display: block;
+  }
+  .site-cover {
+    margin-bottom: 16px;
+    max-height: 260px;
+  }
+}
+
 .site-intro {
   white-space: pre-line;
   max-width: 65ch;
@@ -155,8 +188,11 @@
 }
 
 .site-search {
-  margin-top: 32px;
+  margin-top: 28px;
   max-width: 640px;
+}
+.site-search .site-start {
+  margin: 10px 0 0;
 }
 
 /* The header's search, opened under the header row on any page: over the gap
@@ -462,6 +498,12 @@
 .site-chart-preview .leaflet-control-container {
   display: none;
 }
+/* Leaflet turns pointer events back on for its pins: off here too, so no pin
+   shows its coordinates over the tile. */
+.site-chart-preview .leaflet-pane .leaflet-interactive,
+.site-chart-preview .leaflet-pane svg path.leaflet-interactive {
+  pointer-events: none;
+}
 
 .site-person-kinship {
   margin: 4px 0 0;
@@ -613,12 +655,16 @@
     width: 100%;
     gap: 6px;
   }
+  /* The tiles share the row, but a lone tile (a living person has only the
+     fan) keeps the size it has beside the others, not the whole width. */
   .site-chart {
     flex: 1 1 0;
     min-width: 0;
+    max-width: 96px;
   }
   .site-chart-map {
     flex: 1.6 1 0;
+    max-width: 160px;
   }
   .site-chart-preview {
     width: 100%;

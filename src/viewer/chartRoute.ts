@@ -22,9 +22,12 @@ const DIRECTED: readonly string[] = ["tree", "fan", "map", "report"];
 const DIRECTIONS: readonly string[] = ["ancestors", "descendants"];
 const KIN_LAYOUTS: readonly string[] = ["surnames", "bars", "map"];
 
-/** The words for a kind's current view, defaults left out. */
-export function chartViewWords(kind: ChartKind, s: ChartViewSettings, direction: ChartDirection): string[] {
+/** The words for a kind's current view, defaults left out. The relationship's
+ *  word is the other person's id (`from`), so a link to it shows the same two
+ *  people to anyone, whatever their own start person. */
+export function chartViewWords(kind: ChartKind, s: ChartViewSettings, direction: ChartDirection, from?: string): string[] {
   const out: string[] = [];
+  if (kind === "relationship" && from) out.push(from);
   if (kind === "tree" && s.treeLayout === "grid") out.push("grid");
   if (kind === "fan" && s.fanShape === "circle") out.push("circle");
   if (kind === "report" && s.reportNarrative) out.push("narrative");
