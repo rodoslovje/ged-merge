@@ -6101,6 +6101,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   color: var(--accent);
   min-width: 3.4em;
 }
+/* Contemporaries: the find box at the top right, as on every chart, and the
+   count under it. */
+.tree-controls-right.kin-controls-right {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
 .kin-count {
   font-size: 13px;
   color: var(--faint);
