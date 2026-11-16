@@ -155,6 +155,18 @@
   outline-offset: 2px;
 }
 
+/* The author's own site: a quiet link out after the three pages, by its
+   address. On a phone the footer carries it instead. */
+.app.site .site-nav .site-home-link {
+  gap: 4px;
+  font-size: 0.8125rem;
+}
+@media (max-width: 560px) {
+  .app.site .site-nav .nav-btn.site-home-link {
+    display: none;
+  }
+}
+
 /* The three pages: quiet until pointed at, the open one a green pill. */
 .app.site .site-nav .nav-btn {
   text-decoration: none;

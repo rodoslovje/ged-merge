@@ -1595,7 +1595,7 @@ export const en = {
   "tools.publish.introText": "A few words for your relatives",
   "tools.publish.introPlaceholder": "Shown on the front page of the website",
   "tools.publish.url": "Website address",
-  "tools.publish.urlHint": "Where you will put the page, or your site that links to it. The website's Home button leads there, and downloaded charts and maps name it instead of gedmerge.com.",
+  "tools.publish.urlHint": "Where you will put the page, or your site that links to it. The website links to it, by its address, in its header and footer, and downloaded charts and maps name it instead of gedmerge.com.",
   "tools.publish.siteUrl": "This website's own address",
   "tools.publish.siteUrlHint": "Where the page itself is, for a shared link's preview — needed when the address above is your site that links to it. Left empty, the address above.",
   "tools.publish.favicon": "Website icon",
