@@ -645,6 +645,22 @@ export function StatsPanel({
 
     return (
       <>
+        {grid.first !== undefined && grid.last !== undefined && card("placeDecades", t("stats.placeDecades"), t("stats.placeDecadesNote", { count: grid.rows.length }), (
+          <DecadeGrid
+            rows={grid.rows.map((r) => ({ key: r.key, label: shortPlace(r.label, home), tip: `${r.label}: ${t("stats.nPeople", { count: r.count })}`, cells: new Map([...r.byDecade].map(([d, ids]) => [d, ids.length])) }))}
+            first={grid.first}
+            last={grid.last}
+            max={grid.max}
+            format={num}
+            decadeLabel={String}
+            picked={pickedIn("placeDecades")}
+            tip={(r, d, n) => `${grid.rows.find((x) => x.key === r.key)!.label} — ${decadeLabel(d)}: ${t("stats.nPeople", { count: n })}`}
+            onPick={(row, d) => {
+              const r = grid.rows.find((x) => x.key === row)!;
+              choose("placeDecades", `${row}:${d}`, `${r.label} — ${decadeLabel(d)}`, r.byDecade.get(d) ?? []);
+            }}
+          />
+        ), true)}
         {card("placeStack", t("stats.placeStack"), t("stats.nPeople", { count: stack.people }), (
           <MultiStackChart
             format={num}
@@ -661,22 +677,6 @@ export function StatsPanel({
               const d = stack.decades.find((x) => String(x.decade) === column)!;
               const p = stack.parts[part];
               choose("placeStack", `${column}:${part}`, `${decadeLabel(d.decade)} — ${partFull(p.key, p.label)}`, d.parts[part]);
-            }}
-          />
-        ), true)}
-        {grid.first !== undefined && grid.last !== undefined && card("placeDecades", t("stats.placeDecades"), t("stats.placeDecadesNote", { count: grid.rows.length }), (
-          <DecadeGrid
-            rows={grid.rows.map((r) => ({ key: r.key, label: shortPlace(r.label, home), tip: `${r.label}: ${t("stats.nPeople", { count: r.count })}`, cells: new Map([...r.byDecade].map(([d, ids]) => [d, ids.length])) }))}
-            first={grid.first}
-            last={grid.last}
-            max={grid.max}
-            format={num}
-            decadeLabel={String}
-            picked={pickedIn("placeDecades")}
-            tip={(r, d, n) => `${grid.rows.find((x) => x.key === r.key)!.label} — ${decadeLabel(d)}: ${t("stats.nPeople", { count: n })}`}
-            onPick={(row, d) => {
-              const r = grid.rows.find((x) => x.key === row)!;
-              choose("placeDecades", `${row}:${d}`, `${r.label} — ${decadeLabel(d)}`, r.byDecade.get(d) ?? []);
             }}
           />
         ), true)}
