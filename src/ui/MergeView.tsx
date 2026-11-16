@@ -283,6 +283,9 @@ export function MergeView({
         if (current!.mainId !== startId) { e.preventDefault(); onShowCharts(current!.mainId, "relationship"); }
         return;
       }
+      // P / L / G: the main person's fan, timeline and map, as in Edit.
+      const lettered = key === KEY.fan ? "fan" : key === KEY.timeline ? "timeline" : key === KEY.map ? "map" : undefined;
+      if (lettered) { e.preventDefault(); onShowCharts(current!.mainId, lettered); return; }
       if (key === KEY.filter) {
         // The filter row lives in the match section, so showing it opens that too.
         e.preventDefault();
