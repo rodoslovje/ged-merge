@@ -52,15 +52,6 @@ async function toolsToTop(d: Director): Promise<void> {
   await d.wait(700);
 }
 
-/** Open a category's rows and give the viewer time to read them. */
-async function openChip(d: Director, label: Text): Promise<void> {
-  await d.click(chip(d, label));
-  await d.wait(600);
-  await d.highlight(d.page.locator(".tools-issues").first(), 6);
-  await d.wait(2200);
-  await d.highlight(null);
-}
-
 /** Ring a row's fix button and click it as the narration ends: the button
  *  is pressed once the narration has said what it does. */
 async function clickFixWhenSaid(d: Director, text: string, secondsBefore = 1.2): Promise<void> {
