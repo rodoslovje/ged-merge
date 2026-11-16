@@ -38,10 +38,15 @@
   gap: 16px;
 }
 
+/* The site's name in GED Merge's own green — a quiet tribute — and bold, the
+   header's anchor on every page. */
 .site-title {
   font-family: var(--font-serif);
-  font-size: 1.35rem;
-  color: var(--text);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--accent);
   text-decoration: none;
   margin-right: auto;
   min-width: 0;
@@ -70,6 +75,14 @@
   gap: 6px;
 }
 
+/* Every header button answers a pointer or the keyboard as the chart tiles do:
+   green border and green text (the app's own only turns the border green). */
+.site-head .nav-btn:hover:not(:disabled),
+.site-head .nav-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .site-nav .nav-btn.active {
   background: var(--panel-2);
   color: var(--text);
@@ -95,7 +108,7 @@
     padding: 0 16px 8px;
   }
   .app.site:not(.tree-shell) > .site-head {
-    padding: 16px 0 0;
+    padding: 16px 0 12px;
   }
   .app.site.tree-shell > .site-foot {
     padding-inline: 16px;
@@ -135,13 +148,19 @@
 .site-foot-brand:hover {
   text-decoration: underline;
 }
+/* GED Merge's mark in its own green, as the site's name is. */
+.site-foot-brand svg {
+  color: var(--accent);
+}
 
 /* ── Front page ─────────────────────────────────────────────── */
 
 .site-hero h1 {
   font-family: var(--font-serif);
-  font-size: 2rem;
-  margin: 0 0 12px;
+  font-size: 2.25rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
 }
 
 /* The cover photo: right of the title and intro, whole, up to 40% of the
@@ -199,6 +218,10 @@
    between the header and the page, which it does not push down. */
 .app-head.site-head {
   position: relative;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  /* The line marks the header off; the page's own top padding is gap enough. */
+  margin-bottom: 0;
 }
 .site-search-pop {
   position: absolute;
@@ -677,4 +700,23 @@
   .site-event dd {
     margin-bottom: 8px;
   }
+}
+
+/* Statistics: the app's panel, in line with the header and the other pages
+   rather than inside the Tools view's own padding. */
+.tools-view.site-stats {
+  padding: 0;
+  max-width: none;
+}
+
+/* A tagged person on a photo, in GED Merge's green: the box, and the name as a
+   green chip under it. (Only on the website: in the app a green dashed box is
+   a face not yet named, which the website never shows.) */
+.photo-crop-box:not(.photo-face-box, .photo-crop-draft) {
+  border: 2px dashed var(--photo-mark);
+}
+.photo-crop-box:not(.photo-face-box, .photo-crop-draft) .photo-crop-name {
+  background: var(--photo-mark);
+  color: var(--photo-mark-ink);
+  font-weight: 600;
 }

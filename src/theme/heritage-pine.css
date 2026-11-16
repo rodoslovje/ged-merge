@@ -25,6 +25,10 @@
   --faint:     #66635e;   /* NEW — tertiary / empty values     */
   --accent:    #60c09e;   /* Heritage Pine                    */
   --accent-ink:#071a13;   /* NEW — text/icon on accent fills   */
+  /* A mark drawn on a photo (the family website's tagged people): the pine
+     that shows on any photo, and the ink of a label filled with it. */
+  --photo-mark:     var(--accent);
+  --photo-mark-ink: var(--accent-ink);
   /* Tinted accent fill (hover rows, soft highlights); adapts to light via --accent. */
   --accent-soft: color-mix(in oklch, var(--accent) 16%, transparent);
   /* Compare-table group headers (Parents, Family with …): a neutral fill set
@@ -143,6 +147,9 @@
   --faint:     #95928d;
   --accent:    #31715b;   /* deeper pine for light bg */
   --accent-ink:#ffffff;
+  /* The photo viewer is dark in either theme: the bright pine, not the deep. */
+  --photo-mark:     #60c09e;
+  --photo-mark-ink: #071a13;
 
   --state-match:    #158353;
   --state-minor:    #aa7323;
