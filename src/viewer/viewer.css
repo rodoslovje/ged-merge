@@ -655,12 +655,16 @@
     width: 100%;
     gap: 6px;
   }
+  /* The tiles share the row, but a lone tile (a living person has only the
+     fan) keeps the size it has beside the others, not the whole width. */
   .site-chart {
     flex: 1 1 0;
     min-width: 0;
+    max-width: 96px;
   }
   .site-chart-map {
     flex: 1.6 1 0;
+    max-width: 160px;
   }
   .site-chart-preview {
     width: 100%;
