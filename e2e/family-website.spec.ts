@@ -104,6 +104,13 @@ test("the family website downloads as one page that works from disk", async ({ p
   // The kind changes in place: one step back is his page again.
   await page.goBack();
   await expect(page.locator(".site-person-name")).toContainText("Franc");
+  // S the statistics; the header's buttons name their keys.
+  await expect(page.locator(".site-nav a", { hasText: "Charts" })).toHaveAttribute("title", "Charts (V)");
+  await expect(page.locator(".site-nav a", { hasText: "Statistics" })).toHaveAttribute("title", "Statistics (S)");
+  await page.keyboard.press("s");
+  await expect(page).toHaveURL(/#\/stats$/);
+  await page.goBack();
+  await expect(page.locator(".site-person-name")).toContainText("Franc");
 
   // The visitor makes Franc their start person — from the start person's chip,
   // as in the app's Edit view: relatives are named from him.

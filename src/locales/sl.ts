@@ -3803,6 +3803,7 @@ export const sl = {
   "shortcuts.site.escape": "Zapri pogovorno okno ali iskanje",
   "shortcuts.site.home": "Odpri izhodiščno osebo",
   "shortcuts.site.charts": "Odpri diagrame osebe",
+  "shortcuts.site.stats": "Odpri statistiko",
   "shortcuts.site.relationship": "Odpri sorodstvo osebe z izhodiščno osebo",
   "shortcuts.site.goParent": "Odpri očeta · mater",
   "shortcuts.site.back": "Nazaj, enako kot gumb Nazaj v brskalniku",

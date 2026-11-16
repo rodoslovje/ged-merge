@@ -3344,6 +3344,7 @@ export const en = {
   "shortcuts.site.escape": "Close a dialog or the search",
   "shortcuts.site.home": "Open the start person",
   "shortcuts.site.charts": "Open the person's charts",
+  "shortcuts.site.stats": "Open the statistics",
   "shortcuts.site.relationship": "Open the person's relationship to the start person",
   "shortcuts.site.goParent": "Open the father · the mother",
   "shortcuts.site.back": "Back, the same step as the browser's Back button",
