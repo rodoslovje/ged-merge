@@ -46,6 +46,7 @@ import { ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { BarList, ColumnChart, PairBarList, StackedColumnChart, StatTile, toneClass, type BarRow, type Column, type PairRow, type StackedColumn, type StackTone, type Tone } from "./StatsCharts";
 import type { ToolView } from "../ToolsView";
+import { usePublishedView } from "../PublishedView";
 
 /** The statistics pages; the overview is the tool's front page. */
 const PAGES = ["tree", "names", "lifespan", "families", "births", "deaths", "occupations", "migration", "generations", "research"] as const;
@@ -156,7 +157,8 @@ export function StatsPanel({
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   // A return with the file unchanged has its rows already: no loading pass.
   const [ready, setReady] = useState(() => cachedFacts(dataset, editVersion, home) !== undefined);
-  const page: Page = (PAGES as readonly string[]).includes(view) ? (view as Page) : "tree";
+  const published = usePublishedView();
+  const page: Page = (PAGES as readonly string[]).includes(view) && !(published && view === "research") ? (view as Page) : "tree";
 
   useEffect(() => {
     if (!active || ready) return;
@@ -611,7 +613,7 @@ export function StatsPanel({
           label={t("stats.pages")}
           value={page}
           onChange={(p) => onViewChange(p)}
-          items={PAGES.map((p) => ({ key: p, label: t(`stats.page.${p}`) }))}
+          items={(published ? PAGES.filter((p) => p !== "research") : PAGES).map((p) => ({ key: p, label: t(`stats.page.${p}`) }))}
         />
         {/* The line and whose line it is stay side by side; the count and the
             filter toggle wrap away first. */}
@@ -727,8 +729,9 @@ export function StatsPanel({
               <StatTile label={t("stats.givenNames")} value={num(ov.givenNames)} />
               <StatTile label={t("stats.countries")} value={num(ov.countries)} />
               <StatTile label={t("stats.placesNamed")} value={num(ov.places)} />
-              <StatTile label={t("stats.sourcesCited")} value={num(ov.sources)} />
-              <StatTile label={t("stats.mediaLinked")} value={num(ov.media)} />
+              {/* The family website publishes no sources or media. */}
+              {!published && <StatTile label={t("stats.sourcesCited")} value={num(ov.sources)} />}
+              {!published && <StatTile label={t("stats.mediaLinked")} value={num(ov.media)} />}
               {scope.sex !== "F" && ov.oldestMale && (
                 <StatTile tone="male" label={t("stats.oldestMale")} value={t("stats.years", { count: ov.oldestMale.age })} sub={<NameLink dataset={dataset} id={ov.oldestMale.id} onNavigate={onNavigate} />} />
               )}

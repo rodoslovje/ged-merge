@@ -12,6 +12,7 @@ import { DuplicatesPanel, type RelatedMerge } from "./tools/DuplicatesPanel";
 import type { ClusterRelativeGroup } from "../tools/mergeCluster";
 import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
+import { PublishPanel } from "./tools/PublishPanel";
 import { StatsPanel } from "./tools/StatsPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import type { AddSourceResult } from "./AddSourceDialog";
@@ -29,7 +30,7 @@ import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
-export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places" | "stats";
+export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "publish" | "sources" | "places" | "stats";
 
 /**
  * The page open inside a tool that has more than one — every one of them a
@@ -46,7 +47,7 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  */
 export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations" | "migration" | "generations" | "research";
 
-const TOOLS: Tool[] = ["stats", "places", "sources", "duplicates", "validate", "normalize", "privacy"];
+const TOOLS: Tool[] = ["stats", "places", "sources", "duplicates", "validate", "normalize", "privacy", "publish"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
@@ -247,6 +248,9 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
+        )}
+        {tool === "publish" && (
+          <PublishPanel dataset={dataset} fileName={fileName} startId={startId} editVersion={editVersion} active={active} />
         )}
         {tool === "stats" && (
           <StatsPanel dataset={dataset} fileName={fileName} editVersion={editVersion} onNavigate={onNavigate} onOpenRelationship={onOpenRelationship} active={active} startId={startId} view={view} onViewChange={onViewChange} />

@@ -1,0 +1,201 @@
+/* The published family website (src/viewer/): the app's own theme and
+   components, plus this page frame — a header with the site's title, its three
+   pages and the language switch, and the front page / person page bodies. */
+
+/* The front, person and statistics pages scroll as a page; the charts keep
+   the app's full-height shell, which their canvas sizes itself in. */
+.app.site:not(.tree-shell) {
+  height: auto;
+  min-height: 100%;
+  max-width: 1100px;
+  overflow: visible;
+}
+
+.site-head .app-head-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.site-title {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: auto;
+}
+
+.site-nav,
+.site-lang {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.site-nav .nav-btn,
+.site-lang .nav-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-nav .nav-btn.active,
+.site-lang .nav-btn.active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.site-main {
+  flex: 1 0 auto;
+  padding: 24px 0;
+}
+
+.site-foot {
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 16px 0 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Front page ─────────────────────────────────────────────── */
+
+.site-hero h1 {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  margin: 0 0 12px;
+}
+
+.site-intro {
+  white-space: pre-line;
+  max-width: 65ch;
+  line-height: 1.6;
+}
+
+.site-counts,
+.site-search-count {
+  color: var(--muted);
+}
+
+.site-search {
+  margin-top: 32px;
+  max-width: 640px;
+}
+
+.site-search-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.site-search-input {
+  font-size: 1rem;
+  padding: 8px 12px;
+}
+
+.site-person-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Person page ────────────────────────────────────────────── */
+
+.site-person {
+  max-width: 760px;
+}
+
+.site-person-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.site-person-name {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  margin: 0;
+}
+
+.site-person-years {
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.site-charts-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-note {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.site-events {
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+}
+
+.site-event {
+  display: contents;
+}
+
+.site-event dt {
+  color: var(--muted);
+}
+
+.site-event dd {
+  margin: 0;
+}
+
+.site-event-cause {
+  color: var(--muted);
+}
+
+.site-section {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.site-section h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.site-section h4 {
+  margin: 12px 0 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.site-partner {
+  margin: 0 0 8px;
+}
+
+@media (max-width: 560px) {
+  .site-head .app-head-top {
+    gap: 8px;
+  }
+  .site-title {
+    width: 100%;
+  }
+  .site-events {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .site-event dd {
+    margin-bottom: 8px;
+  }
+}
