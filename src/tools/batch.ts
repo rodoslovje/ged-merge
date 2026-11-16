@@ -77,8 +77,10 @@ export type BatchCriterion =
    *  event is recorded without a date (a union without the event at all is
    *  `lacks`'s question), `estimated` one whose event is dated
    *  only by an estimate (ABT, CAL, EST, BEF, AFT, BET) — both look at each
-   *  union on its own, and people with no union match neither. */
-  | { kind: "familyEvent"; tag: string; mode: FamilyEventMode }
+   *  union on its own, and people with no union match neither. A non-empty
+   *  `text` narrows the events to those whose name (`TYPE`) or value contains
+   *  it — `has EVEN "Partners"` finds the unions a custom event calls partners. */
+  | { kind: "familyEvent"; tag: string; mode: FamilyEventMode; text?: string }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
   /** Presence of a close relative in the file: a partner in some union (a
@@ -142,7 +144,7 @@ export interface BatchRow extends SearchRow {
   sourcedEventTags: string[];
   /** Per union, its events with how they are dated — for the `undated` and
    *  `estimated` family-event tests, which judge each union on its own. */
-  unionEvents: { tag: string; dated: boolean; estimated: boolean }[][];
+  unionEvents: { tag: string; dated: boolean; estimated: boolean; text: string }[][];
   /** Folded given names / surnames across every name form, for scoped matching. */
   givenText: string;
   surnameText: string;
@@ -222,7 +224,12 @@ export function buildBatchRows(
       familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
       sourcedEventTags: [...new Set([indi.raw, ...unions.map((f) => f.raw)].flatMap(citingEventTags))],
       unionEvents: unions.map((f) =>
-        f.events.map((e) => ({ tag: e.tag, dated: e.date?.year !== undefined, estimated: isEstimatedDate(e.date) })),
+        f.events.map((e) => ({
+          tag: e.tag,
+          dated: e.date?.year !== undefined,
+          estimated: isEstimatedDate(e.date),
+          text: foldSearch([e.type, e.value].filter(Boolean).join(" ")),
+        })),
       ),
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
       surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
@@ -374,18 +381,19 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         break;
       }
       case "familyEvent": {
+        const terms = foldSearch(c.text ?? "").split(/\s+/).filter(Boolean);
+        const of = (events: BatchRow["unionEvents"][number]) =>
+          events.filter(
+            (e) => (c.tag === ANY_EVENT || e.tag === c.tag) && terms.every((t) => e.text.includes(t)),
+          );
         if (c.mode === "undated" || c.mode === "estimated") {
-          const of = (events: BatchRow["unionEvents"][number]) =>
-            events.filter((e) => c.tag === ANY_EVENT || e.tag === c.tag);
           const ok = c.mode === "undated"
             ? row.unionEvents.some((u) => of(u).length > 0 && !of(u).some((e) => e.dated))
             : row.unionEvents.some((u) => of(u).some((e) => e.estimated));
           if (!ok) return false;
           break;
         }
-        const has = c.tag === ANY_EVENT
-          ? row.familyEventTags.length > 0
-          : row.familyEventTags.includes(c.tag);
+        const has = row.unionEvents.some((u) => of(u).length > 0);
         if (c.mode === "has" ? !has : has) return false;
         break;
       }

@@ -1078,6 +1078,7 @@ export const sl = {
   "tools.batch.event.any": "kateri koli dogodek",
   "tools.batch.event.undated": "nima datuma",
   "tools.batch.event.estimated": "ima ocenjen datum",
+  "tools.batch.eventTextPlaceholder": "Naziv vsebuje… (npr. Partners)",
   "tools.batch.typePlaceholder": "Naziv dogodka…",
   "tools.batch.kinship.ancestor": "neposredni prednik",
   "tools.batch.kinship.descendant": "potomec",

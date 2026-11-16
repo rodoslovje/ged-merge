@@ -625,6 +625,26 @@ describe("addMarriedName across unions", () => {
     expect(match([{ kind: "familyEvent", tag: "MARR", mode: "has" }])).toEqual(["@M1@", "@M2@", "@W1@"]);
   });
 
+  it("narrows a union's custom event by its name", () => {
+    const ds = dataset(FILE.replace("1 _MSTAT Partners", "1 EVEN\n2 TYPE Separation"));
+    const rows = buildBatchRows(ds, nameOf);
+    const match = (c: BatchCriterion[]) =>
+      rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null, fullText: () => "" })).map((r) => r.id).sort();
+    expect(match([{ kind: "familyEvent", tag: "EVEN", mode: "has", text: "separ" }])).toEqual(["@M4@", "@W3@"]);
+    expect(match([{ kind: "familyEvent", tag: "EVEN", mode: "has", text: "Partners" }])).toEqual([]);
+    expect(match([
+      { kind: "relation", rel: "spouse", mode: "has" },
+      { kind: "familyEvent", tag: "EVEN", mode: "lacks", text: "Separation" },
+    ])).not.toContain("@W3@");
+    // Any event: the name also reads a vendor tag's value (`_MSTAT Partners`).
+    const any = buildBatchRows(dataset(FILE), nameOf).filter((r) =>
+      matchesBatch(r, [{ kind: "familyEvent", tag: ANY_EVENT, mode: "has", text: "partners" }], {
+        lineSides: null, kinship: null, fullText: () => "",
+      }),
+    ).map((r) => r.id).sort();
+    expect(any).toEqual(["@M4@", "@W3@"]);
+  });
+
   it("counts a divorce and Brother's Keeper's flags as evidence either way", () => {
     const divorced = dataset(FILE.replace("1 _MSTAT Partners", "1 DIV\n2 DATE 1899"));
     expect(unionMarriage(divorced.families.get("@FD@")!)).toBe("married");

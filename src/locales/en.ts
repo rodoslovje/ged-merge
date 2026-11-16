@@ -923,6 +923,7 @@ export const en = {
   "tools.batch.event.any": "any event at all",
   "tools.batch.event.undated": "has no date for",
   "tools.batch.event.estimated": "has an estimated date for",
+  "tools.batch.eventTextPlaceholder": "Name contains… (e.g. Partners)",
   "tools.batch.typePlaceholder": "Event name…",
   "tools.batch.kinship.ancestor": "direct ancestor",
   "tools.batch.kinship.descendant": "descendant",

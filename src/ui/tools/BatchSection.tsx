@@ -168,9 +168,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     [eventOptions, familyVendorOptions],
   );
   /** Tags offered by the family-event filter: marriage always (the point of the
-   *  filter is finding unions without it) plus whatever the file's unions use. */
+   *  filter is finding unions without it), the custom event (narrowed by its
+   *  name in a text field) plus whatever the file's unions use. */
   const familyEventOptions = useMemo(() => {
-    const present = new Set<string>(["MARR"]);
+    const present = new Set<string>(["MARR", "EVEN"]);
     for (const r of rows) for (const tag of r.familyEventTags) present.add(tag);
     return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
@@ -772,6 +773,14 @@ function CriterionRow({
               { value: ANY_EVENT, label: t("tools.batch.event.any") },
             ]}
           />
+          {(c.tag === "EVEN" || c.tag === ANY_EVENT) && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.eventTextPlaceholder")}
+              value={c.text ?? ""}
+              onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+            />
+          )}
         </>
       )}
       {c.kind === "kinship" && (
