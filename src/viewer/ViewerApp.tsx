@@ -493,49 +493,50 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
     <div className="site-home">
       {/* A row of faces from the family's photos, each opening that person. */}
       <PhotoTray tree={tree} ds={ds} onNavigate={onNavigate} />
-      {/* The title and the author's words, and the cover photo beside them. */}
+      {/* The title, the author's words and the search, and the cover photo beside them. */}
       <section className={`site-hero${coverPath ? " has-cover" : ""}`}>
         {coverPath && <img className="site-cover" src={coverPath} alt="" />}
         <div className="site-hero-text">
           <h1>{tree.title || t("site.untitled")}</h1>
           {intro && <p className="site-intro">{intro}</p>}
+          {/* The search under the words, beside the cover photo. */}
+          <section className="site-search">
+            <label className="site-search-label" htmlFor="site-search">{t("site.search.label")}</label>
+            <input
+              id="site-search"
+              ref={searchRef}
+              type="search"
+              className="tools-search-input site-search-input"
+              value={query}
+              placeholder={t("site.search.placeholder")}
+              onChange={(e) => setQuery(e.target.value)}
+              autoComplete="off"
+            />
+            {/* The search first; the start person is the other way in. */}
+            {startId && ds.individuals.has(startId) && (
+              <p className="site-start">
+                {t("site.start")}{" "}
+                <PersonLink dataset={ds} id={startId} fallback={startId} onNavigate={onNavigate} />
+              </p>
+            )}
+            {query.trim() && (
+              <>
+                <p className="site-search-count">
+                  {results.length > SEARCH_LIMIT
+                    ? t("site.search.more", { shown: SEARCH_LIMIT, count: results.length })
+                    : t("site.search.count", { count: results.length })}
+                </p>
+                <ul className="site-person-list">
+                  {results.slice(0, SEARCH_LIMIT).map((indi) => (
+                    <li key={indi.id}>
+                      <KinLink ds={ds} id={indi.id} kin={kin} onNavigate={onNavigate} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
         </div>
-      </section>
-      <section className="site-search">
-        <label className="site-search-label" htmlFor="site-search">{t("site.search.label")}</label>
-        <input
-          id="site-search"
-          ref={searchRef}
-          type="search"
-          className="tools-search-input site-search-input"
-          value={query}
-          placeholder={t("site.search.placeholder")}
-          onChange={(e) => setQuery(e.target.value)}
-          autoComplete="off"
-        />
-        {/* The search first; the start person is the other way in. */}
-        {startId && ds.individuals.has(startId) && (
-          <p className="site-start">
-            {t("site.start")}{" "}
-            <PersonLink dataset={ds} id={startId} fallback={startId} onNavigate={onNavigate} />
-          </p>
-        )}
-        {query.trim() && (
-          <>
-            <p className="site-search-count">
-              {results.length > SEARCH_LIMIT
-                ? t("site.search.more", { shown: SEARCH_LIMIT, count: results.length })
-                : t("site.search.count", { count: results.length })}
-            </p>
-            <ul className="site-person-list">
-              {results.slice(0, SEARCH_LIMIT).map((indi) => (
-                <li key={indi.id}>
-                  <KinLink ds={ds} id={indi.id} kin={kin} onNavigate={onNavigate} />
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
       </section>
       <Highlights ds={ds} onNavigate={onNavigate} onSurname={searchSurname} />
     </div>
