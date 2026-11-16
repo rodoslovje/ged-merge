@@ -1,5 +1,6 @@
 import type { PublishedTree } from "./model";
 import { PUBLISHED_FORMAT } from "./model";
+import { packTree } from "./pack";
 import FAVICON_SVG from "../ui/icons/favicon.svg?raw";
 
 /** The family website's viewer, built once into one script and one stylesheet
@@ -124,7 +125,7 @@ export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle, meta?: 
     tree,
     meta,
     `<style>${inlineSafe(bundle.css, "style")}</style>`,
-    `<script type="application/json" id="${DATA_ELEMENT_ID}">${scriptSafeJson(tree)}</script>
+    `<script type="application/json" id="${DATA_ELEMENT_ID}">${scriptSafeJson(packTree(tree))}</script>
 <script>${inlineSafe(bundle.js, "script")}</script>`,
   );
 }
@@ -171,7 +172,9 @@ function contentHash(text: string): string {
 
 export interface SiteFile {
   name: string;
-  text: string;
+  /** A text file's content, or a binary one's (a font). */
+  text?: string;
+  data?: Uint8Array;
   /** Named after its content: the same name is the same file, whatever the
    *  export, so it may carry a fixed time (an unchanged copy then stays
    *  unchanged for rsync and a browser's cache). */
@@ -189,15 +192,45 @@ export function publishedSiteFiles(tree: PublishedTree, bundle: ViewerBundle, me
   const hash = contentHash(bundle.js + bundle.css);
   const js = `viewer-${hash}.js`;
   const css = `viewer-${hash}.css`;
+  const { css: style, fonts } = fontFiles(bundle.css);
   return [
     {
       name: "index.html",
       text: pageShell(tree, meta, `<link rel="stylesheet" href="${css}">`, `<script src="${DATA_FILE}"></script>\n<script src="${js}"></script>`),
     },
-    { name: DATA_FILE, text: `window.${DATA_GLOBAL}=${scriptSafeJson(tree)};\n` },
+    { name: DATA_FILE, text: `window.${DATA_GLOBAL}=${scriptSafeJson(packTree(tree))};\n` },
     { name: js, text: bundle.js, stable: true },
-    { name: css, text: bundle.css, stable: true },
+    { name: css, text: style, stable: true },
+    ...fonts.map((f) => ({ ...f, stable: true as const })),
   ];
+}
+
+/** The bytes of a base64 text. */
+function fromBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
+ * The stylesheet with its fonts as files beside it (`fonts/<hash>.woff2`)
+ * rather than inline: a browser then fetches only the faces and character
+ * ranges a page uses (the Latin ones for Slovenian or English), not every
+ * alphabet of every weight, and without base64's third more. Named by
+ * content, they cache like the viewer's files. Other inline images stay.
+ */
+export function fontFiles(css: string): { css: string; fonts: { name: string; data: Uint8Array }[] } {
+  const fonts = new Map<string, { name: string; data: Uint8Array }>();
+  const out = css.replace(/url\((["']?)data:font\/([a-z0-9]+);base64,([A-Za-z0-9+/=]+)\1\)/g, (_m, _q, ext: string, b64: string) => {
+    let font = fonts.get(b64);
+    if (!font) {
+      font = { name: `fonts/${contentHash(b64)}.${ext}`, data: fromBase64(b64) };
+      fonts.set(b64, font);
+    }
+    return `url(${font.name})`;
+  });
+  return { css: out, fonts: [...fonts.values()] };
 }
 
 /** A file name for the site: the title, slugged. */

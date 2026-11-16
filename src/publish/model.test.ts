@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, iconAddress, type PublishOptions } from "./model";
 import { hydrateTree, pubId } from "./hydrate";
-import { inlineSafe, publishedHtml, publishedSiteFiles, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
+import { fontFiles, inlineSafe, publishedHtml, publishedSiteFiles, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -465,12 +465,26 @@ describe("publishedHtml", () => {
     expect(index.text).toContain(`<link rel="stylesheet" href="${css.name}">`);
     expect(index.text).toContain(`<script src="data.js"></script>\n<script src="${js.name}"></script>`);
     expect(index.text).not.toContain("console.log");
-    expect(index.text.length).toBeLessThan(5000);
+    expect(index.text!.length).toBeLessThan(5000);
     expect(data.text).toMatch(/^window\.gedmergeSite=\{/);
-    expect(JSON.parse(data.text.replace(/^window\.gedmergeSite=|;\n$/g, "")).title).toBe("Rodbina");
+    expect(JSON.parse(data.text!.replace(/^window\.gedmergeSite=|;\n$/g, "")).title).toBe("Rodbina");
     // Only the viewer's files are stable, and their name follows their content.
     expect(files.map((f) => !!f.stable)).toEqual([false, false, true, true]);
     expect(publishedSiteFiles(tree, { ...bundle, js: "console.log(2)" })[2].name).not.toBe(js.name);
+  });
+
+  it("puts the stylesheet's fonts beside it as files, once each, and leaves other images inline", () => {
+    const woff = btoa("wOF2-font-bytes");
+    const css = `@font-face{src:url(data:font/woff2;base64,${woff})format("woff2")}@font-face{src:url("data:font/woff2;base64,${woff}")}.x{background:url(data:image/png;base64,iVBOR)}`;
+    const { css: out, fonts } = fontFiles(css);
+    expect(fonts).toHaveLength(1);
+    expect(fonts[0].name).toMatch(/^fonts\/[0-9a-f]{8}\.woff2$/);
+    expect(new TextDecoder().decode(fonts[0].data)).toBe("wOF2-font-bytes");
+    expect(out).toBe(`@font-face{src:url(${fonts[0].name})format("woff2")}@font-face{src:url(${fonts[0].name})}.x{background:url(data:image/png;base64,iVBOR)}`);
+    // In the site's files, as stable binaries after the stylesheet.
+    const files = publishedSiteFiles(build({}).tree, { js: "", css });
+    expect(files.map((f) => f.name.replace(/[0-9a-f]{8}/, "H"))).toEqual(["index.html", "data.js", "viewer-H.js", "viewer-H.css", "fonts/H.woff2"]);
+    expect(files[4]).toMatchObject({ stable: true });
   });
 
   it("escapes helpers", () => {

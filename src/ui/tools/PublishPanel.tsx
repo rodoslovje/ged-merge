@@ -205,7 +205,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
         const enc = new TextEncoder();
         const site = publishedSiteFiles(tree, bundle, meta).map((f) => ({
           name: f.name,
-          data: enc.encode(f.text),
+          data: f.data ?? enc.encode(f.text ?? ""),
           ...(f.stable ? { modified: STABLE_TIME } : {}),
         }));
         const zip = zipFiles([...site, ...photos]);
