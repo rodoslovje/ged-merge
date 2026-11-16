@@ -435,25 +435,28 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     );
   } else if (route.page === "stats") {
     body = (
-      <div className="tools-view site-stats">
-        <div className="tools-panel">
-          <StatsPanel
-            dataset={ds}
-            editVersion={0}
-            onNavigate={openPerson}
-            onOpenRelationship={(from, to) => {
-              // Straight to the address that names them both.
-              setRelationFrom(from);
-              go({ page: "charts", id: pubId(to), kind: "relationship", view: [pubId(from)] });
-            }}
-            fileName={tree.title || "family-tree"}
-            active
-            startId={startXref}
-            view={(route.view ?? "tree") as ToolView}
-            onViewChange={(view) => go({ page: "stats", view })}
-          />
+      <>
+        <h1 className="site-page-title">{t("site.nav.stats")}</h1>
+        <div className="tools-view site-stats">
+          <div className="tools-panel">
+            <StatsPanel
+              dataset={ds}
+              editVersion={0}
+              onNavigate={openPerson}
+              onOpenRelationship={(from, to) => {
+                // Straight to the address that names them both.
+                setRelationFrom(from);
+                go({ page: "charts", id: pubId(to), kind: "relationship", view: [pubId(from)] });
+              }}
+              fileName={tree.title || "family-tree"}
+              active
+              startId={startXref}
+              view={(route.view ?? "tree") as ToolView}
+              onViewChange={(view) => go({ page: "stats", view })}
+            />
+          </div>
         </div>
-      </div>
+      </>
     );
   } else {
     body = <HomePage tree={tree} ds={ds} startId={startXref} kin={kin} onNavigate={openPerson} />;

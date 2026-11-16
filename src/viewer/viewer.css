@@ -18,12 +18,19 @@
 
 /* One type ramp for the site's own headings: the page's title, a section's
    heading, and the small uppercase label over a block. */
-.site-page-title,
 .site-highlights h2 {
   font-family: var(--font-serif);
   font-size: 1.5rem;
   font-weight: 500;
   line-height: 1.2;
+}
+/* A page's own title (the statistics), at the person name's size. */
+.site-page-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.15;
+  margin: 0 0 16px;
 }
 .site-highlights h3,
 .site-section h3,
