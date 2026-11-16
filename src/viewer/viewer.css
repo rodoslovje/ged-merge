@@ -429,7 +429,35 @@
 /* ── Highlights on the front page ───────────────────────────── */
 
 .site-highlights {
-  margin-top: 40px;
+  margin-top: 56px;
+}
+/* The three numbers that size the tree up, large and in the serif; the rest
+   compact tiles in an even grid. Nothing on the site below 0.8125rem. */
+.app.site .site-tiles-primary .stats-tile-value {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  line-height: 1.1;
+}
+.app.site .site-tiles-secondary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  margin-top: 10px;
+}
+.app.site .site-tiles-secondary .stats-tile {
+  min-width: 0;
+  padding: 6px 10px;
+}
+.app.site .site-tiles-secondary .stats-tile-value {
+  font-size: 1.125rem;
+}
+.app.site .stats-tile-label,
+.app.site .stats-tile-sub {
+  font-size: 0.8125rem;
+}
+@media (max-width: 560px) {
+  .app.site .site-tiles-secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .site-highlights h2 {
   margin: 0 0 12px;
@@ -449,7 +477,10 @@
   gap: 6px;
 }
 .site-chip {
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 14px;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
@@ -460,36 +491,67 @@
 }
 .site-chip:hover,
 .site-chip:focus-visible {
+  background: var(--accent-soft);
   border-color: var(--accent);
 }
+.site-chip-count {
+  padding-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+/* This week in past years: a row per event — its date, its mark, what it
+   was, who — with a hairline between rows. */
 .site-week-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 .site-week-list li {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 12ch 1.25em max-content minmax(0, 1fr);
   align-items: baseline;
-  gap: 4px 10px;
+  gap: 0 10px;
+  padding: 6px 0;
+}
+.site-week-list li + li {
+  border-top: 1px solid var(--border);
 }
 .site-week-date {
-  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
-  min-width: 12ch;
+  color: var(--muted);
+}
+.site-week-glyph {
+  color: var(--muted);
+  text-align: center;
 }
 .site-week-what {
   color: var(--muted);
 }
-.site-more {
+@media (max-width: 560px) {
+  .site-week-list li {
+    grid-template-columns: 1.25em max-content minmax(0, 1fr);
+  }
+  .site-week-date {
+    grid-column: 1 / -1;
+  }
+}
+/* More statistics: a quiet pill button. */
+.app.site .site-more {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: 16px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-pill);
   text-decoration: none;
+}
+.app.site .site-more:hover {
+  background: var(--panel-2);
+  border-color: var(--border-2);
 }
 
 .site-search-label {

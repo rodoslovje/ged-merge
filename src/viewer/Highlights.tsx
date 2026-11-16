@@ -7,7 +7,7 @@ import { overview } from "../stats/aggregate";
 import { StatTile } from "../ui/tools/StatsCharts";
 import { PersonLink } from "../ui/PersonLink";
 import { displayDate } from "../gedcom/dateDisplay";
-import { eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
+import { eventDisplayLabel, eventGlyph, familyEventLabel } from "../gedcom/eventTags";
 import { onThisWeek } from "./anniversaries";
 import { useSettingsSlice } from "../ui/SettingsContext";
 import { StatsIcon } from "../ui/icons/StatsIcon";
@@ -49,10 +49,13 @@ export function Highlights({ ds, onNavigate, onSurname }: {
   return (
     <section className="site-highlights">
       <h2>{t("site.home.highlights")}</h2>
-      <div className="stats-tiles">
+      {/* The three numbers that size the tree up, large; the rest compact. */}
+      <div className="stats-tiles site-tiles-primary">
         <StatTile label={t("stats.people")} value={num(ov.people)} />
         <StatTile label={t("stats.families")} value={num(ov.families)} />
         {ov.firstBirth && ov.lastBirth && <StatTile label={t("stats.births")} value={`${ov.firstBirth.year}–${ov.lastBirth.year}`} />}
+      </div>
+      <div className="stats-tiles site-tiles-secondary">
         <StatTile label={t("stats.surnames")} value={num(ov.surnames)} />
         <StatTile label={t("stats.placesNamed")} value={num(ov.places)} />
         {ov.oldestMale && <StatTile tone="male" label={t("stats.oldestMale")} value={t("stats.years", { count: ov.oldestMale.age })} sub={person(ov.oldestMale.id)} />}
@@ -66,7 +69,7 @@ export function Highlights({ ds, onNavigate, onSurname }: {
           <div className="site-chips">
             {ov.topSurnames.map((b) => (
               <button key={b.key} type="button" className="site-chip" onClick={() => onSurname(b.label ?? b.key)}>
-                {b.label} <span className="muted">{num(b.count)}</span>
+                {b.label}<span className="site-chip-count">{num(b.count)}</span>
               </button>
             ))}
           </div>
@@ -80,6 +83,7 @@ export function Highlights({ ds, onNavigate, onSurname }: {
             {week.map((a, i) => (
               <li key={i}>
                 <span className="site-week-date">{displayDate(a.event.date as GedDate)}</span>
+                <span className="site-week-glyph" aria-hidden="true">{eventGlyph(a.event.tag)}</span>
                 <span className="site-week-what">{label(a.event, a.family, t)}</span>
                 {a.family ? couple(a.id) : person(a.id)}
               </li>
