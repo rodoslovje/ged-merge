@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, Individual } from "../gedcom/types";
 import { DEFAULT_SITE_DISPLAY, type PubFamily, type PubPerson, type PubSource, type PublishedTree, type PubEvent } from "../publish/model";
@@ -31,6 +31,10 @@ import { useTheme } from "../ui/useTheme";
 import { nameMatches, parseRoute, routeHash, startRoute, type Route } from "./route";
 import { chartViewOf, chartViewWords } from "./chartRoute";
 import { Highlights } from "./Highlights";
+import { PersonCharts } from "./PersonCharts";
+import { MapIcon } from "../ui/icons/MapIcon";
+
+const MiniPlaceMap = lazy(() => import("../ui/map/MiniPlaceMap"));
 import type { ChartDirection } from "../chart/treeLayout";
 
 /** Search results listed at most; the reader narrows the query for more. */
@@ -307,7 +311,6 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
         startId={startXref}
         onStartChange={chooseStart}
         onNavigate={openPerson}
-        onCharts={() => openCharts(id)}
       />
     );
   } else if (route.page === "stats") {
@@ -439,7 +442,11 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
 
 /** One source citation: the source, the cited page, linked where it can be. */
 function SourceLine({ s }: { s: PubSource }) {
-  const text = [s.title, s.page].filter(Boolean).join(", ") || s.url;
+  const { t } = useTranslation();
+  // A bare number is named a page; a page the file already words ("fol. 3",
+  // "Str. 12") stays as written.
+  const page = s.page && (/^\d/.test(s.page) ? t("site.person.page", { page: s.page }) : s.page);
+  const text = [s.title, page].filter(Boolean).join(", ") || s.url;
   return s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer">{text}</a> : <>{text}</>;
 }
 
@@ -470,6 +477,8 @@ function EventRows({ events, family }: { events: PubEvent[] | undefined; family?
   const { t, i18n } = useTranslation();
   // Re-drawn when the date display is set (the site sets it as it opens).
   useSettingsSlice(DATE_KEYS);
+  // The event whose place is shown on a small map under it, if any.
+  const [mapped, setMapped] = useState<number | null>(null);
   if (!events?.length) return null;
   return (
     <dl className="site-events">
@@ -477,13 +486,39 @@ function EventRows({ events, family }: { events: PubEvent[] | undefined; family?
         const label = (e.tag === "EVEN" || e.tag === "FACT") && e.type
           ? customEventLabel(e.type, t, i18n.language)
           : family ? familyEventLabel(e.tag, t) : eventDisplayLabel(e.tag, t);
-        const parts = [e.value, e.date && displayDateText(e.date), e.address, e.place].filter(Boolean);
+        const text = [e.value, e.date && displayDateText(e.date)].filter(Boolean);
+        const where = [e.address, e.place].filter(Boolean).join(", ");
+        const coord = e.lat !== undefined && e.lon !== undefined ? { lat: e.lat, lon: e.lon } : undefined;
         return (
           <div key={i} className="site-event">
             <dt>{label}</dt>
             <dd>
-              {parts.join(", ")}
+              {text.join(", ")}
+              {text.length > 0 && where && ", "}
+              {/* A place with a coordinate opens it on a small map, in place. */}
+              {where && coord ? (
+                <button
+                  type="button"
+                  className="tools-issue-link site-place-link"
+                  aria-expanded={mapped === i}
+                  title={t("site.person.showOnMap")}
+                  onClick={() => setMapped(mapped === i ? null : i)}
+                >
+                  <MapIcon size={13} /> {where}
+                </button>
+              ) : where}
               {e.cause && <span className="site-event-cause"> ({e.cause})</span>}
+              {mapped === i && coord && (
+                <span className="site-event-map">
+                  <Suspense fallback={null}>
+                    <MiniPlaceMap
+                      pins={[{ coord, label: e.place ?? where, ...(e.address ? { sub: e.address } : {}), kind: "chosen" }]}
+                      fitKey={`${i}:${coord.lat}:${coord.lon}`}
+                      fitMaxZoom={e.address ? 16 : 13}
+                    />
+                  </Suspense>
+                </span>
+              )}
               {e.notes?.map((n, j) => <span key={j} className="site-event-note">{n}</span>)}
               {e.sources?.map((s, j) => (
                 <span key={j} className="site-event-source">
@@ -498,7 +533,7 @@ function EventRows({ events, family }: { events: PubEvent[] | undefined; family?
   );
 }
 
-function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate, onCharts }: {
+function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
   ds: Dataset;
   /** The published records, by dataset id: what the page shows of each. */
   pub: PubIndex;
@@ -508,7 +543,6 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate, onCh
   /** Pick the start person; undefined goes back to the author's. */
   onStartChange: (id: string | undefined) => void;
   onNavigate: (id: string) => void;
-  onCharts: () => void;
 }) {
   const { t } = useTranslation();
   const nameOf = useNameOf();
@@ -525,33 +559,41 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate, onCh
 
   return (
     <article className="site-person">
+      {/* Who they are on the left — name, years, kinship — and their charts
+          on the right. */}
       <header className="site-person-head">
-        <h2 className={`site-person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</h2>
-        <span className="site-person-years">
-          <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
-        </span>
-        <div className="site-person-actions">
-          <button className="nav-btn site-charts-btn" onClick={onCharts}>
-            <ChartIcon size={16} /> {t("site.person.charts")}
-          </button>
+        <div className="site-person-id">
+          <div className="site-person-title">
+            <h2 className={`site-person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</h2>
+            <span className="site-person-years">
+              <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
+            </span>
+          </div>
+          {/* The start person's control, as in the app's Edit view: the kinship
+              label itself opens the menu (go to the start person, make this one
+              the start, choose another), a bare ⌂ where there is no label. */}
+          <div className="site-person-kinship">
+            <StartPersonChip
+              t={t}
+              personId={id}
+              startId={startId}
+              startName={startIndi ? nameOf(startIndi) : undefined}
+              kinship={kin?.label(id)}
+              kinshipLineage={lineageClass(kin?.lineage(id), kin?.direct(id))}
+              individuals={ds.individuals}
+              onChange={onStartChange}
+              onGoToStart={() => startId && onNavigate(startId)}
+            />
+          </div>
         </div>
-      </header>
-      {/* The start person's control, as in the app's Edit view: the kinship
-          label itself opens the menu (go to the start person, make this one
-          the start, choose another), a bare ⌂ where there is no label. */}
-      <div className="site-person-kinship">
-        <StartPersonChip
-          t={t}
-          personId={id}
+        <PersonCharts
+          ds={ds}
+          id={id}
           startId={startId}
-          startName={startIndi ? nameOf(startIndi) : undefined}
           kinship={kin?.label(id)}
-          kinshipLineage={lineageClass(kin?.lineage(id), kin?.direct(id))}
-          individuals={ds.individuals}
-          onChange={onStartChange}
-          onGoToStart={() => startId && onNavigate(startId)}
+          timeline={!(person?.living && !person.events?.length)}
         />
-      </div>
+      </header>
       {person?.living && <p className="site-note">{t("site.person.living")}</p>}
       <EventRows events={person?.events} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />

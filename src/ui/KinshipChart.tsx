@@ -633,7 +633,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         </>
       }
       controlsRight={
-        <div className="tree-controls-right">
+        <div className="tree-controls-right kin-controls-right">
+          {/* The find box first, at the top right as on every chart; what the
+              chart counts sits under it. */}
+          <ChartFindBox find={find} />
           <span className="kin-count">
             {onMap ? (
               <>
@@ -661,7 +664,6 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
               t("kin.count", { count: drawnCount })
             )}
           </span>
-          <ChartFindBox find={find} />
         </div>
       }
     >
@@ -992,6 +994,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         {selected && (
           <TreeNodePanel
             node={{ name: nameFor(selected), years: selected.years, sex: selected.sex }}
+            personId={selected.id}
             swatch={colorOf(selected)}
             rows={selectedRows}
             mainPerson={mainNav}

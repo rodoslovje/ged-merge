@@ -12,6 +12,9 @@ export interface PublishedView {
   /** Living people published without details; the timeline leaves them out,
    *  having no years to draw for them. */
   reduced: ReadonlySet<string>;
+  /** Open a person's page. A person picked on a chart opens it at once,
+   *  rather than the side panel the app shows (see TreeNodePanel). */
+  openPerson: (id: string) => void;
 }
 
 export const PublishedViewContext = createContext<PublishedView | null>(null);
