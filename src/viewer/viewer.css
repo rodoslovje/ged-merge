@@ -470,6 +470,13 @@
 .app.site .site-tiles-secondary .stats-tile-value {
   font-size: 1.125rem;
 }
+/* A person under a tile: the years drop below the name where the tile is
+   narrow, rather than the name breaking letter by letter beside them. */
+.app.site .stats-tile-sub .person-ref {
+  flex-wrap: wrap;
+  column-gap: 6px;
+  row-gap: 0;
+}
 .app.site .stats-tile-label,
 .app.site .stats-tile-sub {
   font-size: 0.8125rem;
