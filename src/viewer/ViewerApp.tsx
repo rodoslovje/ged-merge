@@ -33,6 +33,8 @@ import { chartViewOf, chartViewWords } from "./chartRoute";
 import { Highlights } from "./Highlights";
 import { PersonCharts } from "./PersonCharts";
 import { PhotoTray } from "./PhotoTray";
+import { familyEventAges, personEventAges } from "./ages";
+import type { AgeBadge } from "../gedcom/age";
 import { ShortcutsModal } from "../ui/ShortcutsModal";
 import { KEY, SITE_SHORTCUT_GROUPS, familyStepFor, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
@@ -555,7 +557,22 @@ function RecordExtras({ notes, sources }: { notes?: string[]; sources?: PubSourc
 
 /** The events as published: the date in the site's date display, the place
  *  (and address, where published) as text, then the event's notes and sources. */
-function EventRows({ events, family }: { events: PubEvent[] | undefined; family?: boolean }) {
+/** Age badges, "35" or "♂32 ♀28", each with its full age as tooltip. */
+function ageBadges(badges: AgeBadge[] | undefined) {
+  if (!badges) return null;
+  return (
+    <span className="site-event-age">
+      {badges.map((a, i) => <span key={i} title={a.title}>{a.text}</span>)}
+    </span>
+  );
+}
+
+function EventRows({ events, family, ages }: {
+  events: PubEvent[] | undefined;
+  family?: boolean;
+  /** The ages beside each event, as Edit shows them (see ages.ts). */
+  ages?: (e: PubEvent) => AgeBadge[] | undefined;
+}) {
   const { t, i18n } = useTranslation();
   // Re-drawn when the date display is set (the site sets it as it opens).
   useSettingsSlice(DATE_KEYS);
@@ -590,6 +607,8 @@ function EventRows({ events, family }: { events: PubEvent[] | undefined; family?
                 </button>
               ) : where}
               {e.cause && <span className="site-event-cause"> ({e.cause})</span>}
+              {/* The ages at the event, each with its full age as tooltip. */}
+              {ageBadges(ages?.(e))}
               {mapped === i && coord && (
                 <span className="site-event-map">
                   <Suspense fallback={null}>
@@ -680,7 +699,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
       {/* Their photos: a strip that opens each in the viewer, with the people
           tagged on it. */}
       <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate, hideFile: true }} />
-      <EventRows events={person?.events} />
+      <EventRows events={person?.events} ages={showAge ? personEventAges(ds, indi, t) : undefined} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
 
       {parentFams.length > 0 && (
@@ -701,7 +720,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           <section key={f.id} className="site-section">
             <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
             {partner && <p className="site-partner">{link(partner)}</p>}
-            <EventRows events={pub.families.get(f.id)?.events} family />
+            <EventRows events={pub.families.get(f.id)?.events} family ages={showAge ? familyEventAges(ds, f, t) : undefined} />
             <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
             {f.children.length > 0 && (
               <>

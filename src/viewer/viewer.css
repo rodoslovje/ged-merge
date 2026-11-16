@@ -451,6 +451,19 @@
   color: var(--muted);
 }
 
+/* Ages after an event's date, as in Edit: "35", or "♂32 ♀28" at a birth. */
+.site-event-age {
+  display: inline-flex;
+  gap: 0.4em;
+  margin-left: 0.6em;
+  color: var(--muted);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+.site-event-age span {
+  cursor: help;
+}
+
 /* A place with a coordinate: a link that opens it on a small map below. */
 .site-place-link {
   display: inline-flex;
