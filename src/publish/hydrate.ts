@@ -54,6 +54,7 @@ export function hydrateTree(tree: PublishedTree): Dataset {
     if (p.given) nameSub.push(node(2, "GIVN", p.given));
     if (p.surname) nameSub.push(node(2, "SURN", p.surname));
     const children: GedNode[] = [node(1, "NAME", nameParts, nameSub)];
+    for (const m of p.married ?? []) children.push(node(1, "NAME", `/${m}/`, [node(2, "TYPE", "married"), node(2, "SURN", m)]));
     if (p.sex) children.push(node(1, "SEX", p.sex));
     for (const e of p.events ?? []) children.push(eventNode(e));
     for (const f of famc.get(p.id) ?? []) children.push(node(1, "FAMC", ref(f)));

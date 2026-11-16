@@ -10233,6 +10233,8 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-publish .tools-privacy-group > .tools-norm-check { margin-top: 10px; }
 .tools-publish .tools-fix-hint { margin: 8px 0 0; }
 .tools-publish .tools-error { color: var(--danger); }
+.tools-publish .tools-publish-dates { flex-direction: row; align-items: center; gap: 10px; margin: 10px 0; font-size: 0.9rem; }
+.tools-publish .tools-privacy-group > .tools-norm-summary { margin: 0; }
 
 /* Batch actions (Normalize & batch) */
 .batch-section-toggle { display: flex; gap: 6px; margin: 0 0 14px; }

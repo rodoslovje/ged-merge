@@ -1618,6 +1618,7 @@ export const en = {
   "tools.publish.living.name": "Given name and surname",
   "tools.publish.living.all": "All their details",
   "tools.publish.livingHint": "Living means no death record and born within the last 100 years, as in Privacy. People marked private are never published.",
+  "tools.publish.display": "How people are shown",
   "tools.publish.summary": "The website will show {{people}} people and {{families}} families.",
   "tools.publish.left": "Living, reduced: {{reduced}} · living, left out: {{hidden}} · private, left out: {{private}}",
   "tools.publish.omitted": "Not published: sources, notes, media, addresses and contact details, record ids.",

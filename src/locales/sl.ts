@@ -1848,6 +1848,7 @@ export const sl = {
   "tools.publish.living.name": "Ime in priimek",
   "tools.publish.living.all": "Vsi podatki",
   "tools.publish.livingHint": "Kot živa šteje oseba brez zapisa o smrti, rojena v zadnjih 100 letih — enako kot v orodju Zasebnost. Osebe, označene kot zasebne, se ne objavijo nikoli.",
+  "tools.publish.display": "Prikaz oseb",
   "tools.publish.summary": "Stran bo prikazala osebe ({{people}}) in družine ({{families}}).",
   "tools.publish.left": "Žive, skrajšane: {{reduced}} · žive, izpuščene: {{hidden}} · zasebne, izpuščene: {{private}}",
   "tools.publish.omitted": "Na strani ni virov, opomb, medijev, naslovov in kontaktnih podatkov ter ID-jev zapisov.",

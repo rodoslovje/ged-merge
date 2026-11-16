@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual } from "../gedcom/types";
-import type { PublishedTree } from "../publish/model";
+import { DEFAULT_SITE_DISPLAY, type PublishedTree } from "../publish/model";
 import { pubId, xrefOf } from "../publish/hydrate";
 import { ChartsHub } from "../ui/ChartsHub";
 import { StatsPanel } from "../ui/tools/StatsPanel";
@@ -9,12 +9,14 @@ import type { ToolView } from "../ui/ToolsView";
 import { PersonLink } from "../ui/PersonLink";
 import { YearsText } from "../ui/YearsText";
 import { useChartSettings } from "../ui/ChartSettingsContext";
-import { useNameOf, useSetSettings } from "../ui/SettingsContext";
+import { useNameOf, useSetSettings, useSettingsSlice } from "../ui/SettingsContext";
 import { sexClass } from "../ui/sex";
 import { ChartIcon } from "../ui/icons/ChartIcon";
 import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
-import { lifespanOf } from "../gedcom/lifespan";
+import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
+import { lifespanAge } from "../gedcom/age";
+import { lifespanLine } from "../chart/nodeDisplay";
 import { displayDate } from "../gedcom/dateDisplay";
 import { customEventLabel, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
@@ -46,6 +48,8 @@ function useRoute(start: Route): [Route, (r: Route) => void] {
 
 /** The visitor's own start person, kept in their browser. */
 const START_KEY = "gedmerge-site.start";
+const KINSHIP_KEYS = ["showKinship"] as const;
+const AGE_KEYS = ["showAge"] as const;
 
 function readStored(key: string): string | null {
   try {
@@ -87,9 +91,11 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const otherLang = SUPPORTED_LANGUAGES.find((l) => l !== i18n.language) ?? "en";
   const setSettings = useSetSettings();
   const { setKind } = useChartSettings();
-  // The site has no Settings page: dates read in words, in the reader's
-  // language, and the map may load its tiles — the author chose to publish.
-  useEffect(() => { setSettings({ dateDisplay: "words", allowMapTiles: true, showXref: false }); }, [setSettings]);
+  // The site has no Settings page: people are shown as the author chose when
+  // publishing (names, dates, ages, kinship), and the map may load its tiles.
+  useEffect(() => {
+    setSettings({ ...DEFAULT_SITE_DISPLAY, ...tree.display, allowMapTiles: true, showXref: false });
+  }, [setSettings, tree.display]);
   useEffect(() => { document.title = tree.title || t("site.untitled"); }, [tree.title, t]);
 
   // The start person relationships are named from: the author's, until the
@@ -106,7 +112,9 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     writeStored(START_KEY, own);
   };
   const derivations = useDatasetDerivations();
-  const kin = startXref ? derivations?.kinship(startXref) : undefined;
+  // Kinship labels follow the author's display choice, as everywhere in the app.
+  const { showKinship } = useSettingsSlice(KINSHIP_KEYS);
+  const kin = startXref && showKinship ? derivations?.kinship(startXref) : undefined;
   const living = useMemo(() => new Set(tree.people.filter((p) => p.living).map((p) => xrefOf(p.id))), [tree]);
   const [relationFrom, setRelationFrom] = useState<string | undefined>();
   const openPerson = (xref: string) => go({ page: "person", id: pubId(xref) });
@@ -370,6 +378,7 @@ function PersonPage({ ds, id, living, kin, isStart, onMakeStart, onNavigate, onC
     ? <KinLink ds={ds} id={pid} kin={kin} onNavigate={onNavigate} />
     : null;
   const kinship = isStart ? t("site.person.isStart") : kin?.label(id);
+  const { showAge } = useSettingsSlice(AGE_KEYS);
   const parentFams = indi.childOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const ownFams = indi.spouseOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const siblings = [...new Set(parentFams.flatMap((f) => f.children))].filter((c) => c !== id);
@@ -378,7 +387,9 @@ function PersonPage({ ds, id, living, kin, isStart, onMakeStart, onNavigate, onC
     <article className="site-person">
       <header className="site-person-head">
         <h2 className={`site-person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</h2>
-        <span className="site-person-years"><YearsText text={lifespanOf(indi)} /></span>
+        <span className="site-person-years">
+          <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
+        </span>
         <div className="site-person-actions">
           {!isStart && (
             <button className="nav-btn" onClick={onMakeStart} title={t("start.chip.makeThis")}>

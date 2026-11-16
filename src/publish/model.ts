@@ -3,6 +3,8 @@ import { ALL_EVENT_TAGS, LDS_ORDINANCE_TAGS } from "../gedcom/eventTags";
 import { computeKinship } from "../tools/batch";
 import { defaultPrivacyOptions, livingReason } from "../tools/privacy";
 import { runSteps, type Steps } from "../gedcom/steps";
+import type { NameOrder } from "../gedcom/nameDisplay";
+import { marriedSurnamesOf } from "../match/relatives";
 
 /**
  * The family website's data: what a relative browsing the published page can
@@ -40,6 +42,29 @@ export const SCOPE_KINDS: ScopeKind[] = ["all", "blood", "line"];
 export type StartPage = "home" | "person" | "charts" | "stats";
 export const START_PAGES: StartPage[] = ["home", "person", "charts", "stats"];
 
+/** How the site shows people — the app's own display settings (Settings →
+ *  Names and Display), chosen for the site by its author. */
+export interface SiteDisplay {
+  order: NameOrder;
+  uppercaseSurname: boolean;
+  marriedSurname: boolean;
+  /** A date display choice (see `ui/dateDisplayFormat.ts`); "" is the file's text. */
+  dateDisplay: string;
+  showAge: boolean;
+  showKinship: boolean;
+  emphasizeDirect: boolean;
+}
+
+export const DEFAULT_SITE_DISPLAY: SiteDisplay = {
+  order: "given-surname",
+  uppercaseSurname: false,
+  marriedSurname: false,
+  dateDisplay: "words",
+  showAge: false,
+  showKinship: true,
+  emphasizeDirect: true,
+};
+
 export interface PublishOptions {
   title: string;
   /** A few words from the author, shown on the site's front page. */
@@ -55,12 +80,13 @@ export interface PublishOptions {
   /** Where the site will be hosted (`https://tree.example.org`): named in the
    *  footer of its exports in place of gedmerge.com. Empty for none. */
   url: string;
+  display: SiteDisplay;
   /** The site's language on first open. */
   lang: string;
 }
 
-export function defaultPublishOptions(title: string, lang: string): PublishOptions {
-  return { title, intro: "", scope: "all", partners: true, living: "initials", startPage: "home", exports: false, url: "", lang };
+export function defaultPublishOptions(title: string, lang: string, display: SiteDisplay = DEFAULT_SITE_DISPLAY): PublishOptions {
+  return { title, intro: "", scope: "all", partners: true, living: "initials", startPage: "home", exports: false, url: "", display, lang };
 }
 
 export interface PubEvent {
@@ -83,6 +109,8 @@ export interface PubPerson {
   given?: string;
   surname?: string;
   sex?: "M" | "F" | "X";
+  /** Married surnames, for the "married surname" name display. */
+  married?: string[];
   /** Living, published without their details (see {@link LivingMode}). */
   living?: true;
   events?: PubEvent[];
@@ -112,6 +140,8 @@ export interface PublishedTree {
   exports?: true;
   /** The site's own address, for the footer of its exports. */
   url?: string;
+  /** How people are shown. */
+  display?: SiteDisplay;
   people: PubPerson[];
   families: PubFamily[];
 }
@@ -297,6 +327,7 @@ export function* buildPublishedTreeSteps(
   if (opts.intro.trim()) tree.intro = opts.intro.trim();
   if (opts.exports) tree.exports = true;
   if (opts.url.trim()) tree.url = opts.url.trim();
+  tree.display = opts.display;
   const start = startId ? idOf.get(startId) : undefined;
   if (start) tree.start = start;
   // The person's pages need the person; without one the site opens at home.
@@ -317,6 +348,8 @@ function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boo
     const given = name?.given?.trim() ?? (name?.surname ? undefined : name?.full.replace(/\//g, "").trim());
     if (given) out.given = given;
     if (mode !== "given" && name?.surname?.trim()) out.surname = name.surname.trim();
+    const married = mode === "given" ? [] : marriedSurnamesOf(indi);
+    if (married.length) out.married = married;
   }
   if (indi.sex === "M" || indi.sex === "F" || indi.sex === "X") out.sex = indi.sex;
   if (isLiving && mode !== "all") out.living = true;

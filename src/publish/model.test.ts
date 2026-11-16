@@ -213,6 +213,22 @@ describe("buildPublishedTreeSteps", () => {
   });
 });
 
+describe("married surnames", () => {
+  const wed = dataset(SAMPLE.replace("1 NAME Marija /Kranjc/", "1 NAME Marija /Kranjc/\n1 NAME /Novak/\n2 TYPE married"));
+  it("are published with the name, and read back as married names", () => {
+    const { tree } = buildPublishedTree(wed, opts({ living: "all" }), "@I1@", NOW);
+    const marija = byName(tree, "Marija")!;
+    expect(marija.married).toEqual(["Novak"]);
+    const back = hydrateTree(tree).individuals.get(`@${marija.id}@`)!;
+    expect(back.names[1]).toMatchObject({ surname: "Novak", type: "married" });
+  });
+
+  it("carry the author's display settings", () => {
+    const display = { ...defaultPublishOptions("x", "sl").display, showAge: true, order: "surname-given" as const };
+    expect(build({ display }).tree.display).toEqual(display);
+  });
+});
+
 describe("hydrateTree", () => {
   it("reads the published data back as a dataset", () => {
     const { tree } = build({ living: "initials" });

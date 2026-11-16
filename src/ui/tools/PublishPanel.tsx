@@ -12,13 +12,30 @@ import {
   type LivingMode,
   type PublishOptions,
   type ScopeKind,
+  type SiteDisplay,
   type StartPage,
 } from "../../publish/model";
 import { publishedHtml, siteFileName } from "../../publish/page";
+import type { NameOrder } from "../../gedcom/nameDisplay";
 import { baseStem, downloadText } from "../download";
 import { StartPersonSelector } from "../StartPersonSelector";
+import { SelectMenu } from "../DropdownMenu";
+import { useSettingsSlice } from "../SettingsContext";
+import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { ToolsIntro, ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
+
+/** The app's display settings a site carries (see {@link SiteDisplay}). */
+const DISPLAY_KEYS = ["order", "uppercaseSurname", "marriedSurname", "dateDisplay", "showAge", "showKinship", "emphasizeDirect"] as const;
+
+/** The on/off display settings, with their labels in Settings. */
+const DISPLAY_TOGGLES: [key: "uppercaseSurname" | "marriedSurname" | "showAge" | "showKinship" | "emphasizeDirect", label: string][] = [
+  ["marriedSurname", "settings.name.married"],
+  ["uppercaseSurname", "settings.name.uppercase"],
+  ["showAge", "settings.display.age"],
+  ["showKinship", "settings.display.kinship"],
+  ["emphasizeDirect", "settings.display.emphasizeDirect"],
+];
 
 /** Where a download is: which step, and in the walk over the file, how far. */
 interface Phase {
@@ -41,7 +58,14 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
   active: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const [options, setOptions] = useState<PublishOptions>(() => defaultPublishOptions(baseStem(fileName), i18n.language));
+  // The site shows people as the app does for its author, unless changed here;
+  // a file's own date text reads poorly to relatives, so dates default to words.
+  const appDisplay = useSettingsSlice(DISPLAY_KEYS);
+  const [options, setOptions] = useState<PublishOptions>(() =>
+    defaultPublishOptions(baseStem(fileName), i18n.language, { ...appDisplay, dateDisplay: appDisplay.dateDisplay || DATE_DISPLAY_WORDS }),
+  );
+  const display = options.display;
+  const setDisplay = (patch: Partial<SiteDisplay>) => setOptions((o) => ({ ...o, display: { ...o.display, ...patch } }));
   const [ownStart, setOwnStart] = useState<string | undefined>();
   const [phase, setPhase] = useState<Phase | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -182,6 +206,41 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           ))}
         </div>
         <p className="tools-fix-hint">{t("tools.publish.livingHint")}</p>
+      </div>
+
+      {/* How the site shows people: the app's own display settings, starting
+          from the author's, with the same labels as in Settings. */}
+      <div className="tools-privacy-group">
+        <div className="tools-privacy-legend">{t("tools.publish.display")}</div>
+        <div className="tools-privacy-radios">
+          {(["given-surname", "surname-given"] as NameOrder[]).map((order) => (
+            <label key={order} className={`tools-norm-check ${display.order === order ? "active" : ""}`}>
+              <input type="radio" name="publish-name-order" checked={display.order === order} onChange={() => setDisplay({ order })} />
+              <span>{t(order === "given-surname" ? "settings.name.order.givenSurname" : "settings.name.order.surnameGiven")}</span>
+            </label>
+          ))}
+        </div>
+        <label className="tools-publish-field tools-publish-dates">
+          <span>{t("settings.display.dates")}</span>
+          <SelectMenu
+            value={display.dateDisplay}
+            onChange={(v) => setDisplay({ dateDisplay: v })}
+            options={DATE_DISPLAY_CHOICES.map((c) => ({
+              value: c,
+              label: c === "" ? t("settings.display.dates.file") : c === DATE_DISPLAY_WORDS ? t("settings.display.dates.words") : c,
+            }))}
+          />
+        </label>
+        <ul className="tools-norm-summary">
+          {DISPLAY_TOGGLES.map(([key, label]) => (
+            <li key={key}>
+              <label className="tools-norm-check">
+                <input type="checkbox" checked={display[key]} onChange={() => setDisplay({ [key]: !display[key] })} />
+                <span>{t(label)}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {summary && (
