@@ -35,7 +35,7 @@ import { overlayDisplayName, useSettingsSlice } from "../SettingsContext";
 import { BASEMAPS, CUSTOM_BASEMAP } from "../map/basemapPresets";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../../locales/i18n";
 import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
-import { ToolsIntro, ToolsLoading } from "./shared";
+import { InfoTip, ToolsIntro, ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 
 /** The app's display settings a site carries (see {@link SiteDisplay}). */
@@ -58,6 +58,26 @@ interface Phase {
   step: "viewer" | "data" | "photos" | "page";
   done?: number;
   total?: number;
+}
+
+/** A field's name with its explanation behind an ⓘ rather than under it. */
+function FieldLabel({ label, hint }: { label: string; hint: string }) {
+  return (
+    <span className="tools-publish-label">
+      <span className="tools-privacy-legend">{label}</span>
+      <InfoTip hint={hint} heading={label} />
+    </span>
+  );
+}
+
+/** A group's legend with its explanation behind an ⓘ. */
+function GroupLegend({ label, hint }: { label: string; hint: string }) {
+  return (
+    <div className="tools-privacy-legend tools-publish-label">
+      {label}
+      <InfoTip hint={hint} heading={label} />
+    </div>
+  );
 }
 
 /**
@@ -250,30 +270,20 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             </label>
           ))}
         </div>
+        {/* Where the website is, its icon, and — last, optional — the
+            author's other site it links to. */}
         <label className="tools-publish-field">
-          <span className="tools-privacy-legend">{t("tools.publish.url")}</span>
-          <input
-            type="url"
-            className="tools-publish-input"
-            value={options.url}
-            placeholder="https://tree.example.org"
-            onChange={(e) => set({ url: e.target.value })}
-          />
-          <span className="tools-fix-hint">{t("tools.publish.urlHint")}</span>
-        </label>
-        <label className="tools-publish-field">
-          <span className="tools-privacy-legend">{t("tools.publish.siteUrl")}</span>
+          <FieldLabel label={t("tools.publish.siteUrl")} hint={t("tools.publish.siteUrlHint")} />
           <input
             type="url"
             className="tools-publish-input"
             value={options.siteUrl}
-            placeholder={options.url.trim() || "https://family.example.org"}
+            placeholder="https://tree.example.org"
             onChange={(e) => set({ siteUrl: e.target.value })}
           />
-          <span className="tools-fix-hint">{t("tools.publish.siteUrlHint")}</span>
         </label>
         <label className="tools-publish-field">
-          <span className="tools-privacy-legend">{t("tools.publish.favicon")}</span>
+          <FieldLabel label={t("tools.publish.favicon")} hint={t("tools.publish.faviconHint")} />
           <input
             type="url"
             className="tools-publish-input"
@@ -281,7 +291,16 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             placeholder="https://example.org/favicon.png"
             onChange={(e) => set({ favicon: e.target.value })}
           />
-          <span className="tools-fix-hint">{t("tools.publish.faviconHint")}</span>
+        </label>
+        <label className="tools-publish-field">
+          <FieldLabel label={t("tools.publish.url")} hint={t("tools.publish.urlHint")} />
+          <input
+            type="url"
+            className="tools-publish-input"
+            value={options.url}
+            placeholder="https://example.org"
+            onChange={(e) => set({ url: e.target.value })}
+          />
         </label>
         <label className="tools-norm-check">
           <input type="checkbox" checked={options.exports} onChange={() => set({ exports: !options.exports })} />
@@ -289,11 +308,13 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
         </label>
         {/* Off unless chosen: a family's names in search results is the
             author's call. */}
-        <label className="tools-norm-check">
-          <input type="checkbox" checked={options.indexable} onChange={() => set({ indexable: !options.indexable })} />
-          <span>{t("tools.publish.indexable")}</span>
-        </label>
-        {options.indexable && <p className="tools-fix-hint">{t("tools.publish.indexableHint")}</p>}
+        <div className="tools-publish-check-row">
+          <label className="tools-norm-check">
+            <input type="checkbox" checked={options.indexable} onChange={() => set({ indexable: !options.indexable })} />
+            <span>{t("tools.publish.indexable")}</span>
+          </label>
+          <InfoTip hint={t("tools.publish.indexableHint")} />
+        </div>
       </div>
 
       <div className="tools-privacy-group">
@@ -341,7 +362,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
       </div>
 
       <div className="tools-privacy-group">
-        <div className="tools-privacy-legend">{t("tools.publish.living")}</div>
+        <GroupLegend label={t("tools.publish.living")} hint={t("tools.publish.livingHint")} />
         <div className="tools-privacy-radios">
           {LIVING_MODES.map((m: LivingMode) => (
             <label key={m} className={`tools-norm-check ${options.living === m ? "active" : ""}`}>
@@ -364,13 +385,18 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           {t("tools.privacy.recentDeathYears")}
           {options.recentDeathYears === 0 && <span className="muted"> {t("tools.privacy.recentDeathOff")}</span>}
         </label>
-        <p className="tools-fix-hint">{t("tools.publish.livingHint")}</p>
       </div>
 
       {/* Beyond names, dates and places: each its own choice, all off to begin
           with. Without addresses, houses are shown at their settlement. */}
       <div className="tools-privacy-group">
-        <div className="tools-privacy-legend">{t("tools.publish.include")}</div>
+        <GroupLegend
+          label={t("tools.publish.include")}
+          hint={[
+            t(options.include.addresses ? "tools.publish.include.addressesOn" : "tools.publish.include.addressesOff"),
+            ...(options.include.photos && media.folderName ? [t("tools.publish.photosHint", { folder: media.folderName })] : []),
+          ].join("\n\n")}
+        />
         <div className="tools-privacy-radios">
           {SITE_INCLUDES.map((key) => (
             <label key={key} className="tools-norm-check">
@@ -383,21 +409,18 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             </label>
           ))}
         </div>
-        <p className="tools-fix-hint">{t(options.include.addresses ? "tools.publish.include.addressesOn" : "tools.publish.include.addressesOff")}</p>
-        {/* Photos are read from the media folder, as the app shows them. */}
-        {options.include.photos && (
+        {/* Photos are read from the media folder: without one, ask for it. */}
+        {options.include.photos && !media.folderName && (
           <p className="tools-fix-hint">
-            {media.folderName ? t("tools.publish.photosHint", { folder: media.folderName }) : t("tools.publish.photosNoFolder")}{" "}
-            {!media.folderName && (
-              <button type="button" className="tools-issue-link" onClick={() => void media.openFolder()}>{t("media.chooseFolder")}</button>
-            )}
+            {t("tools.publish.photosNoFolder")}{" "}
+            <button type="button" className="tools-issue-link" onClick={() => void media.openFolder()}>{t("media.chooseFolder")}</button>
           </p>
         )}
         {options.include.photos && (
           <PublishPhotoFolders dataset={dataset} value={options.photoFolders} onChange={(photoFolders) => set({ photoFolders })} />
         )}
         {options.include.photos && media.folderName && (
-          <PublishCover dataset={dataset} value={options.cover} hasUrl={!!options.url.trim()} onChange={(cover) => set({ cover })} />
+          <PublishCover dataset={dataset} value={options.cover} hasUrl={!!(options.siteUrl.trim() || options.url.trim())} onChange={(cover) => set({ cover })} />
         )}
       </div>
 
@@ -455,6 +478,17 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             </label>
           ))}
         </div>
+        <ul className="tools-norm-summary tools-publish-toggles">
+          {DISPLAY_TOGGLES.map(([key, label]) => (
+            <li key={key}>
+              <label className="tools-norm-check">
+                <input type="checkbox" checked={display[key]} onChange={() => setDisplay({ [key]: !display[key] })} />
+                <span>{t(label)}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        {/* The dates last: a choice of its own, not between the name choices. */}
         <label className="tools-publish-field tools-publish-dates">
           <span>{t("settings.display.dates")}</span>
           <SelectMenu
@@ -466,28 +500,20 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             }))}
           />
         </label>
-        <ul className="tools-norm-summary">
-          {DISPLAY_TOGGLES.map(([key, label]) => (
-            <li key={key}>
-              <label className="tools-norm-check">
-                <input type="checkbox" checked={display[key]} onChange={() => setDisplay({ [key]: !display[key] })} />
-                <span>{t(label)}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
       </div>
 
       {summary && (
         <div className="tools-privacy-group">
-          <ToolSummary>{t("tools.publish.summary", { people: num(summary.people), families: num(summary.families) })}</ToolSummary>
+          <ToolSummary>
+            {t("tools.publish.summary", { people: num(summary.people), families: num(summary.families) })}{" "}
+            <InfoTip hint={t("tools.publish.omitted")} />
+          </ToolSummary>
           <p className="tools-fix-hint">
             {t("tools.publish.left", { reduced: num(summary.livingReduced), hidden: num(summary.livingHidden), private: num(summary.privateHidden) })}
           </p>
           {options.include.photos && (
             <p className="tools-fix-hint">{t("tools.publish.photosCount", { count: summary.photos, withheld: num(summary.photosWithheld) })}</p>
           )}
-          <p className="tools-fix-hint">{t("tools.publish.omitted")}</p>
         </div>
       )}
 

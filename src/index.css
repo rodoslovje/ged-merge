@@ -10246,8 +10246,20 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 /* Family website (Tools → Family website) */
 .tools-publish-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .tools-publish-field:last-child { margin-bottom: 0; }
+/* A name (a field's, a group's, a choice's) with its ⓘ: the explanation in a
+   tooltip, not in a paragraph on the page. */
+.tools-publish-label { display: inline-flex; align-items: center; gap: 4px; }
+/* The legend's own bottom margin would lift its text above the ⓘ's centre:
+   the row carries the margin instead. */
+.tools-publish-label > .tools-privacy-legend { margin-bottom: 0; }
+span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
+/* An ⓘ at the end of a line of text: centred on the text, not on its top. */
+.tools-publish .tools-summary .stats-info { vertical-align: -1.5px; }
+.tools-publish-folders-head { display: flex; margin-top: 10px; font-size: 0.9rem; font-weight: 600; }
 .tools-publish-input { width: 100%; max-width: 40rem; padding: 5px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; }
-.tools-publish .tools-privacy-group > .tools-norm-check { margin-top: 10px; }
+.tools-publish .tools-privacy-group > .tools-norm-check { display: flex; width: fit-content; margin-top: 10px; }
+/* A choice with its ⓘ, on a row of its own. */
+.tools-publish-check-row { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
 .tools-publish .tools-fix-hint { margin: 8px 0 0; }
 .tools-publish .tools-error { color: var(--danger); }
 .tools-publish .tools-publish-recent { margin: 10px 0 0; }
@@ -10257,6 +10269,8 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-publish-run .tools-loading { padding: 0; }
 .tools-publish .tools-publish-dates { flex-direction: row; align-items: center; gap: 10px; margin: 10px 0; font-size: 0.9rem; }
 .tools-publish .tools-privacy-group > .tools-norm-summary { margin: 0; }
+/* The display toggles under the name order, a step apart from it. */
+.tools-publish .tools-privacy-group > .tools-publish-toggles { margin-top: 8px; }
 .tools-publish-intro { display: flex; align-items: flex-start; gap: 8px; max-width: 42rem; }
 /* Photos by folder: a row per folder (indented under the one above), its
    photo count, and where its photos go. */

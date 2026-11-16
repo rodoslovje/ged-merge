@@ -78,10 +78,13 @@ function Site({ tree }: { tree: PublishedTree }) {
 const tree = readTree();
 // Exports credit GED Merge as the site's footer does, then name the site's own
 // address when the author gave one.
-setExportSite(tree.url, () => `${i18n.t("site.footer.madeWith")} GED Merge`);
+// Downloads name the website itself (its own address; a site exported before
+// that field had only the other).
+const ownAddress = tree.siteUrl || tree.url;
+setExportSite(ownAddress, () => `${i18n.t("site.footer.madeWith")} GED Merge`);
 // The site's own icon, where the author named its address.
 // An icon the author named is in the page already; else the site's own, if any.
-if (!tree.favicon && tree.url) adoptSiteFavicon(exportSiteLink().url);
+if (!tree.favicon && ownAddress) adoptSiteFavicon(exportSiteLink().url);
 // The charts' panel button that opens a person in the app's Edit view opens
 // their page here: it says so, in both languages.
 // The statistics' hints say a name opens "in Edit"; here it opens the person's

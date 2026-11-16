@@ -15,10 +15,11 @@ import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
 import { SunIcon } from "../ui/icons/SunIcon";
 import { LockIcon } from "../ui/icons/LockIcon";
+import { ExternalIcon } from "../ui/icons/ExternalIcon";
 import { MoonIcon } from "../ui/icons/MoonIcon";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 import { LogoMark } from "../ui/icons/LogoMark";
-import { exportSiteLink } from "../ui/exportSvg";
+import { siteLinkOf } from "../ui/exportSvg";
 import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
@@ -111,11 +112,29 @@ function writeStored(key: string, value: string | undefined): void {
 
 /** A person link followed by how they are related to the start person, in the
  *  lineage colours the app uses. */
-function KinLink({ ds, id, kin, onNavigate }: { ds: Dataset; id: string; kin?: KinshipResolver; onNavigate: (id: string) => void }) {
+function KinLink({ ds, id, kin, onNavigate, years }: {
+  ds: Dataset;
+  id: string;
+  kin?: KinshipResolver;
+  onNavigate: (id: string) => void;
+  /** The life years in figures between the name and the kinship label, with
+   *  the age as the author shows ages (the family lists and the search's
+   *  matches). */
+  years?: boolean;
+}) {
   const label = kin?.label(id);
+  const { showAge } = useSettingsSlice(AGE_KEYS);
+  const indi = years ? ds.individuals.get(id) : undefined;
+  // With "Show ages", the age at death after the years ("1835–1893 (57)").
+  const span = indi ? lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) : undefined;
   return (
     <>
-      <PersonLink dataset={ds} id={id} fallback={id} onNavigate={onNavigate} />
+      <PersonLink dataset={ds} id={id} fallback={id} onNavigate={onNavigate} noYears={years} />
+      {indi && span && (
+        <span className="site-kin-years gm-data">
+          <YearsText text={span} approx={lifespanApproxOf(indi)} />
+        </span>
+      )}
       {label && <span className={`person-kinship ${lineageClass(kin?.lineage(id), kin?.direct(id))}`}>{label}</span>}
     </>
   );
@@ -150,7 +169,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // visitor picks their own or clears it (remembered in their browser; a
   // cleared one as NO_START, so it does not fall back to the author's).
   // The author's own address, normalized as the exports name it (https:// added).
-  const homeUrl = tree.url ? exportSiteLink().url : undefined;
+  // The author's other site (the additional address): a link out.
+  const homeSite = tree.url ? siteLinkOf(tree.url) : undefined;
   const authorStart = tree.start ? xrefOf(tree.start) : undefined;
   const [ownStart, setOwnStart] = useState<string | undefined>(() => {
     const saved = readStored(START_KEY);
@@ -312,10 +332,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       <div className="app-head-top">
         <a className="site-title" href="#/">{tree.title || t("site.untitled")}</a>
         <nav className="site-nav">
-          {/* Home: the author's own site when they named its address (a way back
-              to the page listing their trees), else this site's front page —
-              which the title always opens. */}
-          <a className={`nav-btn${!homeUrl && route.page === "home" ? " active" : ""}`} href={homeUrl ?? "#/"}>
+          {/* Home: this site's front page, as the title. */}
+          <a className={`nav-btn${route.page === "home" ? " active" : ""}`} href="#/">
             <HomeIcon size={16} /> {t("site.nav.home")}
           </a>
           {chartsRoot && (
@@ -334,6 +352,13 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           >
             <StatsIcon size={16} /> {t("site.nav.stats")}
           </a>
+          {/* The author's own site (the page listing their trees), when they
+              named it: a link out, by its address, never the open page. */}
+          {homeSite && (
+            <a className="nav-btn site-home-link" href={homeSite.url}>
+              {homeSite.label} <ExternalIcon size={14} />
+            </a>
+          )}
         </nav>
         <div className="site-prefs">
           <button
@@ -394,7 +419,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     </header>
   );
 
-  const footer = <SiteFooter created={tree.created} />;
+  const footer = <SiteFooter created={tree.created} home={homeSite} />;
 
   if (route.page === "charts" && ds.individuals.has(xrefOf(route.id))) {
     const rootId = xrefOf(route.id);
@@ -479,7 +504,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
 
 /** The foot of every page: made with GED Merge (its mark, linked to
  *  gedmerge.com), on the day the site was published. */
-function SiteFooter({ created }: { created: string }) {
+function SiteFooter({ created, home }: { created: string; home?: { label: string; url: string } }) {
   const { t, i18n } = useTranslation();
   return (
     <footer className="site-foot">
@@ -488,6 +513,13 @@ function SiteFooter({ created }: { created: string }) {
         <LogoMark size={16} /> GED Merge
       </a>
       <span aria-hidden="true">·</span>
+      {/* The author's own site again — on a phone the header has no room. */}
+      {home && (
+        <>
+          <a href={home.url}>{home.label}</a>
+          <span aria-hidden="true">·</span>
+        </>
+      )}
       <time dateTime={created}>{new Date(created).toLocaleDateString(i18n.language)}</time>
     </footer>
   );
@@ -568,7 +600,7 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
                 <ul className="site-person-list">
                   {results.slice(0, SEARCH_LIMIT).map((indi) => (
                     <li key={indi.id}>
-                      <KinLink ds={ds} id={indi.id} kin={kin} onNavigate={onNavigate} />
+                      <KinLink ds={ds} id={indi.id} kin={kin} onNavigate={onNavigate} years />
                     </li>
                   ))}
                 </ul>
@@ -713,7 +745,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
   const nameOf = useNameOf();
   const indi = ds.individuals.get(id)!;
   const link = (pid: string | undefined) => pid && ds.individuals.has(pid)
-    ? <KinLink ds={ds} id={pid} kin={kin} onNavigate={onNavigate} />
+    ? <KinLink ds={ds} id={pid} kin={kin} onNavigate={onNavigate} years />
     : null;
   const startIndi = startId ? ds.individuals.get(startId) : undefined;
   const { showAge } = useSettingsSlice(AGE_KEYS);
@@ -749,15 +781,15 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           <div className="site-person-title">
             {/* The sex as a small mark before the name (the name itself in text
                 ink), and in words for a screen reader. */}
-            {(indi.sex === "M" || indi.sex === "F") && (
+            {(indi.sex === "M" || indi.sex === "F" || indi.sex === "X") && (
               <>
-                <span className={`sex-badge site-sex-badge ${indi.sex === "M" ? "m" : "f"}`} aria-hidden="true">
-                  {indi.sex === "M" ? "♂" : "♀"}
+                <span className={`sex-badge site-sex-badge ${indi.sex.toLowerCase()}`} aria-hidden="true">
+                  {indi.sex === "M" ? "♂" : indi.sex === "F" ? "♀" : "⚥"}
                 </span>
                 <span className="site-sr-only">{t(`sex.${indi.sex}`)}</span>
               </>
             )}
-            <h2 className="site-person-name">{nameOf(indi)}</h2>
+            <h1 className="site-person-name">{nameOf(indi)}</h1>
             <span className="site-person-years">
               <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
             </span>
@@ -805,7 +837,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
         )}
 
         {siblings.length > 0 && (
-          <section className="site-section">
+          <section className="site-section site-section-siblings">
             <h3>{t("site.person.siblings", { count: siblings.length })}</h3>
             <ul className="site-person-list">
               {siblings.map((c) => <li key={c}>{link(c)}</li>)}
