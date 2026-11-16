@@ -764,15 +764,15 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           <div className="site-person-title">
             {/* The sex as a small mark before the name (the name itself in text
                 ink), and in words for a screen reader. */}
-            {(indi.sex === "M" || indi.sex === "F") && (
+            {(indi.sex === "M" || indi.sex === "F" || indi.sex === "X") && (
               <>
-                <span className={`sex-badge site-sex-badge ${indi.sex === "M" ? "m" : "f"}`} aria-hidden="true">
-                  {indi.sex === "M" ? "♂" : "♀"}
+                <span className={`sex-badge site-sex-badge ${indi.sex.toLowerCase()}`} aria-hidden="true">
+                  {indi.sex === "M" ? "♂" : indi.sex === "F" ? "♀" : "⚥"}
                 </span>
                 <span className="site-sr-only">{t(`sex.${indi.sex}`)}</span>
               </>
             )}
-            <h2 className="site-person-name">{nameOf(indi)}</h2>
+            <h1 className="site-person-name">{nameOf(indi)}</h1>
             <span className="site-person-years">
               <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
             </span>
@@ -820,7 +820,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
         )}
 
         {siblings.length > 0 && (
-          <section className="site-section">
+          <section className="site-section site-section-siblings">
             <h3>{t("site.person.siblings", { count: siblings.length })}</h3>
             <ul className="site-person-list">
               {siblings.map((c) => <li key={c}>{link(c)}</li>)}

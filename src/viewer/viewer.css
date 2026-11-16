@@ -148,6 +148,13 @@
   letter-spacing: 0.04em;
 }
 
+/* The header's buttons keep the app's focus ring: their own borders are gone. */
+.app.site .site-nav .nav-btn:focus-visible,
+.app.site .site-prefs .nav-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* The three pages: quiet until pointed at, the open one a green pill. */
 .app.site .site-nav .nav-btn {
   text-decoration: none;
@@ -673,6 +680,15 @@
 .site-section-family {
   grid-column: 1 / -1;
 }
+/* On one column the person's own families come before their siblings. */
+@media (max-width: 720px) {
+  .site-section-family {
+    order: 1;
+  }
+  .site-section-siblings {
+    order: 2;
+  }
+}
 
 /* Words for a screen reader only. */
 .site-sr-only {
@@ -707,6 +723,10 @@
   width: 22px;
   height: 22px;
   font-size: 0.8125rem;
+}
+.site-sex-badge.x {
+  color: var(--sex-other);
+  background: color-mix(in oklch, var(--sex-other) 16%, transparent);
 }
 
 .site-person-name {
