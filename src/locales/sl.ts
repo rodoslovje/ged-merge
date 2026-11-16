@@ -4022,7 +4022,7 @@ export const sl = {
   "addMedia.add": "Dodaj ({{count}})",
   "site.untitled": "Rodoslovno drevo",
   "site.meta.title": "{{title}} · Družinsko drevo · GED Merge",
-  "site.meta.credit": "Narejeno z GED Merge (gedmerge.com), brezplačnim orodjem za urejanje in združevanje družinskih dreves GEDCOM.",
+  "site.meta.credit": "Narejeno z GED Merge (gedmerge.com).",
   "site.nav.home": "Domov",
   "site.nav.charts": "Diagrami",
   "site.nav.stats": "Statistika",

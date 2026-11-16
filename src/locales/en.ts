@@ -3559,7 +3559,7 @@ export const en = {
   "addMedia.add": "Add ({{count}})",
   "site.untitled": "Family tree",
   "site.meta.title": "{{title}} · Family tree · GED Merge",
-  "site.meta.credit": "Made with GED Merge (gedmerge.com), a free tool for editing and merging GEDCOM family trees.",
+  "site.meta.credit": "Made with GED Merge (gedmerge.com).",
   "site.nav.home": "Home",
   "site.nav.charts": "Charts",
   "site.nav.stats": "Statistics",
