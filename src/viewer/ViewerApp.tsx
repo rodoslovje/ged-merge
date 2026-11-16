@@ -442,7 +442,11 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
 
 /** One source citation: the source, the cited page, linked where it can be. */
 function SourceLine({ s }: { s: PubSource }) {
-  const text = [s.title, s.page].filter(Boolean).join(", ") || s.url;
+  const { t } = useTranslation();
+  // A bare number is named a page; a page the file already words ("fol. 3",
+  // "Str. 12") stays as written.
+  const page = s.page && (/^\d/.test(s.page) ? t("site.person.page", { page: s.page }) : s.page);
+  const text = [s.title, page].filter(Boolean).join(", ") || s.url;
   return s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer">{text}</a> : <>{text}</>;
 }
 

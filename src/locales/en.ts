@@ -3545,6 +3545,7 @@ export const en = {
   "site.person.notes": "Notes",
   "site.person.sources": "Sources",
   "site.person.source": "Source",
+  "site.person.page": "page {{page}}",
   "site.person.open": "Open",
   "site.person.showOnMap": "Show on the map",
 };

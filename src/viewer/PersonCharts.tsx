@@ -42,18 +42,19 @@ export function PersonCharts({ ds, id, startId, kinship, timeline }: {
         </a>
       )}
       <a className="site-chart" href={href("fan")} title={t("tree.settings.type.fan")}>
-        <FanIcon size={26} />
+        {/* A half disc: drawn larger, so it reads as large as the others. */}
+        <span className="site-chart-glyph"><FanIcon size={32} /></span>
         <span className="site-chart-label">{t("tree.settings.type.fan")}</span>
       </a>
       {timeline && (
         <a className="site-chart" href={href("timeline")} title={t("timeline.button")}>
-          <TimelineIcon size={26} />
+          <span className="site-chart-glyph"><TimelineIcon size={26} /></span>
           <span className="site-chart-label">{t("timeline.button")}</span>
         </a>
       )}
       {relation && (
         <a className="site-chart" href={href("relationship")} title={kinship ?? t("relpath.button")}>
-          <RelationIcon size={26} />
+          <span className="site-chart-glyph"><RelationIcon size={26} /></span>
           <span className="site-chart-label">{t("relpath.button")}</span>
         </a>
       )}

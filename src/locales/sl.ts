@@ -4008,6 +4008,7 @@ export const sl = {
   "site.person.notes": "Opombe",
   "site.person.sources": "Viri",
   "site.person.source": "Vir",
+  "site.person.page": "stran {{page}}",
   "site.person.open": "Odpri",
   "site.person.showOnMap": "Pokaži na zemljevidu",
 };

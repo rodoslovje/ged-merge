@@ -20,12 +20,12 @@ const svgProps = (size: number) => ({
 export function FanIcon({ size = 16 }: { size?: number }) {
   return (
     <svg {...svgProps(size)}>
-      <path d="M3 18a9 9 0 0 1 18 0" />
-      <path d="M7.5 18a4.5 4.5 0 0 1 9 0" />
-      <line x1="12" y1="9" x2="12" y2="13.5" />
-      <line x1="5.6" y1="11.6" x2="8.8" y2="14.8" />
-      <line x1="18.4" y1="11.6" x2="15.2" y2="14.8" />
-      <line x1="3" y1="18" x2="21" y2="18" />
+      <path d="M2 20a10 10 0 0 1 20 0" />
+      <path d="M7 20a5 5 0 0 1 10 0" />
+      <line x1="12" y1="10" x2="12" y2="15" />
+      <line x1="4.93" y1="12.93" x2="8.46" y2="16.46" />
+      <line x1="19.07" y1="12.93" x2="15.54" y2="16.46" />
+      <line x1="2" y1="20" x2="22" y2="20" />
     </svg>
   );
 }

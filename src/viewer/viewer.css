@@ -308,6 +308,14 @@
   font-size: 0.75rem;
   color: var(--muted);
 }
+/* Every glyph in a box of one height, so the names line up whatever the
+   glyph's own size. */
+.site-chart-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+}
 /* The map tile has no caption: the preview fills it, as tall as the others. */
 .site-chart-map {
   padding: 3px;
