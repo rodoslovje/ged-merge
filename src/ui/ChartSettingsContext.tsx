@@ -285,22 +285,29 @@ function save(settings: ChartSettings): void {
   }
 }
 
-export function ChartSettingsProvider({ children }: { children: React.ReactNode }) {
+export function ChartSettingsProvider({ children, persist = true }: {
+  children: React.ReactNode;
+  /** Off for the family website, as for {@link SettingsProvider}: its charts
+   *  start from the defaults (their address says the rest) and never write the
+   *  app's stored chart choices. */
+  persist?: boolean;
+}) {
   // Seed the Age and Married-name toggles from their global preferences on first
   // load, so charts honour them by default (SettingsProvider wraps this one, so
   // the global values are already resolved synchronously here).
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
-  const [settings, setSettings] = useState<ChartSettings>(
-    () => load({ showAge: appSettings.showAge, showMarriedName: appSettings.marriedSurname }),
-  );
+  const [settings, setSettings] = useState<ChartSettings>(() => {
+    const seed = { showAge: appSettings.showAge, showMarriedName: appSettings.marriedSurname };
+    return persist ? load(seed) : { ...DEFAULTS, ...seed };
+  });
 
   const update = useCallback((patch: Partial<ChartSettings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      save(next);
+      if (persist) save(next);
       return next;
     });
-  }, []);
+  }, [persist]);
 
   const value = useMemo<ChartSettingsCtx>(
     () => ({

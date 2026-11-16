@@ -227,6 +227,9 @@ function monthsBetween(from: GedDate | undefined, to: GedDate | undefined): numb
  * The fact rows for a whole file. `home` is the home country, which a place
  * naming no country of its own is counted under (as the place lists do).
  */
+/** A name part that is only initials (`A.`, `J. M.`). */
+const onlyInitials = (s: string | undefined) => !!s && /^(\p{L}\.\s*)+$/u.test(s.trim());
+
 export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date().getFullYear()): StatsFacts {
   const people: PersonFacts[] = [];
   const byId = new Map<string, PersonFacts>();
@@ -255,8 +258,9 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
   for (const indi of ds.individuals.values()) {
     const name = indi.names[0];
     // A stand-in for an unknown name (NN, ???, neznano) is no name: it is
-    // neither ranked nor counted as known.
-    const givenText = isUnknownNameToken(name?.given) ? "" : (name?.given ?? "").trim();
+    // neither ranked nor counted as known. Nor are bare initials (`A.`), what a
+    // redacted file or the family website keeps of a living person.
+    const givenText = isUnknownNameToken(name?.given) || onlyInitials(name?.given) ? "" : (name?.given ?? "").trim();
     const givens = givenText.split(/\s+/).filter(Boolean);
     // The dates every list and card of the app reads (see `birthDateOf`), so
     // a bar and the people it lists agree on the year.
@@ -275,7 +279,7 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
     }
     const deceased = isDeceased(indi);
     const { refs, citations } = refsOf(indi.raw);
-    const surname = (isUnknownNameToken(name?.surname) ? "" : name?.surname?.trim()) || undefined;
+    const surname = (isUnknownNameToken(name?.surname) || onlyInitials(name?.surname) ? "" : name?.surname?.trim()) || undefined;
     const f: PersonFacts = {
       id: indi.id,
       sex: indi.sex === "M" || indi.sex === "F" ? indi.sex : "U",

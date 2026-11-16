@@ -1,0 +1,381 @@
+/* The published family website (src/viewer/): the app's own theme and
+   components, plus this page frame — a header with the site's title, its three
+   pages and the language switch, and the front page / person page bodies. */
+
+/* The front, person and statistics pages scroll as a page; the charts keep
+   the app's full-height shell, which their canvas sizes itself in. */
+.app.site:not(.tree-shell) {
+  height: auto;
+  min-height: 100%;
+  max-width: 1100px;
+  overflow: visible;
+}
+
+/* The charts use the whole window, but their header and footer keep the width
+   they have on every other page (1100px less the page's side padding), so the
+   header does not jump wider on the way into a chart. */
+.app.site.tree-shell > .site-head,
+.app.site.tree-shell > .site-foot {
+  width: 100%;
+  max-width: calc(1100px - 48px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* One row: the title (shortened with an ellipsis when it must give way), the
+   three pages, then the start person, theme, language and search on the right.
+   Below 880px the controls take a row of their own. */
+.site-head .app-head-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.site-title {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  color: var(--text);
+  text-decoration: none;
+  margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-nav,
+.site-prefs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.site-toggle {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.site-nav .nav-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-nav .nav-btn.active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+@media (max-width: 880px) {
+  .site-head .app-head-top {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+}
+
+.site-main {
+  flex: 1 0 auto;
+  padding: 24px 0;
+}
+
+/* On every page, the charts too: below the content, or at the window's foot
+   when the content is short (the page is a column at least a window tall). */
+.site-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 12px 0 8px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.site-foot-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+.site-foot-brand:hover {
+  text-decoration: underline;
+}
+
+/* ── Front page ─────────────────────────────────────────────── */
+
+.site-hero h1 {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  margin: 0 0 12px;
+}
+
+.site-intro {
+  white-space: pre-line;
+  max-width: 65ch;
+  line-height: 1.6;
+}
+
+.site-search-count {
+  color: var(--muted);
+}
+
+.site-search {
+  margin-top: 32px;
+  max-width: 640px;
+}
+
+/* The header's search, opened under the header row on any page. */
+.app-head.site-head {
+  position: relative;
+}
+.site-search-pop {
+  margin-top: 10px;
+  max-width: 420px;
+  margin-left: auto;
+}
+
+/* ── Highlights on the front page ───────────────────────────── */
+
+.site-highlights {
+  margin-top: 40px;
+}
+.site-highlights h2 {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  margin: 0 0 12px;
+}
+.site-highlights h3 {
+  font-size: 1rem;
+  margin: 24px 0 8px;
+}
+.site-couple {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 2px;
+}
+.site-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.site-chip {
+  padding: 4px 12px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.site-chip:hover,
+.site-chip:focus-visible {
+  border-color: var(--accent);
+}
+.site-week-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.site-week-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.site-week-date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 12ch;
+}
+.site-week-what {
+  color: var(--muted);
+}
+.site-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  text-decoration: none;
+}
+
+.site-search-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.site-search-input {
+  font-size: 1rem;
+  padding: 8px 12px;
+}
+
+.site-person-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* A relative's name, then how they are related to the start person. */
+.site-person-list li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+/* ── Person page ────────────────────────────────────────────── */
+
+.site-person {
+  max-width: 760px;
+}
+
+.site-person-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.site-person-name {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  margin: 0;
+}
+
+.site-person-years {
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.site-person-actions {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.site-person-actions .nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-person-kinship {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+}
+
+.site-note {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.site-events {
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+}
+
+.site-event {
+  display: contents;
+}
+
+.site-event dt {
+  color: var(--muted);
+}
+
+.site-event dd {
+  margin: 0;
+}
+
+.site-event-cause {
+  color: var(--muted);
+}
+
+/* An event's notes and sources, each on its own line under it. */
+.site-event-note,
+.site-event-source {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: pre-line;
+}
+
+/* A record's own notes and sources, after its events. */
+.site-notes,
+.site-sources {
+  margin: 12px 0;
+}
+.site-notes h4,
+.site-sources h4 {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.site-note-text {
+  margin: 0 0 8px;
+  white-space: pre-line;
+  max-width: 65ch;
+  line-height: 1.55;
+}
+.site-sources ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.site-section {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.site-section h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.site-section h4 {
+  margin: 12px 0 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.site-partner {
+  margin: 0 0 8px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+@media (max-width: 560px) {
+  .site-head .app-head-top {
+    gap: 8px;
+  }
+  .site-title {
+    width: 100%;
+  }
+  .site-events {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .site-event dd {
+    margin-bottom: 8px;
+  }
+}

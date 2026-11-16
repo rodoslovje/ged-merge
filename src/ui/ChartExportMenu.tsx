@@ -10,6 +10,7 @@ import { useChartSettings } from "./ChartSettingsContext";
 import { useTargetFormat } from "./TargetFormatContext";
 import { AUTHOR_KEYS, submitterOf, useSettingsSlice } from "./SettingsContext";
 import type { SheetChartSource } from "./sheetExport";
+import { usePublishedView } from "./PublishedView";
 
 // The chart pages' Export menu with the standard items built in: the branch
 // GEDCOM (first — the shareable format), then the canvas SVG and print-PDF.
@@ -53,8 +54,9 @@ export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, ca
   // The branch file is written in the version the main file saves in.
   const { target } = useTargetFormat();
   const [sheetDialog, setSheetDialog] = useState(false);
+  const published = usePublishedView();
   const items: ExportItem[] = [];
-  if (gedcom) {
+  if (gedcom && !published) {
     items.push({
       key: "ged",
       icon: <GedIcon />,

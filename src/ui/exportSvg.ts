@@ -306,8 +306,45 @@ const XLINK_NS = "http://www.w3.org/1999/xlink";
 // Band geometry/branding constants are exported: the map's PNG export draws
 // the same header/footer on canvas.
 export const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
-export const SITE = "gedmerge.com";
+const SITE = "gedmerge.com";
 const SITE_URL = "https://gedmerge.com";
+
+/** The address an export's footer names and links to: gedmerge.com, or on a
+ *  family website the address its author hosts it at. */
+let exportSite = { label: SITE, url: SITE_URL };
+/** On a family website, the footer's credit ("Made with GED Merge"), in the
+ *  reader's language at the time of the export. */
+let exportCredit: (() => string) | undefined;
+
+/** Name another address in every export's footer (the family website's own),
+ *  or gedmerge.com again with none — and, on the website, credit GED Merge
+ *  first, as the site's own footer does. */
+export function setExportSite(url: string | undefined, credit?: () => string): void {
+  const clean = url?.trim();
+  exportSite = clean
+    ? { label: clean.replace(/^https?:\/\//i, "").replace(/\/+$/, ""), url: /^https?:\/\//i.test(clean) ? clean : `https://${clean}` }
+    : { label: SITE, url: SITE_URL };
+  exportCredit = credit;
+}
+
+/** The footer's address: its text and its link. */
+export function exportSiteLink(): { label: string; url: string } {
+  return exportSite;
+}
+
+/** What an export's footer says on its left, after the badge, as links in
+ *  order: the site's address in the app; "Made with GED Merge" and then the
+ *  site's own address (where it has one) on a family website. */
+export function exportFooterLinks(): { text: string; url: string }[] {
+  if (!exportCredit) return [{ text: exportSite.label, url: exportSite.url }];
+  const out = [{ text: exportCredit(), url: SITE_URL }];
+  if (exportSite.url !== SITE_URL) out.push({ text: exportSite.label, url: exportSite.url });
+  return out;
+}
+
+/** The font of the footer links, and what stands between two of them. */
+export const FOOTER_LINK_FONT = `600 12px ${SANS}`;
+export const FOOTER_LINK_SEP = " · ";
 
 // Brand badge colours, fixed so the footer logo stays on-brand regardless of the
 // diagram's (theme-dependent) export colours. Mirrors public/app-icon.svg.
@@ -522,8 +559,10 @@ export function wrapWithBands(
     textWidth(opts.title, `600 18px ${SANS}`),
     opts.subtitle ? textWidth(opts.subtitle, `12px ${SANS}`) : 0,
   ) + 2 * MARGIN_X;
+  const footLinks = exportFooterLinks();
+  const linksW = footLinks.reduce((w, l, i) => w + textWidth(l.text, FOOTER_LINK_FONT) + (i ? textWidth(FOOTER_LINK_SEP, FOOTER_LINK_FONT) : 0), 0);
   const footerNeeds =
-    2 * MARGIN_X + BADGE_SIZE + 8 + textWidth(SITE, `600 12px ${SANS}`) +
+    2 * MARGIN_X + BADGE_SIZE + 8 + linksW +
     FOOTER_GAP + textWidth(timestamp, `12px ${SANS}`);
   const totalW = Math.ceil(Math.max(diagramW, titleNeeds, footerNeeds));
   const bandH = Math.max(diagramH, MIN_DIAGRAM_H);
@@ -620,22 +659,32 @@ export function wrapWithBands(
   frame.appendChild(footLine);
   const footTextY = footY + FOOTER_H / 2 + 4;
   // Small green brand badge, vertically centred in the footer band, with the
-  // site name as a clickable link beside it (works in browsers and print-to-PDF).
-  const link = document.createElementNS(SVG_NS, "a");
-  link.setAttributeNS(XLINK_NS, "xlink:href", SITE_URL);
-  link.setAttribute("href", SITE_URL);
-  link.setAttribute("target", "_blank");
-  link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - BADGE_SIZE) / 2, BADGE_SIZE));
-  link.appendChild(
-    svgText(SITE, MARGIN_X + BADGE_SIZE + 8, footTextY, {
-      "font-family": SANS,
-      "font-size": "12",
-      "font-weight": "600",
-      fill: foreground,
-      "text-decoration": "underline",
-    }),
-  );
-  frame.appendChild(link);
+  // footer's links beside it (they work in browsers and print-to-PDF): the
+  // badge belongs to the first.
+  let linkX = MARGIN_X + BADGE_SIZE + 8;
+  footLinks.forEach((l, i) => {
+    if (i) {
+      // The separator's dot, centred in its own width: SVG would drop the spaces.
+      frame.appendChild(svgText(FOOTER_LINK_SEP.trim(), linkX + textWidth(FOOTER_LINK_SEP, FOOTER_LINK_FONT) / 2, footTextY, { "text-anchor": "middle", "font-family": SANS, "font-size": "12", "font-weight": "600", fill: foreground }));
+      linkX += textWidth(FOOTER_LINK_SEP, FOOTER_LINK_FONT);
+    }
+    const link = document.createElementNS(SVG_NS, "a");
+    link.setAttributeNS(XLINK_NS, "xlink:href", l.url);
+    link.setAttribute("href", l.url);
+    link.setAttribute("target", "_blank");
+    if (!i) link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - BADGE_SIZE) / 2, BADGE_SIZE));
+    link.appendChild(
+      svgText(l.text, linkX, footTextY, {
+        "font-family": SANS,
+        "font-size": "12",
+        "font-weight": "600",
+        fill: foreground,
+        "text-decoration": "underline",
+      }),
+    );
+    frame.appendChild(link);
+    linkX += textWidth(l.text, FOOTER_LINK_FONT);
+  });
   frame.appendChild(
     svgText(timestamp, totalW - MARGIN_X, footTextY, {
       "text-anchor": "end",

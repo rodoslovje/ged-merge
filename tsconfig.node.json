@@ -22,6 +22,7 @@
   "include": [
     "vite.config.ts",
     "src/terms/vitePlugin.ts",
+    "src/publish/vitePlugin.ts",
     "src/terms/pages.ts",
     "src/gedcom/extensionTerms.ts",
     "src/gedcom/extensionRegistry.ts",

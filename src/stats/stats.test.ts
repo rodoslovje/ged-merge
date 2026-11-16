@@ -115,6 +115,12 @@ describe("buildStatsFacts", () => {
     expect(facts.byId.get("@I5@")!.living).toBe(false); // born 1855, no death: past the living window
   });
 
+  it("ranks no name that is only initials", () => {
+    const initials = buildStatsFacts(dataset("0 HEAD\n0 @I1@ INDI\n1 NAME A. /N./\n1 SEX F\n0 @I2@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n0 TRLR\n"), "", 2026);
+    expect(initials.byId.get("@I1@")).toMatchObject({ given: undefined, surname: undefined });
+    expect(rankNames(initials.people, "surname").map((b) => b.label)).toEqual(["Novak"]);
+  });
+
   it("marks each spouse's earliest-dated union as their first", () => {
     const f2 = facts.families.find((f) => f.id === "@F2@")!;
     const f3 = facts.families.find((f) => f.id === "@F3@")!;

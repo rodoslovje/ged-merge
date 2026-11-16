@@ -31,6 +31,7 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { useNodeColorer } from "./useNodeColorer";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { ChartLegend } from "./ChartLegend";
+import { usePublishedSettings } from "./PublishedView";
 
 // Full-page family Timeline: the root person and their immediate family
 // (parents, siblings, spouses, children) as horizontal lifespan bars on a
@@ -153,10 +154,15 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   // How far the chart reaches: the shared Generations choice, which for the
   // timeline counts both ways at once — ancestors above, descendants below.
   const limit = settings.maxGenerations;
-  const data = useMemo(
-    () => buildTimeline(t, mainDs, currentRootId, nameOf, undefined, limit),
-    [t, mainDs, currentRootId, nameOf, limit],
-  );
+  // The family website leaves out the living it publishes without details:
+  // their rows would be empty bars. With nobody left, the chart says so.
+  const reduced = usePublishedSettings()?.reduced;
+  const data = useMemo(() => {
+    const built = buildTimeline(t, mainDs, currentRootId, nameOf, undefined, limit);
+    if (!built || !reduced?.size) return built;
+    const rows = built.rows.filter((r) => !reduced.has(r.id));
+    return rows.length ? { ...built, rows } : { rows };
+  }, [t, mainDs, currentRootId, nameOf, limit, reduced]);
   // What the stepper's "of N" counts: the deeper of the two directions, always
   // the full family, so raising the limit never has to rebuild anything first.
   const depth = useMemo(() => familyDepth(mainDs, currentRootId), [mainDs, currentRootId]);

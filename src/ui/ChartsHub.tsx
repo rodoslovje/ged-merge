@@ -28,7 +28,7 @@ const MapChart = lazy(() => import("./map/MapChart"));
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
  *  (pedigrees, then the timeline) first, then the two-person relationship, then
  *  the contemporaries wheel, then the places map, then the text reports. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report"];
+export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report"];
 
 interface Props {
   mainDs: Dataset;
@@ -53,9 +53,13 @@ interface Props {
   relationFromId?: string;
   /** Open Tools → Places → Geocode places (the Contemporaries map's unplaced list). */
   onOpenGeocode?: () => void;
+  /** The ancestors/descendants/both choice, when the host keeps it — the family
+   *  website does, in its address. Without these the hub keeps its own. */
+  direction?: ChartDirection;
+  onDirectionChange?: (direction: ChartDirection) => void;
 }
 
-export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode }: Props) {
+export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode, direction: hostDirection, onDirectionChange }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
   // The user's ancestors/descendants/both choice — owned here (not by
@@ -65,7 +69,9 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
   // one point cloud, the report as its two lists one after the other.
   // Both to begin with: the bowtie shows the whole picture, and the counts on
   // the direction row say which side is worth opening on its own.
-  const [direction, setDirection] = useState<ChartDirection>("both");
+  const [ownDirection, setOwnDirection] = useState<ChartDirection>("both");
+  const direction = hostDirection ?? ownDirection;
+  const setDirection = onDirectionChange ?? setOwnDirection;
 
   // Digits 1–8 switch the kind (the chart-level keys — zoom, A/D, Esc — are
   // registered by whichever chart the hub is showing). Esc is handled here only

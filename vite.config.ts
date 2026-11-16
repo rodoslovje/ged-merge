@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { termsPagesPlugin } from "./src/terms/vitePlugin.ts";
+import { siteViewerPlugin } from "./src/publish/vitePlugin.ts";
 
 // Version shown in the footer and atop the /changelog page: the last commit
 // date (yyyy-mm-dd), not the build time — a rebuild with no new commits keeps
@@ -16,11 +17,13 @@ function getAppVersion(): string {
   }
 }
 
+const define = {
+  __APP_VERSION__: JSON.stringify(getAppVersion()),
+};
+
 // https://vite.dev/config/
 export default defineConfig({
-  define: {
-    __APP_VERSION__: JSON.stringify(getAppVersion()),
-  },
+  define,
   // The dev server is tested from other machines over Tailscale, so it listens
   // on every interface and accepts the tailnet's MagicDNS names
   // (<machine>.<tailnet>.ts.net) besides localhost and bare addresses.
@@ -33,6 +36,9 @@ export default defineConfig({
     // The extension-tag pages the GEDCOM 7 schema URIs point to
     // (gedmerge.com/terms/<vendor>/<TAG>), generated from the app's tables.
     termsPagesPlugin(),
+    // The family website's viewer (Tools → Family website), built into one
+    // script the app inlines into the page it exports.
+    siteViewerPlugin(define),
     // Installable, fully-offline PWA. The whole tool is client-side, so once
     // the shell, worker chunk, bundled fonts and the guide/navodila pages are
     // precached the app works with no network. Updates are user-driven
@@ -143,6 +149,12 @@ export default defineConfig({
         "src/save/**/*.ts",
         "src/state/**/*.ts",
         "src/stats/**/*.ts",
+        // The family website's data and page (its build plugin is exercised by
+        // the build and the e2e suite), and the viewer's one pure module.
+        "src/publish/hydrate.ts",
+        "src/publish/model.ts",
+        "src/publish/page.ts",
+        "src/viewer/route.ts",
         "src/terms/**/*.ts",
         "src/tools/**/*.ts",
         // Single files, not whole directories: the rest of src/persist,
