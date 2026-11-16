@@ -65,12 +65,12 @@
   gap: 16px;
 }
 
-/* The site's name in GED Merge's own green — a quiet tribute — and bold, the
-   header's anchor on every page. */
+/* The site's name in GED Merge's own green — a quiet tribute. The page's own
+   title below carries the weight; this one names the site. */
 .site-title {
   font-family: var(--font-serif);
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 500;
   letter-spacing: -0.01em;
   line-height: 1.2;
   color: var(--accent);
@@ -90,30 +90,68 @@
   flex: none;
 }
 
+/* Theme, language, search and the keys: one group, round buttons in a pill. */
+.site-prefs {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.app.site .site-prefs .nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
+}
+.app.site .site-prefs .nav-btn:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.app.site .site-prefs .site-search-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .site-toggle {
   font-size: 1rem;
   line-height: 1;
 }
+/* The language as its code (SL, EN). */
+.site-lang {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
-.site-nav .nav-btn {
+/* The three pages: quiet until pointed at, the open one a green pill. */
+.app.site .site-nav .nav-btn {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 40px;
+  padding: 0 14px;
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
 }
-
-/* Every header button answers a pointer or the keyboard as the chart tiles do:
-   green border and green text (the app's own only turns the border green). */
-.site-head .nav-btn:hover:not(:disabled),
-.site-head .nav-btn:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.site-nav .nav-btn.active {
+.app.site .site-nav .nav-btn:hover:not(:disabled) {
   background: var(--panel-2);
+  border-color: transparent;
   color: var(--text);
+}
+.app.site .site-nav .nav-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* Tablet and phone: the title with the theme, language, search and ? buttons
@@ -247,7 +285,7 @@
    between the header and the page, which it does not push down. */
 .app-head.site-head {
   position: relative;
-  padding-bottom: 14px;
+  padding-block: 14px;
   border-bottom: 1px solid var(--border);
   /* The line marks the header off; the page's own top padding is gap enough. */
   margin-bottom: 0;

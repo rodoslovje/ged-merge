@@ -14,6 +14,8 @@ import { sexClass } from "../ui/sex";
 import { ChartIcon } from "../ui/icons/ChartIcon";
 import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
+import { SunIcon } from "../ui/icons/SunIcon";
+import { MoonIcon } from "../ui/icons/MoonIcon";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 import { LogoMark } from "../ui/icons/LogoMark";
 import { exportSiteLink } from "../ui/exportSvg";
@@ -22,7 +24,7 @@ import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { displayDateText } from "../gedcom/dateDisplay";
 import { customEventLabel, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
-import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { StartPersonChip } from "../ui/edit/StartPersonChip";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
 import { useDatasetDerivations } from "../ui/DatasetDerivations";
@@ -341,7 +343,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             title={t(`site.theme.${otherTheme}`)}
             aria-label={t(`site.theme.${otherTheme}`)}
           >
-            {otherTheme === "light" ? "☀" : "☾"}
+            {otherTheme === "light" ? <SunIcon size={16} /> : <MoonIcon size={16} />}
           </button>
           <button
             type="button"
@@ -350,7 +352,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             title={langSwitch}
             aria-label={langSwitch}
           >
-            {LANGUAGE_FLAGS[lang]}
+            {/* The language as its code, not a flag: a flag names a country. */}
+            {lang.toUpperCase()}
           </button>
           <button
             type="button"
