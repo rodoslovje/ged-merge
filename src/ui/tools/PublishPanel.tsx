@@ -308,13 +308,13 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
         </label>
         {/* Off unless chosen: a family's names in search results is the
             author's call. */}
-        <span className="tools-publish-label">
+        <div className="tools-publish-check-row">
           <label className="tools-norm-check">
             <input type="checkbox" checked={options.indexable} onChange={() => set({ indexable: !options.indexable })} />
             <span>{t("tools.publish.indexable")}</span>
           </label>
           <InfoTip hint={t("tools.publish.indexableHint")} />
-        </span>
+        </div>
       </div>
 
       <div className="tools-privacy-group">

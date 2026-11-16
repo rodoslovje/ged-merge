@@ -10257,7 +10257,9 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .tools-publish .tools-summary .stats-info { vertical-align: -1.5px; }
 .tools-publish-folders-head { display: flex; margin-top: 10px; font-size: 0.9rem; font-weight: 600; }
 .tools-publish-input { width: 100%; max-width: 40rem; padding: 5px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; }
-.tools-publish .tools-privacy-group > .tools-norm-check { margin-top: 10px; }
+.tools-publish .tools-privacy-group > .tools-norm-check { display: flex; width: fit-content; margin-top: 10px; }
+/* A choice with its ⓘ, on a row of its own. */
+.tools-publish-check-row { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
 .tools-publish .tools-fix-hint { margin: 8px 0 0; }
 .tools-publish .tools-error { color: var(--danger); }
 .tools-publish .tools-publish-recent { margin: 10px 0 0; }
