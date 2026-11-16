@@ -3837,6 +3837,8 @@ export const sl = {
   "shortcuts.item.chartScroll": "Pomakni diagram — s ⇧ v večjih korakih; PgUp / PgDn za skoraj cel zaslon",
   "shortcuts.item.chartMinimap": "Pokaži / skrij pregledni zemljevid",
   "shortcuts.item.relationship": "Odpri diagram sorodstva",
+  "shortcuts.item.chartKinds": "Odpri pahljačo · časovnico · zemljevid osebe",
+  "shortcuts.item.chartTimelineMap": "Preklopi na časovnico · zemljevid",
   "shortcuts.item.confirm": "Potrdi ujemanje",
   "shortcuts.item.reject": "Zavrni ujemanje",
   "shortcuts.item.defer": "Preloži ujemanje (odloči kasneje) — v Orodjih pojdi na naslednji par",

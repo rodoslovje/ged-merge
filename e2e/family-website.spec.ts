@@ -91,6 +91,14 @@ test("the family website downloads as one page that works from disk", async ({ p
   await expect(page.locator(".site-person-name")).not.toContainText("Franc");
   await page.keyboard.press("Backspace");
   await expect(page.locator(".site-person-name")).toContainText("Franc");
+  // L his timeline, and on the chart page P switches to the map.
+  await page.keyboard.press("l");
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/timeline$/);
+  await page.keyboard.press("p");
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/map$/);
+  // The kind changes in place: one step back is his page again.
+  await page.goBack();
+  await expect(page.locator(".site-person-name")).toContainText("Franc");
 
   // The visitor makes Franc their start person — from the start person's chip,
   // as in the app's Edit view: relatives are named from him.

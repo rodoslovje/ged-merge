@@ -3378,6 +3378,8 @@ export const en = {
   "shortcuts.item.chartScroll": "Scroll the chart — with ⇧ in bigger steps; PgUp / PgDn most of a screen",
   "shortcuts.item.chartMinimap": "Show / hide the overview map",
   "shortcuts.item.relationship": "Open the relationship diagram",
+  "shortcuts.item.chartKinds": "Open the person's fan · timeline · map",
+  "shortcuts.item.chartTimelineMap": "Switch to the timeline · the map",
   "shortcuts.item.confirm": "Confirm match",
   "shortcuts.item.reject": "Reject match",
   "shortcuts.item.defer": "Defer match (decide later) — in Tools, move on to the next pair",

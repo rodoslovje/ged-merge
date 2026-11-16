@@ -275,6 +275,9 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       } else if (key === KEY.tree && here) {
         e.preventDefault();
         openCharts(here);
+      } else if ((key === KEY.fan || key === KEY.timeline || key === KEY.map) && here) {
+        e.preventDefault();
+        go({ page: "charts", id: pubId(here), kind: key === KEY.fan ? "fan" : key === KEY.timeline ? "timeline" : "map" });
       } else if (key === KEY.relationship && shownPerson && startXref && shownPerson !== startXref) {
         e.preventDefault();
         go({ page: "charts", id: pubId(shownPerson), kind: "relationship" });

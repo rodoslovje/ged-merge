@@ -31,6 +31,12 @@ export const KEY = {
   defer: "d",
   /** Merge mode: show or hide the match list's filters. */
   filter: "f",
+  /** A person's fan, timeline and map — from Edit and the family website's
+   *  person pages. On a chart page F is "fit" (CHART_KEY.fit), so there only
+   *  L and P switch the kind. */
+  fan: "f",
+  timeline: "l",
+  map: "p",
 } as const;
 
 /** Bare keys active on the full-page chart overlays (handled by
@@ -51,6 +57,9 @@ export const CHART_KEY = {
   /** Step back / forward through the people the hub has been drawn for. */
   trailBack: ",",
   trailForward: ".",
+  /** Switch to the timeline / the map, the keys that open them elsewhere. */
+  timeline: KEY.timeline,
+  map: KEY.map,
 } as const;
 
 /**
@@ -217,6 +226,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [["Enter"]], descKey: "shortcuts.item.enter", scope: ["merge", "tools"] },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.item.tree", scope: ["edit", "merge", "tools"] },
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.relationship", scope: ["edit", "merge"] },
+      { keys: [[KEY.fan.toUpperCase()], [KEY.timeline.toUpperCase()], [KEY.map.toUpperCase()]], descKey: "shortcuts.item.chartKinds", scope: ["edit"] },
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.item.home", scope: ["edit"] },
       // The chord is the same step taken from inside a field, where the bare
       // key belongs to the text being typed.
@@ -252,6 +262,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     scope: ["chart"],
     items: [
       { keys: [["1"], ["9"]], sep: "range", descKey: "shortcuts.item.chartKind" },
+      { keys: [[CHART_KEY.timeline.toUpperCase()], [CHART_KEY.map.toUpperCase()]], descKey: "shortcuts.item.chartTimelineMap" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },
@@ -326,6 +337,7 @@ export const SITE_SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.site.home" },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.site.charts" },
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.site.relationship" },
+      { keys: [[KEY.fan.toUpperCase()], [KEY.timeline.toUpperCase()], [KEY.map.toUpperCase()]], descKey: "shortcuts.item.chartKinds" },
       { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.site.goParent" },
       { keys: [["alt", "←"], ["alt", "→"]], descKey: "shortcuts.item.goSibling" },
       { keys: [["alt", "↓"], ["alt", "shift", "↓"]], descKey: "shortcuts.item.goChild" },
