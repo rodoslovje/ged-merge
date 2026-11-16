@@ -87,7 +87,8 @@
 .site-title {
   font-family: var(--font-serif);
   font-size: 1.25rem;
-  font-weight: 500;
+  /* IBM Plex Serif ships 400/500/600: 600 is its boldest real cut. */
+  font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.2;
   color: var(--accent);
@@ -160,7 +161,7 @@
   background: none;
   color: var(--muted);
 }
-.app.site .site-nav .nav-btn:hover:not(:disabled) {
+.app.site .site-nav .nav-btn:hover:not(:disabled, .active) {
   background: var(--panel-2);
   border-color: transparent;
   color: var(--text);
