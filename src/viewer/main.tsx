@@ -22,7 +22,8 @@ import { setExportSite } from "../ui/exportSvg";
 import { ChangeJournal } from "../state/mainSync";
 import { DATA_ELEMENT_ID } from "../publish/page";
 import { PUBLISHED_FORMAT, type PublishedTree } from "../publish/model";
-import { hydrateTree, xrefOf } from "../publish/hydrate";
+import { hydrateTree, pubId, xrefOf } from "../publish/hydrate";
+import { routeHash } from "./route";
 import { ViewerApp } from "./ViewerApp";
 
 const LANG_KEY = "gedmerge-site.lang";
@@ -52,6 +53,7 @@ function Site({ tree }: { tree: PublishedTree }) {
   const view = useMemo<PublishedView>(() => ({
     exports: !!tree.exports,
     reduced: new Set(tree.people.filter((p) => p.living).map((p) => xrefOf(p.id))),
+    openPerson: (id) => { location.hash = routeHash({ page: "person", id: pubId(id) }); },
   }), [tree]);
   return (
     <PublishedViewContext.Provider value={view}>

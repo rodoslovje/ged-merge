@@ -655,6 +655,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
         {selected && selected.main && (
           <TreeNodePanel
             node={selected}
+            personId={selected.main?.id}
             swatch={colorOf(selected)}
             rows={selectedRows}
             mainPerson={mainNav}

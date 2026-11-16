@@ -11,6 +11,7 @@ import {
   type Viewport,
 } from "../chart/treeLayout";
 import { PHONE_QUERY } from "./usePhone";
+import { usePublishedView } from "./PublishedView";
 
 /** Zoom range and the per-click button step. Wheel zoom is continuous within this
  *  range; "fit" never magnifies past 1× so a small chart keeps its natural size. */
@@ -581,12 +582,15 @@ export function useTreeCanvas(
     [selectedKey, centreOn],
   );
 
+  // On the family website a selected person opens their page (see
+  // TreeNodePanel), so a node found or walked to is only centred there.
+  const published = usePublishedView();
   const revealNode = useCallback(
     (key: string) => {
-      setSelectedKey(key);
+      if (!published) setSelectedKey(key);
       centreOn(key);
     },
-    [centreOn],
+    [centreOn, published],
   );
 
   const selected = selectedKey ? nodesByKey.get(selectedKey) : undefined;

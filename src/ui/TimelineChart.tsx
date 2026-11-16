@@ -621,6 +621,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
         {selectedRow && selectedIndi && (
           <TreeNodePanel
             node={selectedRow}
+            personId={selectedRow.id}
             swatch={colorFor(selectedRow)}
             rows={selectedRows}
             mainPerson={mainNav}

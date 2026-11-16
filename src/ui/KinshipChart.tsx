@@ -994,6 +994,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         {selected && (
           <TreeNodePanel
             node={{ name: nameFor(selected), years: selected.years, sex: selected.sex }}
+            personId={selected.id}
             swatch={colorOf(selected)}
             rows={selectedRows}
             mainPerson={mainNav}

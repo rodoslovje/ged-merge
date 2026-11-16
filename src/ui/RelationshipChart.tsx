@@ -418,6 +418,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         {selectedBox && selectedIndi && (
           <TreeNodePanel
             node={selectedBox}
+            personId={selectedBox.id}
             swatch={colorFor(selectedBox)}
             rows={selectedRows}
             mainPerson={{ linkable: (id) => mainDs.individuals.has(id), onNavigate }}

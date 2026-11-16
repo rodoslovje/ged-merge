@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Sex } from "../gedcom/types";
 import type { FieldRow } from "../review/types";
 import { ChartIcon } from "./icons/ChartIcon";
+import { usePublishedSettings } from "./PublishedView";
 import { ReadOnlyCompare, type PersonNav } from "./ReadOnlyCompare";
 import { sexClass } from "./sex";
 
@@ -48,6 +49,9 @@ interface Props {
   /** Extra control rows shown between the actions row and the field table
    *  (Compare Tree: the decision bar and import button). */
   controls?: ReactNode;
+  /** The person the panel shows: on the family website their page opens in
+   *  place of the panel. */
+  personId?: string;
 }
 
 /**
@@ -76,8 +80,16 @@ export function TreeNodePanel({
   badges,
   extraActions,
   controls,
+  personId,
 }: Props) {
   const { t } = useTranslation();
+  // On the family website a picked person's page opens straight away: the
+  // site's charts have addresses, so the browser's Back returns to the chart.
+  const openPage = usePublishedSettings()?.openPerson;
+  useEffect(() => {
+    if (openPage && personId) openPage(personId);
+  }, [openPage, personId]);
+  if (openPage && personId) return null;
   const title = (
     <>
       <span className="tree-compare-title-main">
