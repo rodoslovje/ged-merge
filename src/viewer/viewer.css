@@ -323,7 +323,9 @@
 
 /* ── Person page ────────────────────────────────────────────── */
 
-.site-person {
+/* The head (name, then the chart tiles at the right) takes the page's whole
+   width; what follows keeps a reading width. */
+.site-person > :not(.site-person-head) {
   max-width: 760px;
 }
 

@@ -657,6 +657,24 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
   const ownFams = indi.spouseOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const siblings = [...new Set(parentFams.flatMap((f) => f.children))].filter((c) => c !== id);
   const person = pub.people.get(id);
+  // The start person's control, as in the app's Edit view: the kinship label
+  // itself opens the menu (go to the start person, make this one the start,
+  // choose another, clear), a bare ⌂ where there is no label.
+  const kinship = kin?.label(id);
+  const bareHome = !!startId && !kinship;
+  const startChip = (
+    <StartPersonChip
+      t={t}
+      personId={id}
+      startId={startId}
+      startName={startIndi ? nameOf(startIndi) : undefined}
+      kinship={kinship}
+      kinshipLineage={lineageClass(kin?.lineage(id), kin?.direct(id))}
+      individuals={ds.individuals}
+      onChange={onStartChange}
+      onGoToStart={() => startId && onNavigate(startId)}
+    />
+  );
 
   return (
     <article className="site-person">
@@ -669,23 +687,11 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
             <span className="site-person-years">
               <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
             </span>
+            {/* No kinship to name: the bare ⌂ rides after the years rather
+                than taking a line of its own. */}
+            {bareHome && startChip}
           </div>
-          {/* The start person's control, as in the app's Edit view: the kinship
-              label itself opens the menu (go to the start person, make this one
-              the start, choose another), a bare ⌂ where there is no label. */}
-          <div className="site-person-kinship">
-            <StartPersonChip
-              t={t}
-              personId={id}
-              startId={startId}
-              startName={startIndi ? nameOf(startIndi) : undefined}
-              kinship={kin?.label(id)}
-              kinshipLineage={lineageClass(kin?.lineage(id), kin?.direct(id))}
-              individuals={ds.individuals}
-              onChange={onStartChange}
-              onGoToStart={() => startId && onNavigate(startId)}
-            />
-          </div>
+          {!bareHome && <div className="site-person-kinship">{startChip}</div>}
         </div>
         <PersonCharts
           ds={ds}
