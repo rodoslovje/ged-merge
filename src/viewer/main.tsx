@@ -77,7 +77,8 @@ const tree = readTree();
 // address when the author gave one.
 setExportSite(tree.url, () => `${i18n.t("site.footer.madeWith")} GED Merge`);
 // The site's own icon, where the author named its address.
-if (tree.url) adoptSiteFavicon(exportSiteLink().url);
+// An icon the author named is in the page already; else the site's own, if any.
+if (!tree.favicon && tree.url) adoptSiteFavicon(exportSiteLink().url);
 // The charts' panel button that opens a person in the app's Edit view opens
 // their page here: it says so, in both languages.
 // The statistics' hints say a name opens "in Edit"; here it opens the person's

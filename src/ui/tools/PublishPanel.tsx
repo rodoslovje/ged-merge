@@ -272,6 +272,17 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           />
           <span className="tools-fix-hint">{t("tools.publish.siteUrlHint")}</span>
         </label>
+        <label className="tools-publish-field">
+          <span className="tools-privacy-legend">{t("tools.publish.favicon")}</span>
+          <input
+            type="url"
+            className="tools-publish-input"
+            value={options.favicon}
+            placeholder="https://example.org/favicon.png"
+            onChange={(e) => set({ favicon: e.target.value })}
+          />
+          <span className="tools-fix-hint">{t("tools.publish.faviconHint")}</span>
+        </label>
         <label className="tools-norm-check">
           <input type="checkbox" checked={options.exports} onChange={() => set({ exports: !options.exports })} />
           <span>{t("tools.publish.exports")}</span>

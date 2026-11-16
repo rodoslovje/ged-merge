@@ -1598,6 +1598,8 @@ export const en = {
   "tools.publish.urlHint": "Where you will put the page, or your site that links to it. The website's Home button leads there, and downloaded charts and maps name it instead of gedmerge.com.",
   "tools.publish.siteUrl": "This website's own address",
   "tools.publish.siteUrlHint": "Where the page itself is, for a shared link's preview — needed when the address above is your site that links to it. Left empty, the address above.",
+  "tools.publish.favicon": "Website icon",
+  "tools.publish.faviconHint": "The address of an image for the browser tab, such as https://example.org/favicon.png. Left empty, the website address's own favicon.ico, else GED Merge's icon.",
   "tools.publish.exports": "Let visitors download charts, reports and statistics",
   "tools.publish.indexable": "Search engines may index the website",
   "tools.publish.indexableHint": "The names and dates of everyone published can then turn up in search results.",

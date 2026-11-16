@@ -107,6 +107,9 @@ export interface PublishOptions {
   /** Search engines may index the website (and follow its links). Off: the
    *  page asks them to leave it out. */
   indexable: boolean;
+  /** The website's icon: an image's address. "" for the website address's own
+   *  `favicon.ico`, else GED Merge's (see `viewer/favicon.ts`). */
+  favicon: string;
   display: SiteDisplay;
   /** What the site also shows beside names, dates and places. Without
    *  addresses a house's coordinate gives way to its settlement's. */
@@ -120,6 +123,13 @@ export interface PublishOptions {
   map: SiteMap;
   /** The site's language on first open. */
   lang: string;
+}
+
+/** An icon address as the page can use it: one with a scheme or a path as it
+ *  is, one that starts with a host name (`example.org/icon.png`) over https. */
+export function iconAddress(value: string): string {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value) || /^[./]/.test(value)) return value;
+  return /^[^/\s]+\.[a-z]{2,}\//i.test(value) ? `https://${value}` : value;
 }
 
 export function defaultPublishOptions(
@@ -140,6 +150,7 @@ export function defaultPublishOptions(
     url: "",
     siteUrl: "",
     indexable: false,
+    favicon: "",
     display,
     include: { sources: false, notes: false, addresses: false, photos: false },
     photoFolders: {},
@@ -248,6 +259,8 @@ export interface PublishedTree {
   siteUrl?: string;
   /** Search engines may index it (see PublishOptions). */
   indexable?: true;
+  /** The icon's address, when the author named one. */
+  favicon?: string;
   /** The cover made small for a link preview (see `previewImage.ts`), in the
    *  ZIP beside its photos. */
   preview?: { path: string; width: number; height: number };
@@ -578,6 +591,7 @@ export function* buildPublishedTreeSteps(
   if (opts.url.trim()) tree.url = opts.url.trim();
   if (opts.siteUrl.trim()) tree.siteUrl = opts.siteUrl.trim();
   if (opts.indexable) tree.indexable = true;
+  if (opts.favicon.trim()) tree.favicon = iconAddress(opts.favicon.trim());
   tree.display = opts.display;
   tree.map = opts.map;
   const start = startId ? idOf.get(startId) : undefined;

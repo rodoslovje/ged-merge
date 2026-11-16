@@ -1828,6 +1828,8 @@ export const sl = {
   "tools.publish.urlHint": "Naslov, kamor boste stran naložili, ali naslov vaše spletne strani, ki vodi nanjo. Gumb Domov na strani vodi na ta naslov, preneseni diagrami in zemljevidi pa ga navajajo namesto gedmerge.com.",
   "tools.publish.siteUrl": "Naslov te strani",
   "tools.publish.siteUrlHint": "Kje je stran sama, za predogled deljene povezave — potrebno, kadar je zgornji naslov vaša spletna stran, ki vodi nanjo. Če ga pustite praznega, velja zgornji naslov.",
+  "tools.publish.favicon": "Ikona strani",
+  "tools.publish.faviconHint": "Naslov slike za zavihek brskalnika, npr. https://example.org/favicon.png. Če ga pustite praznega, velja favicon.ico na naslovu spletne strani, sicer ikona GED Merge.",
   "tools.publish.exports": "Obiskovalci lahko prenesejo diagrame, poročila in statistiko",
   "tools.publish.indexable": "Iskalniki smejo indeksirati spletno stran",
   "tools.publish.indexableHint": "Imena in datumi vseh objavljenih oseb se nato lahko pojavijo v rezultatih iskanja.",

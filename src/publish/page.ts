@@ -143,7 +143,7 @@ function pageShell(tree: PublishedTree, meta: SiteMeta | undefined, styles: stri
 <meta name="generator" content="GED Merge (${PUBLISHED_FORMAT})">
 <title>${title}</title>
 ${shareMeta(tree, meta)}
-<link rel="icon" type="image/svg+xml" href="${DEFAULT_FAVICON}">
+${tree.favicon ? `<link rel="icon" href="${escapeHtml(tree.favicon)}">` : `<link rel="icon" type="image/svg+xml" href="${DEFAULT_FAVICON}">`}
 <script>${THEME_BOOT}</script>
 ${styles}
 </head>

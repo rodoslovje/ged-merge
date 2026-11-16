@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, type PublishOptions } from "./model";
+import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, iconAddress, type PublishOptions } from "./model";
 import { hydrateTree, pubId } from "./hydrate";
 import { inlineSafe, publishedHtml, publishedSiteFiles, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
 
@@ -426,6 +426,17 @@ describe("publishedHtml", () => {
     const long = siteDescription({ ...tree, intro: { sl: "beseda ".repeat(60) } }, meta.credit);
     expect(long.length).toBeLessThanOrEqual(200);
     expect(long.endsWith("… Narejeno z GED Merge (gedmerge.com).")).toBe(true);
+  });
+
+  it("puts the author's icon in the page, else GED Merge's", () => {
+    const bundle = { js: "", css: "" };
+    expect(publishedHtml(build({}).tree, bundle)).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,');
+    const named = build({ favicon: "renko.example/user/themes/renko/images/favicon.png" }).tree;
+    expect(named.favicon).toBe("https://renko.example/user/themes/renko/images/favicon.png");
+    expect(publishedSiteFiles(named, bundle)[0].text).toContain('<link rel="icon" href="https://renko.example/user/themes/renko/images/favicon.png">');
+    expect(iconAddress("https://a.example/i.png")).toBe("https://a.example/i.png");
+    expect(iconAddress("favicon.png")).toBe("favicon.png");
+    expect(iconAddress("./icons/i.png")).toBe("./icons/i.png");
   });
 
   it("keeps search engines out unless the author lets them in", () => {
