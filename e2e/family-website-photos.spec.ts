@@ -57,8 +57,11 @@ test("the family website with photos downloads as a ZIP that works from disk", a
   const zip = readFileSync((await file.path())!);
   const buffer = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength);
   const entries = zipEntries(buffer);
-  // A small page, its data, the viewer named by its content, the photos.
-  expect(entries.map((e) => e.name.replace(/\/o[0-9a-z]+\./, "/ID.").replace(/-[0-9a-f]{8}\./, "-H."))).toEqual([
+  // A small page, its data, the viewer named by its content, its fonts as
+  // files, the photos.
+  const fonts = entries.filter((e) => e.name.startsWith("fonts/"));
+  expect(fonts.length).toBeGreaterThan(0);
+  expect(entries.filter((e) => !fonts.includes(e)).map((e) => e.name.replace(/\/o[0-9a-z]+\./, "/ID.").replace(/-[0-9a-f]{8}\./, "-H."))).toEqual([
     "index.html", "data.js", "viewer-H.js", "viewer-H.css", "photos/ID.png",
   ]);
   expect(entries[0].uncompressedSize).toBeLessThan(10_000);
@@ -69,6 +72,7 @@ test("the family website with photos downloads as a ZIP that works from disk", a
   // Unpacked, as a relative would.
   const site = path.join(DIR, "site");
   mkdirSync(path.join(site, "photos"), { recursive: true });
+  mkdirSync(path.join(site, "fonts"), { recursive: true });
   for (const e of entries) {
     writeFileSync(path.join(site, e.name), new Uint8Array(await new Response(zipEntryStream(buffer, e)).arrayBuffer()));
   }

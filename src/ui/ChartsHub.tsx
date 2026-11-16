@@ -51,6 +51,9 @@ interface Props {
   /** The person the relationship diagram measures from when it is not the start
    *  person — a couple opened from Statistics, related to each other. */
   relationFromId?: string;
+  /** The relationship diagram's "from" person was swapped in its title (the
+   *  family website keeps it in its address). */
+  onRelationFromChange?: (id: string) => void;
   /** Open Tools → Places → Geocode places (the Contemporaries map's unplaced list). */
   onOpenGeocode?: () => void;
   /** The ancestors/descendants/both choice, when the host keeps it — the family
@@ -59,7 +62,7 @@ interface Props {
   onDirectionChange?: (direction: ChartDirection) => void;
 }
 
-export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode, direction: hostDirection, onDirectionChange }: Props) {
+export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, onRelationFromChange, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode, direction: hostDirection, onDirectionChange }: Props) {
   const { t } = useTranslation();
   const { settings, setKind } = useChartSettings();
   // The user's ancestors/descendants/both choice — owned here (not by
@@ -201,6 +204,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
         onBack={onBack}
         onNavigate={onNavigate}
         onTargetChange={onRootChange}
+        onStartChange={onRelationFromChange}
         kindSwitcher={kindSwitcher}
       />
     );
