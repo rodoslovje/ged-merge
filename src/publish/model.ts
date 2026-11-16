@@ -104,6 +104,9 @@ export interface PublishOptions {
   /** The website's own address, where its page is — for a shared link's
    *  preview, when `url` is the author's site that links to it. "" for `url`. */
   siteUrl: string;
+  /** Search engines may index the website (and follow its links). Off: the
+   *  page asks them to leave it out. */
+  indexable: boolean;
   display: SiteDisplay;
   /** What the site also shows beside names, dates and places. Without
    *  addresses a house's coordinate gives way to its settlement's. */
@@ -136,6 +139,7 @@ export function defaultPublishOptions(
     exports: false,
     url: "",
     siteUrl: "",
+    indexable: false,
     display,
     include: { sources: false, notes: false, addresses: false, photos: false },
     photoFolders: {},
@@ -242,6 +246,8 @@ export interface PublishedTree {
   cover?: string;
   /** Where the page itself is, when not at `url` (see PublishOptions). */
   siteUrl?: string;
+  /** Search engines may index it (see PublishOptions). */
+  indexable?: true;
   /** The cover made small for a link preview (see `previewImage.ts`), in the
    *  ZIP beside its photos. */
   preview?: { path: string; width: number; height: number };
@@ -571,6 +577,7 @@ export function* buildPublishedTreeSteps(
   if (opts.exports) tree.exports = true;
   if (opts.url.trim()) tree.url = opts.url.trim();
   if (opts.siteUrl.trim()) tree.siteUrl = opts.siteUrl.trim();
+  if (opts.indexable) tree.indexable = true;
   tree.display = opts.display;
   tree.map = opts.map;
   const start = startId ? idOf.get(startId) : undefined;

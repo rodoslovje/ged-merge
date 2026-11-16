@@ -139,7 +139,7 @@ function pageShell(tree: PublishedTree, meta: SiteMeta | undefined, styles: stri
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
+<meta name="robots" content="${tree.indexable ? "index, follow" : "noindex, nofollow"}">
 <meta name="generator" content="GED Merge (${PUBLISHED_FORMAT})">
 <title>${title}</title>
 ${shareMeta(tree, meta)}

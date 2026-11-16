@@ -1829,6 +1829,8 @@ export const sl = {
   "tools.publish.siteUrl": "Naslov te strani",
   "tools.publish.siteUrlHint": "Kje je stran sama, za predogled deljene povezave — potrebno, kadar je zgornji naslov vaša spletna stran, ki vodi nanjo. Če ga pustite praznega, velja zgornji naslov.",
   "tools.publish.exports": "Obiskovalci lahko prenesejo diagrame, poročila in statistiko",
+  "tools.publish.indexable": "Iskalniki smejo indeksirati spletno stran",
+  "tools.publish.indexableHint": "Imena in datumi vseh objavljenih oseb se nato lahko pojavijo v rezultatih iskanja.",
   "tools.publish.start": "Izhodiščna oseba",
   "tools.publish.startPick": "Izberite osebo…",
   "tools.publish.startHint": "Pri tej osebi se odprejo diagrami na strani, od nje se računajo oznake sorodstva, ožji izbor pa obdrži njene sorodnike. Obiskovalci lahko na strani izberejo drugo osebo.",

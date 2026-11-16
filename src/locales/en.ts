@@ -1599,6 +1599,8 @@ export const en = {
   "tools.publish.siteUrl": "This website's own address",
   "tools.publish.siteUrlHint": "Where the page itself is, for a shared link's preview — needed when the address above is your site that links to it. Left empty, the address above.",
   "tools.publish.exports": "Let visitors download charts, reports and statistics",
+  "tools.publish.indexable": "Search engines may index the website",
+  "tools.publish.indexableHint": "The names and dates of everyone published can then turn up in search results.",
   "tools.publish.start": "Start person",
   "tools.publish.startPick": "Pick a person…",
   "tools.publish.startHint": "The person the website's charts open on and its relationship labels count from; a narrower scope keeps their relatives. Visitors can pick someone else on the website.",

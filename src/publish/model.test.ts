@@ -428,6 +428,14 @@ describe("publishedHtml", () => {
     expect(long.endsWith("… Narejeno z GED Merge (gedmerge.com).")).toBe(true);
   });
 
+  it("keeps search engines out unless the author lets them in", () => {
+    const bundle = { js: "", css: "" };
+    expect(publishedHtml(build({}).tree, bundle)).toContain('<meta name="robots" content="noindex, nofollow">');
+    const open = build({ indexable: true }).tree;
+    expect(open.indexable).toBe(true);
+    expect(publishedSiteFiles(open, bundle)[0].text).toContain('<meta name="robots" content="index, follow">');
+  });
+
   it("cuts a long intro at a word for the preview", () => {
     const long = "beseda ".repeat(60);
     const text = siteDescription({ ...build({ intro: { sl: long } }).tree });
