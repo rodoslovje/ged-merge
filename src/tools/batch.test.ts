@@ -94,6 +94,7 @@ describe("batch criteria", () => {
 2 DATE 12 MAY 1900
 1 DEAT
 2 DATE 3 MAY 1919
+2 CAUS Typhus fever
 1 OBJE @O1@
 0 @I2@ INDI
 1 NAME Bo /Kovač/
@@ -215,6 +216,21 @@ describe("batch criteria", () => {
     expect(match([{ kind: "event", tag: "DEAT", mode: "lacks" }])).toEqual(["@I3@", "@I4@"]);
     expect(match([{ kind: "event", tag: "OCCU", mode: "has" }])).toEqual(["@I2@"]);
     expect(match([{ kind: "event", tag: "OCCU", mode: "lacks" }])).toEqual(["@I1@", "@I3@", "@I4@"]);
+  });
+
+  it("narrows an event by its name or value", () => {
+    expect(match([{ kind: "event", tag: "OCCU", mode: "has", text: "farm" }])).toEqual(["@I2@"]);
+    expect(match([{ kind: "event", tag: "OCCU", mode: "has", text: "miller" }])).toEqual([]);
+    expect(match([{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "has", text: "ARMY" }])).toEqual(["@I4@"]);
+    expect(match([{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "lacks", text: "army" }])).toEqual(["@I1@", "@I2@", "@I3@"]);
+  });
+
+  it("filters by the cause of death", () => {
+    expect(match([{ kind: "deathCause", mode: "has" }])).toEqual(["@I1@"]);
+    expect(match([{ kind: "deathCause", mode: "has", text: "tyfus" }])).toEqual([]);
+    expect(match([{ kind: "deathCause", mode: "has", text: "typhus" }])).toEqual(["@I1@"]);
+    expect(match([{ kind: "deathCause", mode: "lacks", text: "typhus" }])).toEqual(["@I2@", "@I3@", "@I4@"]);
+    expect(match([{ kind: "deathCause", mode: "lacks" }])).toEqual(["@I2@", "@I3@", "@I4@"]);
   });
 
   it("matches any non-standard event via the sentinel tag", () => {
@@ -623,6 +639,26 @@ describe("addMarriedName across unions", () => {
     expect(match([{ kind: "familyEvent", tag: "_MSTAT", mode: "has" }])).toEqual(["@M4@", "@W3@"]);
     // One union with a marriage is enough for "has".
     expect(match([{ kind: "familyEvent", tag: "MARR", mode: "has" }])).toEqual(["@M1@", "@M2@", "@W1@"]);
+  });
+
+  it("narrows a union's custom event by its name", () => {
+    const ds = dataset(FILE.replace("1 _MSTAT Partners", "1 EVEN\n2 TYPE Separation"));
+    const rows = buildBatchRows(ds, nameOf);
+    const match = (c: BatchCriterion[]) =>
+      rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null, fullText: () => "" })).map((r) => r.id).sort();
+    expect(match([{ kind: "familyEvent", tag: "EVEN", mode: "has", text: "separ" }])).toEqual(["@M4@", "@W3@"]);
+    expect(match([{ kind: "familyEvent", tag: "EVEN", mode: "has", text: "Partners" }])).toEqual([]);
+    expect(match([
+      { kind: "relation", rel: "spouse", mode: "has" },
+      { kind: "familyEvent", tag: "EVEN", mode: "lacks", text: "Separation" },
+    ])).not.toContain("@W3@");
+    // Any event: the name also reads a vendor tag's value (`_MSTAT Partners`).
+    const any = buildBatchRows(dataset(FILE), nameOf).filter((r) =>
+      matchesBatch(r, [{ kind: "familyEvent", tag: ANY_EVENT, mode: "has", text: "partners" }], {
+        lineSides: null, kinship: null, fullText: () => "",
+      }),
+    ).map((r) => r.id).sort();
+    expect(any).toEqual(["@M4@", "@W3@"]);
   });
 
   it("counts a divorce and Brother's Keeper's flags as evidence either way", () => {

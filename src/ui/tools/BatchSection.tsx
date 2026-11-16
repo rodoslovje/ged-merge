@@ -4,7 +4,7 @@ import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
 import { applyPassSafely } from "../../tools/passSafety";
-import { EDITABLE_FAM_EVENT_TAGS, FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, carriesLineValue, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
 import { eventMenuLabel } from "../EventGlyph";
 import { offeredEventGroups, offersEventTag } from "../edit/editConstants";
 import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
@@ -57,7 +57,7 @@ import { ToolsIntro } from "./shared";
  *  fails to compile until it is given a group. */
 const CRITERION_GROUP: Record<BatchCriterion["kind"], "person" | "family" | "text" | "records"> = {
   name: "person", nameField: "person", sex: "person", birthYear: "person", age: "person", living: "person",
-  event: "person",
+  event: "person", deathCause: "person",
   familyEvent: "family", relation: "family", kinship: "family", line: "family",
   place: "text", note: "text", anyField: "text",
   media: "records", sources: "records", private: "records", privateNote: "records",
@@ -168,9 +168,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     [eventOptions, familyVendorOptions],
   );
   /** Tags offered by the family-event filter: marriage always (the point of the
-   *  filter is finding unions without it) plus whatever the file's unions use. */
+   *  filter is finding unions without it), the custom event (narrowed by its
+   *  name in a text field) plus whatever the file's unions use. */
   const familyEventOptions = useMemo(() => {
-    const present = new Set<string>(["MARR"]);
+    const present = new Set<string>(["MARR", "EVEN"]);
     for (const r of rows) for (const tag of r.familyEventTags) present.add(tag);
     return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
@@ -367,6 +368,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       age: { kind: "age", op: "lt", years: 20 },
       living: { kind: "living", value: true },
       event: { kind: "event", tag: "BIRT", mode: "lacks" },
+      deathCause: { kind: "deathCause", mode: "has" },
       familyEvent: { kind: "familyEvent", tag: "MARR", mode: "lacks" },
       relation: { kind: "relation", rel: "spouse", mode: "has" },
       kinship: { kind: "kinship", rel: "blood" },
@@ -745,6 +747,33 @@ function CriterionRow({
               { value: ANY_VENDOR_EVENT, label: t("tools.batch.event.anyVendor") },
             ]}
           />
+          {(carriesLineValue(c.tag) || c.tag === ANY_VENDOR_EVENT) && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.eventTextPlaceholder")}
+              value={c.text ?? ""}
+              onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+            />
+          )}
+        </>
+      )}
+      {c.kind === "deathCause" && (
+        <>
+          <SelectMenu
+            className="batch-select"
+            value={c.mode}
+            onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+            options={[
+              { value: "has", label: t("tools.batch.event.has") },
+              { value: "lacks", label: t("tools.batch.event.lacks") },
+            ]}
+          />
+          <input
+            className="batch-input"
+            placeholder={t("tools.batch.causePlaceholder")}
+            value={c.text ?? ""}
+            onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+          />
         </>
       )}
       {c.kind === "familyEvent" && (
@@ -772,6 +801,14 @@ function CriterionRow({
               { value: ANY_EVENT, label: t("tools.batch.event.any") },
             ]}
           />
+          {(carriesLineValue(c.tag) || c.tag === ANY_EVENT) && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.eventTextPlaceholder")}
+              value={c.text ?? ""}
+              onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+            />
+          )}
         </>
       )}
       {c.kind === "kinship" && (

@@ -1664,8 +1664,13 @@
               given name or surname), a name part the record has or lacks (given name, surname, or married name in
               either notation), sex, birth year, age (at
               death; for people without a death record, to today), living (has a death record or not), an event the
-              person has or does not have (birth, death, occupation, … — or any non-standard event), an event the
-              person's unions carry or lack (marriage, divorce, a partnership status … — or any event at all, so
+              person has or does not have (birth, death, occupation, … — or any non-standard event; for a custom
+              event, an attribute such as occupation, or any non-standard event, a text field narrows it to the ones
+              whose name or value contains what you type, so <em>Event has Occupation farmer</em> finds the farmers),
+              the cause of death (any recorded cause, or one containing what you type — <em>Cause of death has
+              typhus</em>), an event the
+              person's unions carry or lack (marriage, divorce, a partnership status, a custom event narrowed by its
+              name the same way — <em>Union has Event Separation</em> — … or any event at all, so
               <em>Union does not have any event</em> next to <em>Relatives has a partner</em> finds the couples the
               file says nothing about; <em>has no date for</em> finds a union whose event is recorded without a date, and
               <em>has an estimated date for</em> one dated only by an estimate such as ABT, BEF or AFT), place, note text (matched against the note as written, so a note that is
