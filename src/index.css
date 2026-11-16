@@ -10257,6 +10257,8 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-publish-run .tools-loading { padding: 0; }
 .tools-publish .tools-publish-dates { flex-direction: row; align-items: center; gap: 10px; margin: 10px 0; font-size: 0.9rem; }
 .tools-publish .tools-privacy-group > .tools-norm-summary { margin: 0; }
+/* The display toggles under the name order, a step apart from it. */
+.tools-publish .tools-privacy-group > .tools-publish-toggles { margin-top: 8px; }
 .tools-publish-intro { display: flex; align-items: flex-start; gap: 8px; max-width: 42rem; }
 /* Photos by folder: a row per folder (indented under the one above), its
    photo count, and where its photos go. */

@@ -250,24 +250,15 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             </label>
           ))}
         </div>
-        <label className="tools-publish-field">
-          <span className="tools-privacy-legend">{t("tools.publish.url")}</span>
-          <input
-            type="url"
-            className="tools-publish-input"
-            value={options.url}
-            placeholder="https://tree.example.org"
-            onChange={(e) => set({ url: e.target.value })}
-          />
-          <span className="tools-fix-hint">{t("tools.publish.urlHint")}</span>
-        </label>
+        {/* Where the website is, its icon, and — last, optional — the
+            author's other site it links to. */}
         <label className="tools-publish-field">
           <span className="tools-privacy-legend">{t("tools.publish.siteUrl")}</span>
           <input
             type="url"
             className="tools-publish-input"
             value={options.siteUrl}
-            placeholder={options.url.trim() || "https://family.example.org"}
+            placeholder="https://tree.example.org"
             onChange={(e) => set({ siteUrl: e.target.value })}
           />
           <span className="tools-fix-hint">{t("tools.publish.siteUrlHint")}</span>
@@ -282,6 +273,17 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             onChange={(e) => set({ favicon: e.target.value })}
           />
           <span className="tools-fix-hint">{t("tools.publish.faviconHint")}</span>
+        </label>
+        <label className="tools-publish-field">
+          <span className="tools-privacy-legend">{t("tools.publish.url")}</span>
+          <input
+            type="url"
+            className="tools-publish-input"
+            value={options.url}
+            placeholder="https://example.org"
+            onChange={(e) => set({ url: e.target.value })}
+          />
+          <span className="tools-fix-hint">{t("tools.publish.urlHint")}</span>
         </label>
         <label className="tools-norm-check">
           <input type="checkbox" checked={options.exports} onChange={() => set({ exports: !options.exports })} />
@@ -397,7 +399,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           <PublishPhotoFolders dataset={dataset} value={options.photoFolders} onChange={(photoFolders) => set({ photoFolders })} />
         )}
         {options.include.photos && media.folderName && (
-          <PublishCover dataset={dataset} value={options.cover} hasUrl={!!options.url.trim()} onChange={(cover) => set({ cover })} />
+          <PublishCover dataset={dataset} value={options.cover} hasUrl={!!(options.siteUrl.trim() || options.url.trim())} onChange={(cover) => set({ cover })} />
         )}
       </div>
 
@@ -455,6 +457,17 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             </label>
           ))}
         </div>
+        <ul className="tools-norm-summary tools-publish-toggles">
+          {DISPLAY_TOGGLES.map(([key, label]) => (
+            <li key={key}>
+              <label className="tools-norm-check">
+                <input type="checkbox" checked={display[key]} onChange={() => setDisplay({ [key]: !display[key] })} />
+                <span>{t(label)}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        {/* The dates last: a choice of its own, not between the name choices. */}
         <label className="tools-publish-field tools-publish-dates">
           <span>{t("settings.display.dates")}</span>
           <SelectMenu
@@ -466,16 +479,6 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             }))}
           />
         </label>
-        <ul className="tools-norm-summary">
-          {DISPLAY_TOGGLES.map(([key, label]) => (
-            <li key={key}>
-              <label className="tools-norm-check">
-                <input type="checkbox" checked={display[key]} onChange={() => setDisplay({ [key]: !display[key] })} />
-                <span>{t(label)}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
       </div>
 
       {summary && (

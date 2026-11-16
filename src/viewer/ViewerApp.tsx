@@ -19,7 +19,7 @@ import { ExternalIcon } from "../ui/icons/ExternalIcon";
 import { MoonIcon } from "../ui/icons/MoonIcon";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 import { LogoMark } from "../ui/icons/LogoMark";
-import { exportSiteLink } from "../ui/exportSvg";
+import { siteLinkOf } from "../ui/exportSvg";
 import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
@@ -169,7 +169,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // visitor picks their own or clears it (remembered in their browser; a
   // cleared one as NO_START, so it does not fall back to the author's).
   // The author's own address, normalized as the exports name it (https:// added).
-  const homeSite = tree.url ? exportSiteLink() : undefined;
+  // The author's other site (the additional address): a link out.
+  const homeSite = tree.url ? siteLinkOf(tree.url) : undefined;
   const authorStart = tree.start ? xrefOf(tree.start) : undefined;
   const [ownStart, setOwnStart] = useState<string | undefined>(() => {
     const saved = readStored(START_KEY);

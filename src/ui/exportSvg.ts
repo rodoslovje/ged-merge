@@ -321,10 +321,15 @@ let exportCredit: (() => string) | undefined;
  *  first, as the site's own footer does. */
 export function setExportSite(url: string | undefined, credit?: () => string): void {
   const clean = url?.trim();
-  exportSite = clean
-    ? { label: clean.replace(/^https?:\/\//i, "").replace(/\/+$/, ""), url: /^https?:\/\//i.test(clean) ? clean : `https://${clean}` }
-    : { label: SITE, url: SITE_URL };
+  exportSite = clean ? siteLinkOf(clean) : { label: SITE, url: SITE_URL };
   exportCredit = credit;
+}
+
+/** An address as a link: its text without the scheme or a trailing slash, its
+ *  target with https:// where it names no scheme. */
+export function siteLinkOf(address: string): { label: string; url: string } {
+  const clean = address.trim();
+  return { label: clean.replace(/^https?:\/\//i, "").replace(/\/+$/, ""), url: /^https?:\/\//i.test(clean) ? clean : `https://${clean}` };
 }
 
 /** The footer's address: its text and its link. */
