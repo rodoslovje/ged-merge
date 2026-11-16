@@ -10,10 +10,12 @@ import { PersonLink } from "../ui/PersonLink";
 import { YearsText } from "../ui/YearsText";
 import { useChartSettings, type ChartKind } from "../ui/ChartSettingsContext";
 import { useNameOf, useSetSettings, useSettingsSlice } from "../ui/SettingsContext";
-import { sexClass } from "../ui/sex";
 import { ChartIcon } from "../ui/icons/ChartIcon";
 import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
+import { SunIcon } from "../ui/icons/SunIcon";
+import { LockIcon } from "../ui/icons/LockIcon";
+import { MoonIcon } from "../ui/icons/MoonIcon";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 import { LogoMark } from "../ui/icons/LogoMark";
 import { exportSiteLink } from "../ui/exportSvg";
@@ -21,8 +23,8 @@ import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { displayDateText } from "../gedcom/dateDisplay";
-import { customEventLabel, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
-import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { customEventLabel, EVENT_GLYPHS, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
+import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { StartPersonChip } from "../ui/edit/StartPersonChip";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
 import { useDatasetDerivations } from "../ui/DatasetDerivations";
@@ -341,7 +343,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             title={t(`site.theme.${otherTheme}`)}
             aria-label={t(`site.theme.${otherTheme}`)}
           >
-            {otherTheme === "light" ? "☀" : "☾"}
+            {otherTheme === "light" ? <SunIcon size={16} /> : <MoonIcon size={16} />}
           </button>
           <button
             type="button"
@@ -350,7 +352,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             title={langSwitch}
             aria-label={langSwitch}
           >
-            {LANGUAGE_FLAGS[lang]}
+            {/* The language as its code, not a flag: a flag names a country. */}
+            {lang.toUpperCase()}
           </button>
           <button
             type="button"
@@ -438,25 +441,28 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     );
   } else if (route.page === "stats") {
     body = (
-      <div className="tools-view site-stats">
-        <div className="tools-panel">
-          <StatsPanel
-            dataset={ds}
-            editVersion={0}
-            onNavigate={openPerson}
-            onOpenRelationship={(from, to) => {
-              // Straight to the address that names them both.
-              setRelationFrom(from);
-              go({ page: "charts", id: pubId(to), kind: "relationship", view: [pubId(from)] });
-            }}
-            fileName={tree.title || "family-tree"}
-            active
-            startId={startXref}
-            view={(route.view ?? "tree") as ToolView}
-            onViewChange={(view) => go({ page: "stats", view })}
-          />
+      <>
+        <h1 className="site-page-title">{t("site.nav.stats")}</h1>
+        <div className="tools-view site-stats">
+          <div className="tools-panel">
+            <StatsPanel
+              dataset={ds}
+              editVersion={0}
+              onNavigate={openPerson}
+              onOpenRelationship={(from, to) => {
+                // Straight to the address that names them both.
+                setRelationFrom(from);
+                go({ page: "charts", id: pubId(to), kind: "relationship", view: [pubId(from)] });
+              }}
+              fileName={tree.title || "family-tree"}
+              active
+              startId={startXref}
+              view={(route.view ?? "tree") as ToolView}
+              onViewChange={(view) => go({ page: "stats", view })}
+            />
+          </div>
         </div>
-      </div>
+      </>
     );
   } else {
     body = <HomePage tree={tree} ds={ds} startId={startXref} kin={kin} onNavigate={openPerson} />;
@@ -531,16 +537,20 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
           {/* The search under the words, beside the cover photo. */}
           <section className="site-search">
             <label className="site-search-label" htmlFor="site-search">{t("site.search.label")}</label>
-            <input
-              id="site-search"
-              ref={searchRef}
-              type="search"
-              className="tools-search-input site-search-input"
-              value={query}
-              placeholder={t("site.search.placeholder")}
-              onChange={(e) => setQuery(e.target.value)}
-              autoComplete="off"
-            />
+            {/* The field with its magnifier inside, at the left. */}
+            <span className="site-search-field">
+              <SearchIcon size={16} />
+              <input
+                id="site-search"
+                ref={searchRef}
+                type="search"
+                className="tools-search-input site-search-input"
+                value={query}
+                placeholder={t("site.search.placeholder")}
+                onChange={(e) => setQuery(e.target.value)}
+                autoComplete="off"
+              />
+            </span>
             {/* The search first; the start person is the other way in. */}
             {startId && ds.individuals.has(startId) && (
               <p className="site-start">
@@ -633,15 +643,21 @@ function EventRows({ events, family, ages }: {
         const label = (e.tag === "EVEN" || e.tag === "FACT") && e.type
           ? customEventLabel(e.type, t, i18n.language)
           : family ? familyEventLabel(e.tag, t) : eventDisplayLabel(e.tag, t);
-        const text = [e.value, e.date && displayDateText(e.date)].filter(Boolean);
+        const date = e.date && displayDateText(e.date);
         const where = [e.address, e.place].filter(Boolean).join(", ");
         const coord = e.lat !== undefined && e.lon !== undefined ? { lat: e.lat, lon: e.lon } : undefined;
         return (
           <div key={i} className="site-event">
-            <dt>{label}</dt>
+            {/* The event's mark, then its name. */}
+            <dt>
+              <span className="site-event-glyph" aria-hidden="true">{EVENT_GLYPHS[e.tag] ?? "•"}</span>
+              {label}
+            </dt>
             <dd>
-              {text.join(", ")}
-              {text.length > 0 && where && ", "}
+              {e.value}
+              {e.value && date && ", "}
+              {date && <span className="site-event-date gm-data">{date}</span>}
+              {(e.value || date) && where && " · "}
               {/* A place with a coordinate opens it on a small map, in place. */}
               {where && coord ? (
                 <button
@@ -731,7 +747,17 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
       <header className="site-person-head">
         <div className="site-person-id">
           <div className="site-person-title">
-            <h2 className={`site-person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</h2>
+            {/* The sex as a small mark before the name (the name itself in text
+                ink), and in words for a screen reader. */}
+            {(indi.sex === "M" || indi.sex === "F") && (
+              <>
+                <span className={`sex-badge site-sex-badge ${indi.sex === "M" ? "m" : "f"}`} aria-hidden="true">
+                  {indi.sex === "M" ? "♂" : "♀"}
+                </span>
+                <span className="site-sr-only">{t(`sex.${indi.sex}`)}</span>
+              </>
+            )}
+            <h2 className="site-person-name">{nameOf(indi)}</h2>
             <span className="site-person-years">
               <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
             </span>
@@ -749,53 +775,64 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           timeline={!(person?.living && !person.events?.length)}
         />
       </header>
-      {person?.living && <p className="site-note">{t(person.deceased ? "site.person.recentDead" : "site.person.living")}</p>}
+      {/* Details withheld: said once, as a small notice with a padlock. */}
+      {person?.living && (
+        <p className="site-note">
+          <LockIcon size={14} />
+          {t(person.deceased ? "site.person.recentDead" : "site.person.living")}
+        </p>
+      )}
       {/* Their photos: a strip that opens each in the viewer, with the people
           tagged on it. */}
       <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate, hideFile: true }} />
       <EventRows events={person?.events} ages={showAge ? personEventAges(ds, indi, t) : undefined} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
 
-      {parentFams.length > 0 && (
-        <section className="site-section">
-          <h3>{t("site.person.parents")}</h3>
-          {parentFams.map((f) => (
-            <ul key={f.id} className="site-person-list">
-              {f.husband && <li>{link(f.husband)}</li>}
-              {f.wife && <li>{link(f.wife)}</li>}
-            </ul>
-          ))}
-        </section>
-      )}
-
-      {ownFams.map((f) => {
-        const partner = f.husband === id ? f.wife : f.husband;
-        return (
-          <section key={f.id} className="site-section">
-            <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
-            {partner && <p className="site-partner">{link(partner)}</p>}
-            <EventRows events={pub.families.get(f.id)?.events} family ages={showAge ? familyEventAges(ds, f, t) : undefined} />
-            <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
-            {f.children.length > 0 && (
-              <>
-                <h4>{t("site.person.children", { count: f.children.length })}</h4>
-                <ul className="site-person-list">
-                  {f.children.map((c) => <li key={c}>{link(c)}</li>)}
-                </ul>
-              </>
-            )}
+      {/* The family as cards: parents and siblings side by side where there
+          is room, each family of their own (its events, its children) across
+          the whole width. */}
+      <div className="site-family">
+        {parentFams.length > 0 && (
+          <section className="site-section">
+            <h3>{t("site.person.parents")}</h3>
+            {parentFams.map((f) => (
+              <ul key={f.id} className="site-person-list">
+                {f.husband && <li>{link(f.husband)}</li>}
+                {f.wife && <li>{link(f.wife)}</li>}
+              </ul>
+            ))}
           </section>
-        );
-      })}
+        )}
 
-      {siblings.length > 0 && (
-        <section className="site-section">
-          <h3>{t("site.person.siblings", { count: siblings.length })}</h3>
-          <ul className="site-person-list">
-            {siblings.map((c) => <li key={c}>{link(c)}</li>)}
-          </ul>
-        </section>
-      )}
+        {siblings.length > 0 && (
+          <section className="site-section">
+            <h3>{t("site.person.siblings", { count: siblings.length })}</h3>
+            <ul className="site-person-list">
+              {siblings.map((c) => <li key={c}>{link(c)}</li>)}
+            </ul>
+          </section>
+        )}
+
+        {ownFams.map((f) => {
+          const partner = f.husband === id ? f.wife : f.husband;
+          return (
+            <section key={f.id} className="site-section site-section-family">
+              <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
+              {partner && <p className="site-partner">{link(partner)}</p>}
+              <EventRows events={pub.families.get(f.id)?.events} family ages={showAge ? familyEventAges(ds, f, t) : undefined} />
+              <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
+              {f.children.length > 0 && (
+                <>
+                  <h4>{t("site.person.children", { count: f.children.length })}</h4>
+                  <ul className="site-person-list">
+                    {f.children.map((c) => <li key={c}>{link(c)}</li>)}
+                  </ul>
+                </>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </article>
   );
 }

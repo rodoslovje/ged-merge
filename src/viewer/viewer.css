@@ -9,6 +9,50 @@
   color: var(--accent);
 }
 
+/* The site reads as a page, not a tool: a full-size body and an open line
+   height (the app's own panels are set smaller and tighter). */
+.app.site {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+/* One type ramp for the site's own headings: the page's title, a section's
+   heading, and the small uppercase label over a block. */
+.site-highlights h2 {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+/* A page's own title (the statistics), at the person name's size. */
+.app.site .site-page-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.15;
+  margin: 0 0 16px;
+}
+.site-highlights h3,
+.site-section h3,
+.site-search-label {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Nothing on the site's own pages below 0.8125rem: the app's small type —
+   the years and kinship after a name, the statistics' switches — a step up
+   here. (A chart's own toolbar stays as the app draws it.) */
+.app.site .person-years,
+.app.site .person-kinship,
+.app.site .site-stats .tree-mode button,
+.app.site .site-stats .tools-chip {
+  font-size: 0.8125rem;
+}
+
 /* The front, person and statistics pages scroll as a page; the charts keep
    the app's full-height shell, which their canvas sizes itself in. */
 .app.site:not(.tree-shell) {
@@ -38,12 +82,13 @@
   gap: 16px;
 }
 
-/* The site's name in GED Merge's own green — a quiet tribute — and bold, the
-   header's anchor on every page. */
+/* The site's name in GED Merge's own green — a quiet tribute. The page's own
+   title below carries the weight; this one names the site. */
 .site-title {
   font-family: var(--font-serif);
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  /* IBM Plex Serif ships 400/500/600: 600 is its boldest real cut. */
+  font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.2;
   color: var(--accent);
@@ -63,29 +108,68 @@
   flex: none;
 }
 
+/* Theme, language, search and the keys: one group, round buttons in a pill. */
+.site-prefs {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.app.site .site-prefs .nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
+}
+.app.site .site-prefs .nav-btn:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.app.site .site-prefs .site-search-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .site-toggle {
   font-size: 1rem;
   line-height: 1;
 }
+/* The language as its code (SL, EN). */
+.site-lang {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
-.site-nav .nav-btn {
+/* The three pages: quiet until pointed at, the open one a green pill. */
+.app.site .site-nav .nav-btn {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
 }
-
-/* Every header button answers a pointer or the keyboard as the chart tiles do:
-   green border and green text (the app's own only turns the border green). */
-.site-head .nav-btn:hover:not(:disabled),
-.site-head .nav-btn:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.site-nav .nav-btn.active {
+.app.site .site-nav .nav-btn:hover:not(:disabled, .active) {
   background: var(--panel-2);
+  border-color: transparent;
   color: var(--text);
+}
+.app.site .site-nav .nav-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* Tablet and phone: the title with the theme, language, search and ? buttons
@@ -132,7 +216,7 @@
   flex-wrap: wrap;
   gap: 6px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   padding: 12px 0 8px;
   margin-top: 8px;
   border-top: 1px solid var(--border);
@@ -157,8 +241,9 @@
 
 .site-hero h1 {
   font-family: var(--font-serif);
-  font-size: 2.25rem;
-  line-height: 1.15;
+  font-size: clamp(2.25rem, 1.6rem + 2.4vw, 3.25rem);
+  font-weight: 500;
+  line-height: 1.1;
   letter-spacing: -0.01em;
   margin: 0 0 14px;
 }
@@ -175,16 +260,20 @@
   grid-column: 1;
   grid-row: 1;
 }
+/* The cover as a print on the page: no frame, rounder, a soft shadow. */
 .site-cover {
   grid-column: 2;
   grid-row: 1;
   display: block;
   width: 100%;
   height: auto;
-  max-height: 360px;
+  aspect-ratio: 4 / 3;
+  max-height: 420px;
   object-fit: cover;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: calc(var(--radius-lg) * 1.4);
+  box-shadow:
+    0 1px 2px color-mix(in oklch, var(--text) 12%, transparent),
+    0 8px 24px color-mix(in oklch, var(--text) 14%, transparent);
 }
 @media (max-width: 720px) {
   .site-hero.has-cover {
@@ -198,8 +287,10 @@
 
 .site-intro {
   white-space: pre-line;
-  max-width: 65ch;
-  line-height: 1.6;
+  max-width: 60ch;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--text);
 }
 
 .site-search-count {
@@ -210,15 +301,21 @@
   margin-top: 28px;
   max-width: 640px;
 }
+/* The start person: the other way in, as a small pill under the field. */
 .site-search .site-start {
-  margin: 10px 0 0;
+  display: inline-block;
+  margin: 12px 0 0;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--panel-2);
+  font-size: 0.875rem;
 }
 
 /* The header's search, opened under the header row on any page: over the gap
    between the header and the page, which it does not push down. */
 .app-head.site-head {
   position: relative;
-  padding-bottom: 14px;
+  padding-block: 14px;
   border-bottom: 1px solid var(--border);
   /* The line marks the header off; the page's own top padding is gap enough. */
   margin-bottom: 0;
@@ -240,17 +337,31 @@
 
 /* ── A strip of the family's photos, atop the front page ─────── */
 
-/* Whole photos, one height, edge to edge with no gaps; on a narrow screen
-   the rest scroll in sideways, without a scrollbar. */
+/* Whole photos, one height, a hair apart; on a narrow screen the rest scroll
+   in sideways, without a scrollbar. */
 .site-tray {
   display: flex;
-  height: 120px;
+  gap: 4px;
+  height: 128px;
+  padding-inline: 4px;
   overflow-x: auto;
   overflow-y: hidden;
   margin-bottom: 24px;
-  border-block: 1px solid var(--border);
-  background: var(--panel);
   scrollbar-width: none;
+}
+/* An edge fades out where more photos wait beyond it (a mask: black is
+   "shown", never a colour on the page). */
+.site-tray.has-back {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 40px);
+  mask-image: linear-gradient(to right, transparent, black 40px);
+}
+.site-tray.has-on {
+  -webkit-mask-image: linear-gradient(to left, transparent, black 40px);
+  mask-image: linear-gradient(to left, transparent, black 40px);
+}
+.site-tray.has-back.has-on {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent);
 }
 .site-tray::-webkit-scrollbar {
   display: none;
@@ -261,16 +372,29 @@
   padding: 0;
   background: none;
   border: none;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
   cursor: pointer;
 }
 .site-tray-photo img {
   display: block;
   height: 100%;
   width: auto;
+  border-radius: var(--radius-sm);
+  transition: transform 150ms ease;
 }
 .site-tray-photo:hover img,
 .site-tray-photo:focus-visible img {
-  opacity: 0.8;
+  transform: scale(1.03);
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-tray-photo img {
+    transition: none;
+  }
+  .site-tray-photo:hover img,
+  .site-tray-photo:focus-visible img {
+    transform: none;
+  }
 }
 .site-tray-photo:focus-visible {
   outline: 2px solid var(--accent);
@@ -284,25 +408,23 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 1.6rem;
-  line-height: 1;
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  opacity: 0.85;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 6px color-mix(in oklch, var(--text) 14%, transparent);
   cursor: pointer;
 }
 .site-tray-arrow:hover,
 .site-tray-arrow:focus-visible {
-  opacity: 1;
   border-color: var(--accent);
+  color: var(--accent);
 }
 .site-tray-back {
   left: 6px;
@@ -315,28 +437,64 @@
   .site-tray-wrap {
     margin-inline: -16px;
   }
-  .site-tray {
-    border-inline: none;
-  }
 }
 @media (max-width: 560px) {
   .site-tray {
-    height: 88px;
+    height: 96px;
   }
 }
 
 /* ── Highlights on the front page ───────────────────────────── */
 
 .site-highlights {
-  margin-top: 40px;
+  margin-top: 56px;
+}
+/* The three numbers that size the tree up, large and in the serif; the rest
+   compact tiles in an even grid. Nothing on the site below 0.8125rem. */
+.app.site .site-tiles-primary .stats-tile-value {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  line-height: 1.1;
+}
+/* Each compact tile its own height: one with a couple under it does not
+   stretch the rest of its row. */
+.app.site .site-tiles-secondary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  align-items: start;
+  margin-top: 10px;
+}
+.app.site .site-tiles-secondary .stats-tile {
+  min-width: 0;
+  padding: 6px 10px;
+}
+.app.site .site-tiles-secondary .stats-tile-value {
+  font-size: 1.125rem;
+}
+/* A person under a tile: the years drop below the name where the tile is
+   narrow, rather than the name breaking letter by letter beside them. */
+.app.site .stats-tile-sub .person-ref {
+  flex-wrap: wrap;
+  column-gap: 6px;
+  row-gap: 0;
+}
+.app.site .stats-tile-label,
+.app.site .stats-tile-sub {
+  font-size: 0.8125rem;
+}
+@media (max-width: 560px) {
+  .app.site .site-tiles-secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* A span of years keeps to one line in a half-width tile. */
+  .app.site .site-tiles-primary .stats-tile-value {
+    font-size: 1.5rem;
+  }
 }
 .site-highlights h2 {
-  font-family: var(--font-serif);
-  font-size: 1.35rem;
   margin: 0 0 12px;
 }
 .site-highlights h3 {
-  font-size: 1rem;
   margin: 24px 0 8px;
 }
 .site-couple {
@@ -351,7 +509,10 @@
   gap: 6px;
 }
 .site-chip {
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 14px;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
@@ -362,47 +523,100 @@
 }
 .site-chip:hover,
 .site-chip:focus-visible {
+  background: var(--accent-soft);
   border-color: var(--accent);
 }
+.site-chip-count {
+  padding-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+/* This week in past years: a row per event — its date, its mark, what it
+   was, who — with a hairline between rows. */
 .site-week-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 .site-week-list li {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(12ch, max-content) 1.25em max-content minmax(0, 1fr);
   align-items: baseline;
-  gap: 4px 10px;
+  gap: 0 10px;
+  padding: 6px 0;
+}
+.site-week-list li + li {
+  border-top: 1px solid var(--border);
 }
 .site-week-date {
-  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
-  min-width: 12ch;
+  color: var(--muted);
+}
+.site-week-glyph {
+  color: var(--muted);
+  text-align: center;
 }
 .site-week-what {
   color: var(--muted);
 }
-.site-more {
+@media (max-width: 560px) {
+  .site-week-list li {
+    grid-template-columns: 1.25em max-content minmax(0, 1fr);
+  }
+  .site-week-date {
+    grid-column: 1 / -1;
+  }
+}
+/* More statistics: a quiet pill button. */
+.app.site .site-more {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: 16px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-pill);
   text-decoration: none;
+}
+.app.site .site-more:hover {
+  background: var(--panel-2);
+  border-color: var(--border-2);
 }
 
 .site-search-label {
   display: block;
-  font-weight: 600;
   margin-bottom: 6px;
 }
 
-.site-search-input {
+/* The front page's search: a tall rounded field, its magnifier inside. */
+.site-search-field {
+  position: relative;
+  display: block;
+}
+.site-search-field > svg {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.app.site .site-search-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px 0 44px;
   font-size: 1rem;
-  padding: 8px 12px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+}
+.app.site .site-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .site-person-list {
@@ -420,6 +634,15 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 4px 10px;
+  padding-block: 3px;
+}
+/* The front page's matches: a row that lights up under the pointer. */
+.site-search .site-person-list li {
+  padding: 6px 10px;
+  border-radius: var(--radius);
+}
+.site-search .site-person-list li:hover {
+  background: var(--panel-2);
 }
 
 /* ── Person page ────────────────────────────────────────────── */
@@ -427,8 +650,30 @@
 /* The head (name, then the chart tiles at the right), the photos and the
    events take the page's whole width, so an event and its ages keep to one
    line; the notes and the family below keep a reading width. */
-.site-person > :not(.site-person-head, .site-events, .person-media) {
+.site-person > :not(.site-person-head, .site-events, .person-media, .site-family) {
   max-width: 760px;
+}
+
+/* The family as cards on a grid: parents and siblings side by side where
+   there is room, each family of their own across the whole width. */
+.site-family {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.site-section-family {
+  grid-column: 1 / -1;
+}
+
+/* Words for a screen reader only. */
+.site-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .site-person-head {
@@ -436,6 +681,9 @@
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 12px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
 }
 .site-person-id {
   flex: 1 1 260px;
@@ -443,20 +691,29 @@
 }
 .site-person-title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 0 12px;
+  gap: 6px 12px;
+}
+.site-sex-badge {
+  width: 22px;
+  height: 22px;
+  font-size: 0.8125rem;
 }
 
 .site-person-name {
   font-family: var(--font-serif);
-  font-size: 1.75rem;
+  font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--text);
   margin: 0;
 }
 
 .site-person-years {
   color: var(--muted);
   font-family: var(--font-mono);
+  font-size: 1rem;
 }
 
 /* The person's charts, right of their name: a small map of their places,
@@ -473,22 +730,29 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 72px;
-  padding: 8px 6px 6px;
+  min-width: 84px;
+  padding: 10px 8px 8px;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   text-decoration: none;
 }
+/* Pointed at, the tile takes the green: its fill, its edge, its glyph and name. */
 .site-chart:hover,
 .site-chart:focus-visible {
+  background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
 }
 .site-chart-label {
-  font-size: 0.75rem;
-  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.site-chart:hover .site-chart-label,
+.site-chart:focus-visible .site-chart-label {
+  color: var(--accent);
 }
 /* Every glyph in a box of one height, so the names line up whatever the
    glyph's own size. */
@@ -505,11 +769,11 @@
 /* The map is a picture here: the tile's link takes every click. */
 .site-chart-preview {
   display: block;
-  width: 130px;
+  width: 148px;
   height: 100%;
-  min-height: 62px;
+  min-height: 72px;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   pointer-events: none;
 }
 .site-chart-preview .tools-geo-minimap {
@@ -537,12 +801,26 @@
   color: var(--muted);
   font-style: italic;
 }
+/* The notice that a person's details are withheld: a small pill with a padlock. */
+.site-person > .site-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.875rem;
+}
 
+/* The life events: a row each — the mark and name of the event, then its
+   date (in figures that line up) and place — with a hairline between rows. */
 .site-events {
   margin: 16px 0;
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
+  gap: 0 20px;
 }
 
 .site-event {
@@ -550,11 +828,35 @@
 }
 
 .site-event dt {
+  display: flex;
+  gap: 8px;
   color: var(--muted);
+  font-weight: 500;
+}
+
+.site-event dt,
+.site-event dd {
+  padding-block: 8px;
+}
+.site-event + .site-event > dt,
+.site-event + .site-event > dd {
+  border-top: 1px solid var(--border);
 }
 
 .site-event dd {
   margin: 0;
+}
+
+.site-event-glyph {
+  width: 1.25em;
+  flex: none;
+  text-align: center;
+}
+
+.site-event-date {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+  font-variant-numeric: tabular-nums;
 }
 
 .site-event-cause {
@@ -600,8 +902,10 @@
 .site-event-note,
 .site-event-source {
   display: block;
+  max-width: 65ch;
+  margin-top: 4px;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   white-space: pre-line;
 }
 
@@ -629,19 +933,20 @@
 }
 
 .site-section {
-  margin-top: 24px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin: 0;
+  padding: 16px 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .site-section h3 {
   margin: 0 0 8px;
-  font-size: 1rem;
 }
 
 .site-section h4 {
   margin: 12px 0 4px;
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
   color: var(--muted);
   font-weight: 500;
 }
@@ -683,11 +988,11 @@
   .site-chart {
     flex: 1 1 0;
     min-width: 0;
-    max-width: 96px;
+    max-width: 104px;
   }
   .site-chart-map {
     flex: 1.6 1 0;
-    max-width: 160px;
+    max-width: 176px;
   }
   .site-chart-preview {
     width: 100%;
@@ -697,8 +1002,12 @@
     grid-template-columns: 1fr;
     gap: 0;
   }
+  /* One column: the name over its date and place, the hairline over the pair. */
   .site-event dd {
-    margin-bottom: 8px;
+    padding-top: 0;
+  }
+  .site-event + .site-event > dd {
+    border-top: none;
   }
 }
 

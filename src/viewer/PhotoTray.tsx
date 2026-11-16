@@ -4,6 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import type { PublishedTree } from "../publish/model";
 import type { PubPhotoLink } from "../publish/photos";
 import { useNameOf } from "../ui/SettingsContext";
+import { ChevronIcon } from "../ui/icons/ChevronIcon";
 import { xrefOf } from "../publish/hydrate";
 
 /** How many photos the front page's strip offers (more than a wide window
@@ -77,9 +78,16 @@ export function PhotoTray({ tree, ds, onNavigate }: { tree: PublishedTree; ds: D
   return (
     <div className="site-tray-wrap">
       {more.back && (
-        <button type="button" className="site-tray-arrow site-tray-back" aria-label={t("site.home.photosBack")} onClick={() => scroll(-1)}>‹</button>
+        <button type="button" className="site-tray-arrow site-tray-back" aria-label={t("site.home.photosBack")} onClick={() => scroll(-1)}><ChevronIcon dir="left" size={18} /></button>
       )}
-      <div className="site-tray" ref={strip} onScroll={measure} role="list" aria-label={t("site.home.photos")}>
+      {/* The edges fade where more photos wait that way. */}
+      <div
+        className={`site-tray${more.back ? " has-back" : ""}${more.on ? " has-on" : ""}`}
+        ref={strip}
+        onScroll={measure}
+        role="list"
+        aria-label={t("site.home.photos")}
+      >
         {faces.map(({ id, link }) => {
           const xref = xrefOf(id);
           const indi = ds.individuals.get(xref);
@@ -92,7 +100,7 @@ export function PhotoTray({ tree, ds, onNavigate }: { tree: PublishedTree; ds: D
         })}
       </div>
       {more.on && (
-        <button type="button" className="site-tray-arrow site-tray-on" aria-label={t("site.home.photosOn")} onClick={() => scroll(1)}>›</button>
+        <button type="button" className="site-tray-arrow site-tray-on" aria-label={t("site.home.photosOn")} onClick={() => scroll(1)}><ChevronIcon dir="right" size={18} /></button>
       )}
     </div>
   );
