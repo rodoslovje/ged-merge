@@ -66,8 +66,14 @@ export type BatchCriterion =
   | { kind: "living"; value: boolean }
   /** Presence of one event/attribute on the person, by its GEDCOM tag —
    *  `lacks BIRT` finds everyone without a birth record. The sentinel
-   *  {@link ANY_VENDOR_EVENT} tag matches any non-standard (`_`) event. */
-  | { kind: "event"; tag: string; mode: "has" | "lacks" }
+   *  {@link ANY_VENDOR_EVENT} tag matches any non-standard (`_`) event. A
+   *  non-empty `text` narrows the events to those whose name (`TYPE`) or value
+   *  contains it — `has EVEN "Graduation"`, `has OCCU "farmer"`. */
+  | { kind: "event"; tag: string; mode: "has" | "lacks"; text?: string }
+  /** The cause recorded on the person's death (`DEAT`/`CAUS`): `has` with no
+   *  text finds any recorded cause, with text a cause containing it; `lacks`
+   *  the opposite. */
+  | { kind: "deathCause"; mode: "has" | "lacks"; text?: string }
   /** Presence of one event across the person's unions, by its GEDCOM tag —
    *  `lacks MARR`, next to a "has a partner" filter, finds the couples the file
    *  never married. The sentinel {@link ANY_EVENT} tag matches a union carrying
@@ -121,7 +127,7 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "anyField", "media",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "deathCause", "familyEvent", "place", "note", "anyField", "media",
   "sources", "relation", "kinship", "line", "private", "privateNote",
 ];
 
@@ -138,6 +144,11 @@ export interface BatchRow extends SearchRow {
   deceased: boolean;
   /** Tags of the person's lifted events/attributes (BIRT, OCCU, …). */
   eventTags: string[];
+  /** The same events with their folded name (`TYPE`) and value, for the
+   *  event criterion's text. */
+  events: { tag: string; text: string }[];
+  /** Folded causes of the person's death records, joined (empty when none). */
+  deathCause: string;
   /** The same across every union the person is a partner in (MARR, DIV, `_MSTAT`, …). */
   familyEventTags: string[];
   /** Tags of the person's events, and their unions' events, that cite a source. */
@@ -221,6 +232,8 @@ export function buildBatchRows(
       age: ageOf(indi, now),
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
+      events: indi.events.map((e) => ({ tag: e.tag, text: eventText(e) })),
+      deathCause: foldSearch(indi.events.filter((e) => e.tag === "DEAT").map((e) => e.cause ?? "").join(" ").trim()),
       familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
       sourcedEventTags: [...new Set([indi.raw, ...unions.map((f) => f.raw)].flatMap(citingEventTags))],
       unionEvents: unions.map((f) =>
@@ -228,7 +241,7 @@ export function buildBatchRows(
           tag: e.tag,
           dated: e.date?.year !== undefined,
           estimated: isEstimatedDate(e.date),
-          text: foldSearch([e.type, e.value].filter(Boolean).join(" ")),
+          text: eventText(e),
         })),
       ),
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
@@ -340,6 +353,16 @@ function hasMedia(row: BatchRow, xref?: string, file?: string): boolean {
   return false;
 }
 
+/** An event's name (`TYPE`) and line value, folded for matching. */
+function eventText(e: { type?: string; value?: string }): string {
+  return foldSearch([e.type, e.value].filter(Boolean).join(" "));
+}
+
+/** A criterion's optional text as folded search terms — every one must appear. */
+function textTerms(text: string | undefined): string[] {
+  return foldSearch(text ?? "").split(/\s+/).filter(Boolean);
+}
+
 /** True when the person passes every criterion (empty list matches everyone). */
 export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: BatchContext): boolean {
   for (const c of criteria) {
@@ -373,15 +396,23 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         if (row.deceased === c.value) return false;
         break;
       case "event": {
-        const has =
-          c.tag === ANY_VENDOR_EVENT
-            ? row.eventTags.some(isNonStandardTag)
-            : row.eventTags.includes(c.tag);
+        const terms = textTerms(c.text);
+        const has = row.events.some(
+          (e) =>
+            (c.tag === ANY_VENDOR_EVENT ? isNonStandardTag(e.tag) : e.tag === c.tag) &&
+            terms.every((t) => e.text.includes(t)),
+        );
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
+      case "deathCause": {
+        const terms = textTerms(c.text);
+        const has = row.deathCause !== "" && terms.every((t) => row.deathCause.includes(t));
         if (c.mode === "has" ? !has : has) return false;
         break;
       }
       case "familyEvent": {
-        const terms = foldSearch(c.text ?? "").split(/\s+/).filter(Boolean);
+        const terms = textTerms(c.text);
         const of = (events: BatchRow["unionEvents"][number]) =>
           events.filter(
             (e) => (c.tag === ANY_EVENT || e.tag === c.tag) && terms.every((t) => e.text.includes(t)),
