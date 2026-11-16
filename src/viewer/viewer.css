@@ -319,17 +319,31 @@
 
 /* ── A strip of the family's photos, atop the front page ─────── */
 
-/* Whole photos, one height, edge to edge with no gaps; on a narrow screen
-   the rest scroll in sideways, without a scrollbar. */
+/* Whole photos, one height, a hair apart; on a narrow screen the rest scroll
+   in sideways, without a scrollbar. */
 .site-tray {
   display: flex;
-  height: 120px;
+  gap: 4px;
+  height: 128px;
+  padding-inline: 4px;
   overflow-x: auto;
   overflow-y: hidden;
   margin-bottom: 24px;
-  border-block: 1px solid var(--border);
-  background: var(--panel);
   scrollbar-width: none;
+}
+/* An edge fades out where more photos wait beyond it (a mask: black is
+   "shown", never a colour on the page). */
+.site-tray.has-back {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 40px);
+  mask-image: linear-gradient(to right, transparent, black 40px);
+}
+.site-tray.has-on {
+  -webkit-mask-image: linear-gradient(to left, transparent, black 40px);
+  mask-image: linear-gradient(to left, transparent, black 40px);
+}
+.site-tray.has-back.has-on {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent);
 }
 .site-tray::-webkit-scrollbar {
   display: none;
@@ -340,16 +354,29 @@
   padding: 0;
   background: none;
   border: none;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
   cursor: pointer;
 }
 .site-tray-photo img {
   display: block;
   height: 100%;
   width: auto;
+  border-radius: var(--radius-sm);
+  transition: transform 150ms ease;
 }
 .site-tray-photo:hover img,
 .site-tray-photo:focus-visible img {
-  opacity: 0.8;
+  transform: scale(1.03);
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-tray-photo img {
+    transition: none;
+  }
+  .site-tray-photo:hover img,
+  .site-tray-photo:focus-visible img {
+    transform: none;
+  }
 }
 .site-tray-photo:focus-visible {
   outline: 2px solid var(--accent);
@@ -363,25 +390,23 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 1.6rem;
-  line-height: 1;
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  opacity: 0.85;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 2px 6px color-mix(in oklch, var(--text) 14%, transparent);
   cursor: pointer;
 }
 .site-tray-arrow:hover,
 .site-tray-arrow:focus-visible {
-  opacity: 1;
   border-color: var(--accent);
+  color: var(--accent);
 }
 .site-tray-back {
   left: 6px;
@@ -394,13 +419,10 @@
   .site-tray-wrap {
     margin-inline: -16px;
   }
-  .site-tray {
-    border-inline: none;
-  }
 }
 @media (max-width: 560px) {
   .site-tray {
-    height: 88px;
+    height: 96px;
   }
 }
 
