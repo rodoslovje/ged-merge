@@ -3591,6 +3591,8 @@ export const en = {
   "site.person.family": "Family",
   "site.person.children": "Children",
   "site.person.siblings": "Siblings",
+  "site.person.halfSiblings": "Half-siblings",
+  "site.person.otherParent": "Other parent:",
   "site.person.notes": "Notes",
   "site.person.sources": "Sources",
   "site.person.source": "Source",

@@ -4054,6 +4054,8 @@ export const sl = {
   "site.person.family": "Družina",
   "site.person.children": "Otroci",
   "site.person.siblings": "Bratje in sestre",
+  "site.person.halfSiblings": "Polbratje in polsestre",
+  "site.person.otherParent": "Drugi starš:",
   "site.person.notes": "Opombe",
   "site.person.sources": "Viri",
   "site.person.source": "Vir",
