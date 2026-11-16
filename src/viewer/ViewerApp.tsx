@@ -10,7 +10,6 @@ import { PersonLink } from "../ui/PersonLink";
 import { YearsText } from "../ui/YearsText";
 import { useChartSettings, type ChartKind } from "../ui/ChartSettingsContext";
 import { useNameOf, useSetSettings, useSettingsSlice } from "../ui/SettingsContext";
-import { sexClass } from "../ui/sex";
 import { ChartIcon } from "../ui/icons/ChartIcon";
 import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
@@ -732,7 +731,17 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
       <header className="site-person-head">
         <div className="site-person-id">
           <div className="site-person-title">
-            <h2 className={`site-person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</h2>
+            {/* The sex as a small mark before the name (the name itself in text
+                ink), and in words for a screen reader. */}
+            {(indi.sex === "M" || indi.sex === "F") && (
+              <>
+                <span className={`sex-badge site-sex-badge ${indi.sex === "M" ? "m" : "f"}`} aria-hidden="true">
+                  {indi.sex === "M" ? "♂" : "♀"}
+                </span>
+                <span className="site-sr-only">{t(`sex.${indi.sex}`)}</span>
+              </>
+            )}
+            <h2 className="site-person-name">{nameOf(indi)}</h2>
             <span className="site-person-years">
               <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
             </span>

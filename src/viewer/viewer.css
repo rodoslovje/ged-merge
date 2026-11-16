@@ -621,11 +621,24 @@
   max-width: 760px;
 }
 
+/* Words for a screen reader only. */
+.site-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .site-person-head {
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 12px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
 }
 .site-person-id {
   flex: 1 1 260px;
@@ -633,9 +646,14 @@
 }
 .site-person-title {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 0 12px;
+  gap: 6px 12px;
+}
+.site-sex-badge {
+  width: 22px;
+  height: 22px;
+  font-size: 0.8125rem;
 }
 
 .site-person-name {
@@ -643,12 +661,14 @@
   font-size: clamp(1.9rem, 1.5rem + 1.4vw, 2.5rem);
   font-weight: 500;
   line-height: 1.15;
+  color: var(--text);
   margin: 0;
 }
 
 .site-person-years {
   color: var(--muted);
   font-family: var(--font-mono);
+  font-size: 1rem;
 }
 
 /* The person's charts, right of their name: a small map of their places,
