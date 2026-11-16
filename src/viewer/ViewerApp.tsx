@@ -14,6 +14,7 @@ import { ChartIcon } from "../ui/icons/ChartIcon";
 import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
 import { SunIcon } from "../ui/icons/SunIcon";
+import { LockIcon } from "../ui/icons/LockIcon";
 import { MoonIcon } from "../ui/icons/MoonIcon";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 import { LogoMark } from "../ui/icons/LogoMark";
@@ -765,7 +766,13 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           timeline={!(person?.living && !person.events?.length)}
         />
       </header>
-      {person?.living && <p className="site-note">{t(person.deceased ? "site.person.recentDead" : "site.person.living")}</p>}
+      {/* Details withheld: said once, as a small notice with a padlock. */}
+      {person?.living && (
+        <p className="site-note">
+          <LockIcon size={14} />
+          {t(person.deceased ? "site.person.recentDead" : "site.person.living")}
+        </p>
+      )}
       {/* Their photos: a strip that opens each in the viewer, with the people
           tagged on it. */}
       <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate, hideFile: true }} />

@@ -769,6 +769,18 @@
   color: var(--muted);
   font-style: italic;
 }
+/* The notice that a person's details are withheld: a small pill with a padlock. */
+.site-person > .site-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.875rem;
+}
 
 /* The life events: a row each — the mark and name of the event, then its
    date (in figures that line up) and place — with a hairline between rows. */
