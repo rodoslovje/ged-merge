@@ -212,6 +212,38 @@
   color: var(--muted);
 }
 
+/* An event's notes and sources, each on its own line under it. */
+.site-event-note,
+.site-event-source {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: pre-line;
+}
+
+/* A record's own notes and sources, after its events. */
+.site-notes,
+.site-sources {
+  margin: 12px 0;
+}
+.site-notes h4,
+.site-sources h4 {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+.site-note-text {
+  margin: 0 0 8px;
+  white-space: pre-line;
+  max-width: 65ch;
+  line-height: 1.55;
+}
+.site-sources ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
 .site-section {
   margin-top: 24px;
   padding-top: 12px;

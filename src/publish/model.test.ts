@@ -213,6 +213,84 @@ describe("buildPublishedTreeSteps", () => {
   });
 });
 
+describe("sources, notes and addresses", () => {
+  const withAll = (over: Partial<PublishOptions["include"]>) =>
+    build({ living: "all", include: { sources: false, notes: false, addresses: false, ...over } }).tree;
+
+  it("stay out unless chosen", () => {
+    const joze = byName(withAll({}), "Jože")!;
+    expect(joze.notes).toBeUndefined();
+    expect(joze.events![0].sources).toBeUndefined();
+    expect(byName(withAll({}), "Ana")!.events!.find((e) => e.tag === "RESI")?.address).toBeUndefined();
+  });
+
+  it("go in when chosen", () => {
+    const tree = withAll({ sources: true, notes: true, addresses: true });
+    const joze = byName(tree, "Jože")!;
+    expect(joze.notes).toEqual(["A private research note"]);
+    expect(joze.events![0].sources).toEqual([{ title: "Matična knjiga" }]);
+    expect(byName(tree, "Ana")!.events!.find((e) => e.tag === "RESI")?.address).toBe("Slovenska cesta 1");
+    expect(tree.sources).toBe(true);
+  });
+
+  it("never publish a note marked private", () => {
+    const hidden = dataset(SAMPLE.replace("1 NOTE A private research note", "1 NOTE A private research note\n2 RESN privacy"));
+    const tree = buildPublishedTree(hidden, opts({ living: "all", include: { sources: false, notes: true, addresses: false } }), "@I1@", NOW).tree;
+    expect(byName(tree, "Jože")!.notes).toBeUndefined();
+  });
+
+  // Kranj has its own coordinate; a birth at a Kranj house carries the
+  // house's. Črni vrh has none, and its house sits inside the place value.
+  const HOUSES = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+0 @I1@ INDI
+1 NAME Franc /Kos/
+1 BIRT
+2 DATE 1850
+2 PLAC Kranj
+3 MAP
+4 LATI N46.24
+4 LONG E14.35
+1 DEAT
+2 DATE 1910
+2 PLAC Kranj
+3 MAP
+4 LATI N46.23912
+4 LONG E14.35561
+2 ADDR Glavni trg 1
+0 @I2@ INDI
+1 NAME Ana /Kos/
+1 BIRT
+2 DATE 1855
+2 PLAC Črni vrh 35
+3 MAP
+4 LATI N45.94321
+4 LONG E14.07654
+1 DEAT
+2 DATE 1920
+0 TRLR
+`;
+  const houses = dataset(HOUSES);
+  const site = (addresses: boolean) =>
+    buildPublishedTree(houses, opts({ living: "all", include: { sources: false, notes: false, addresses } }), undefined, NOW).tree;
+
+  it("show a house at its settlement when addresses stay out", () => {
+    const tree = site(false);
+    const franc = byName(tree, "Franc")!.events!;
+    expect(franc[1]).toMatchObject({ place: "Kranj", lat: 46.24, lon: 14.35 });
+    expect(franc[1].address).toBeUndefined();
+    const ana = byName(tree, "Ana")!.events![0];
+    expect(ana).toMatchObject({ place: "Črni vrh", lat: 45.94, lon: 14.08 });
+  });
+
+  it("show the house itself when addresses go in", () => {
+    const tree = site(true);
+    expect(byName(tree, "Franc")!.events![1]).toMatchObject({ place: "Kranj", address: "Glavni trg 1", lat: 46.23912, lon: 14.35561 });
+    expect(byName(tree, "Ana")!.events![0]).toMatchObject({ place: "Črni vrh 35", lat: 45.94321 });
+  });
+});
+
 describe("married surnames", () => {
   const wed = dataset(SAMPLE.replace("1 NAME Marija /Kranjc/", "1 NAME Marija /Kranjc/\n1 NAME /Novak/\n2 TYPE married"));
   it("are published with the name, and read back as married names", () => {
@@ -251,14 +329,14 @@ describe("hydrateTree", () => {
 
 describe("publishedHtml", () => {
   it("embeds the data and the viewer so nothing can close a tag early", () => {
-    const { tree } = build({ title: "Rodbina </script> & co", intro: "<b>hi</b>" });
+    const { tree } = build({ title: "Rodbina </script> & co", intro: { sl: "<b>hi</b>" } });
     const html = publishedHtml(tree, { js: 'const s = "</script>";', css: "a{}/*</style>*/" });
     expect(html).toContain("<title>Rodbina &lt;/script&gt; &amp; co</title>");
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
     expect(html.match(/<\/script>/g)).toHaveLength(3);
     expect(html.match(/<\/style>/g)).toHaveLength(1);
     const json = html.match(/<script type="application\/json"[^>]*>(.*?)<\/script>/s)![1];
-    expect(JSON.parse(json).intro).toBe("<b>hi</b>");
+    expect(JSON.parse(json).intro).toEqual({ sl: "<b>hi</b>" });
   });
 
   it("escapes helpers", () => {

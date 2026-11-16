@@ -10235,6 +10235,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-publish .tools-error { color: var(--danger); }
 .tools-publish .tools-publish-dates { flex-direction: row; align-items: center; gap: 10px; margin: 10px 0; font-size: 0.9rem; }
 .tools-publish .tools-privacy-group > .tools-norm-summary { margin: 0; }
+.tools-publish-intro { display: flex; align-items: flex-start; gap: 8px; max-width: 42rem; }
+.tools-publish-intro + .tools-publish-intro { margin-top: 6px; }
+.tools-publish-intro-lang { flex: none; font-size: 1.1rem; line-height: 2; }
 
 /* Batch actions (Normalize & batch) */
 .batch-section-toggle { display: flex; gap: 6px; margin: 0 0 14px; }

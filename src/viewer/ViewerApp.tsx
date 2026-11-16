@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedEvent, Individual } from "../gedcom/types";
-import { DEFAULT_SITE_DISPLAY, type PublishedTree } from "../publish/model";
+import type { Dataset, Family, Individual } from "../gedcom/types";
+import { DEFAULT_SITE_DISPLAY, type PubFamily, type PubPerson, type PubSource, type PublishedTree, type PubEvent } from "../publish/model";
 import { pubId, xrefOf } from "../publish/hydrate";
 import { ChartsHub, HUB_KINDS } from "../ui/ChartsHub";
 import { StatsPanel } from "../ui/tools/StatsPanel";
@@ -17,7 +17,7 @@ import { SearchIcon } from "../ui/icons/SearchIcon";
 import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
-import { displayDate } from "../gedcom/dateDisplay";
+import { displayDateText } from "../gedcom/dateDisplay";
 import { customEventLabel, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
@@ -53,6 +53,13 @@ function useRoute(start: Route): [Route, (r: Route) => void, (r: Route) => void]
 }
 
 const isHubKind = (k: string | undefined): k is ChartKind => !!k && (HUB_KINDS as readonly string[]).includes(k);
+
+/** The published people and families by dataset id: the person page shows
+ *  their events, notes and sources as published, links and all. */
+interface PubIndex {
+  people: Map<string, PubPerson>;
+  families: Map<string, PubFamily>;
+}
 
 
 /** The visitor's own start person, kept in their browser. */
@@ -139,7 +146,10 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // Kinship labels follow the author's display choice, as everywhere in the app.
   const { showKinship } = useSettingsSlice(KINSHIP_KEYS);
   const kin = startXref && showKinship ? derivations?.kinship(startXref) : undefined;
-  const living = useMemo(() => new Set(tree.people.filter((p) => p.living).map((p) => xrefOf(p.id))), [tree]);
+  const pub = useMemo<PubIndex>(() => ({
+    people: new Map(tree.people.map((p) => [xrefOf(p.id), p])),
+    families: new Map(tree.families.map((f) => [xrefOf(f.id), f])),
+  }), [tree]);
   const [relationFrom, setRelationFrom] = useState<string | undefined>();
   const openPerson = (xref: string) => go({ page: "person", id: pubId(xref) });
   const openCharts = (xref: string) => go({ page: "charts", id: pubId(xref), kind: chartSettings.kind });
@@ -237,7 +247,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       <PersonPage
         ds={ds}
         id={id}
-        living={living.has(id)}
+        pub={pub}
         kin={kin}
         isStart={id === startXref}
         onMakeStart={() => chooseStart(id)}
@@ -312,12 +322,14 @@ function HomePage({ tree, ds, startId, kin, focusNonce, onNavigate }: {
     return out.sort((a, b) => nameOf(a).localeCompare(nameOf(b), i18n.language));
   }, [ds, query, nameOf, i18n.language]);
   const num = (n: number) => n.toLocaleString(i18n.language);
+  // The author's words in the reader's language, else in the other one.
+  const intro = tree.intro?.[i18n.language] ?? Object.values(tree.intro ?? {})[0];
 
   return (
     <div className="site-home">
       <section className="site-hero">
         <h1>{tree.title || t("site.untitled")}</h1>
-        {tree.intro && <p className="site-intro">{tree.intro}</p>}
+        {intro && <p className="site-intro">{intro}</p>}
         <p className="site-counts">
           {t("site.counts", { people: num(ds.individuals.size), families: num(ds.families.size) })}
         </p>
@@ -361,22 +373,57 @@ function HomePage({ tree, ds, startId, kin, focusNonce, onNavigate }: {
   );
 }
 
-function EventRows({ events, family }: { events: GedEvent[]; family?: boolean }) {
+/** One source citation: the source, the cited page, linked where it can be. */
+function SourceLine({ s }: { s: PubSource }) {
+  const text = [s.title, s.page].filter(Boolean).join(", ") || s.url;
+  return s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer">{text}</a> : <>{text}</>;
+}
+
+/** A record's own notes and sources, under its events. */
+function RecordExtras({ notes, sources }: { notes?: string[]; sources?: PubSource[] }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {notes && (
+        <div className="site-notes">
+          <h4>{t("site.person.notes")}</h4>
+          {notes.map((n, i) => <p key={i} className="site-note-text">{n}</p>)}
+        </div>
+      )}
+      {sources && (
+        <div className="site-sources">
+          <h4>{t("site.person.sources")}</h4>
+          <ul>{sources.map((s, i) => <li key={i}><SourceLine s={s} /></li>)}</ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The events as published: the date in the site's date display, the place
+ *  (and address, where published) as text, then the event's notes and sources. */
+function EventRows({ events, family }: { events: PubEvent[] | undefined; family?: boolean }) {
   const { t, i18n } = useTranslation();
-  if (!events.length) return null;
+  if (!events?.length) return null;
   return (
     <dl className="site-events">
       {events.map((e, i) => {
         const label = (e.tag === "EVEN" || e.tag === "FACT") && e.type
           ? customEventLabel(e.type, t, i18n.language)
           : family ? familyEventLabel(e.tag, t) : eventDisplayLabel(e.tag, t);
-        const parts = [e.value, e.date && displayDate(e.date), e.place?.raw].filter(Boolean);
+        const parts = [e.value, e.date && displayDateText(e.date), e.address, e.place].filter(Boolean);
         return (
           <div key={i} className="site-event">
             <dt>{label}</dt>
             <dd>
               {parts.join(", ")}
               {e.cause && <span className="site-event-cause"> ({e.cause})</span>}
+              {e.notes?.map((n, j) => <span key={j} className="site-event-note">{n}</span>)}
+              {e.sources?.map((s, j) => (
+                <span key={j} className="site-event-source">
+                  {t("site.person.source")}: <SourceLine s={s} />
+                </span>
+              ))}
             </dd>
           </div>
         );
@@ -385,10 +432,11 @@ function EventRows({ events, family }: { events: GedEvent[]; family?: boolean })
   );
 }
 
-function PersonPage({ ds, id, living, kin, isStart, onMakeStart, onNavigate, onCharts }: {
+function PersonPage({ ds, pub, id, kin, isStart, onMakeStart, onNavigate, onCharts }: {
   ds: Dataset;
+  /** The published records, by dataset id: what the page shows of each. */
+  pub: PubIndex;
   id: string;
-  living: boolean;
   kin?: KinshipResolver;
   isStart: boolean;
   onMakeStart: () => void;
@@ -406,6 +454,7 @@ function PersonPage({ ds, id, living, kin, isStart, onMakeStart, onNavigate, onC
   const parentFams = indi.childOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const ownFams = indi.spouseOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const siblings = [...new Set(parentFams.flatMap((f) => f.children))].filter((c) => c !== id);
+  const person = pub.people.get(id);
 
   return (
     <article className="site-person">
@@ -426,8 +475,9 @@ function PersonPage({ ds, id, living, kin, isStart, onMakeStart, onNavigate, onC
         </div>
       </header>
       {kinship && <p className={`person-kinship site-person-kinship ${isStart ? "" : lineageClass(kin?.lineage(id), kin?.direct(id))}`}>{kinship}</p>}
-      {living && <p className="site-note">{t("site.person.living")}</p>}
-      <EventRows events={indi.events} />
+      {person?.living && <p className="site-note">{t("site.person.living")}</p>}
+      <EventRows events={person?.events} />
+      <RecordExtras notes={person?.notes} sources={person?.sources} />
 
       {parentFams.length > 0 && (
         <section className="site-section">
@@ -447,7 +497,8 @@ function PersonPage({ ds, id, living, kin, isStart, onMakeStart, onNavigate, onC
           <section key={f.id} className="site-section">
             <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
             {partner && <p className="site-partner">{link(partner)}</p>}
-            <EventRows events={f.events} family />
+            <EventRows events={pub.families.get(f.id)?.events} family />
+            <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
             {f.children.length > 0 && (
               <>
                 <h4>{t("site.person.children", { count: f.children.length })}</h4>

@@ -8,6 +8,7 @@ import {
   defaultPublishOptions,
   LIVING_MODES,
   SCOPE_KINDS,
+  SITE_INCLUDES,
   START_PAGES,
   type LivingMode,
   type PublishOptions,
@@ -21,6 +22,7 @@ import { baseStem, downloadText } from "../download";
 import { StartPersonSelector } from "../StartPersonSelector";
 import { SelectMenu } from "../DropdownMenu";
 import { useSettingsSlice } from "../SettingsContext";
+import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../../locales/i18n";
 import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { ToolsIntro, ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
@@ -83,7 +85,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
   const { summary } = useMemo(
     () => (active ? buildPublishedTree(dataset, settled, siteStart) : { summary: undefined }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- editVersion: the dataset is mutated in place
-    [active, dataset, settled.scope, settled.partners, settled.living, siteStart, editVersion],
+    [active, dataset, settled.scope, settled.partners, settled.living, settled.include, siteStart, editVersion],
   );
 
   // The download's three steps, each named while it runs: loading the viewer
@@ -124,16 +126,24 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           <span className="tools-privacy-legend">{t("tools.publish.title")}</span>
           <input type="text" className="tools-publish-input" value={options.title} onChange={(e) => set({ title: e.target.value })} />
         </label>
-        <label className="tools-publish-field">
+        {/* One text per language the site speaks; a reader sees theirs, or
+            the other one when theirs is left empty. */}
+        <div className="tools-publish-field">
           <span className="tools-privacy-legend">{t("tools.publish.introText")}</span>
-          <textarea
-            className="tools-publish-input"
-            rows={3}
-            value={options.intro}
-            placeholder={t("tools.publish.introPlaceholder")}
-            onChange={(e) => set({ intro: e.target.value })}
-          />
-        </label>
+          {SUPPORTED_LANGUAGES.map((lng) => (
+            <label key={lng} className="tools-publish-intro">
+              <span className="tools-publish-intro-lang" title={LANGUAGE_NAMES[lng]} aria-label={LANGUAGE_NAMES[lng]}>{LANGUAGE_FLAGS[lng]}</span>
+              <textarea
+                className="tools-publish-input"
+                rows={3}
+                lang={lng}
+                value={options.intro[lng] ?? ""}
+                placeholder={t("tools.publish.introPlaceholder", { lng })}
+                onChange={(e) => set({ intro: { ...options.intro, [lng]: e.target.value } })}
+              />
+            </label>
+          ))}
+        </div>
         <label className="tools-publish-field">
           <span className="tools-privacy-legend">{t("tools.publish.url")}</span>
           <input
@@ -206,6 +216,25 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           ))}
         </div>
         <p className="tools-fix-hint">{t("tools.publish.livingHint")}</p>
+      </div>
+
+      {/* Beyond names, dates and places: each its own choice, all off to begin
+          with. Without addresses, houses are shown at their settlement. */}
+      <div className="tools-privacy-group">
+        <div className="tools-privacy-legend">{t("tools.publish.include")}</div>
+        <div className="tools-privacy-radios">
+          {SITE_INCLUDES.map((key) => (
+            <label key={key} className="tools-norm-check">
+              <input
+                type="checkbox"
+                checked={options.include[key]}
+                onChange={() => set({ include: { ...options.include, [key]: !options.include[key] } })}
+              />
+              <span>{t(`tools.publish.include.${key}`)}</span>
+            </label>
+          ))}
+        </div>
+        <p className="tools-fix-hint">{t(options.include.addresses ? "tools.publish.include.addressesOn" : "tools.publish.include.addressesOff")}</p>
       </div>
 
       {/* How the site shows people: the app's own display settings, starting

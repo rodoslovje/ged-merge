@@ -5,6 +5,9 @@ import { defaultPrivacyOptions, livingReason } from "../tools/privacy";
 import { runSteps, type Steps } from "../gedcom/steps";
 import type { NameOrder } from "../gedcom/nameDisplay";
 import { marriedSurnamesOf } from "../match/relatives";
+import { detectAddress } from "../tools/addresses";
+import { noteToText } from "../gedcom/noteHtml";
+import type { GeoCoord, NoteRef, SourceCitation } from "../gedcom/types";
 
 /**
  * The family website's data: what a relative browsing the published page can
@@ -67,8 +70,9 @@ export const DEFAULT_SITE_DISPLAY: SiteDisplay = {
 
 export interface PublishOptions {
   title: string;
-  /** A few words from the author, shown on the site's front page. */
-  intro: string;
+  /** A few words from the author, shown on the site's front page — one text
+   *  per language, by language code; the site shows the reader's. */
+  intro: Record<string, string>;
   scope: ScopeKind;
   /** With `blood` / `line`: also publish the partners of the people in scope,
    *  so their families read whole. */
@@ -81,12 +85,41 @@ export interface PublishOptions {
    *  footer of its exports in place of gedmerge.com. Empty for none. */
   url: string;
   display: SiteDisplay;
+  /** What the site also shows beside names, dates and places. Without
+   *  addresses a house's coordinate gives way to its settlement's. */
+  include: SiteIncludes;
   /** The site's language on first open. */
   lang: string;
 }
 
 export function defaultPublishOptions(title: string, lang: string, display: SiteDisplay = DEFAULT_SITE_DISPLAY): PublishOptions {
-  return { title, intro: "", scope: "all", partners: true, living: "initials", startPage: "home", exports: false, url: "", display, lang };
+  return {
+    title,
+    intro: {},
+    scope: "all",
+    partners: true,
+    living: "initials",
+    startPage: "home",
+    exports: false,
+    url: "",
+    display,
+    include: { sources: false, notes: false, addresses: false },
+    lang,
+  };
+}
+
+export interface SiteIncludes {
+  sources: boolean;
+  notes: boolean;
+  addresses: boolean;
+}
+export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "notes", "addresses"];
+
+/** A source citation as the site shows it: the source, the cited page, a link. */
+export interface PubSource {
+  title?: string;
+  page?: string;
+  url?: string;
 }
 
 export interface PubEvent {
@@ -102,6 +135,10 @@ export interface PubEvent {
   lon?: number;
   /** Cause of death. */
   cause?: string;
+  /** The street address, with addresses published. */
+  address?: string;
+  notes?: string[];
+  sources?: PubSource[];
 }
 
 export interface PubPerson {
@@ -114,6 +151,8 @@ export interface PubPerson {
   /** Living, published without their details (see {@link LivingMode}). */
   living?: true;
   events?: PubEvent[];
+  notes?: string[];
+  sources?: PubSource[];
 }
 
 export interface PubFamily {
@@ -122,13 +161,18 @@ export interface PubFamily {
   wife?: string;
   children?: string[];
   events?: PubEvent[];
+  notes?: string[];
+  sources?: PubSource[];
 }
 
 export interface PublishedTree {
   format: typeof PUBLISHED_FORMAT;
   version: typeof PUBLISHED_VERSION;
   title: string;
-  intro?: string;
+  /** The author's words, by language code. */
+  intro?: Record<string, string>;
+  /** Sources were published (the site then shows them). */
+  sources?: true;
   /** Export date, yyyy-mm-dd. */
   created: string;
   lang: string;
@@ -162,25 +206,116 @@ function publishable(e: GedEvent): boolean {
   return ALL_EVENT_TAGS.has(e.tag) && !LDS_ORDINANCE_TAGS.has(e.tag);
 }
 
-function pubEvent(e: GedEvent): PubEvent {
+/** What converting the records needs besides each record: the options, and the
+ *  settlement coordinates a house gives way to (see {@link settlementCoords}). */
+interface Ctx {
+  include: SiteIncludes;
+  settlements: Map<string, GeoCoord>;
+}
+
+/** A coordinate rounded to two decimals, about a kilometre: where a house's
+ *  settlement has no coordinate of its own, this is all the site says. */
+const roughly = (c: GeoCoord): GeoCoord => ({ lat: Math.round(c.lat * 100) / 100, lon: Math.round(c.lon * 100) / 100 });
+
+/**
+ * The coordinate each place value has where no address goes with it — the
+ * settlement's, as opposed to a house's (the app writes a house's coordinate on
+ * its own event's PLAC.MAP, see `tools/addresses.ts`). The most frequent wins.
+ */
+function settlementCoords(ds: Dataset): Map<string, GeoCoord> {
+  const tally = new Map<string, Map<string, { coord: GeoCoord; n: number }>>();
+  const visit = (events: GedEvent[]) => {
+    for (const e of events) {
+      const raw = e.place?.raw.trim();
+      const coord = e.place?.coord;
+      if (!raw || !coord || detectAddress(raw, e.address?.raw.trim() ?? "").address) continue;
+      let byCoord = tally.get(raw);
+      if (!byCoord) tally.set(raw, (byCoord = new Map()));
+      const key = `${coord.lat}:${coord.lon}`;
+      const hit = byCoord.get(key);
+      if (hit) hit.n++;
+      else byCoord.set(key, { coord, n: 1 });
+    }
+  };
+  for (const indi of ds.individuals.values()) visit(indi.events);
+  for (const fam of ds.families.values()) visit(fam.events);
+  const out = new Map<string, GeoCoord>();
+  for (const [place, byCoord] of tally) out.set(place, [...byCoord.values()].sort((a, b) => b.n - a.n)[0].coord);
+  return out;
+}
+
+function pubNotes(refs: NoteRef[] | undefined): string[] | undefined {
+  const out = (refs ?? []).filter((r) => !r.private).map((r) => noteToText(r.text).trim()).filter(Boolean);
+  return out.length ? out : undefined;
+}
+
+function pubSources(cites: SourceCitation[] | undefined): PubSource[] | undefined {
+  const out: PubSource[] = [];
+  for (const c of cites ?? []) {
+    const s: PubSource = {};
+    if (c.title?.trim()) s.title = c.title.trim();
+    if (c.page?.trim()) s.page = c.page.trim();
+    if (c.url) s.url = c.url;
+    if (s.title || s.page || s.url) out.push(s);
+  }
+  return out.length ? out : undefined;
+}
+
+function pubEvent(e: GedEvent, ctx: Ctx): PubEvent {
   const out: PubEvent = { tag: e.tag };
   if (e.type) out.type = e.type;
   if (e.value?.trim()) out.value = e.value.trim();
   if (e.date?.raw.trim()) out.date = e.date.raw.trim();
-  if (e.place?.raw.trim()) {
-    out.place = e.place.raw.trim();
-    if (e.place.coord) {
-      out.lat = e.place.coord.lat;
-      out.lon = e.place.coord.lon;
+  const raw = e.place?.raw.trim();
+  const addr = e.address?.raw.trim() ?? "";
+  let coord = e.place?.coord;
+  if (ctx.include.addresses) {
+    if (raw) out.place = raw;
+    if (addr) out.address = addr;
+  } else if (raw) {
+    // No addresses: an event at a house is shown at its settlement — the
+    // place without the house number, at the settlement's coordinate.
+    const at = detectAddress(raw, addr);
+    if (at.address) {
+      if (at.place) out.place = at.place;
+      const settlement = ctx.settlements.get(at.place);
+      coord = settlement ?? (coord && roughly(coord));
+    } else {
+      out.place = raw;
     }
   }
+  if (out.place && coord) {
+    out.lat = coord.lat;
+    out.lon = coord.lon;
+  }
   if (e.cause?.trim()) out.cause = e.cause.trim();
+  if (ctx.include.notes) {
+    const notes = pubNotes(e.noteRefs);
+    if (notes) out.notes = notes;
+  }
+  if (ctx.include.sources) {
+    const sources = pubSources(e.sources);
+    if (sources) out.sources = sources;
+  }
   return out;
 }
 
-function pubEvents(events: GedEvent[]): PubEvent[] | undefined {
-  const out = events.filter(publishable).map(pubEvent).filter((e) => e.date || e.place || e.value || e.type || e.cause || e.tag !== "EVEN");
+function pubEvents(events: GedEvent[], ctx: Ctx): PubEvent[] | undefined {
+  const out = events
+    .filter(publishable)
+    .map((e) => pubEvent(e, ctx))
+    .filter((e) => e.date || e.place || e.value || e.type || e.cause || e.address || e.notes || e.sources || e.tag !== "EVEN");
   return out.length ? out : undefined;
+}
+
+/** A record's own notes and sources, as the options allow. */
+function recordExtras(rec: { noteRefs?: NoteRef[]; sources?: SourceCitation[] }, ctx: Ctx): { notes?: string[]; sources?: PubSource[] } {
+  const out: { notes?: string[]; sources?: PubSource[] } = {};
+  const notes = ctx.include.notes ? pubNotes(rec.noteRefs) : undefined;
+  const sources = ctx.include.sources ? pubSources(rec.sources) : undefined;
+  if (notes) out.notes = notes;
+  if (sources) out.sources = sources;
+  return out;
 }
 
 /** A short, stable, opaque id: FNV-1a of the key, in base 36. */
@@ -259,6 +394,7 @@ export function* buildPublishedTreeSteps(
     return true;
   };
   const inScope = scopeIds(ds, opts, startId);
+  const ctx: Ctx = { include: opts.include, settlements: opts.include.addresses ? new Map() : settlementCoords(ds) };
   const privacy = defaultPrivacyOptions();
   const year = now.getFullYear();
   const privateIds = new Set<string>();
@@ -287,7 +423,7 @@ export function* buildPublishedTreeSteps(
     }
     const id = hashId("p", indi.uids?.[0] ?? indi.id, taken);
     idOf.set(indi.id, id);
-    people.push(pubPerson(indi, id, isLiving ? opts.living : "all", isLiving));
+    people.push(pubPerson(indi, id, isLiving ? opts.living : "all", isLiving, ctx));
     if (isLiving && opts.living !== "all") summary.livingReduced++;
   }
 
@@ -308,8 +444,10 @@ export function* buildPublishedTreeSteps(
     // A living spouse's marriage is their own life too: it goes with their
     // details, unless their details are published in full.
     const spouseLiving = [fam.husband, fam.wife].some((s) => s && living.has(s));
-    const events = opts.living === "all" || !spouseLiving ? pubEvents(fam.events) : undefined;
+    const open = opts.living === "all" || !spouseLiving;
+    const events = open ? pubEvents(fam.events, ctx) : undefined;
     if (events) out.events = events;
+    if (open) Object.assign(out, recordExtras(fam, ctx));
     families.push(out);
   }
 
@@ -324,7 +462,9 @@ export function* buildPublishedTreeSteps(
     people,
     families,
   };
-  if (opts.intro.trim()) tree.intro = opts.intro.trim();
+  const intro = Object.fromEntries(Object.entries(opts.intro).map(([l, s]) => [l, s.trim()]).filter(([, s]) => s));
+  if (Object.keys(intro).length) tree.intro = intro;
+  if (opts.include.sources) tree.sources = true;
   if (opts.exports) tree.exports = true;
   if (opts.url.trim()) tree.url = opts.url.trim();
   tree.display = opts.display;
@@ -336,7 +476,7 @@ export function* buildPublishedTreeSteps(
   return { tree, summary };
 }
 
-function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boolean): PubPerson {
+function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boolean, ctx: Ctx): PubPerson {
   const name = indi.names[0];
   const out: PubPerson = { id };
   if (mode === "initials") {
@@ -354,8 +494,9 @@ function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boo
   if (indi.sex === "M" || indi.sex === "F" || indi.sex === "X") out.sex = indi.sex;
   if (isLiving && mode !== "all") out.living = true;
   if (mode === "all") {
-    const events = pubEvents(indi.events);
+    const events = pubEvents(indi.events, ctx);
     if (events) out.events = events;
+    Object.assign(out, recordExtras(indi, ctx));
   }
   return out;
 }
