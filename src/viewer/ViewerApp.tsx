@@ -404,6 +404,12 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           onRootChange={openCharts}
           startId={startXref}
           relationFromId={addressFrom ?? relationFrom}
+          onRelationFromChange={(from) => {
+            // The pair now shown is the pair the address names, so a link
+            // copied from here opens it.
+            setRelationFrom(from);
+            replace({ page: "charts", id: route.id, kind: "relationship", view: [pubId(from)] });
+          }}
           changedPersonIds={EMPTY}
           backLabel={t("site.back.person")}
           onBack={() => openPerson(rootId)}

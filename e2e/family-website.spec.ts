@@ -153,6 +153,17 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.goto(relationship);
   await expect(page.locator(".charts-need-start")).toHaveCount(0);
   await expect(page).toHaveURL(relationship);
+  // Another person picked in the title is the pair the address names now.
+  await page.locator(".relchart-endpoint").first().click();
+  await page.locator(".relchart-picker-bar input").fill("Ivana");
+  await page.locator(".relchart-picker-bar .start-options li", { hasText: "Ivana" }).first().click();
+  await expect(page.locator(".relchart-endpoint").first()).toContainText("Ivana");
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/relationship\/p[0-9a-z]+$/);
+  expect(page.url()).not.toBe(relationship);
+  const ivana = page.url();
+  await page.goto("about:blank");
+  await page.goto(ivana);
+  await expect(page.locator(".relchart-endpoint").first()).toContainText("Ivana");
   // Franc the start person again, back on his daughter's page.
   await page.goto(relationship.replace(/#.*$/, `#/p/${daughter}`));
   await expect(page.locator(".site-person-kinship")).toHaveText("Set start person");
