@@ -149,10 +149,12 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- replace and shownWords are fresh each render; shownKey stands for them
   }, [route, shownKey, setKind, setChartSettings]);
   // The site has no Settings page: people are shown as the author chose when
-  // publishing (names, dates, ages, kinship), and the map may load its tiles.
+  // publishing (names, dates, ages, kinship), the map draws the base and the
+  // layers they chose, and may load its tiles.
   useEffect(() => {
-    setSettings({ ...DEFAULT_SITE_DISPLAY, ...tree.display, allowMapTiles: true, showXref: false });
-  }, [setSettings, tree.display]);
+    const map = tree.map ? { mapBasemap: tree.map.basemap, mapTileUrl: tree.map.tileUrl, mapOverlays: tree.map.overlays } : {};
+    setSettings({ ...DEFAULT_SITE_DISPLAY, ...tree.display, ...map, allowMapTiles: true, showXref: false });
+  }, [setSettings, tree.display, tree.map]);
   useEffect(() => { document.title = tree.title || t("site.untitled"); }, [tree.title, t]);
 
   // The start person relationships are named from: the author's, until the

@@ -1625,6 +1625,8 @@ export const en = {
   "tools.publish.include.sources": "Sources",
   "tools.publish.include": "Also publish",
   "tools.publish.display": "How people are shown",
+  "tools.publish.map": "Map",
+  "tools.publish.mapNoOverlays": "You have no extra map layers yet. Manage them in Settings → Map.",
   "tools.publish.summary": "The website will show {{people}} people and {{families}} families.",
   "tools.publish.left": "Living, reduced: {{reduced}} · living, left out: {{hidden}} · private, left out: {{private}}",
   "tools.publish.omitted": "Never published: media, contact details, record ids.",
@@ -3543,4 +3545,5 @@ export const en = {
   "site.person.notes": "Notes",
   "site.person.sources": "Sources",
   "site.person.source": "Source",
+  "site.person.open": "Open",
 };

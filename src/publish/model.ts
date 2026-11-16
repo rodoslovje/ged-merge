@@ -8,6 +8,7 @@ import { marriedSurnamesOf } from "../match/relatives";
 import { detectAddress } from "../tools/addresses";
 import { noteToText } from "../gedcom/noteHtml";
 import type { GeoCoord, NoteRef, SourceCitation } from "../gedcom/types";
+import type { MapOverlay } from "../ui/SettingsContext";
 
 /**
  * The family website's data: what a relative browsing the published page can
@@ -68,6 +69,16 @@ export const DEFAULT_SITE_DISPLAY: SiteDisplay = {
   emphasizeDirect: true,
 };
 
+/** The site's map: the base map, and the extra layers its readers may switch
+ *  on — the author's own (Settings → Map), as many of them as they choose. */
+export interface SiteMap {
+  /** A base-map preset id (`ui/map/basemapPresets.ts`); "" is the default. */
+  basemap: string;
+  /** The tile URL of a custom base map. */
+  tileUrl: string;
+  overlays: MapOverlay[];
+}
+
 export interface PublishOptions {
   title: string;
   /** A few words from the author, shown on the site's front page — one text
@@ -88,11 +99,17 @@ export interface PublishOptions {
   /** What the site also shows beside names, dates and places. Without
    *  addresses a house's coordinate gives way to its settlement's. */
   include: SiteIncludes;
+  map: SiteMap;
   /** The site's language on first open. */
   lang: string;
 }
 
-export function defaultPublishOptions(title: string, lang: string, display: SiteDisplay = DEFAULT_SITE_DISPLAY): PublishOptions {
+export function defaultPublishOptions(
+  title: string,
+  lang: string,
+  display: SiteDisplay = DEFAULT_SITE_DISPLAY,
+  map: SiteMap = { basemap: "", tileUrl: "", overlays: [] },
+): PublishOptions {
   return {
     title,
     intro: {},
@@ -104,6 +121,7 @@ export function defaultPublishOptions(title: string, lang: string, display: Site
     url: "",
     display,
     include: { sources: false, notes: false, addresses: false },
+    map,
     lang,
   };
 }
@@ -186,6 +204,8 @@ export interface PublishedTree {
   url?: string;
   /** How people are shown. */
   display?: SiteDisplay;
+  /** The map's base and layers. */
+  map?: SiteMap;
   people: PubPerson[];
   families: PubFamily[];
 }
@@ -468,6 +488,7 @@ export function* buildPublishedTreeSteps(
   if (opts.exports) tree.exports = true;
   if (opts.url.trim()) tree.url = opts.url.trim();
   tree.display = opts.display;
+  tree.map = opts.map;
   const start = startId ? idOf.get(startId) : undefined;
   if (start) tree.start = start;
   // The person's pages need the person; without one the site opens at home.

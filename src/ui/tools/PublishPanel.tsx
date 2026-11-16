@@ -22,7 +22,8 @@ import type { NameOrder } from "../../gedcom/nameDisplay";
 import { baseStem, downloadText } from "../download";
 import { StartPersonSelector } from "../StartPersonSelector";
 import { SelectMenu } from "../DropdownMenu";
-import { useSettingsSlice } from "../SettingsContext";
+import { overlayDisplayName, useSettingsSlice } from "../SettingsContext";
+import { BASEMAPS, CUSTOM_BASEMAP } from "../map/basemapPresets";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../../locales/i18n";
 import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { ToolsIntro, ToolsLoading } from "./shared";
@@ -30,6 +31,8 @@ import { ToolSummary } from "./ToolSummary";
 
 /** The app's display settings a site carries (see {@link SiteDisplay}). */
 const PERSIST_KEYS = ["persistWorkspace"] as const;
+/** The author's map, which the site's map starts from. */
+const MAP_KEYS = ["mapBasemap", "mapTileUrl", "mapOverlays"] as const;
 const DISPLAY_KEYS = ["order", "uppercaseSurname", "marriedSurname", "dateDisplay", "showAge", "showKinship", "emphasizeDirect"] as const;
 
 /** The on/off display settings, with their labels in Settings. */
@@ -68,8 +71,14 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
   // With the workspace kept in the browser, the choices made for this file
   // last time come back; without it nothing is kept (see publish/stored.ts).
   const { persistWorkspace } = useSettingsSlice(PERSIST_KEYS);
+  const appMap = useSettingsSlice(MAP_KEYS);
   const [stored] = useState(() => {
-    const defaults = defaultPublishOptions(baseStem(fileName), i18n.language, { ...appDisplay, dateDisplay: appDisplay.dateDisplay || DATE_DISPLAY_WORDS });
+    const defaults = defaultPublishOptions(
+      baseStem(fileName),
+      i18n.language,
+      { ...appDisplay, dateDisplay: appDisplay.dateDisplay || DATE_DISPLAY_WORDS },
+      { basemap: appMap.mapBasemap, tileUrl: appMap.mapTileUrl, overlays: appMap.mapOverlays },
+    );
     return (persistWorkspace ? readStoredPublish(fileName, defaults) : undefined) ?? { options: defaults };
   });
   const [options, setOptions] = useState<PublishOptions>(stored.options);
@@ -246,6 +255,48 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           ))}
         </div>
         <p className="tools-fix-hint">{t(options.include.addresses ? "tools.publish.include.addressesOn" : "tools.publish.include.addressesOff")}</p>
+      </div>
+
+      {/* The site's map: a base map, and which of the author's extra layers
+          its readers may switch on (all of them to begin with). */}
+      <div className="tools-privacy-group">
+        <div className="tools-privacy-legend">{t("tools.publish.map")}</div>
+        <label className="tools-publish-field tools-publish-dates">
+          <span>{t("settings.map.base")}</span>
+          <SelectMenu
+            value={options.map.basemap}
+            onChange={(v) => set({ map: { ...options.map, basemap: v } })}
+            options={[
+              ...BASEMAPS.map((b) => ({ value: b.id, label: t(b.key) })),
+              ...(options.map.tileUrl ? [{ value: CUSTOM_BASEMAP, label: t("basemap.custom") }] : []),
+            ]}
+          />
+        </label>
+        <div className="tools-publish-subhead">{t("settings.map.overlays")}</div>
+        {appMap.mapOverlays.length ? (
+          <ul className="tools-norm-summary">
+            {appMap.mapOverlays.map((o) => {
+              const on = options.map.overlays.some((x) => x.id === o.id);
+              const toggle = () => set({
+                map: {
+                  ...options.map,
+                  // Kept in the author's order, whichever is ticked first.
+                  overlays: on ? options.map.overlays.filter((x) => x.id !== o.id) : appMap.mapOverlays.filter((x) => x.id === o.id || options.map.overlays.some((y) => y.id === x.id)),
+                },
+              });
+              return (
+                <li key={o.id}>
+                  <label className="tools-norm-check">
+                    <input type="checkbox" checked={on} onChange={toggle} />
+                    <span>{overlayDisplayName(o, t)}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="tools-fix-hint">{t("tools.publish.mapNoOverlays")}</p>
+        )}
       </div>
 
       {/* How the site shows people: the app's own display settings, starting

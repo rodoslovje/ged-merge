@@ -64,8 +64,14 @@ function Site({ tree }: { tree: PublishedTree }) {
 }
 
 const tree = readTree();
-// Exports name the site's own address, when the author gave one.
-setExportSite(tree.url);
+// Exports credit GED Merge as the site's footer does, then name the site's own
+// address when the author gave one.
+setExportSite(tree.url, () => `${i18n.t("site.footer.madeWith")} GED Merge`);
+// The charts' panel button that opens a person in the app's Edit view opens
+// their page here: it says so, in both languages.
+for (const lng of SUPPORTED_LANGUAGES) {
+  i18n.addResource(lng, "translation", "relpath.openInEdit", i18n.t("site.person.open", { lng }));
+}
 void i18n.changeLanguage(startLanguage(tree));
 i18n.on("languageChanged", (lng) => {
   document.documentElement.lang = lng;

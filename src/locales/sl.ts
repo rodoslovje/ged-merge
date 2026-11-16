@@ -1855,6 +1855,8 @@ export const sl = {
   "tools.publish.include.sources": "Vire",
   "tools.publish.include": "Objavi tudi",
   "tools.publish.display": "Prikaz oseb",
+  "tools.publish.map": "Zemljevid",
+  "tools.publish.mapNoOverlays": "Dodatnih slojev zemljevida še nimate. Uredite jih v Nastavitvah → Zemljevid.",
   "tools.publish.summary": "Stran bo prikazala osebe ({{people}}) in družine ({{families}}).",
   "tools.publish.left": "Žive, skrajšane: {{reduced}} · žive, izpuščene: {{hidden}} · zasebne, izpuščene: {{private}}",
   "tools.publish.omitted": "Na strani nikoli ni medijev, kontaktnih podatkov ali ID-jev zapisov.",
@@ -4006,4 +4008,5 @@ export const sl = {
   "site.person.notes": "Opombe",
   "site.person.sources": "Viri",
   "site.person.source": "Vir",
+  "site.person.open": "Odpri",
 };

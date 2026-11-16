@@ -301,6 +301,11 @@ describe("married surnames", () => {
     expect(back.names[1]).toMatchObject({ surname: "Novak", type: "married" });
   });
 
+  it("carry the chosen base map and layers", () => {
+    const map = { basemap: "topo", tileUrl: "", overlays: [{ id: "o1", name: "Kataster", url: "https://example.org/{z}/{x}/{y}.png" }] };
+    expect(build({ map }).tree.map).toEqual(map);
+  });
+
   it("carry the author's display settings", () => {
     const display = { ...defaultPublishOptions("x", "sl").display, showAge: true, order: "surname-given" as const };
     expect(build({ display }).tree.display).toEqual(display);
