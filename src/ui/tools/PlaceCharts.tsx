@@ -331,7 +331,7 @@ export function MultiStackChart({
                 />
               ))}
             </span>
-            <span className="stats-col-label">{i % every === 0 ? c.label : " "}</span>
+            <span className="stats-col-label">{i % every === 0 ? c.label : "\u00a0"}</span>
           </div>
         ))}
       </div>
