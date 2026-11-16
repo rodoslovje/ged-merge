@@ -645,30 +645,6 @@ export function StatsPanel({
 
     return (
       <>
-        {card("placeFlows", t("stats.placeFlows"), flows.pairs ? t("stats.nPairs", { count: flows.pairs }) : null, (
-          <>
-            <div className="stats-flow-level">
-              <Segmented
-                label={t("stats.flowLevel")}
-                value={flowLevel}
-                onChange={setFlowLevel}
-                items={(["place", "country"] as const).map((l) => ({ key: l, label: t(`stats.flowLevel.${l}`) }))}
-              />
-            </div>
-            <FlowChart
-              heads={[t("stats.parentBornIn"), t("stats.childBornIn")]}
-              format={num}
-              picked={pickedIn("placeFlows")}
-              from={flows.parents.map((n) => ({ key: n.key, label: flowName(n.key, n.label), count: n.count, swatch: flowSwatch(n.key), tip: `${flowFull(n.key, n.label)}: ${t("stats.nPairs", { count: n.count })}` }))}
-              to={flows.children.map((n) => ({ key: n.key, label: flowName(n.key, n.label), count: n.count, swatch: flowSwatch(n.key), tip: `${flowFull(n.key, n.label)}: ${t("stats.nPairs", { count: n.count })}` }))}
-              flows={flows.flows.map((f) => ({ key: flowKey(f.from, f.to), from: f.from, to: f.to, count: f.count, tip: `${flowTitle(f.from, f.to)}: ${t("stats.nPairs", { count: f.count })}` }))}
-              onPick={(key) => {
-                const f = flows.flows.find((x) => flowKey(x.from, x.to) === key)!;
-                choose("placeFlows", key, flowTitle(f.from, f.to), f.ids);
-              }}
-            />
-          </>
-        ), true)}
         {card("placeStack", t("stats.placeStack"), t("stats.nPeople", { count: stack.people }), (
           <MultiStackChart
             format={num}
@@ -704,10 +680,34 @@ export function StatsPanel({
             }}
           />
         ), true)}
+        {card("placeFlows", t("stats.placeFlows"), flows.pairs ? t("stats.nPairs", { count: flows.pairs }) : null, (
+          <>
+            <div className="stats-flow-level">
+              <Segmented
+                label={t("stats.flowLevel")}
+                value={flowLevel}
+                onChange={setFlowLevel}
+                items={(["place", "country"] as const).map((l) => ({ key: l, label: t(`stats.flowLevel.${l}`) }))}
+              />
+            </div>
+            <FlowChart
+              heads={[t("stats.parentBornIn"), t("stats.childBornIn")]}
+              format={num}
+              picked={pickedIn("placeFlows")}
+              from={flows.parents.map((n) => ({ key: n.key, label: flowName(n.key, n.label), count: n.count, swatch: flowSwatch(n.key), tip: `${flowFull(n.key, n.label)}: ${t("stats.nPairs", { count: n.count })}` }))}
+              to={flows.children.map((n) => ({ key: n.key, label: flowName(n.key, n.label), count: n.count, swatch: flowSwatch(n.key), tip: `${flowFull(n.key, n.label)}: ${t("stats.nPairs", { count: n.count })}` }))}
+              flows={flows.flows.map((f) => ({ key: flowKey(f.from, f.to), from: f.from, to: f.to, count: f.count, tip: `${flowTitle(f.from, f.to)}: ${t("stats.nPairs", { count: f.count })}` }))}
+              onPick={(key) => {
+                const f = flows.flows.find((x) => flowKey(x.from, x.to) === key)!;
+                choose("placeFlows", key, flowTitle(f.from, f.to), f.ids);
+              }}
+            />
+          </>
+        ), true)}
       </>
     );
   };
-  if (related) csvOf.set("relatedCouples",() => [[t("stats.relatedCouples"), t("stats.csv.count")], ...COUPLE_KINSHIP.map((k) => [t(`stats.kin.${k}`), related.byKind[k].length])]);
+  if (related) csvOf.set("relatedCouples", () => [[t("stats.relatedCouples"), t("stats.csv.count")], ...COUPLE_KINSHIP.map((k) => [t(`stats.kin.${k}`), related.byKind[k].length])]);
 
   return (
     <div className="tools-stats-panel">
