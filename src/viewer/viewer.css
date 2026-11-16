@@ -685,22 +685,29 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 72px;
-  padding: 8px 6px 6px;
+  min-width: 84px;
+  padding: 10px 8px 8px;
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   text-decoration: none;
 }
+/* Pointed at, the tile takes the green: its fill, its edge, its glyph and name. */
 .site-chart:hover,
 .site-chart:focus-visible {
+  background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
 }
 .site-chart-label {
-  font-size: 0.75rem;
-  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.site-chart:hover .site-chart-label,
+.site-chart:focus-visible .site-chart-label {
+  color: var(--accent);
 }
 /* Every glyph in a box of one height, so the names line up whatever the
    glyph's own size. */
@@ -717,11 +724,11 @@
 /* The map is a picture here: the tile's link takes every click. */
 .site-chart-preview {
   display: block;
-  width: 130px;
+  width: 148px;
   height: 100%;
-  min-height: 62px;
+  min-height: 72px;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   pointer-events: none;
 }
 .site-chart-preview .tools-geo-minimap {
@@ -894,11 +901,11 @@
   .site-chart {
     flex: 1 1 0;
     min-width: 0;
-    max-width: 96px;
+    max-width: 104px;
   }
   .site-chart-map {
     flex: 1.6 1 0;
-    max-width: 160px;
+    max-width: 176px;
   }
   .site-chart-preview {
     width: 100%;
