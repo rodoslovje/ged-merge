@@ -135,37 +135,6 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const { settings: chartSettings, setKind, set: setChartSettings } = useChartSettings();
   // Ancestors, descendants or both: the site keeps it, so the address can.
   const [direction, setDirection] = useState<ChartDirection>("both");
-  // Each view of each person's chart has its own address
-  // (`#/c/<person>/<kind>/<view words>`, see `chartRoute.ts`): an address names
-  // the chart and how it is drawn, and changing either updates the address.
-  // `applied` is the last address put into effect, so a change made in the hub
-  // is not undone by the address it is still on.
-  const applied = useRef<string | undefined>(undefined);
-  const shownWords = chartViewWords(chartSettings.kind, chartSettings, direction);
-  const shownKey = [chartSettings.kind, ...shownWords].join("/");
-  // The view an address was just put into effect as, until the charts show it:
-  // the settings arrive a render later, and the view on screen in between is
-  // not a change of the reader's to write back into the address.
-  const awaiting = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (route.page !== "charts") return;
-    const addressKey = [route.kind, ...(route.view ?? [])].join("/");
-    if (isHubKind(route.kind) && addressKey !== applied.current) {
-      applied.current = addressKey;
-      const view = chartViewOf(route.kind, route.view ?? []);
-      awaiting.current = [route.kind, ...chartViewWords(route.kind, { ...chartSettings, ...view.settings }, view.direction)].join("/");
-      if (route.kind !== chartSettings.kind) setKind(route.kind);
-      setChartSettings(view.settings);
-      setDirection(view.direction);
-      return;
-    }
-    if (awaiting.current !== undefined) {
-      if (shownKey !== awaiting.current) return;
-      awaiting.current = undefined;
-    }
-    if (addressKey !== shownKey) replace({ page: "charts", id: route.id, kind: chartSettings.kind, view: shownWords.length ? shownWords : undefined });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- replace and shownWords are fresh each render; shownKey stands for them
-  }, [route, shownKey, setKind, setChartSettings]);
   // The site has no Settings page: people are shown as the author chose when
   // publishing (names, dates, ages, kinship), the map draws the base and the
   // layers they chose, and may load its tiles.
@@ -193,6 +162,45 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   };
   // Where Charts opens: the start person, else the author's.
   const chartsRoot = startXref ?? authorStart;
+  // Each view of each person's chart has its own address
+  // (`#/c/<person>/<kind>/<view words>`, see `chartRoute.ts`): an address names
+  // the chart and how it is drawn, and changing either updates the address.
+  // `applied` is the last address put into effect, so a change made in the hub
+  // is not undone by the address it is still on.
+  const applied = useRef<string | undefined>(undefined);
+  // The relationship's other person: the one its address names, else the one
+  // Statistics opened it from, else the start person (see relationWord).
+  const addressFrom = route.page === "charts" && route.kind === "relationship" && route.view?.[0] && ds.individuals.has(xrefOf(route.view[0]))
+    ? xrefOf(route.view[0])
+    : undefined;
+  const [relationFrom, setRelationFrom] = useState<string | undefined>();
+  useEffect(() => { if (addressFrom) setRelationFrom(addressFrom); }, [addressFrom]);
+  const relationWord = (from: string | undefined) => (from ? pubId(from) : undefined);
+  const shownWords = chartViewWords(chartSettings.kind, chartSettings, direction, relationWord(addressFrom ?? relationFrom ?? startXref));
+  const shownKey = [chartSettings.kind, ...shownWords].join("/");
+  // The view an address was just put into effect as, until the charts show it:
+  // the settings arrive a render later, and the view on screen in between is
+  // not a change of the reader's to write back into the address.
+  const awaiting = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (route.page !== "charts") return;
+    const addressKey = [route.kind, ...(route.view ?? [])].join("/");
+    if (isHubKind(route.kind) && addressKey !== applied.current) {
+      applied.current = addressKey;
+      const view = chartViewOf(route.kind, route.view ?? []);
+      awaiting.current = [route.kind, ...chartViewWords(route.kind, { ...chartSettings, ...view.settings }, view.direction, relationWord(addressFrom ?? relationFrom ?? startXref))].join("/");
+      if (route.kind !== chartSettings.kind) setKind(route.kind);
+      setChartSettings(view.settings);
+      setDirection(view.direction);
+      return;
+    }
+    if (awaiting.current !== undefined) {
+      if (shownKey !== awaiting.current) return;
+      awaiting.current = undefined;
+    }
+    if (addressKey !== shownKey) replace({ page: "charts", id: route.id, kind: chartSettings.kind, view: shownWords.length ? shownWords : undefined });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- replace and shownWords are fresh each render; shownKey stands for them
+  }, [route, shownKey, setKind, setChartSettings]);
   const derivations = useDatasetDerivations();
   // Kinship labels follow the author's display choice, as everywhere in the app.
   const { showKinship } = useSettingsSlice(KINSHIP_KEYS);
@@ -201,7 +209,6 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     people: new Map(tree.people.map((p) => [xrefOf(p.id), p])),
     families: new Map(tree.families.map((f) => [xrefOf(f.id), f])),
   }), [tree]);
-  const [relationFrom, setRelationFrom] = useState<string | undefined>();
   const openPerson = (xref: string) => go({ page: "person", id: pubId(xref) });
   // A person's charts, drawn as the charts are now. Re-rooting on the person
   // already shown (the hub does so as it opens) leaves the address alone.
@@ -370,7 +377,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           rootId={rootId}
           onRootChange={openCharts}
           startId={startXref}
-          relationFromId={relationFrom}
+          relationFromId={addressFrom ?? relationFrom}
           changedPersonIds={EMPTY}
           backLabel={t("site.back.person")}
           onBack={() => openPerson(rootId)}
@@ -406,9 +413,9 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             editVersion={0}
             onNavigate={openPerson}
             onOpenRelationship={(from, to) => {
+              // Straight to the address that names them both.
               setRelationFrom(from);
-              setKind("relationship");
-              openCharts(to);
+              go({ page: "charts", id: pubId(to), kind: "relationship", view: [pubId(from)] });
             }}
             fileName={tree.title || "family-tree"}
             active
@@ -485,12 +492,6 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
       <section className="site-hero">
         <h1>{tree.title || t("site.untitled")}</h1>
         {intro && <p className="site-intro">{intro}</p>}
-        {startId && ds.individuals.has(startId) && (
-          <p className="site-start">
-            {t("site.start")}{" "}
-            <PersonLink dataset={ds} id={startId} fallback={startId} onNavigate={onNavigate} />
-          </p>
-        )}
       </section>
       <section className="site-search">
         <label className="site-search-label" htmlFor="site-search">{t("site.search.label")}</label>
@@ -504,6 +505,13 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
           onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
         />
+        {/* The search first; the start person is the other way in. */}
+        {startId && ds.individuals.has(startId) && (
+          <p className="site-start">
+            {t("site.start")}{" "}
+            <PersonLink dataset={ds} id={startId} fallback={startId} onNavigate={onNavigate} />
+          </p>
+        )}
         {query.trim() && (
           <>
             <p className="site-search-count">

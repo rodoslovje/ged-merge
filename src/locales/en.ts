@@ -3548,7 +3548,7 @@ export const en = {
   "site.footer.madeWith": "Made with",
   "site.theme.light": "Light theme",
   "site.theme.dark": "Dark theme",
-  "site.start": "Start with",
+  "site.start": "Or start with",
   "site.search.label": "Find a person",
   "site.search.placeholder": "Given name or surname…",
   "site.search.chartPlaceholder": "Show someone else on the chart…",

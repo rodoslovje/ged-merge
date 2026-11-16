@@ -40,4 +40,10 @@ describe("chart view words", () => {
     expect(chartViewOf("kin", ["nonsense"])).toEqual({ settings: { kinLayout: "wheel", kinScope: "contemporaries" }, direction: "both" });
     expect(chartViewOf("timeline", ["ancestors"]).direction).toBe("both");
   });
+
+  it("name the relationship's other person, and only on the relationship", () => {
+    expect(chartViewWords("relationship", DEFAULTS, "both", "p12x")).toEqual(["p12x"]);
+    expect(chartViewWords("relationship", DEFAULTS, "both")).toEqual([]);
+    expect(chartViewWords("fan", DEFAULTS, "both", "p12x")).toEqual([]);
+  });
 });

@@ -120,6 +120,29 @@ test("the family website downloads as one page that works from disk", async ({ p
   // person — no timeline for a living person with nothing to draw.
   await expect(page.locator(".site-chart", { hasText: "Timeline" })).toHaveCount(0);
   await expect(page.locator(".site-chart", { hasText: "Relationship" })).toHaveCount(1);
+  // The relationship's address names both people, so a link to it shows the
+  // same two to someone with no start person of their own.
+  await page.locator(".site-chart", { hasText: "Relationship" }).click();
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/relationship\/p[0-9a-z]+$/);
+  const relationship = page.url();
+  const daughter = page.url().replace(/^.*#\/c\/([^/]+)\/.*$/, "$1");
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith("gedmerge-site.start:")) localStorage.setItem(k, "none");
+  });
+  await page.goto("about:blank");
+  await page.goto(relationship);
+  await expect(page.locator(".charts-need-start")).toHaveCount(0);
+  await expect(page).toHaveURL(relationship);
+  // Franc the start person again, back on his daughter's page.
+  await page.goto(relationship.replace(/#.*$/, `#/p/${daughter}`));
+  await expect(page.locator(".site-person-kinship")).toHaveText("Set start person");
+  await page.keyboard.press("/");
+  await page.locator(".site-search-pop input").fill("Franc");
+  await page.locator(".site-search-pop .start-options li", { hasText: "Franc" }).first().click();
+  await page.locator(".site-person-kinship .start-chip").click();
+  await page.getByRole("option", { name: "Make this person the start person" }).click();
+  await page.goto(relationship.replace(/#.*$/, `#/p/${daughter}`));
+  await expect(page.locator(".site-person-kinship")).toHaveText("Daughter");
   await page.locator(".site-chart", { hasText: "Fan" }).click();
   await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/fan$/);
   await page.getByRole("tab", { name: "Tree", exact: true }).click();

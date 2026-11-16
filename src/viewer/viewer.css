@@ -158,6 +158,9 @@
   margin-top: 32px;
   max-width: 640px;
 }
+.site-search .site-start {
+  margin: 10px 0 0;
+}
 
 /* The header's search, opened under the header row on any page: over the gap
    between the header and the page, which it does not push down. */

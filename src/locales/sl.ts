@@ -4011,7 +4011,7 @@ export const sl = {
   "site.footer.madeWith": "Narejeno z",
   "site.theme.light": "Svetla tema",
   "site.theme.dark": "Temna tema",
-  "site.start": "Začnite pri osebi",
+  "site.start": "Ali pa začnite pri osebi",
   "site.search.label": "Poiščite osebo",
   "site.search.placeholder": "Ime ali priimek…",
   "site.search.chartPlaceholder": "Pokaži drugo osebo na diagramu…",
