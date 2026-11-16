@@ -38,10 +38,14 @@
   gap: 16px;
 }
 
-/* The site's name in GED Merge's own green — a quiet tribute. */
+/* The site's name in GED Merge's own green — a quiet tribute — and bold, the
+   header's anchor on every page. */
 .site-title {
   font-family: var(--font-serif);
-  font-size: 1.35rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   color: var(--accent);
   text-decoration: none;
   margin-right: auto;
@@ -104,7 +108,7 @@
     padding: 0 16px 8px;
   }
   .app.site:not(.tree-shell) > .site-head {
-    padding: 16px 0 0;
+    padding: 16px 0 12px;
   }
   .app.site.tree-shell > .site-foot {
     padding-inline: 16px;
@@ -149,8 +153,10 @@
 
 .site-hero h1 {
   font-family: var(--font-serif);
-  font-size: 2rem;
-  margin: 0 0 12px;
+  font-size: 2.25rem;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
 }
 
 /* The cover photo: right of the title and intro, whole, up to 40% of the
@@ -208,6 +214,10 @@
    between the header and the page, which it does not push down. */
 .app-head.site-head {
   position: relative;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  /* The line marks the header off; the page's own top padding is gap enough. */
+  margin-bottom: 0;
 }
 .site-search-pop {
   position: absolute;
@@ -686,4 +696,11 @@
   .site-event dd {
     margin-bottom: 8px;
   }
+}
+
+/* Statistics: the app's panel, in line with the header and the other pages
+   rather than inside the Tools view's own padding. */
+.tools-view.site-stats {
+  padding: 0;
+  max-width: none;
 }
