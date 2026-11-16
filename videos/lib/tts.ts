@@ -61,6 +61,9 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/»Strani«/g, "straní"],
     [/slike strani\b/g, "slike straní"],
     [/\b([Gg])rob\b/g, "$1ròb"],
+    // Episode 15: "Franceta" (and the other cases built on it) came out as
+    // "Frančeta"; spelled with z it keeps the Slovenian c, checked by ear.
+    [/\b([Ff])rancet/g, "$1ranzet"],
     // Episode 16: the voice reads a bare "spol" as "spou"; the accent keeps the l.
     [/\b([Ss])pol\b/g, "$1pòl"],
     // The Living filter is »Žívi«, stressed on the first i.
