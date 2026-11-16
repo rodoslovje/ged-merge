@@ -40,6 +40,54 @@ const THEME_BOOT =
  *  Merge's, inline, so it shows from disk too. */
 export const DEFAULT_FAVICON = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG.trim())}`;
 
+/** How long a shared link's description may run before it is cut. */
+const DESCRIPTION_MAX = 200;
+
+/** The intro in the site's language (else in any), on one line and cut at a
+ *  word to what a link preview shows. */
+export function siteDescription(tree: PublishedTree): string {
+  const intro = tree.intro?.[tree.lang] ?? Object.values(tree.intro ?? {})[0] ?? "";
+  const text = intro.replace(/\s+/g, " ").trim();
+  if (text.length <= DESCRIPTION_MAX) return text;
+  const cut = text.slice(0, DESCRIPTION_MAX - 1);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > DESCRIPTION_MAX / 2 ? cut.lastIndexOf(" ") : cut.length)}…`;
+}
+
+/** The site's address made absolute (`https://` where it names none). */
+const absoluteUrl = (url: string) => (/^https?:\/\//i.test(url) ? url : `https://${url}`);
+
+/**
+ * What a shared link shows — title, description, and the cover photo as its
+ * image (Open Graph, read by Facebook, WhatsApp, Slack and the like, and the
+ * Twitter card). A preview takes an image by its full address only, so the
+ * image (and the page's own address) need the site's address; the image is
+ * then beside the page, in its folder.
+ */
+export function shareMeta(tree: PublishedTree): string {
+  const title = tree.title || "Family tree";
+  const description = siteDescription(tree);
+  const tags: [string, string, string][] = [];
+  if (description) tags.push(["name", "description", description]);
+  tags.push(["property", "og:type", "website"], ["property", "og:title", title]);
+  if (description) tags.push(["property", "og:description", description]);
+  const url = tree.url?.trim() ? absoluteUrl(tree.url.trim()) : undefined;
+  const cover = tree.cover ? tree.photos?.find((p) => p.id === tree.cover) : undefined;
+  let image: string | undefined;
+  if (url) {
+    tags.push(["property", "og:url", url]);
+    try {
+      // The page's folder: the address itself, or where its page file sits.
+      const folder = /\.html?$/i.test(new URL(url).pathname) ? url : url.replace(/\/*$/, "/");
+      if (cover) image = new URL(cover.path, folder).href;
+    } catch {
+      // An address that is no URL: no image to point at.
+    }
+  }
+  if (image) tags.push(["property", "og:image", image], ["property", "og:image:alt", title]);
+  tags.push(["name", "twitter:card", image ? "summary_large_image" : "summary"]);
+  return tags.map(([attr, key, value]) => `<meta ${attr}="${key}" content="${escapeHtml(value)}">`).join("\n");
+}
+
 /** The whole site as one self-contained HTML file: open it from disk, or put it
  *  on any static web server. */
 export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string {
@@ -52,6 +100,7 @@ export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string
 <meta name="robots" content="noindex, nofollow">
 <meta name="generator" content="GED Merge (${PUBLISHED_FORMAT})">
 <title>${title}</title>
+${shareMeta(tree)}
 <link rel="icon" type="image/svg+xml" href="${DEFAULT_FAVICON}">
 <script>${THEME_BOOT}</script>
 <style>${inlineSafe(bundle.css, "style")}</style>

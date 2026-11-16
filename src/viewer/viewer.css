@@ -144,6 +144,39 @@
   margin: 0 0 12px;
 }
 
+/* The cover photo: right of the title and intro, whole, up to 40% of the
+   width; above them on a tablet or phone. */
+.site-hero.has-cover {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 40%);
+  gap: 32px;
+  align-items: start;
+}
+.site-hero-text {
+  grid-column: 1;
+  grid-row: 1;
+}
+.site-cover {
+  grid-column: 2;
+  grid-row: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+@media (max-width: 720px) {
+  .site-hero.has-cover {
+    display: block;
+  }
+  .site-cover {
+    margin-bottom: 16px;
+    max-height: 260px;
+  }
+}
+
 .site-intro {
   white-space: pre-line;
   max-width: 65ch;

@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { CropRegion } from "../gedcom/source";
 import { collectMediaRefs, type MediaRef } from "../gedcom/media";
-import { mediaKindOf } from "../ui/mediaPath";
+import { mediaKindOf, sameMediaFile } from "../ui/mediaPath";
 import type { PublishedTree } from "./model";
 
 /**
@@ -77,6 +77,8 @@ export interface PhotoPlan {
   sources: Map<string, string>;
   /** Photos left out: someone hidden is on them, or they are private. */
   withheld: number;
+  /** The cover photo's id, when one was chosen and found. */
+  cover?: string;
 }
 
 interface Owner {
@@ -91,6 +93,8 @@ interface Candidate {
   ref: MediaRef;
   owners: Owner[];
   private: boolean;
+  /** In a folder left out: published only as the cover. */
+  out?: boolean;
 }
 
 /** The identity of a photo: its shared record, or its file for an inline one. */
@@ -137,12 +141,18 @@ const extensionOf = (file: string) => file.match(/\.([a-z0-9]{1,5})$/i)?.[1].toL
  * details (only they get a gallery); `hidden(id)` says a person must not be
  * seen on any photo; `folders` where each folder's photos go. `yieldEvery`
  * paces a stepped caller.
+ *
+ * `cover` is the site's cover photo, a file of the media folder the author
+ * chose: it goes in whatever is on it and wherever its folder is — the
+ * author's own choice — but as the cover only; it reaches a person's gallery
+ * only where it would have anyway.
  */
 export function* planSitePhotos(
   ds: Dataset,
   published: (id: string) => boolean,
   hidden: (id: string) => boolean,
   folders: Readonly<Record<string, PhotoUse>> = {},
+  cover = "",
   yieldEvery = 1_000,
 ): Generator<void, PhotoPlan, void> {
   const candidates = new Map<string, Candidate>();
@@ -150,13 +160,18 @@ export function* planSitePhotos(
   // then their families' — with the region that shows them.
   const order = new Map<string, { key: string; crop?: CropRegion }[]>();
   let n = 0;
+  const coverOk = !!cover && mediaKindOf(cover) === "image" && !isWebLink(cover);
+  let coverKey: string | undefined;
   const visit = (raw: GedNode, owner: (ref: MediaRef) => Owner) => {
     for (const ref of collectMediaRefs(raw, ds.records)) {
       if (mediaKindOf(ref.file) !== "image" || isWebLink(ref.file)) continue;
-      if (photoUseOf(folders, ref.file) === "out") continue;
+      const isCover = coverOk && sameMediaFile(ref.file, cover);
+      const out = photoUseOf(folders, ref.file) === "out";
+      if (out && !isCover) continue;
       const key = keyOf(ref);
+      if (isCover) coverKey = key;
       let c = candidates.get(key);
-      if (!c) candidates.set(key, (c = { ref, owners: [], private: false }));
+      if (!c) candidates.set(key, (c = { ref, owners: [], private: false, out }));
       if (ref.private) c.private = true;
       const o = owner(ref);
       c.owners.push(o);
@@ -186,21 +201,31 @@ export function* planSitePhotos(
   const idOf = new Map<string, string>();
   for (const [key, c] of candidates) {
     const blocked = c.private || c.owners.some((o) => o.family === "private" || o.people.some(hidden));
-    if (blocked) {
-      plan.withheld++;
+    const coverOnly = blocked || !!c.out;
+    if (coverOnly && key !== coverKey) {
+      if (blocked) plan.withheld++;
       continue;
     }
     const id = photoId(key, taken);
     const path = `photos/${id}.${extensionOf(c.ref.file)}`;
     const photo: PubPhoto = { id, path };
-    if (photoUseOf(folders, c.ref.file) === "pages") photo.tray = false;
+    if (key === coverKey) plan.cover = id;
+    if (coverOnly || photoUseOf(folders, c.ref.file) === "pages") photo.tray = false;
     if (c.ref.title) photo.title = c.ref.title;
     if (c.ref.date) photo.date = c.ref.date;
     if (c.ref.place) photo.place = c.ref.place;
     if (c.ref.description) photo.description = c.ref.description;
     plan.photos.push(photo);
     plan.sources.set(path, c.ref.file);
-    idOf.set(key, id);
+    if (!coverOnly) idOf.set(key, id);
+  }
+  // A cover nobody in the file is linked to: a photo of its own.
+  if (coverOk && !coverKey) {
+    const id = photoId(`file:${cover}`, taken);
+    const path = `photos/${id}.${extensionOf(cover)}`;
+    plan.photos.push({ id, path, tray: false });
+    plan.sources.set(path, cover);
+    plan.cover = id;
   }
   for (const [person, list] of order) {
     if (!published(person)) continue;
@@ -223,6 +248,7 @@ export function withoutPhotos(tree: PublishedTree, paths: ReadonlySet<string>): 
   return {
     ...tree,
     ...(photos.length ? { photos } : { photos: undefined }),
+    ...(tree.cover && gone.has(tree.cover) ? { cover: undefined } : {}),
     people: tree.people.map((p) => {
       if (!p.photos?.some((l) => gone.has(l.photo))) return p;
       const left = p.photos.filter((l) => !gone.has(l.photo));

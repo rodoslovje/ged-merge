@@ -484,14 +484,19 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
   }, [ds, query, nameOf, i18n.language]);
   // The author's words in the reader's language, else in the other one.
   const intro = tree.intro?.[i18n.language] ?? Object.values(tree.intro ?? {})[0];
+  const coverPath = tree.cover ? tree.photos?.find((p) => p.id === tree.cover)?.path : undefined;
 
   return (
     <div className="site-home">
       {/* A row of faces from the family's photos, each opening that person. */}
       <PhotoTray tree={tree} ds={ds} onNavigate={onNavigate} />
-      <section className="site-hero">
-        <h1>{tree.title || t("site.untitled")}</h1>
-        {intro && <p className="site-intro">{intro}</p>}
+      {/* The title and the author's words, and the cover photo beside them. */}
+      <section className={`site-hero${coverPath ? " has-cover" : ""}`}>
+        {coverPath && <img className="site-cover" src={coverPath} alt="" />}
+        <div className="site-hero-text">
+          <h1>{tree.title || t("site.untitled")}</h1>
+          {intro && <p className="site-intro">{intro}</p>}
+        </div>
       </section>
       <section className="site-search">
         <label className="site-search-label" htmlFor="site-search">{t("site.search.label")}</label>

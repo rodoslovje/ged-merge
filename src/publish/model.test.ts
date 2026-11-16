@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, type PublishOptions } from "./model";
 import { hydrateTree, pubId } from "./hydrate";
-import { inlineSafe, publishedHtml, scriptSafeJson, siteFileName } from "./page";
+import { inlineSafe, publishedHtml, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -385,6 +385,29 @@ describe("publishedHtml", () => {
     expect(html.match(/<\/style>/g)).toHaveLength(1);
     const json = html.match(/<script type="application\/json"[^>]*>(.*?)<\/script>/s)![1];
     expect(JSON.parse(json).intro).toEqual({ sl: "<b>hi</b>" });
+  });
+
+  it("tells a shared link the title, the intro and the cover photo", () => {
+    const base = build({ title: "Rodbina", intro: { sl: "Pozdravljeni\n\nv  naši rodbini.", en: "Hello" } }).tree;
+    const tree = { ...base, photos: [{ id: "o1", path: "photos/o1.jpg" }], cover: "o1" };
+    const meta = (url?: string) => shareMeta({ ...tree, url });
+    // The site's own language, on one line.
+    expect(meta()).toContain('<meta property="og:description" content="Pozdravljeni v naši rodbini.">');
+    expect(meta()).toContain('<meta property="og:title" content="Rodbina">');
+    // No address, no image: a preview takes it by its full address only.
+    expect(meta()).not.toContain("og:image");
+    expect(meta()).toContain('<meta name="twitter:card" content="summary">');
+    expect(meta("rodbina.si/drevo")).toContain('<meta property="og:image" content="https://rodbina.si/drevo/photos/o1.jpg">');
+    expect(meta("https://rodbina.si/drevo/index.html")).toContain('content="https://rodbina.si/drevo/photos/o1.jpg"');
+    expect(meta("https://rodbina.si/")).toContain('<meta property="og:url" content="https://rodbina.si/">');
+    expect(meta("https://rodbina.si/")).toContain('content="summary_large_image"');
+  });
+
+  it("cuts a long intro at a word for the preview", () => {
+    const long = "beseda ".repeat(60);
+    const text = siteDescription({ ...build({ intro: { sl: long } }).tree });
+    expect(text.length).toBeLessThanOrEqual(200);
+    expect(text.endsWith("beseda…")).toBe(true);
   });
 
   it("escapes helpers", () => {

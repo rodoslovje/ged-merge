@@ -26,6 +26,7 @@ import { withoutPhotos } from "../../publish/photos";
 import { StartPersonSelector } from "../StartPersonSelector";
 import { SelectMenu } from "../DropdownMenu";
 import { PublishPhotoFolders } from "./PublishPhotoFolders";
+import { PublishCover } from "./PublishCover";
 import { overlayDisplayName, useSettingsSlice } from "../SettingsContext";
 import { BASEMAPS, CUSTOM_BASEMAP } from "../map/basemapPresets";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../../locales/i18n";
@@ -340,6 +341,9 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
         )}
         {options.include.photos && (
           <PublishPhotoFolders dataset={dataset} value={options.photoFolders} onChange={(photoFolders) => set({ photoFolders })} />
+        )}
+        {options.include.photos && media.folderName && (
+          <PublishCover dataset={dataset} value={options.cover} hasUrl={!!options.url.trim()} onChange={(cover) => set({ cover })} />
         )}
       </div>
 

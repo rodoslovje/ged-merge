@@ -10256,6 +10256,11 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-publish-folder-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tools-publish-folder-count { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tools-publish-folder-use { flex: none; width: 15rem; }
+/* The cover photo: its thumbnail and file name, and the choices. */
+.tools-publish-cover { margin-top: 14px; }
+.tools-publish-cover-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: 0.9rem; }
+.tools-publish-cover-thumb { width: 48px; height: 48px; object-fit: cover; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.tools-publish-cover-name { color: var(--muted); max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tools-publish-intro + .tools-publish-intro { margin-top: 6px; }
 .tools-publish-intro-lang { flex: none; font-size: 1.1rem; line-height: 2; }
 
