@@ -514,7 +514,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         if (id) { e.preventDefault(); showCharts(id, "relationship"); }
         return;
       }
-      // F / L / P: the fan, the timeline, the map.
+      // P / L / G: the fan, the timeline, the map.
       const lettered = key === KEY.fan ? "fan" : key === KEY.timeline ? "timeline" : key === KEY.map ? "map" : undefined;
       if (lettered) {
         if (id) { e.preventDefault(); showCharts(id, lettered); }

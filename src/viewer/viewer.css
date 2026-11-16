@@ -498,6 +498,12 @@
 .site-chart-preview .leaflet-control-container {
   display: none;
 }
+/* Leaflet turns pointer events back on for its pins: off here too, so no pin
+   shows its coordinates over the tile. */
+.site-chart-preview .leaflet-pane .leaflet-interactive,
+.site-chart-preview .leaflet-pane svg path.leaflet-interactive {
+  pointer-events: none;
+}
 
 .site-person-kinship {
   margin: 4px 0 0;

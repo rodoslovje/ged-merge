@@ -31,12 +31,12 @@ export const KEY = {
   defer: "d",
   /** Merge mode: show or hide the match list's filters. */
   filter: "f",
-  /** A person's fan, timeline and map — from Edit and the family website's
-   *  person pages. On a chart page F is "fit" (CHART_KEY.fit), so there only
-   *  L and P switch the kind. */
-  fan: "f",
+  /** A person's fan (P, pedigree), timeline (L) and map (G, geography) —
+   *  from Edit and the family website's person pages; on a chart page they
+   *  switch the kind. */
+  fan: "p",
   timeline: "l",
-  map: "p",
+  map: "g",
 } as const;
 
 /** Bare keys active on the full-page chart overlays (handled by
@@ -57,7 +57,9 @@ export const CHART_KEY = {
   /** Step back / forward through the people the hub has been drawn for. */
   trailBack: ",",
   trailForward: ".",
-  /** Switch to the timeline / the map, the keys that open them elsewhere. */
+  /** Switch to the fan / the timeline / the map, the keys that open them
+   *  elsewhere. */
+  fan: KEY.fan,
   timeline: KEY.timeline,
   map: KEY.map,
 } as const;
@@ -262,7 +264,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     scope: ["chart"],
     items: [
       { keys: [["1"], ["9"]], sep: "range", descKey: "shortcuts.item.chartKind" },
-      { keys: [[CHART_KEY.timeline.toUpperCase()], [CHART_KEY.map.toUpperCase()]], descKey: "shortcuts.item.chartTimelineMap" },
+      { keys: [[CHART_KEY.fan.toUpperCase()], [CHART_KEY.timeline.toUpperCase()], [CHART_KEY.map.toUpperCase()]], descKey: "shortcuts.item.chartKindKeys" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },

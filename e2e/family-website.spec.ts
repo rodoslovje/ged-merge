@@ -91,11 +91,16 @@ test("the family website downloads as one page that works from disk", async ({ p
   await expect(page.locator(".site-person-name")).not.toContainText("Franc");
   await page.keyboard.press("Backspace");
   await expect(page.locator(".site-person-name")).toContainText("Franc");
-  // L his timeline, and on the chart page P switches to the map.
+  // L his timeline, and on the chart page G switches to the map, P to the fan.
   await page.keyboard.press("l");
   await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/timeline$/);
-  await page.keyboard.press("p");
+  // Each chart page on screen before its keys.
+  await expect(page.getByRole("tab", { name: "Timeline", selected: true })).toBeVisible();
+  await page.keyboard.press("g");
   await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/map$/);
+  await expect(page.getByRole("tab", { name: "Map", selected: true })).toBeVisible();
+  await page.keyboard.press("p");
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/fan$/);
   // The kind changes in place: one step back is his page again.
   await page.goBack();
   await expect(page.locator(".site-person-name")).toContainText("Franc");

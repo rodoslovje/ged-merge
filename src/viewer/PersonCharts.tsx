@@ -31,8 +31,9 @@ export function PersonCharts({ ds, id, startId, kinship, timeline }: {
   return (
     <nav className="site-charts" aria-label={t("charts.kind.label")}>
       {map && (
-        // The map speaks for itself: its name is the tooltip, not a caption.
-        <a className="site-chart site-chart-map" href={href("map")} title={t("map.button")} aria-label={t("map.button")}>
+        // The map speaks for itself: no caption, no tooltip — only its name for
+        // a screen reader.
+        <a className="site-chart site-chart-map" href={href("map")} aria-label={t("map.button")}>
           {/* A picture of the map: the link above it takes the clicks. */}
           <span className="site-chart-preview" aria-hidden="true">
             <Suspense fallback={null}>

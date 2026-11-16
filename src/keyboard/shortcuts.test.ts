@@ -73,9 +73,7 @@ describe("decision status keys", () => {
 
 describe("bare key assignments", () => {
   it("assigns each bare app key to exactly one action", () => {
-    // F is the one key two modes share: Merge's filters, Edit's fan chart.
-    expect(KEY.filter).toBe(KEY.fan);
-    const keys = Object.entries(KEY).filter(([name]) => name !== "fan").map(([, k]) => k);
+    const keys = Object.values(KEY);
     expect(new Set(keys).size).toBe(keys.length);
   });
 

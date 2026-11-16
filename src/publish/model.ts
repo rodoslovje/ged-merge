@@ -149,7 +149,7 @@ export interface SiteIncludes {
    *  `photos.ts` for which photos may go in). */
   photos: boolean;
 }
-export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "addresses", "notes", "photos"];
+export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["photos", "sources", "addresses", "notes"];
 
 /** A source citation as the site shows it: the source, the cited page, a link. */
 export interface PubSource {

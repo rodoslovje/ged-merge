@@ -188,7 +188,9 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     if (isHubKind(route.kind) && addressKey !== applied.current) {
       applied.current = addressKey;
       const view = chartViewOf(route.kind, route.view ?? []);
-      awaiting.current = [route.kind, ...chartViewWords(route.kind, { ...chartSettings, ...view.settings }, view.direction, relationWord(addressFrom ?? relationFrom ?? startXref))].join("/");
+      const expected = [route.kind, ...chartViewWords(route.kind, { ...chartSettings, ...view.settings }, view.direction, relationWord(addressFrom ?? relationFrom ?? startXref))].join("/");
+      // Already on screen (the hub changed the kind itself): nothing to wait for.
+      awaiting.current = expected === shownKey ? undefined : expected;
       if (route.kind !== chartSettings.kind) setKind(route.kind);
       setChartSettings(view.settings);
       setDirection(view.direction);
@@ -213,7 +215,10 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // A person's charts, drawn as the charts are now. Re-rooting on the person
   // already shown (the hub does so as it opens) leaves the address alone.
   const openCharts = (xref: string) => {
-    if (route.page === "charts" && xrefOf(route.id) === xref) return;
+    // The address as it is now, not as this render saw it: the hub re-roots as
+    // it opens, before a render with the chart's own address.
+    const now = parseRoute(location.hash);
+    if (now.page === "charts" && xrefOf(now.id) === xref) return;
     go({ page: "charts", id: pubId(xref), kind: chartSettings.kind, view: shownWords.length ? shownWords : undefined });
   };
   // The header's search, on whatever page the reader is: a person found there
@@ -241,6 +246,10 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const onKey = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
     onKey.current = (e) => {
+      // The page as the address says now: a key pressed right after another
+      // may come before the render that follows the first.
+      const live = parseRoute(location.hash);
+      const shownPerson = live.page === "person" && ds.individuals.has(xrefOf(live.id)) ? xrefOf(live.id) : undefined;
       const editable = isEditableTarget(e.target);
       if (e.key === "F1" || (e.key === "?" && !editable)) {
         e.preventDefault();
@@ -266,7 +275,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
         setSearching(true);
         return;
       }
-      if (route.page === "charts" || e.shiftKey) return;
+      if (live.page === "charts" || e.shiftKey) return;
       const key = e.key.toLowerCase();
       const here = shownPerson ?? chartsRoot;
       if (key === KEY.home && startXref) {
