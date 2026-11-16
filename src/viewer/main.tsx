@@ -31,7 +31,7 @@ import { ViewerApp } from "./ViewerApp";
 const LANG_KEY = "gedmerge-site.lang";
 
 function readTree(): PublishedTree {
-  // A ZIP's site: `data.js` has left it on the window. One file's: it is in
+  // A ZIP's site: its data file has left it on the window. One file's: it is in
   // the page itself.
   const loaded = (window as unknown as Record<string, unknown>)[DATA_GLOBAL] as PackedTree | undefined;
   const text = loaded ? undefined : document.getElementById(DATA_ELEMENT_ID)?.textContent;

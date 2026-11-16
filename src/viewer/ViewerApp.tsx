@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Family, Individual } from "../gedcom/types";
 import { DEFAULT_SITE_DISPLAY, type PubFamily, type PubPerson, type PubSource, type PublishedTree, type PubEvent } from "../publish/model";
 import { pubId, xrefOf } from "../publish/hydrate";
+import { photoSrc } from "../publish/photos";
 import { ChartsHub, HUB_KINDS } from "../ui/ChartsHub";
 import { StatsPanel } from "../ui/tools/StatsPanel";
 import type { ToolView } from "../ui/ToolsView";
@@ -563,7 +564,8 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
   }, [ds, query, nameOf, i18n.language]);
   // The author's words in the reader's language, else in the other one.
   const intro = tree.intro?.[i18n.language] ?? Object.values(tree.intro ?? {})[0];
-  const coverPath = tree.cover ? tree.photos?.find((p) => p.id === tree.cover)?.path : undefined;
+  const cover = tree.cover ? tree.photos?.find((p) => p.id === tree.cover) : undefined;
+  const coverPath = cover && photoSrc(cover);
 
   return (
     <div className="site-home">

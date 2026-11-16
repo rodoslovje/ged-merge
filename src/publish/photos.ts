@@ -57,6 +57,9 @@ export interface PubPhoto {
   path: string;
   /** Its folder keeps it out of the front page's strip. */
   tray?: false;
+  /** The original's time (base 36), in the photo's address: a photo replaced
+   *  under the same name gets a new address, past every cache. */
+  v?: string;
   title?: string;
   date?: string;
   place?: string;
@@ -237,6 +240,22 @@ export function* planSitePhotos(
     if (links.length) plan.links.set(person, links);
   }
   return plan;
+}
+
+/** The address a page loads a photo from: its path, with its version. */
+export const photoSrc = (p: PubPhoto) => (p.v ? `${p.path}?v=${p.v}` : p.path);
+
+/** The site with each photo's version: the time of the file it was read from,
+ *  by its ZIP path. */
+export function versionPhotos(tree: PublishedTree, times: ReadonlyMap<string, number>): PublishedTree {
+  if (!tree.photos) return tree;
+  return {
+    ...tree,
+    photos: tree.photos.map((p) => {
+      const time = times.get(p.path);
+      return time === undefined ? p : { ...p, v: Math.floor(time / 1000).toString(36) };
+    }),
+  };
 }
 
 /** The site without the photos at these ZIP paths — ones the media folder did
