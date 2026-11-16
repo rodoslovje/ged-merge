@@ -69,8 +69,10 @@ interface PubIndex {
 }
 
 
-/** The visitor's own start person, kept in their browser. */
-const START_KEY = "gedmerge-site.start";
+/** The visitor's own start person, kept in their browser — for this site
+ *  alone: two family websites on one host (or two files opened from disk)
+ *  share the browser's storage, and their person ids may coincide. */
+const START_KEY = `gedmerge-site.start:${location.pathname}`;
 const KINSHIP_KEYS = ["showKinship"] as const;
 const AGE_KEYS = ["showAge"] as const;
 const DATE_KEYS = ["dateDisplay"] as const;

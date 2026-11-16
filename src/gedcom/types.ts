@@ -529,6 +529,9 @@ export interface GedEvent {
   /** People this event names who are not the record's relatives — the
    *  godparents at a baptism, the witnesses at a wedding. */
   associations?: Association[];
+  /** The event itself is flagged private (`RESN privacy`/`confidential`,
+   *  `_PRIV Y`, `PRIV` — see {@link NoteRef.private}): never published. */
+  private?: boolean;
 }
 
 /**

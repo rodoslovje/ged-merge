@@ -5,6 +5,7 @@ import { defaultPrivacyOptions, livingReason } from "../tools/privacy";
 import { runSteps, type Steps } from "../gedcom/steps";
 import type { NameOrder } from "../gedcom/nameDisplay";
 import { marriedSurnamesOf } from "../match/relatives";
+import { unionMarriage } from "../gedcom/union";
 import { detectAddress } from "../tools/addresses";
 import { noteToText } from "../gedcom/noteHtml";
 import type { GeoCoord, NoteRef, SourceCitation } from "../gedcom/types";
@@ -181,6 +182,8 @@ export interface PubFamily {
   events?: PubEvent[];
   notes?: string[];
   sources?: PubSource[];
+  /** Married, with the marriage's details withheld (a living or private spouse). */
+  married?: true;
 }
 
 export interface PublishedTree {
@@ -220,10 +223,11 @@ export interface PublishSummary {
   privateHidden: number;
 }
 
-/** Event tags a site shows: every life event the app knows, minus the LDS
- *  ordinances (church records of their own, not life events). */
+/** Events a site shows: every life event the app knows, minus the LDS
+ *  ordinances (church records of their own, not life events) and any event
+ *  the file flags private on its own. */
 function publishable(e: GedEvent): boolean {
-  return ALL_EVENT_TAGS.has(e.tag) && !LDS_ORDINANCE_TAGS.has(e.tag);
+  return !e.private && ALL_EVENT_TAGS.has(e.tag) && !LDS_ORDINANCE_TAGS.has(e.tag);
 }
 
 /** What converting the records needs besides each record: the options, and the
@@ -357,11 +361,12 @@ const initial = (s: string | undefined): string | undefined => {
   return c ? `${c.toUpperCase()}.` : undefined;
 };
 
-/** Everyone the scope publishes, or null for the whole file. */
+/** Everyone the scope publishes, or null for the whole file. A narrowed scope
+ *  whose person is gone publishes nobody — never quietly everyone. */
 function scopeIds(ds: Dataset, opts: PublishOptions, startId: string | undefined): Set<string> | null {
-  if (opts.scope === "all" || !startId) return null;
-  const kin = computeKinship(ds, startId);
-  if (!kin) return null;
+  if (opts.scope === "all") return null;
+  const kin = startId ? computeKinship(ds, startId) : null;
+  if (!startId || !kin) return new Set();
   const ids = opts.scope === "blood" ? new Set(kin.blood) : new Set([startId, ...kin.ancestors, ...kin.descendants]);
   if (opts.partners) {
     for (const id of [...ids]) {
@@ -419,8 +424,10 @@ export function* buildPublishedTreeSteps(
   const year = now.getFullYear();
   const privateIds = new Set<string>();
   const living = new Set<string>();
+  const checked = new Set<string>();
   for (const indi of ds.individuals.values()) {
     if (tick()) yield;
+    checked.add(indi.id);
     const why = livingReason(indi, ds, privacy, year)?.reason;
     if (why) (why === "declared" ? privateIds : living).add(indi.id);
   }
@@ -436,7 +443,9 @@ export function* buildPublishedTreeSteps(
       summary.privateHidden++;
       continue;
     }
-    const isLiving = living.has(indi.id);
+    // A person the first pass never saw (added while the steps were paused)
+    // has had no living check: they count as living.
+    const isLiving = living.has(indi.id) || !checked.has(indi.id);
     if (isLiving && opts.living === "hide") {
       summary.livingHidden++;
       continue;
@@ -462,12 +471,16 @@ export function* buildPublishedTreeSteps(
     if (wife) out.wife = wife;
     if (children.length) out.children = children;
     // A living spouse's marriage is their own life too: it goes with their
-    // details, unless their details are published in full.
-    const spouseLiving = [fam.husband, fam.wife].some((s) => s && living.has(s));
-    const open = opts.living === "all" || !spouseLiving;
+    // details, unless their details are published in full. A private spouse's
+    // never goes.
+    const spouses = [fam.husband, fam.wife].filter((s): s is string => !!s);
+    const open = !spouses.some((s) => privateIds.has(s)) && (opts.living === "all" || !spouses.some((s) => living.has(s) || !checked.has(s)));
     const events = open ? pubEvents(fam.events, ctx) : undefined;
     if (events) out.events = events;
     if (open) Object.assign(out, recordExtras(fam, ctx));
+    // That they married is kept, without when or where, so the couple is
+    // still named spouses rather than partners (see `match/kinship.ts`).
+    else if (unionMarriage(fam) === "married") out.married = true;
     families.push(out);
   }
 

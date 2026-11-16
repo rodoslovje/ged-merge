@@ -88,8 +88,10 @@ if (!rootEl) throw new Error("Root element #root not found");
 createRoot(rootEl).render(
   <StrictMode>
     <ErrorBoundary fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
-      <SettingsProvider>
-        <ChartSettingsProvider>
+      {/* In memory only: a site on the same origin as GED Merge must not
+          rewrite the reader's app preferences with its author's. */}
+      <SettingsProvider persist={false}>
+        <ChartSettingsProvider persist={false}>
           <MediaFolderProvider>
             <MediaViewerProvider>
               <Site tree={tree} />

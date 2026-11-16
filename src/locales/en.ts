@@ -1635,6 +1635,7 @@ export const en = {
   "tools.publish.step.data": "Collecting people and families…",
   "tools.publish.step.page": "Writing the page…",
   "tools.publish.error": "The website could not be built: {{message}}",
+  "tools.publish.changed": "The file changed while the website was being built. Download it again.",
   "tools.privacy.downloadCount": "Redacts {{sanitized}}, removes {{removed}} people",
   "edit.selectPerson": "Jump to person...",
   "edit.back": "Back",

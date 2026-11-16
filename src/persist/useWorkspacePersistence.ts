@@ -28,6 +28,7 @@ import { hashFile, hasPermApi } from "./fingerprint";
 import { SerializedMain } from "./serializedMain";
 import type { ChangeJournal } from "../state/mainSync";
 import { useSettingsSlice } from "../ui/SettingsContext";
+import { clearStoredPublish } from "../publish/stored";
 import { targetFileKey } from "../normalize/target";
 
 export interface WorkspacePersistenceOptions {
@@ -329,6 +330,8 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   async function handleClearCache() {
     if (!(await opts.confirmDialog(t("settings.data.clearConfirm"), t("confirm.continue")))) return;
     await Promise.all([clearWorkspace(), clearDecisions()]);
+    // The Family website's remembered choices are part of the workspace too.
+    clearStoredPublish();
     opts.clearMediaFolder();
     opts.setSaveToast(t("settings.data.cleared"));
   }
@@ -416,6 +419,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     prevPersistRef.current = persistEnabled;
     if (!persistEnabled) {
       void clearWorkspace();
+      clearStoredPublish();
       return;
     }
     void requestPersistentStorage();

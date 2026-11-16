@@ -187,6 +187,34 @@ describe("buildPublishedTree", () => {
     expect(full.families.some((f) => f.events?.[0]?.tag === "MARR")).toBe(true);
   });
 
+  it("keeps a private spouse's marriage out, whatever is published", () => {
+    const priv = dataset(SAMPLE.replace("1 NAME Marija /Kranjc/", "1 NAME Marija /Kranjc/\n1 RESN privacy"));
+    const tree = buildPublishedTree(priv, opts({ living: "all" }), "@I1@", NOW).tree;
+    const f1 = tree.families.find((f) => f.children?.length === 2)!;
+    expect(f1.events).toBeUndefined();
+  });
+
+  it("keeps that a living couple married, without when or where", () => {
+    const wed = dataset(SAMPLE.replace("2 DATE 1885\n1 DEAT\n2 DATE 1960", "2 DATE 1950"));
+    const tree = buildPublishedTree(wed, opts(), "@I1@", NOW).tree;
+    const f1 = tree.families.find((f) => f.children?.length === 2)!;
+    expect(f1).toMatchObject({ married: true });
+    expect(f1.events).toBeUndefined();
+    const back = hydrateTree(tree).families.get(`@${f1.id}@`)!;
+    expect(back.events).toEqual([{ tag: "MARR", value: "Y" }]);
+  });
+
+  it("never publishes an event flagged private on its own", () => {
+    const hidden = dataset(SAMPLE.replace("1 DEAT\n2 DATE 1950\n2 CAUS pljučnica", "1 DEAT\n2 DATE 1950\n2 CAUS pljučnica\n2 RESN confidential"));
+    const joze = byName(buildPublishedTree(hidden, opts({ living: "all" }), "@I1@", NOW).tree, "Jože")!;
+    expect(joze.events!.map((e) => e.tag)).toEqual(["BIRT", "OCCU"]);
+  });
+
+  it("publishes nobody for a narrowed scope whose person is gone", () => {
+    expect(buildPublishedTree(ds, opts({ scope: "blood" }), undefined, NOW).tree.people).toEqual([]);
+    expect(buildPublishedTree(ds, opts({ scope: "line" }), "@gone@", NOW).tree.people).toEqual([]);
+  });
+
   it("scopes to blood relatives, with or without partners", () => {
     const blood = build({ scope: "blood", partners: false }, "@I3@").tree;
     expect(blood.people.map((p) => p.given).sort()).toEqual(["A.", "Janez", "Jože", "Marija", "P."].sort());

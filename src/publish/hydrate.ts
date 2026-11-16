@@ -67,6 +67,8 @@ export function hydrateTree(tree: PublishedTree): Dataset {
     if (f.wife) children.push(node(1, "WIFE", ref(f.wife)));
     for (const c of f.children ?? []) children.push(node(1, "CHIL", ref(c)));
     for (const e of f.events ?? []) children.push(eventNode(e));
+    // A marriage whose details stay private is still a marriage.
+    if (f.married && !f.events?.some((e) => e.tag === "MARR")) children.push(node(1, "MARR", "Y"));
     records.push(node(0, "FAM", undefined, children, ref(f.id)));
   }
   records.push(node(0, "TRLR"));

@@ -1865,6 +1865,7 @@ export const sl = {
   "tools.publish.step.data": "Zbiram osebe in družine…",
   "tools.publish.step.page": "Sestavljam stran…",
   "tools.publish.error": "Spletne strani ni bilo mogoče pripraviti: {{message}}",
+  "tools.publish.changed": "Datoteka se je med pripravo spletne strani spremenila. Stran prenesite znova.",
   "tools.privacy.downloadCount": "Prikritih oseb: {{sanitized}} · odstranjenih: {{removed}}",
   "edit.selectPerson": "Skoči na osebo...",
   "edit.back": "Nazaj",

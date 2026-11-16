@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { nextTask, runSliced } from "../../state/localLoad";
 import {
-  buildPublishedTree,
   buildPublishedTreeSteps,
   defaultPublishOptions,
   LIVING_MODES,
@@ -12,6 +11,7 @@ import {
   START_PAGES,
   type LivingMode,
   type PublishOptions,
+  type PublishSummary,
   type ScopeKind,
   type SiteDisplay,
   type StartPage,
@@ -98,32 +98,56 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
   }, []);
   const set = (patch: Partial<PublishOptions>) => setOptions((o) => ({ ...o, ...patch }));
   const siteStart = ownStart && dataset.individuals.has(ownStart) ? ownStart : startId;
+  // The edit version as of now, for a walk that spans several tasks: an edit
+  // in between makes its privacy decisions stale (see `download`).
+  const versionRef = useRef(editVersion);
+  useEffect(() => { versionRef.current = editVersion; }, [editVersion]);
+  // The map layers the site offers: those ticked here that Settings → Map
+  // still holds, as Settings holds them now — a layer removed or changed there
+  // since it was ticked is not published from a stale copy.
+  const siteOverlays = useMemo(
+    () => appMap.mapOverlays.filter((o) => options.map.overlays.some((x) => x.id === o.id)),
+    [appMap.mapOverlays, options.map.overlays],
+  );
 
   // The counts follow the choices when React has a moment — a title typed
-  // letter by letter does not re-walk the file on every key.
+  // letter by letter does not re-walk the file on every key — and are walked
+  // in slices, so a file of half a million people keeps the page responsive.
   const settled = useDeferredValue(options);
-  const { summary } = useMemo(
-    () => (active ? buildPublishedTree(dataset, settled, siteStart) : { summary: undefined }),
+  const [summary, setSummary] = useState<PublishSummary | undefined>();
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void runSliced(buildPublishedTreeSteps(dataset, settled, siteStart), () => !cancelled).then((r) => {
+      if (r && !cancelled) setSummary(r.summary);
+    });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- editVersion: the dataset is mutated in place
-    [active, dataset, settled.scope, settled.partners, settled.living, settled.include, siteStart, editVersion],
-  );
+  }, [active, dataset, settled.scope, settled.partners, settled.living, settled.include, siteStart, editVersion]);
 
   // The download's three steps, each named while it runs: loading the viewer
   // (a large chunk, fetched on the first export), walking the file — in slices,
-  // with a percentage — and writing the page.
+  // with a percentage — and writing the page. An edit to the file while it
+  // walks stops it: the people checked before the edit may not be the people
+  // published after it.
   const download = async () => {
-    const alive = () => mounted.current;
+    const version = versionRef.current;
+    const alive = () => mounted.current && versionRef.current === version;
     setError(null);
     setPhase({ step: "viewer" });
     try {
       const bundle = await import("virtual:site-viewer");
       if (!alive()) return;
       setPhase({ step: "data", done: 0, total: 1 });
-      const steps = buildPublishedTreeSteps(dataset, { ...options, lang: i18n.language }, siteStart, new Date(), (done, total) => {
+      const site = { ...options, map: { ...options.map, overlays: siteOverlays }, lang: i18n.language };
+      const steps = buildPublishedTreeSteps(dataset, site, siteStart, new Date(), (done, total) => {
         if (alive()) setPhase({ step: "data", done, total });
       });
       const result = await runSliced(steps, alive);
-      if (!result) return;
+      if (!result) {
+        if (mounted.current) setError(t("tools.publish.changed"));
+        return;
+      }
       setPhase({ step: "page" });
       await nextTask();
       downloadText(siteFileName(options.title), publishedHtml(result.tree, bundle), "text/html;charset=utf-8");
