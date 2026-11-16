@@ -688,19 +688,48 @@
   max-width: 760px;
 }
 
-/* The family as cards on a grid: parents and siblings side by side where
-   there is room, each family of their own across the whole width. */
+/* The family as cards on a grid: parents and siblings side by side, halving
+   the width the families below them span (either alone spans it too). */
 .site-family {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-top: 24px;
 }
-.site-section-family {
+.site-section-family,
+.site-section-wide {
   grid-column: 1 / -1;
 }
 /* On one column the person's own families come before their siblings. */
+/* Parents, siblings and half-siblings: three across where there is room,
+   else the half-siblings under the other two. */
+.site-family-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 880px) {
+  .site-family-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .site-family-3 > .site-section-half {
+    grid-column: 1 / -1;
+  }
+}
+.site-half-group + .site-half-group {
+  margin-top: 12px;
+}
+.site-half-other {
+  margin: 4px 0 2px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
 @media (max-width: 720px) {
+  .site-family,
+  .site-family-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .site-section-half {
+    order: 3;
+  }
   .site-section-family {
     order: 1;
   }

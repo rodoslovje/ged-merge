@@ -30,6 +30,7 @@ import { StartPersonChip } from "../ui/edit/StartPersonChip";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
 import { useDatasetDerivations } from "../ui/DatasetDerivations";
 import { lineageClass, type KinshipResolver } from "../match/kinship";
+import { familySiblings } from "../gedcom/familyNav";
 import { useTheme } from "../ui/useTheme";
 import { nameMatches, parseRoute, routeHash, startRoute, type Route } from "./route";
 import { chartViewOf, chartViewWords } from "./chartRoute";
@@ -760,6 +761,31 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
   const parentFams = indi.childOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const ownFams = indi.spouseOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const siblings = [...new Set(parentFams.flatMap((f) => f.children))].filter((c) => c !== id);
+  // Half-siblings, as Edit groups them: by the parent they share, then by the
+  // other parent of that union. Each once, and never a full sibling again.
+  const halfGroups: { parentId: string; unions: { otherParentId?: string; ids: string[] }[] }[] = [];
+  {
+    const seen = new Set([id, ...siblings]);
+    for (const f of parentFams) {
+      for (const g of familySiblings(ds, f.id, id).half) {
+        const parentId = f[g.via];
+        if (!parentId) continue;
+        const unions: { otherParentId?: string; ids: string[] }[] = [];
+        for (const s of g.siblings) {
+          if (seen.has(s.id)) continue;
+          seen.add(s.id);
+          const last = unions[unions.length - 1];
+          if (last && last.otherParentId === s.otherParentId) last.ids.push(s.id);
+          else unions.push({ otherParentId: s.otherParentId, ids: [s.id] });
+        }
+        if (unions.length) halfGroups.push({ parentId, unions });
+      }
+    }
+  }
+  // Parents, siblings and half-siblings share a row of equal cards; one alone
+  // spans it.
+  const topCards = (parentFams.length > 0 ? 1 : 0) + (siblings.length > 0 ? 1 : 0) + (halfGroups.length > 0 ? 1 : 0);
+  const topClass = (extra: string) => `site-section${extra}${topCards === 1 ? " site-section-wide" : ""}`;
   const person = pub.people.get(id);
   // The start person's control, as in the app's Edit view: the kinship label
   // itself opens the menu (go to the start person, make this one the start,
@@ -831,9 +857,9 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
       {/* The family as cards: parents and siblings side by side where there
           is room, each family of their own (its events, its children) across
           the whole width. */}
-      <div className="site-family">
+      <div className={topCards === 3 ? "site-family site-family-3" : "site-family"}>
         {parentFams.length > 0 && (
-          <section className="site-section">
+          <section className={topClass("")}>
             <h3>{t("site.person.parents")}</h3>
             {parentFams.map((f) => (
               <ul key={f.id} className="site-person-list">
@@ -845,11 +871,38 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
         )}
 
         {siblings.length > 0 && (
-          <section className="site-section site-section-siblings">
+          <section className={topClass(" site-section-siblings")}>
             <h3>{t("site.person.siblings", { count: siblings.length })}</h3>
             <ul className="site-person-list">
               {siblings.map((c) => <li key={c}>{link(c)}</li>)}
             </ul>
+          </section>
+        )}
+
+        {halfGroups.length > 0 && (
+          <section className={topClass(" site-section-half")}>
+            <h3>{t("site.person.halfSiblings")}</h3>
+            {halfGroups.map((g) => {
+              const sex = ds.individuals.get(g.parentId)?.sex;
+              return (
+                <div key={g.parentId} className="site-half-group">
+                  <h4>{t(sex === "M" ? "edit.siblings.viaFather" : sex === "F" ? "edit.siblings.viaMother" : "edit.siblings.viaParent")}</h4>
+                  {g.unions.map((u, i) => (
+                    <div key={u.otherParentId ?? `u${i}`}>
+                      {u.otherParentId && ds.individuals.has(u.otherParentId) && (
+                        <p className="site-half-other">
+                          {t("site.person.otherParent")}{" "}
+                          <PersonLink dataset={ds} id={u.otherParentId} fallback={u.otherParentId} onNavigate={onNavigate} noYears />
+                        </p>
+                      )}
+                      <ul className="site-person-list">
+                        {u.ids.map((c) => <li key={c}>{link(c)}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </section>
         )}
 
