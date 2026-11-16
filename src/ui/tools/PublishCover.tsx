@@ -4,6 +4,7 @@ import type { Dataset } from "../../gedcom/types";
 import { AddMediaDialog } from "../AddMediaDialog";
 import { useMediaFolder } from "../MediaFolderContext";
 import { basename } from "../mediaPath";
+import { InfoTip } from "./shared";
 
 /**
  * The family website's cover photo: a file of the media folder, shown on the
@@ -31,7 +32,10 @@ export function PublishCover({ dataset, value, hasUrl, onChange }: {
   return (
     <div className="tools-publish-cover">
       <div className="tools-publish-cover-row">
-        <span>{t("tools.publish.cover")}</span>
+        <span className="tools-publish-label">
+          {t("tools.publish.cover")}
+          <InfoTip hint={t(hasUrl ? "tools.publish.coverHint" : "tools.publish.coverNoUrl")} heading={t("tools.publish.cover")} />
+        </span>
         {value && thumb && <img className="tools-publish-cover-thumb" src={thumb} alt="" />}
         {value && <span className="tools-publish-cover-name" title={value}>{basename(value)}</span>}
         <button type="button" className="tools-issue-link" onClick={() => setPicking(true)}>
@@ -41,7 +45,6 @@ export function PublishCover({ dataset, value, hasUrl, onChange }: {
           <button type="button" className="tools-issue-link" onClick={() => onChange("")}>{t("tools.publish.coverRemove")}</button>
         )}
       </div>
-      <p className="tools-fix-hint">{t(hasUrl ? "tools.publish.coverHint" : "tools.publish.coverNoUrl")}</p>
       <AddMediaDialog
         isOpen={picking}
         onClose={() => setPicking(false)}

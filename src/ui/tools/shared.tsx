@@ -15,6 +15,7 @@ import { foldSearch, matchesTerms } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
 import { InfoIcon } from "../icons/InfoIcon";
+import { tipProps } from "../IconTip";
 import { SuggestInput } from "../edit/SuggestInput";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import { placeKey, type FieldSuggestions } from "../edit/fieldSuggestions";
@@ -810,6 +811,16 @@ export function ExpandAllToggle({ allOpen, onToggle }: { allOpen: boolean; onTog
   return (
     <button className="tools-issue-link" onClick={onToggle}>
       {t(allOpen ? "tools.sources.collapseAll" : "tools.sources.expandAll")}
+    </button>
+  );
+}
+
+/** An ⓘ that holds an explanation: shown in the app's quick tooltip on hover,
+ *  keyboard focus and tap, instead of a paragraph on the page. */
+export function InfoTip({ hint, heading }: { hint: string; heading?: string }) {
+  return (
+    <button type="button" className="stats-info" {...tipProps(hint, heading ? { heading } : undefined)}>
+      <InfoIcon size={14} />
     </button>
   );
 }

@@ -1879,6 +1879,7 @@ export const sl = {
   "tools.publish.coverPick": "Uporabi to fotografijo",
   "tools.publish.coverHint": "Na začetni strani in kot slika ob deljeni povezavi. Izbrali ste jo sami, zato se objavi ne glede na to, kdo je na njej.",
   "tools.publish.coverNoUrl": "Na začetni strani, ne glede na to, kdo je na njej. Ob deljeni povezavi se pokaže, ko vpišete naslov te strani.",
+  "tools.publish.photoFolders": "Fotografije po mapah",
   "tools.publish.photoFolders.hint": "Kam gredo fotografije iz posamezne mape. Mapa sledi nadrejeni, če ji ne nastavite svoje izbire; trak na začetni strani pokaže samo mape, ki so nastavljene zanj.",
   "tools.publish.photoFolders.root": "Neposredno v mapi z mediji",
   "tools.publish.photoFolders.show": "Prikaži podmape",

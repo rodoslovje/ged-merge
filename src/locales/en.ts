@@ -1649,6 +1649,7 @@ export const en = {
   "tools.publish.coverPick": "Use this photo",
   "tools.publish.coverHint": "On the front page, and the picture a shared link shows. Your choice, so it goes in whoever is on it.",
   "tools.publish.coverNoUrl": "On the front page, whoever is on it. A shared link shows it once this website's address is filled in.",
+  "tools.publish.photoFolders": "Photos by folder",
   "tools.publish.photoFolders.hint": "Where each folder's photos go. A folder follows the one above it unless you set its own; the front page's strip shows only folders set to it.",
   "tools.publish.photoFolders.root": "Directly in the media folder",
   "tools.publish.photoFolders.show": "Show the folders inside",

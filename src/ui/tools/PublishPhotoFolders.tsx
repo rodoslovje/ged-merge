@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { PHOTO_USES, photoFolderCounts, type PhotoUse } from "../../publish/photos";
 import { SelectMenu } from "../DropdownMenu";
+import { InfoTip } from "./shared";
 
 interface FolderRow {
   path: string;
@@ -120,7 +121,10 @@ export function PublishPhotoFolders({ dataset, value, onChange }: {
 
   return (
     <div className="tools-publish-folders">
-      <p className="tools-fix-hint">{t("tools.publish.photoFolders.hint")}</p>
+      <span className="tools-publish-label tools-publish-folders-head">
+        {t("tools.publish.photoFolders")}
+        <InfoTip hint={t("tools.publish.photoFolders.hint")} heading={t("tools.publish.photoFolders")} />
+      </span>
       <div className="tools-publish-folder-list">{rows}</div>
     </div>
   );
