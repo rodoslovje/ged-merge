@@ -57,6 +57,8 @@ export function hydrateTree(tree: PublishedTree): Dataset {
     for (const m of p.married ?? []) children.push(node(1, "NAME", `/${m}/`, [node(2, "TYPE", "married"), node(2, "SURN", m)]));
     if (p.sex) children.push(node(1, "SEX", p.sex));
     for (const e of p.events ?? []) children.push(eventNode(e));
+    // Dead, the date withheld: a bare death, so the charts draw them as dead.
+    if (p.deceased && !p.events?.some((e) => e.tag === "DEAT")) children.push(node(1, "DEAT", "Y"));
     for (const f of famc.get(p.id) ?? []) children.push(node(1, "FAMC", ref(f)));
     for (const f of fams.get(p.id) ?? []) children.push(node(1, "FAMS", ref(f)));
     records.push(node(0, "INDI", undefined, children, ref(p.id)));

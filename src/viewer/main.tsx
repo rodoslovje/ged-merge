@@ -18,7 +18,8 @@ import { MediaFolderProvider } from "../ui/MediaFolderContext";
 import { MediaViewerProvider } from "../ui/MediaViewer";
 import { DatasetDerivationsProvider } from "../ui/DatasetDerivations";
 import { PublishedViewContext, type PublishedView } from "../ui/PublishedView";
-import { setExportSite } from "../ui/exportSvg";
+import { exportSiteLink, setExportSite } from "../ui/exportSvg";
+import { adoptSiteFavicon } from "./favicon";
 import { ChangeJournal } from "../state/mainSync";
 import { DATA_ELEMENT_ID } from "../publish/page";
 import { PUBLISHED_FORMAT, type PublishedTree } from "../publish/model";
@@ -72,6 +73,8 @@ const tree = readTree();
 // Exports credit GED Merge as the site's footer does, then name the site's own
 // address when the author gave one.
 setExportSite(tree.url, () => `${i18n.t("site.footer.madeWith")} GED Merge`);
+// The site's own icon, where the author named its address.
+if (tree.url) adoptSiteFavicon(exportSiteLink().url);
 // The charts' panel button that opens a person in the app's Edit view opens
 // their page here: it says so, in both languages.
 // The statistics' hints say a name opens "in Edit"; here it opens the person's
