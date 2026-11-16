@@ -68,24 +68,10 @@
   color: var(--text);
 }
 
-/* The visitor's start person: the app's picker, at header size. */
-.site-startpick {
-  width: 220px;
-  max-width: 100%;
-  margin-right: 4px;
-}
-
 @media (max-width: 880px) {
   .site-head .app-head-top {
     flex-wrap: wrap;
     row-gap: 10px;
-  }
-  .site-prefs {
-    width: 100%;
-  }
-  .site-startpick {
-    flex: 1 1 auto;
-    width: auto;
   }
 }
 
@@ -134,7 +120,6 @@
   line-height: 1.6;
 }
 
-.site-counts,
 .site-search-count {
   color: var(--muted);
 }
@@ -142,6 +127,85 @@
 .site-search {
   margin-top: 32px;
   max-width: 640px;
+}
+
+/* The header's search, opened under the header row on any page. */
+.app-head.site-head {
+  position: relative;
+}
+.site-search-pop {
+  margin-top: 10px;
+  max-width: 420px;
+  margin-left: auto;
+}
+
+/* ── Highlights on the front page ───────────────────────────── */
+
+.site-highlights {
+  margin-top: 40px;
+}
+.site-highlights h2 {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  margin: 0 0 12px;
+}
+.site-highlights h3 {
+  font-size: 1rem;
+  margin: 24px 0 8px;
+}
+.site-couple {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 2px;
+}
+.site-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.site-chip {
+  padding: 4px 12px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.site-chip:hover,
+.site-chip:focus-visible {
+  border-color: var(--accent);
+}
+.site-week-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.site-week-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.site-week-date {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 12ch;
+}
+.site-week-what {
+  color: var(--muted);
+}
+.site-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  text-decoration: none;
 }
 
 .site-search-label {
@@ -306,9 +370,6 @@
   }
   .site-title {
     width: 100%;
-  }
-  .site-startpick {
-    min-width: 0;
   }
   .site-events {
     grid-template-columns: 1fr;

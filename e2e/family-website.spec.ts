@@ -65,15 +65,23 @@ test("the family website downloads as one page that works from disk", async ({ p
   await expect(page.locator(".site-person-name")).toContainText("Franc");
   await expect(page.locator(".site-events").first()).toContainText("Škofja Loka");
 
-  // The header's search button takes the reader back to the search box.
+  // The header's search works where the reader is: from Franc's own page,
+  // Ivana is found and opened in place.
   await page.locator(".site-search-btn").click();
-  await expect(page.locator("#site-search")).toBeFocused();
-  await page.locator("#site-search").fill("franc");
-  await page.locator(".site-person-list .person-ref").first().click();
+  const found = page.locator(".site-search-pop input");
+  await expect(found).toBeFocused();
+  await found.fill("ivana");
+  await page.locator(".site-search-pop .start-options li", { hasText: "Ivana" }).first().click();
+  await expect(page.locator(".site-person-name")).toContainText("Ivana");
+  await expect(page.locator(".site-search-pop")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.locator(".site-person-name")).toContainText("Franc");
 
-  // The visitor makes Franc their start person: relatives are named from him.
-  await page.getByRole("button", { name: "Make start person" }).click();
-  await expect(page.locator(".site-person-kinship")).toHaveText("Start person");
+  // The visitor makes Franc their start person — from the start person's chip,
+  // as in the app's Edit view: relatives are named from him.
+  await page.locator(".site-person-kinship .start-chip").click();
+  await page.getByRole("option", { name: "Make this person the start person" }).click();
+  await expect(page.locator(".site-person-kinship")).toHaveText("Start Person");
   await expect(page.locator(".site-person-list li", { hasText: "P." })).toContainText("Daughter");
 
   // The living daughter: initials only, no details.

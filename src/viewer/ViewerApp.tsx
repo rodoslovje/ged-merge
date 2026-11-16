@@ -16,18 +16,21 @@ import { HomeIcon } from "../ui/icons/HomeIcon";
 import { SearchIcon } from "../ui/icons/SearchIcon";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 import { LogoMark } from "../ui/icons/LogoMark";
+import { exportSiteLink } from "../ui/exportSvg";
 import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { displayDateText } from "../gedcom/dateDisplay";
 import { customEventLabel, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { StartPersonChip } from "../ui/edit/StartPersonChip";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
 import { useDatasetDerivations } from "../ui/DatasetDerivations";
 import { lineageClass, type KinshipResolver } from "../match/kinship";
 import { useTheme } from "../ui/useTheme";
 import { nameMatches, parseRoute, routeHash, startRoute, type Route } from "./route";
 import { chartViewOf, chartViewWords } from "./chartRoute";
+import { Highlights } from "./Highlights";
 import type { ChartDirection } from "../chart/treeLayout";
 
 /** Search results listed at most; the reader narrows the query for more. */
@@ -70,6 +73,7 @@ interface PubIndex {
 const START_KEY = "gedmerge-site.start";
 const KINSHIP_KEYS = ["showKinship"] as const;
 const AGE_KEYS = ["showAge"] as const;
+const DATE_KEYS = ["dateDisplay"] as const;
 
 function readStored(key: string): string | null {
   try {
@@ -153,6 +157,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
 
   // The start person relationships are named from: the author's, until the
   // visitor picks their own (remembered in their browser).
+  // The author's own address, normalized as the exports name it (https:// added).
+  const homeUrl = tree.url ? exportSiteLink().url : undefined;
   const authorStart = tree.start ? xrefOf(tree.start) : undefined;
   const [ownStart, setOwnStart] = useState<string | undefined>(() => {
     const saved = readStored(START_KEY);
@@ -180,12 +186,15 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     if (route.page === "charts" && xrefOf(route.id) === xref) return;
     go({ page: "charts", id: pubId(xref), kind: chartSettings.kind, view: shownWords.length ? shownWords : undefined });
   };
-  // The header's search: the front page's search box, focused. A counter, so
-  // a second press on the front page focuses it again.
-  const [searchNonce, setSearchNonce] = useState(0);
-  const openSearch = () => {
-    if (route.page !== "home") go({ page: "home" });
-    setSearchNonce((n) => n + 1);
+  // The header's search, on whatever page the reader is: a person found there
+  // takes the charts' place on a chart page, and opens their own page anywhere
+  // else. It folds away again once someone is picked.
+  const [searching, setSearching] = useState(false);
+  const pickFound = (xref: string | undefined) => {
+    setSearching(false);
+    if (!xref) return;
+    if (route.page === "charts") openCharts(xref);
+    else openPerson(xref);
   };
 
   const header = (
@@ -193,7 +202,12 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       <div className="app-head-top">
         <a className="site-title" href="#/">{tree.title || t("site.untitled")}</a>
         <nav className="site-nav">
-          <a className={`nav-btn${route.page === "home" ? " active" : ""}`} href="#/">{t("site.nav.home")}</a>
+          {/* Home: the author's own site when they named its address (a way back
+              to the page listing their trees), else this site's front page —
+              which the title always opens. */}
+          <a className={`nav-btn${!homeUrl && route.page === "home" ? " active" : ""}`} href={homeUrl ?? "#/"}>
+            <HomeIcon size={16} /> {t("site.nav.home")}
+          </a>
           {startXref && (
             <a className={`nav-btn${route.page === "charts" ? " active" : ""}`} href={routeHash({ page: "charts", id: pubId(startXref) })}>
               <ChartIcon size={16} /> {t("site.nav.charts")}
@@ -204,18 +218,6 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           </a>
         </nav>
         <div className="site-prefs">
-          <div className="site-startpick">
-            <StartPersonSelector
-              individuals={ds.individuals}
-              version={0}
-              startId={startXref}
-              onChange={chooseStart}
-              placeholder={t("site.startPick.placeholder")}
-              tooltip={t("site.startPick.hint")}
-              onStartClick={ownStart ? () => chooseStart(undefined) : startXref ? () => openPerson(startXref) : undefined}
-              startClickTitle={ownStart ? t("site.startPick.reset") : t("start.goto")}
-            />
-          </div>
           <button
             type="button"
             className="nav-btn icon-only site-toggle site-theme"
@@ -237,15 +239,30 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           </button>
           <button
             type="button"
-            className="nav-btn icon-only site-toggle site-search-btn"
-            onClick={openSearch}
+            className={`nav-btn icon-only site-toggle site-search-btn${searching ? " active" : ""}`}
+            onClick={() => setSearching((s) => !s)}
             title={t("site.search.label")}
             aria-label={t("site.search.label")}
+            aria-expanded={searching}
           >
             <SearchIcon size={16} />
           </button>
         </div>
       </div>
+      {searching && (
+        <div className="site-search-pop" onKeyDown={(e) => { if (e.key === "Escape") setSearching(false); }}>
+          <StartPersonSelector
+            individuals={ds.individuals}
+            version={0}
+            startId={undefined}
+            onChange={pickFound}
+            icon="search"
+            autoFocus
+            placeholder={t(route.page === "charts" ? "site.search.chartPlaceholder" : "site.search.placeholder")}
+            tooltip={t("site.search.label")}
+          />
+        </div>
+      )}
     </header>
   );
 
@@ -283,8 +300,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
         id={id}
         pub={pub}
         kin={kin}
-        isStart={id === startXref}
-        onMakeStart={() => chooseStart(id)}
+        startId={startXref}
+        onStartChange={chooseStart}
         onNavigate={openPerson}
         onCharts={() => openCharts(id)}
       />
@@ -312,7 +329,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       </div>
     );
   } else {
-    body = <HomePage tree={tree} ds={ds} startId={startXref} kin={kin} focusNonce={searchNonce} onNavigate={openPerson} />;
+    body = <HomePage tree={tree} ds={ds} startId={startXref} kin={kin} onNavigate={openPerson} />;
   }
 
   return (
@@ -342,22 +359,23 @@ function SiteFooter({ created }: { created: string }) {
 
 const EMPTY = new Set<string>();
 
-function HomePage({ tree, ds, startId, kin, focusNonce, onNavigate }: {
+function HomePage({ tree, ds, startId, kin, onNavigate }: {
   tree: PublishedTree;
   ds: Dataset;
   startId?: string;
   kin?: KinshipResolver;
-  /** Bumped by the header's search button: focus the search box. */
-  focusNonce: number;
   onNavigate: (id: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf();
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (focusNonce) searchRef.current?.focus();
-  }, [focusNonce]);
+  // A surname picked among the highlights: search for it, in view.
+  const searchSurname = (surname: string) => {
+    setQuery(surname);
+    searchRef.current?.focus();
+    searchRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const out: Individual[] = [];
@@ -366,7 +384,6 @@ function HomePage({ tree, ds, startId, kin, focusNonce, onNavigate }: {
     }
     return out.sort((a, b) => nameOf(a).localeCompare(nameOf(b), i18n.language));
   }, [ds, query, nameOf, i18n.language]);
-  const num = (n: number) => n.toLocaleString(i18n.language);
   // The author's words in the reader's language, else in the other one.
   const intro = tree.intro?.[i18n.language] ?? Object.values(tree.intro ?? {})[0];
 
@@ -375,9 +392,6 @@ function HomePage({ tree, ds, startId, kin, focusNonce, onNavigate }: {
       <section className="site-hero">
         <h1>{tree.title || t("site.untitled")}</h1>
         {intro && <p className="site-intro">{intro}</p>}
-        <p className="site-counts">
-          {t("site.counts", { people: num(ds.individuals.size), families: num(ds.families.size) })}
-        </p>
         {startId && ds.individuals.has(startId) && (
           <p className="site-start">
             {t("site.start")}{" "}
@@ -414,6 +428,7 @@ function HomePage({ tree, ds, startId, kin, focusNonce, onNavigate }: {
           </>
         )}
       </section>
+      <Highlights ds={ds} onNavigate={onNavigate} onSurname={searchSurname} />
     </div>
   );
 }
@@ -449,6 +464,8 @@ function RecordExtras({ notes, sources }: { notes?: string[]; sources?: PubSourc
  *  (and address, where published) as text, then the event's notes and sources. */
 function EventRows({ events, family }: { events: PubEvent[] | undefined; family?: boolean }) {
   const { t, i18n } = useTranslation();
+  // Re-drawn when the date display is set (the site sets it as it opens).
+  useSettingsSlice(DATE_KEYS);
   if (!events?.length) return null;
   return (
     <dl className="site-events">
@@ -477,14 +494,15 @@ function EventRows({ events, family }: { events: PubEvent[] | undefined; family?
   );
 }
 
-function PersonPage({ ds, pub, id, kin, isStart, onMakeStart, onNavigate, onCharts }: {
+function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate, onCharts }: {
   ds: Dataset;
   /** The published records, by dataset id: what the page shows of each. */
   pub: PubIndex;
   id: string;
   kin?: KinshipResolver;
-  isStart: boolean;
-  onMakeStart: () => void;
+  startId: string | undefined;
+  /** Pick the start person; undefined goes back to the author's. */
+  onStartChange: (id: string | undefined) => void;
   onNavigate: (id: string) => void;
   onCharts: () => void;
 }) {
@@ -494,7 +512,7 @@ function PersonPage({ ds, pub, id, kin, isStart, onMakeStart, onNavigate, onChar
   const link = (pid: string | undefined) => pid && ds.individuals.has(pid)
     ? <KinLink ds={ds} id={pid} kin={kin} onNavigate={onNavigate} />
     : null;
-  const kinship = isStart ? t("site.person.isStart") : kin?.label(id);
+  const startIndi = startId ? ds.individuals.get(startId) : undefined;
   const { showAge } = useSettingsSlice(AGE_KEYS);
   const parentFams = indi.childOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const ownFams = indi.spouseOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
@@ -509,17 +527,27 @@ function PersonPage({ ds, pub, id, kin, isStart, onMakeStart, onNavigate, onChar
           <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
         </span>
         <div className="site-person-actions">
-          {!isStart && (
-            <button className="nav-btn" onClick={onMakeStart} title={t("start.chip.makeThis")}>
-              <HomeIcon size={16} /> {t("site.person.makeStart")}
-            </button>
-          )}
           <button className="nav-btn site-charts-btn" onClick={onCharts}>
             <ChartIcon size={16} /> {t("site.person.charts")}
           </button>
         </div>
       </header>
-      {kinship && <p className={`person-kinship site-person-kinship ${isStart ? "" : lineageClass(kin?.lineage(id), kin?.direct(id))}`}>{kinship}</p>}
+      {/* The start person's control, as in the app's Edit view: the kinship
+          label itself opens the menu (go to the start person, make this one
+          the start, choose another), a bare ⌂ where there is no label. */}
+      <div className="site-person-kinship">
+        <StartPersonChip
+          t={t}
+          personId={id}
+          startId={startId}
+          startName={startIndi ? nameOf(startIndi) : undefined}
+          kinship={kin?.label(id)}
+          kinshipLineage={lineageClass(kin?.lineage(id), kin?.direct(id))}
+          individuals={ds.individuals}
+          onChange={onStartChange}
+          onGoToStart={() => startId && onNavigate(startId)}
+        />
+      </div>
       {person?.living && <p className="site-note">{t("site.person.living")}</p>}
       <EventRows events={person?.events} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
