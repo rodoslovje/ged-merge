@@ -82,6 +82,16 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.locator(".site-person-kinship .start-chip").click();
   await page.getByRole("option", { name: "Make this person the start person" }).click();
   await expect(page.locator(".site-person-kinship")).toHaveText("Start Person");
+  // Cleared, it stays cleared (the author's start does not come back), across
+  // a reload too; then Franc again.
+  await page.locator(".site-person-kinship .start-chip").click();
+  await page.getByRole("option", { name: "Clear Start Person" }).click();
+  await expect(page.locator(".site-person-kinship")).toHaveText("Set start person");
+  await page.reload();
+  await expect(page.locator(".site-person-kinship")).toHaveText("Set start person");
+  await page.locator(".site-person-kinship .start-chip").click();
+  await page.getByRole("option", { name: "Make this person the start person" }).click();
+  await expect(page.locator(".site-person-kinship")).toHaveText("Start Person");
   await expect(page.locator(".site-person-list li", { hasText: "P." })).toContainText("Daughter");
 
   // The living daughter: initials only, no details.

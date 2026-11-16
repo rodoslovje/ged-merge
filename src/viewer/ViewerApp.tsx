@@ -32,6 +32,8 @@ import { nameMatches, parseRoute, routeHash, startRoute, type Route } from "./ro
 import { chartViewOf, chartViewWords } from "./chartRoute";
 import { Highlights } from "./Highlights";
 import { PersonCharts } from "./PersonCharts";
+import { PhotoTray } from "./PhotoTray";
+import { PersonMedia } from "../ui/PersonMedia";
 import { MapIcon } from "../ui/icons/MapIcon";
 
 const MiniPlaceMap = lazy(() => import("../ui/map/MiniPlaceMap"));
@@ -77,6 +79,8 @@ interface PubIndex {
  *  alone: two family websites on one host (or two files opened from disk)
  *  share the browser's storage, and their person ids may coincide. */
 const START_KEY = `gedmerge-site.start:${location.pathname}`;
+/** Stored when the visitor clears the start person (no xref looks like it). */
+const NO_START = "none";
 const KINSHIP_KEYS = ["showKinship"] as const;
 const AGE_KEYS = ["showAge"] as const;
 const DATE_KEYS = ["dateDisplay"] as const;
@@ -164,20 +168,23 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   useEffect(() => { document.title = tree.title || t("site.untitled"); }, [tree.title, t]);
 
   // The start person relationships are named from: the author's, until the
-  // visitor picks their own (remembered in their browser).
+  // visitor picks their own or clears it (remembered in their browser; a
+  // cleared one as NO_START, so it does not fall back to the author's).
   // The author's own address, normalized as the exports name it (https:// added).
   const homeUrl = tree.url ? exportSiteLink().url : undefined;
   const authorStart = tree.start ? xrefOf(tree.start) : undefined;
   const [ownStart, setOwnStart] = useState<string | undefined>(() => {
     const saved = readStored(START_KEY);
-    return saved && ds.individuals.has(saved) ? saved : undefined;
+    return saved === NO_START || (saved && ds.individuals.has(saved)) ? saved : undefined;
   });
-  const startXref = ownStart ?? authorStart;
+  const startXref = ownStart === NO_START ? undefined : ownStart ?? authorStart;
   const chooseStart = (id: string | undefined) => {
-    const own = id === authorStart ? undefined : id;
+    const own = id === undefined ? (authorStart ? NO_START : undefined) : id === authorStart ? undefined : id;
     setOwnStart(own);
     writeStored(START_KEY, own);
   };
+  // Where Charts opens: the start person, else the author's.
+  const chartsRoot = startXref ?? authorStart;
   const derivations = useDatasetDerivations();
   // Kinship labels follow the author's display choice, as everywhere in the app.
   const { showKinship } = useSettingsSlice(KINSHIP_KEYS);
@@ -216,8 +223,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           <a className={`nav-btn${!homeUrl && route.page === "home" ? " active" : ""}`} href={homeUrl ?? "#/"}>
             <HomeIcon size={16} /> {t("site.nav.home")}
           </a>
-          {startXref && (
-            <a className={`nav-btn${route.page === "charts" ? " active" : ""}`} href={routeHash({ page: "charts", id: pubId(startXref) })}>
+          {chartsRoot && (
+            <a className={`nav-btn${route.page === "charts" ? " active" : ""}`} href={routeHash({ page: "charts", id: pubId(chartsRoot) })}>
               <ChartIcon size={16} /> {t("site.nav.charts")}
             </a>
           )}
@@ -396,6 +403,8 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
 
   return (
     <div className="site-home">
+      {/* A row of faces from the family's photos, each opening that person. */}
+      <PhotoTray tree={tree} ds={ds} onNavigate={onNavigate} />
       <section className="site-hero">
         <h1>{tree.title || t("site.untitled")}</h1>
         {intro && <p className="site-intro">{intro}</p>}
@@ -595,6 +604,9 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
         />
       </header>
       {person?.living && <p className="site-note">{t(person.deceased ? "site.person.recentDead" : "site.person.living")}</p>}
+      {/* Their photos: a strip that opens each in the viewer, with the people
+          tagged on it. */}
+      <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate }} />
       <EventRows events={person?.events} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
 

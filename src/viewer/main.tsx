@@ -14,7 +14,7 @@ import { ErrorFallback } from "../ui/ErrorFallback";
 import { IconTipLayer } from "../ui/IconTip";
 import { SettingsProvider, DatasetProvider } from "../ui/SettingsContext";
 import { ChartSettingsProvider } from "../ui/ChartSettingsContext";
-import { MediaFolderProvider } from "../ui/MediaFolderContext";
+import { SitePhotosProvider } from "./SitePhotos";
 import { MediaViewerProvider } from "../ui/MediaViewer";
 import { DatasetDerivationsProvider } from "../ui/DatasetDerivations";
 import { PublishedViewContext, type PublishedView } from "../ui/PublishedView";
@@ -110,11 +110,11 @@ createRoot(rootEl).render(
           rewrite the reader's app preferences with its author's. */}
       <SettingsProvider persist={false}>
         <ChartSettingsProvider persist={false}>
-          <MediaFolderProvider>
+          <SitePhotosProvider tree={tree}>
             <MediaViewerProvider>
               <Site tree={tree} />
             </MediaViewerProvider>
-          </MediaFolderProvider>
+          </SitePhotosProvider>
         </ChartSettingsProvider>
       </SettingsProvider>
     </ErrorBoundary>
