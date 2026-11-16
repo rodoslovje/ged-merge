@@ -41,7 +41,7 @@ const THEME_BOOT =
 export const DEFAULT_FAVICON = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG.trim())}`;
 
 /** How long a shared link's description may run before it is cut. */
-const DESCRIPTION_MAX = 200;
+const DESCRIPTION_MAX = 155;
 
 /** The intro in the site's language (else in any), on one line and cut at a
  *  word to what a link preview shows. */
