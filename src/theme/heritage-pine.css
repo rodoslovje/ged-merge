@@ -75,6 +75,10 @@
      progression on this ground. */
   --fan-branch-l: 0.72;
   --fan-branch-c: 0.15;
+  /* ---- Statistics → Places: one hue per named place, the same place in the
+     same hue on every card; the theme sets the lightness and chroma. */
+  --stats-place-l: 0.74;
+  --stats-place-c: 0.13;
 
   /* ---- destructive / danger (delete, remove, irreversible actions) ---- */
   --danger:      #e74c3c;
@@ -176,6 +180,8 @@
   /* Darker, fuller hues on paper: the tints are mixed into a light panel. */
   --fan-branch-l: 0.56;
   --fan-branch-c: 0.16;
+  --stats-place-l: 0.58;
+  --stats-place-c: 0.14;
 
   --danger:      #c0392b;   /* deeper red reads better on warm paper */
   /* --danger-soft inherits the dark-theme color-mix definition (uses var(--danger)) */

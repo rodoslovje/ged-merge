@@ -9812,6 +9812,56 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-pair-legend { display: flex; gap: 16px; justify-content: flex-end; }
 .stats-pair-legend { color: var(--muted); font-size: 0.8rem; padding: 6px 6px 0; }
 .stats-pair-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--stats-bar); }
+/* Places: a legend of many places wraps from the start, as a reading list. */
+.stats-place-legend { flex-wrap: wrap; justify-content: flex-start; gap: 4px 16px; }
+.stats-col-bar.stats-place-part { border-radius: 0; }
+.stats-col-bar.stats-place-part:first-child { border-radius: 4px 4px 0 0; }
+/* The flow: labels, a bar per place, the ribbons, and the same mirrored. */
+.stats-flow-heads { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.stats-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 10px minmax(48px, 1.3fr) 10px minmax(0, 1fr);
+  column-gap: 0;
+}
+.stats-flow-labels, .stats-flow-nodes { position: relative; }
+.stats-flow-label {
+  position: absolute;
+  left: 0;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+.stats-flow-labels.to .stats-flow-label { left: 8px; right: 0; text-align: left; }
+.stats-flow-node { position: absolute; left: 0; right: 0; background: var(--stats-bar); border-radius: 2px; }
+.stats-flow-links { width: 100%; display: block; overflow: visible; }
+.stats-card .stats-flow-level { align-self: flex-start; margin-bottom: 8px; }
+.stats-flow-links path { fill: var(--stats-bar); fill-opacity: 0.4; cursor: pointer; transition: fill-opacity 0.12s; }
+.stats-flow-links path:hover, .stats-flow-links path.picked { fill-opacity: 0.8; }
+/* Places by decade: a grid that scrolls sideways when the decades run long. */
+.stats-grid-scroll { overflow-x: auto; }
+.stats-decades { display: grid; gap: 3px; align-items: stretch; min-width: min-content; }
+.stats-decade-row { display: contents; }
+.stats-decade-head { font-size: 0.7rem; color: var(--muted); white-space: nowrap; overflow: visible; }
+.stats-decade-label { font-size: 0.8rem; padding-right: 8px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: center; }
+.stats-decade-cell {
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--accent) var(--stats-share, 0%), var(--panel-2));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.stats-decade-cell.strong { color: var(--accent-ink); }
+.stats-decade-cell.empty { cursor: default; opacity: 0.6; }
+button.stats-decade-cell:hover, .stats-decade-cell.picked { border-color: var(--text); }
 .stats-pair-a { --stats-bar: var(--lineage-paternal); }
 .stats-pair-b { --stats-bar: var(--lineage-maternal); }
 .stats-pair-row { padding: 2px 6px; border-radius: var(--radius-sm); }
