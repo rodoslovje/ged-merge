@@ -156,9 +156,8 @@ ${scripts}
 `;
 }
 
-/** Where `data.js` leaves the site's data for the viewer (see `viewer/main.tsx`). */
+/** Where the data file leaves the site's data for the viewer (see `viewer/main.tsx`). */
 export const DATA_GLOBAL = "gedmergeSite";
-export const DATA_FILE = "data.js";
 
 /** A short content hash (FNV-1a, hex), to name the viewer's files by what they hold. */
 function contentHash(text: string): string {
@@ -184,7 +183,9 @@ export interface SiteFile {
 /**
  * The site as files beside each other — the ZIP's form: a small `index.html`
  * (the head a shared link's preview reads, and three references), the data in
- * `data.js`, and the viewer in files named by their content. A link preview
+ * `data-<hash>.js`, and the viewer in files named by their content. The data
+ * is named by its content too: a server or browser that caches it then never
+ * pairs a new page with old data, whose photos may be gone. A link preview
  * reads only the start of a page, and a large page is refused outright; this
  * one is a few kilobytes. Plain `<script src>`, so it opens from disk too.
  */
@@ -193,12 +194,14 @@ export function publishedSiteFiles(tree: PublishedTree, bundle: ViewerBundle, me
   const js = `viewer-${hash}.js`;
   const css = `viewer-${hash}.css`;
   const { css: style, fonts } = fontFiles(bundle.css);
+  const dataText = `window.${DATA_GLOBAL}=${scriptSafeJson(packTree(tree))};\n`;
+  const data = `data-${contentHash(dataText)}.js`;
   return [
     {
       name: "index.html",
-      text: pageShell(tree, meta, `<link rel="stylesheet" href="${css}">`, `<script src="${DATA_FILE}"></script>\n<script src="${js}"></script>`),
+      text: pageShell(tree, meta, `<link rel="stylesheet" href="${css}">`, `<script src="${data}"></script>\n<script src="${js}"></script>`),
     },
-    { name: DATA_FILE, text: `window.${DATA_GLOBAL}=${scriptSafeJson(packTree(tree))};\n` },
+    { name: data, text: dataText },
     { name: js, text: bundle.js, stable: true },
     { name: css, text: style, stable: true },
     ...fonts.map((f) => ({ ...f, stable: true as const })),

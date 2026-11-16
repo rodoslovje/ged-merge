@@ -62,7 +62,7 @@ test("the family website with photos downloads as a ZIP that works from disk", a
   const fonts = entries.filter((e) => e.name.startsWith("fonts/"));
   expect(fonts.length).toBeGreaterThan(0);
   expect(entries.filter((e) => !fonts.includes(e)).map((e) => e.name.replace(/\/o[0-9a-z]+\./, "/ID.").replace(/-[0-9a-f]{8}\./, "-H."))).toEqual([
-    "index.html", "data.js", "viewer-H.js", "viewer-H.css", "photos/ID.png",
+    "index.html", "data-H.js", "viewer-H.js", "viewer-H.css", "photos/ID.png",
   ]);
   expect(entries[0].uncompressedSize).toBeLessThan(10_000);
   // The extended-timestamp field, just before the photo's data.
@@ -81,4 +81,9 @@ test("the family website with photos downloads as a ZIP that works from disk", a
   await page.getByRole("listitem", { name: "Franc Zorman" }).click();
   await expect(page.locator(".site-person-name")).toContainText("Franc");
   await expect(page.locator(".site-person img")).toHaveCount(1);
+  // Its address carries the original's time, so a photo replaced under the
+  // same name is not served from a cache — and it still loads.
+  const img = page.locator(".site-person img");
+  await expect(img).toHaveAttribute("src", new RegExp(`\\?v=${Math.floor(TAKEN.getTime() / 1000).toString(36)}$`));
+  await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
 });

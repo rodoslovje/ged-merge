@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { MediaFolderContext } from "../ui/MediaFolderContext";
 import type { PublishedTree } from "../publish/model";
+import { photoSrc } from "../publish/photos";
 
 /**
  * The family website's photos, to the app's media components: a "media
@@ -11,14 +12,15 @@ import type { PublishedTree } from "../publish/model";
  */
 export function SitePhotosProvider({ tree, children }: { tree: PublishedTree; children: ReactNode }) {
   const value = useMemo(() => {
-    const paths = new Set((tree.photos ?? []).map((p) => p.path));
+    const src = new Map((tree.photos ?? []).map((p) => [p.path, photoSrc(p)]));
+    const paths = new Set(src.keys());
     return {
       // Any name: what matters is that there is a folder.
       folderName: paths.size ? "photos" : null,
       openFolder: async () => {},
       clearFolder: () => {},
-      // The photo's path is its address beside the page.
-      resolveFile: async (filePath: string) => (paths.has(filePath) ? filePath : null),
+      // The photo's path, with its version, is its address beside the page.
+      resolveFile: async (filePath: string) => src.get(filePath) ?? null,
       canReferenceFiles: false,
       listMediaFiles: async () => [...paths],
       resolveDroppedHandle: async () => null,

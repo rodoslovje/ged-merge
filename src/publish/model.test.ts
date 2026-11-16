@@ -459,11 +459,11 @@ describe("publishedHtml", () => {
     const bundle = { js: "console.log(1)", css: "a{}" };
     const files = publishedSiteFiles(tree, bundle);
     const [index, data, js, css] = files;
-    expect(files.map((f) => f.name.replace(/[0-9a-f]{8}/, "H"))).toEqual(["index.html", "data.js", "viewer-H.js", "viewer-H.css"]);
+    expect(files.map((f) => f.name.replace(/[0-9a-f]{8}/, "H"))).toEqual(["index.html", "data-H.js", "viewer-H.js", "viewer-H.css"]);
     // The page: the head a preview reads and the references — no data, no code.
     expect(index.text).toContain('<meta property="og:title" content="Rodbina">');
     expect(index.text).toContain(`<link rel="stylesheet" href="${css.name}">`);
-    expect(index.text).toContain(`<script src="data.js"></script>\n<script src="${js.name}"></script>`);
+    expect(index.text).toContain(`<script src="${data.name}"></script>\n<script src="${js.name}"></script>`);
     expect(index.text).not.toContain("console.log");
     expect(index.text!.length).toBeLessThan(5000);
     expect(data.text).toMatch(/^window\.gedmergeSite=\{/);
@@ -471,6 +471,10 @@ describe("publishedHtml", () => {
     // Only the viewer's files are stable, and their name follows their content.
     expect(files.map((f) => !!f.stable)).toEqual([false, false, true, true]);
     expect(publishedSiteFiles(tree, { ...bundle, js: "console.log(2)" })[2].name).not.toBe(js.name);
+    // The data is named by its content too: other data, another name, so a
+    // cached copy is never paired with a newer page.
+    expect(publishedSiteFiles(build({ title: "Rodbina 2" }).tree, bundle)[1].name).not.toBe(data.name);
+    expect(publishedSiteFiles(tree, bundle)[1].name).toBe(data.name);
   });
 
   it("puts the stylesheet's fonts beside it as files, once each, and leaves other images inline", () => {
@@ -483,7 +487,7 @@ describe("publishedHtml", () => {
     expect(out).toBe(`@font-face{src:url(${fonts[0].name})format("woff2")}@font-face{src:url(${fonts[0].name})}.x{background:url(data:image/png;base64,iVBOR)}`);
     // In the site's files, as stable binaries after the stylesheet.
     const files = publishedSiteFiles(build({}).tree, { js: "", css });
-    expect(files.map((f) => f.name.replace(/[0-9a-f]{8}/, "H"))).toEqual(["index.html", "data.js", "viewer-H.js", "viewer-H.css", "fonts/H.woff2"]);
+    expect(files.map((f) => f.name.replace(/[0-9a-f]{8}/, "H"))).toEqual(["index.html", "data-H.js", "viewer-H.js", "viewer-H.css", "fonts/H.woff2"]);
     expect(files[4]).toMatchObject({ stable: true });
   });
 

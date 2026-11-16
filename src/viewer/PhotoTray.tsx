@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import type { PublishedTree } from "../publish/model";
-import type { PubPhotoLink } from "../publish/photos";
+import { photoSrc, type PubPhotoLink } from "../publish/photos";
 import { useNameOf } from "../ui/SettingsContext";
 import { ChevronIcon } from "../ui/icons/ChevronIcon";
 import { xrefOf } from "../publish/hydrate";
@@ -52,7 +52,7 @@ export function PhotoTray({ tree, ds, onNavigate }: { tree: PublishedTree; ds: D
   const { t } = useTranslation();
   const nameOf = useNameOf();
   const faces = useMemo(() => sample(trayFaces(tree), TRAY_SIZE, Math.random), [tree]);
-  const pathOf = useMemo(() => new Map((tree.photos ?? []).map((p) => [p.id, p.path])), [tree]);
+  const pathOf = useMemo(() => new Map((tree.photos ?? []).map((p) => [p.id, photoSrc(p)])), [tree]);
   const strip = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState({ back: false, on: false });
   const measure = useCallback(() => {

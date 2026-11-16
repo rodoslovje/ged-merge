@@ -26,7 +26,7 @@ import type { NameOrder } from "../../gedcom/nameDisplay";
 import { baseStem, downloadBlob, downloadText } from "../download";
 import { useMediaFolder } from "../MediaFolderContext";
 import { zipFiles, type ZipFile } from "../../publish/zip";
-import { withoutPhotos } from "../../publish/photos";
+import { versionPhotos, withoutPhotos } from "../../publish/photos";
 import { StartPersonSelector } from "../StartPersonSelector";
 import { SelectMenu } from "../DropdownMenu";
 import { PublishPhotoFolders } from "./PublishPhotoFolders";
@@ -187,6 +187,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
       const photos: ZipFile[] = [];
       if (result.files.length) {
         const missing = new Set<string>();
+        const times = new Map<string, number>();
         for (const [i, f] of result.files.entries()) {
           if (!alive()) return;
           setPhase({ step: "photos", done: i, total: result.files.length });
@@ -194,7 +195,10 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           // unchanged photo is then skipped by rsync on the next upload).
           const file = (await media.resolveFileObject?.(f.source)) ?? null;
           const data = file ? await file.arrayBuffer().catch(() => null) : null;
-          if (file && data) photos.push({ name: f.path, data: new Uint8Array(data), modified: new Date(file.lastModified) });
+          if (file && data) {
+            photos.push({ name: f.path, data: new Uint8Array(data), modified: new Date(file.lastModified) });
+            times.set(f.path, file.lastModified);
+          }
           else missing.add(f.path);
         }
         if (missing.size) {
@@ -211,6 +215,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           photos.push({ name: path, data: small.data, modified: original.modified });
           tree = { ...tree, preview: { path, width: small.width, height: small.height } };
         }
+        tree = versionPhotos(tree, times);
       }
       setPhase({ step: "page" });
       await nextTask();

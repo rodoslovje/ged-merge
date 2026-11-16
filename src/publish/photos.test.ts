@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { buildPublishedTree, defaultPublishOptions, type PublishOptions } from "./model";
 import { hydrateTree } from "./hydrate";
 import { collectMediaRefs } from "../gedcom/media";
-import { folderOf, photoFolderCounts, photoUseOf } from "./photos";
+import { folderOf, photoFolderCounts, photoSrc, photoUseOf, versionPhotos } from "./photos";
 
 const dataset = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 const NOW = new Date("2026-06-01");
@@ -175,5 +175,20 @@ describe("the cover photo", () => {
     expect(r.files.find((f) => f.path === coverOf(r)!.path)?.source).toBe("landscape.jpg");
     expect(site({ cover: "letter.pdf" }).tree.cover).toBeUndefined();
     expect(site({ include: { ...defaultPublishOptions("x", "sl").include, photos: false }, cover: "landscape.jpg" }).tree.cover).toBeUndefined();
+  });
+});
+
+describe("versionPhotos", () => {
+  it("puts each photo's file time in its address, and leaves the path alone", () => {
+    const tree = { photos: [{ id: "o1", path: "photos/o1.jpg" }, { id: "o2", path: "photos/o2.png" }] } as Parameters<typeof versionPhotos>[0];
+    const out = versionPhotos(tree, new Map([["photos/o1.jpg", Date.UTC(2025, 3, 5, 20, 53, 17)]]));
+    const [one, two] = out.photos!;
+    expect(one.path).toBe("photos/o1.jpg");
+    expect(photoSrc(one)).toBe(`photos/o1.jpg?v=${(Date.UTC(2025, 3, 5, 20, 53, 17) / 1000).toString(36)}`);
+    // A photo with no time read keeps its bare address.
+    expect(photoSrc(two)).toBe("photos/o2.png");
+    // Another time, another address.
+    const later = versionPhotos(tree, new Map([["photos/o1.jpg", Date.UTC(2026, 10, 16)]]));
+    expect(photoSrc(later.photos![0])).not.toBe(photoSrc(one));
   });
 });
