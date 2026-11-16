@@ -403,6 +403,31 @@ describe("publishedHtml", () => {
     expect(meta("https://rodbina.si/")).toContain('content="summary_large_image"');
   });
 
+  it("names the page's own address, the small preview image and GED Merge", () => {
+    const base = build({ title: "Rodbina", intro: { sl: "Pozdravljeni." } }).tree;
+    const tree = {
+      ...base,
+      url: "renko.example",
+      siteUrl: "family.renko.example",
+      photos: [{ id: "o1", path: "photos/o1.jpg" }],
+      cover: "o1",
+      preview: { path: "photos/o1-preview.jpg", width: 1200, height: 800 },
+    };
+    const meta = { title: "Rodbina · Družinsko drevo · GED Merge", credit: "Narejeno z GED Merge (gedmerge.com)." };
+    const tags = shareMeta(tree, meta);
+    expect(tags).toContain('<meta property="og:url" content="https://family.renko.example">');
+    expect(tags).toContain('<meta property="og:image" content="https://family.renko.example/photos/o1-preview.jpg">');
+    expect(tags).toContain('<meta property="og:image:width" content="1200">');
+    expect(tags).toContain('<meta property="og:site_name" content="Rodbina">');
+    expect(tags).toContain('<meta property="og:title" content="Rodbina · Družinsko drevo · GED Merge">');
+    expect(tags).toContain('<meta name="description" content="Pozdravljeni. Narejeno z GED Merge (gedmerge.com).">');
+    expect(publishedSiteFiles(tree, { js: "", css: "" }, meta)[0].text).toContain("<title>Rodbina · Družinsko drevo · GED Merge</title>");
+    // The credit stays whole; a long intro makes room for it.
+    const long = siteDescription({ ...tree, intro: { sl: "beseda ".repeat(60) } }, meta.credit);
+    expect(long.length).toBeLessThanOrEqual(200);
+    expect(long.endsWith("… Narejeno z GED Merge (gedmerge.com).")).toBe(true);
+  });
+
   it("cuts a long intro at a word for the preview", () => {
     const long = "beseda ".repeat(60);
     const text = siteDescription({ ...build({ intro: { sl: long } }).tree });

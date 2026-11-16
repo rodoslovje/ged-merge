@@ -101,6 +101,9 @@ export interface PublishOptions {
   /** Where the site will be hosted (`https://tree.example.org`): named in the
    *  footer of its exports in place of gedmerge.com. Empty for none. */
   url: string;
+  /** The website's own address, where its page is — for a shared link's
+   *  preview, when `url` is the author's site that links to it. "" for `url`. */
+  siteUrl: string;
   display: SiteDisplay;
   /** What the site also shows beside names, dates and places. Without
    *  addresses a house's coordinate gives way to its settlement's. */
@@ -132,6 +135,7 @@ export function defaultPublishOptions(
     startPage: "home",
     exports: false,
     url: "",
+    siteUrl: "",
     display,
     include: { sources: false, notes: false, addresses: false, photos: false },
     photoFolders: {},
@@ -236,6 +240,11 @@ export interface PublishedTree {
   /** The cover photo's id among `photos`: the front page's picture and a
    *  shared link's preview image. */
   cover?: string;
+  /** Where the page itself is, when not at `url` (see PublishOptions). */
+  siteUrl?: string;
+  /** The cover made small for a link preview (see `previewImage.ts`), in the
+   *  ZIP beside its photos. */
+  preview?: { path: string; width: number; height: number };
   people: PubPerson[];
   families: PubFamily[];
 }
@@ -561,6 +570,7 @@ export function* buildPublishedTreeSteps(
   if (opts.include.sources) tree.sources = true;
   if (opts.exports) tree.exports = true;
   if (opts.url.trim()) tree.url = opts.url.trim();
+  if (opts.siteUrl.trim()) tree.siteUrl = opts.siteUrl.trim();
   tree.display = opts.display;
   tree.map = opts.map;
   const start = startId ? idOf.get(startId) : undefined;

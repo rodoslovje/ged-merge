@@ -17,6 +17,7 @@ import {
   type StartPage,
 } from "../../publish/model";
 import { publishedHtml, publishedSiteFiles, siteFileName } from "../../publish/page";
+import { previewImage } from "../../publish/previewImage";
 
 /** The time the viewer's content-named files carry in the ZIP: any fixed one. */
 const STABLE_TIME = new Date(Date.UTC(2026, 0, 1));
@@ -180,16 +181,29 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           tree = withoutPhotos(tree, missing);
           setNotice(t("tools.publish.photosMissing", { count: missing.size }));
         }
+        // The cover, small, for a shared link's preview — with the cover's time,
+        // so an unchanged cover makes an unchanged preview for rsync.
+        const cover = tree.cover ? tree.photos?.find((p) => p.id === tree.cover) : undefined;
+        const original = cover && photos.find((p) => p.name === cover.path);
+        const small = original ? await previewImage(original.data) : null;
+        if (cover && original && small) {
+          const path = `photos/${cover.id}-preview.jpg`;
+          photos.push({ name: path, data: small.data, modified: original.modified });
+          tree = { ...tree, preview: { path, width: small.width, height: small.height } };
+        }
       }
       setPhase({ step: "page" });
       await nextTask();
+      // In the site's language: what search results and link previews show.
+      const tSite = i18n.getFixedT(tree.lang);
+      const meta = { title: tSite("site.meta.title", { title: tree.title || tSite("site.untitled") }), credit: tSite("site.meta.credit") };
       if (options.include.photos) {
         // The site as files and its photos, ready to unpack onto a web server:
         // a small index.html a link preview can read. The viewer's files keep
         // a fixed time — their names change with their content — so rsync
         // skips them until GED Merge changes.
         const enc = new TextEncoder();
-        const site = publishedSiteFiles(tree, bundle).map((f) => ({
+        const site = publishedSiteFiles(tree, bundle, meta).map((f) => ({
           name: f.name,
           data: enc.encode(f.text),
           ...(f.stable ? { modified: STABLE_TIME } : {}),
@@ -197,7 +211,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
         const zip = zipFiles([...site, ...photos]);
         downloadBlob(siteFileName(options.title).replace(/\.html$/, ".zip"), new Blob([zip], { type: "application/zip" }));
       } else {
-        downloadText(siteFileName(options.title), publishedHtml(tree, bundle), "text/html;charset=utf-8");
+        downloadText(siteFileName(options.title), publishedHtml(tree, bundle, meta), "text/html;charset=utf-8");
       }
     } catch (e) {
       if (alive()) setError(e instanceof Error ? e.message : String(e));
@@ -246,6 +260,17 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
             onChange={(e) => set({ url: e.target.value })}
           />
           <span className="tools-fix-hint">{t("tools.publish.urlHint")}</span>
+        </label>
+        <label className="tools-publish-field">
+          <span className="tools-privacy-legend">{t("tools.publish.siteUrl")}</span>
+          <input
+            type="url"
+            className="tools-publish-input"
+            value={options.siteUrl}
+            placeholder={options.url.trim() || "https://family.example.org"}
+            onChange={(e) => set({ siteUrl: e.target.value })}
+          />
+          <span className="tools-fix-hint">{t("tools.publish.siteUrlHint")}</span>
         </label>
         <label className="tools-norm-check">
           <input type="checkbox" checked={options.exports} onChange={() => set({ exports: !options.exports })} />
