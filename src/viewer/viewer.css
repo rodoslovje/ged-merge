@@ -148,6 +148,10 @@
 .site-foot-brand:hover {
   text-decoration: underline;
 }
+/* GED Merge's mark in its own green, as the site's name is. */
+.site-foot-brand svg {
+  color: var(--accent);
+}
 
 /* ── Front page ─────────────────────────────────────────────── */
 
@@ -703,4 +707,16 @@
 .tools-view.site-stats {
   padding: 0;
   max-width: none;
+}
+
+/* A tagged person on a photo, in GED Merge's green: the box, and the name as a
+   green chip under it. (Only on the website: in the app a green dashed box is
+   a face not yet named, which the website never shows.) */
+.photo-crop-box:not(.photo-face-box, .photo-crop-draft) {
+  border: 2px dashed var(--photo-mark);
+}
+.photo-crop-box:not(.photo-face-box, .photo-crop-draft) .photo-crop-name {
+  background: var(--photo-mark);
+  color: var(--photo-mark-ink);
+  font-weight: 600;
 }
