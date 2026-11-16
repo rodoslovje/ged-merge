@@ -196,8 +196,6 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   // absent in the current folder — without the latter, every unresolvable file
   // re-runs the full path probe + recursive basename scan on each lookup.
   const blobCache = useRef(new Map<string, string | null>());
-  // The file behind each URL in `blobCache`, for resolveFileObject.
-  const fileCache = useRef(new Map<string, File>());
   // Hidden <input webkitdirectory> for Firefox fallback
   const inputRef = useRef<HTMLInputElement | null>(null);
   // App-styled confirm/alert dialog (replaces native window.confirm/alert).
@@ -240,7 +238,6 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
   function revokeAll() {
     for (const url of blobCache.current.values()) if (url) URL.revokeObjectURL(url);
     blobCache.current = new Map();
-    fileCache.current = new Map();
   }
 
   // Restore persisted handle on mount (Chrome/Edge; Firefox IDB rejects handles)
@@ -329,13 +326,12 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
     if (dbRef.current) idbPut(dbRef.current, null);
   }, []);
 
-  const resolveFile = useCallback(
-    async (filePath: string): Promise<string | null> => {
-      if (!folder || !filePath) return null;
-
-      const cached = blobCache.current.get(filePath);
-      if (cached !== undefined) return cached; // hit, including a known-miss (null)
-
+  /** Look `filePath` up in the folder itself, past every cache: the file as it
+   *  is on disk now, or null when it is not there. `undefined` when it could
+   *  not be asked (no read permission yet) — not a miss to remember. */
+  const lookupFile = useCallback(
+    async (filePath: string): Promise<File | null | undefined> => {
+      if (!folder || !filePath) return undefined;
       let file: File | null = null;
 
       if (folder.kind === "handle") {
@@ -344,7 +340,7 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
           const perm = await handle.queryPermission({ mode: "read" });
           // Permission failures are transient (the user may grant later), so
           // they're returned uncached — unlike a genuine "file not in folder".
-          if (perm === "denied") return null;
+          if (perm === "denied") return undefined;
           if (perm === "prompt") {
             // requestPermission only shows its dialog under transient user
             // activation. Thumbnail loads run from effects (no activation), so
@@ -352,13 +348,13 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
             // "prompt"; skip it and let the click that opens the viewer — a real
             // gesture — do the asking. Avoids a confusing first-load state where
             // the prompt never appears.
-            if (!navigator.userActivation?.isActive) return null;
+            if (!navigator.userActivation?.isActive) return undefined;
             const granted = await handle.requestPermission({ mode: "read" });
-            if (granted !== "granted") return null;
+            if (granted !== "granted") return undefined;
           }
         }
         const segments = pathSegments(filePath);
-        if (segments.length === 0) return null;
+        if (segments.length === 0) return undefined;
         const basename = segments[segments.length - 1];
         file = await tryPath(handle, segments);
         if (!file) file = await tryPath(handle, [basename]);
@@ -366,22 +362,35 @@ export function MediaFolderProvider({ children }: { children: React.ReactNode })
       } else {
         file = lookupInMap(folder.map, filePath);
       }
+      return file;
+    },
+    [folder],
+  );
 
+  const resolveFile = useCallback(
+    async (filePath: string): Promise<string | null> => {
+      const cached = blobCache.current.get(filePath);
+      if (cached !== undefined) return cached; // hit, including a known-miss (null)
+
+      const file = await lookupFile(filePath);
+      if (file === undefined) return null;
       if (!file) {
         blobCache.current.set(filePath, null); // remember the miss
         return null;
       }
       const url = URL.createObjectURL(file);
       blobCache.current.set(filePath, url);
-      fileCache.current.set(filePath, file);
       return url;
     },
-    [folder],
+    [lookupFile],
   );
 
+  // Fresh from the folder every time, never from the caches: a photo replaced
+  // or added on disk since it was first shown is read as it is now (a stale
+  // File from before the change can no longer be read at all).
   const resolveFileObject = useCallback(
-    async (filePath: string): Promise<File | null> => ((await resolveFile(filePath)) ? fileCache.current.get(filePath) ?? null : null),
-    [resolveFile],
+    async (filePath: string): Promise<File | null> => (await lookupFile(filePath)) ?? null,
+    [lookupFile],
   );
 
   const listMediaFiles = useCallback(async (): Promise<string[]> => {
