@@ -257,7 +257,7 @@ describe("buildPublishedTreeSteps", () => {
 
 describe("sources, notes and addresses", () => {
   const withAll = (over: Partial<PublishOptions["include"]>) =>
-    build({ living: "all", include: { sources: false, notes: false, addresses: false, ...over } }).tree;
+    build({ living: "all", include: { sources: false, notes: false, addresses: false, photos: false, ...over } }).tree;
 
   it("stay out unless chosen", () => {
     const joze = byName(withAll({}), "Jože")!;
@@ -277,7 +277,7 @@ describe("sources, notes and addresses", () => {
 
   it("never publish a note marked private", () => {
     const hidden = dataset(SAMPLE.replace("1 NOTE A private research note", "1 NOTE A private research note\n2 RESN privacy"));
-    const tree = buildPublishedTree(hidden, opts({ living: "all", include: { sources: false, notes: true, addresses: false } }), "@I1@", NOW).tree;
+    const tree = buildPublishedTree(hidden, opts({ living: "all", include: { sources: false, notes: true, addresses: false, photos: false } }), "@I1@", NOW).tree;
     expect(byName(tree, "Jože")!.notes).toBeUndefined();
   });
 
@@ -315,7 +315,7 @@ describe("sources, notes and addresses", () => {
 `;
   const houses = dataset(HOUSES);
   const site = (addresses: boolean) =>
-    buildPublishedTree(houses, opts({ living: "all", include: { sources: false, notes: false, addresses } }), undefined, NOW).tree;
+    buildPublishedTree(houses, opts({ living: "all", include: { sources: false, notes: false, addresses, photos: false } }), undefined, NOW).tree;
 
   it("show a house at its settlement when addresses stay out", () => {
     const tree = site(false);

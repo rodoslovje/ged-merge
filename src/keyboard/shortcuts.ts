@@ -305,3 +305,37 @@ export function altShiftLabel(key: string): string {
 export function altLabel(key: string): string {
   return isMacKeyboard() ? `⌥${key}` : `Alt+${key}`;
 }
+
+/** The family website's keys (src/viewer): the app's own letters where the
+ *  action is the same, described for a reader rather than an editor; on a
+ *  chart page, the app's chart keys but for those that edit or decide. */
+export const SITE_SHORTCUT_GROUPS: ShortcutGroup[] = [
+  {
+    titleKey: "shortcuts.group.general",
+    category: "standard",
+    items: [
+      { keys: [["/"]], descKey: "shortcuts.site.search" },
+      { keys: [["?"], ["F1"]], descKey: "shortcuts.item.help" },
+      { keys: [["Esc"]], descKey: "shortcuts.site.escape" },
+    ],
+  },
+  {
+    titleKey: "shortcuts.group.navigation",
+    category: "app",
+    items: [
+      { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.site.home" },
+      { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.site.charts" },
+      { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.site.relationship" },
+      { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.site.goParent" },
+      { keys: [["alt", "←"], ["alt", "→"]], descKey: "shortcuts.item.goSibling" },
+      { keys: [["alt", "↓"], ["alt", "shift", "↓"]], descKey: "shortcuts.item.goChild" },
+      { keys: [["alt", "shift", "←"], ["alt", "shift", "→"]], descKey: "shortcuts.item.goPartner" },
+      { keys: [["⌫"]], descKey: "shortcuts.site.back" },
+    ],
+  },
+  ...SHORTCUT_GROUPS.filter((g) => g.titleKey === "shortcuts.group.charts").map((g) => ({
+    ...g,
+    scope: undefined,
+    items: g.items.filter((i) => i.descKey !== "shortcuts.item.chartEdit" && i.descKey !== "shortcuts.item.chartDecide"),
+  })),
+];

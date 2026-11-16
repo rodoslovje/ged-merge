@@ -28,9 +28,11 @@ export function mergeStoredOptions(defaults: PublishOptions, stored: unknown): P
     if (isRecord(def)) {
       if (!isRecord(v)) continue;
       const merged: Record<string, unknown> = { ...def };
-      // `intro` is open-ended (one text per language); the others are fixed shapes.
-      const keys = k === "intro" ? Object.keys(v) : Object.keys(def);
-      for (const kk of keys) if (typeof v[kk] === (k === "intro" ? "string" : typeof def[kk])) merged[kk] = v[kk];
+      // `intro` (one text per language) and `photoFolders` (one choice per
+      // folder) are open-ended, of strings; the others are fixed shapes.
+      const open = k === "intro" || k === "photoFolders";
+      const keys = open ? Object.keys(v) : Object.keys(def);
+      for (const kk of keys) if (typeof v[kk] === (open ? "string" : typeof def[kk])) merged[kk] = v[kk];
       out[k] = merged;
     } else if (typeof v === typeof def) {
       out[k] = v;

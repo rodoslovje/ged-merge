@@ -32,6 +32,13 @@ import { nameMatches, parseRoute, routeHash, startRoute, type Route } from "./ro
 import { chartViewOf, chartViewWords } from "./chartRoute";
 import { Highlights } from "./Highlights";
 import { PersonCharts } from "./PersonCharts";
+import { PhotoTray } from "./PhotoTray";
+import { familyEventAges, personEventAges } from "./ages";
+import type { AgeBadge } from "../gedcom/age";
+import { ShortcutsModal } from "../ui/ShortcutsModal";
+import { KEY, SITE_SHORTCUT_GROUPS, familyStepFor, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
+import { familyStepTarget } from "../gedcom/familyNav";
+import { PersonMedia } from "../ui/PersonMedia";
 import { MapIcon } from "../ui/icons/MapIcon";
 
 const MiniPlaceMap = lazy(() => import("../ui/map/MiniPlaceMap"));
@@ -77,6 +84,8 @@ interface PubIndex {
  *  alone: two family websites on one host (or two files opened from disk)
  *  share the browser's storage, and their person ids may coincide. */
 const START_KEY = `gedmerge-site.start:${location.pathname}`;
+/** Stored when the visitor clears the start person (no xref looks like it). */
+const NO_START = "none";
 const KINSHIP_KEYS = ["showKinship"] as const;
 const AGE_KEYS = ["showAge"] as const;
 const DATE_KEYS = ["dateDisplay"] as const;
@@ -119,6 +128,9 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   // language (the site has two). Their tooltips name it in full.
   const otherTheme = theme === "dark" ? "light" : "dark";
   const otherLang = SUPPORTED_LANGUAGES.find((l) => l !== i18n.language) ?? "en";
+  // The button shows the language the site is in; its tooltip names the switch.
+  const lang = SUPPORTED_LANGUAGES.find((l) => l !== otherLang) ?? "sl";
+  const langSwitch = `${LANGUAGE_NAMES[lang]} → ${LANGUAGE_NAMES[otherLang]}`;
   const setSettings = useSetSettings();
   const { settings: chartSettings, setKind, set: setChartSettings } = useChartSettings();
   // Ancestors, descendants or both: the site keeps it, so the address can.
@@ -164,20 +176,23 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   useEffect(() => { document.title = tree.title || t("site.untitled"); }, [tree.title, t]);
 
   // The start person relationships are named from: the author's, until the
-  // visitor picks their own (remembered in their browser).
+  // visitor picks their own or clears it (remembered in their browser; a
+  // cleared one as NO_START, so it does not fall back to the author's).
   // The author's own address, normalized as the exports name it (https:// added).
   const homeUrl = tree.url ? exportSiteLink().url : undefined;
   const authorStart = tree.start ? xrefOf(tree.start) : undefined;
   const [ownStart, setOwnStart] = useState<string | undefined>(() => {
     const saved = readStored(START_KEY);
-    return saved && ds.individuals.has(saved) ? saved : undefined;
+    return saved === NO_START || (saved && ds.individuals.has(saved)) ? saved : undefined;
   });
-  const startXref = ownStart ?? authorStart;
+  const startXref = ownStart === NO_START ? undefined : ownStart ?? authorStart;
   const chooseStart = (id: string | undefined) => {
-    const own = id === authorStart ? undefined : id;
+    const own = id === undefined ? (authorStart ? NO_START : undefined) : id === authorStart ? undefined : id;
     setOwnStart(own);
     writeStored(START_KEY, own);
   };
+  // Where Charts opens: the start person, else the author's.
+  const chartsRoot = startXref ?? authorStart;
   const derivations = useDatasetDerivations();
   // Kinship labels follow the author's display choice, as everywhere in the app.
   const { showKinship } = useSettingsSlice(KINSHIP_KEYS);
@@ -205,6 +220,66 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
     else openPerson(xref);
   };
 
+  // The keyboard, with the app's own keys (SITE_SHORTCUT_GROUPS lists them):
+  // `/` the search, `?` the list, H the start person, V the charts, S the
+  // relationship, Alt+arrows a step through the family, ⌫ back. A chart page
+  // keeps its own letters (ChartsHub's).
+  const [showKeys, setShowKeys] = useState(false);
+  const shownPerson = route.page === "person" ? xrefOf(route.id) : undefined;
+  // The person before this one: a partner step toggles between the two.
+  const lastPerson = useRef<{ now?: string; before?: string }>({});
+  useEffect(() => {
+    if (shownPerson && shownPerson !== lastPerson.current.now) lastPerson.current = { now: shownPerson, before: lastPerson.current.now };
+  }, [shownPerson]);
+  const onKey = useRef<(e: KeyboardEvent) => void>(() => {});
+  useEffect(() => {
+    onKey.current = (e) => {
+      const editable = isEditableTarget(e.target);
+      if (e.key === "F1" || (e.key === "?" && !editable)) {
+        e.preventDefault();
+        setShowKeys((v) => (!v && isModalOpen() ? v : !v));
+        return;
+      }
+      if (editable || isModalOpen() || e.metaKey || e.ctrlKey || e.defaultPrevented) return;
+      if (e.altKey) {
+        const step = familyStepFor(e.key, e.shiftKey);
+        if (!step || !shownPerson) return;
+        e.preventDefault();
+        const to = familyStepTarget(ds, shownPerson, step, lastPerson.current.before);
+        if (to) openPerson(to);
+        return;
+      }
+      if (e.key === "Backspace" && !e.shiftKey) {
+        e.preventDefault();
+        history.back();
+        return;
+      }
+      if (e.key === "/") {
+        e.preventDefault();
+        setSearching(true);
+        return;
+      }
+      if (route.page === "charts" || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+      const here = shownPerson ?? chartsRoot;
+      if (key === KEY.home && startXref) {
+        e.preventDefault();
+        openPerson(startXref);
+      } else if (key === KEY.tree && here) {
+        e.preventDefault();
+        openCharts(here);
+      } else if (key === KEY.relationship && shownPerson && startXref && shownPerson !== startXref) {
+        e.preventDefault();
+        go({ page: "charts", id: pubId(shownPerson), kind: "relationship" });
+      }
+    };
+  });
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => onKey.current(e);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
+
   const header = (
     <header className="app-head site-head">
       <div className="app-head-top">
@@ -216,8 +291,8 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           <a className={`nav-btn${!homeUrl && route.page === "home" ? " active" : ""}`} href={homeUrl ?? "#/"}>
             <HomeIcon size={16} /> {t("site.nav.home")}
           </a>
-          {startXref && (
-            <a className={`nav-btn${route.page === "charts" ? " active" : ""}`} href={routeHash({ page: "charts", id: pubId(startXref) })}>
+          {chartsRoot && (
+            <a className={`nav-btn${route.page === "charts" ? " active" : ""}`} href={routeHash({ page: "charts", id: pubId(chartsRoot) })}>
               <ChartIcon size={16} /> {t("site.nav.charts")}
             </a>
           )}
@@ -239,22 +314,31 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             type="button"
             className="nav-btn icon-only site-toggle site-lang"
             onClick={() => void i18n.changeLanguage(otherLang)}
-            title={LANGUAGE_NAMES[otherLang]}
-            aria-label={LANGUAGE_NAMES[otherLang]}
-            lang={otherLang}
+            title={langSwitch}
+            aria-label={langSwitch}
           >
-            {LANGUAGE_FLAGS[otherLang]}
+            {LANGUAGE_FLAGS[lang]}
           </button>
           <button
             type="button"
             className={`nav-btn icon-only site-toggle site-search-btn${searching ? " active" : ""}`}
             onClick={() => setSearching((s) => !s)}
-            title={t("site.search.label")}
+            title={keyHint(t("site.search.label"), "/")}
             aria-label={t("site.search.label")}
             aria-expanded={searching}
           >
             <SearchIcon size={16} />
           </button>
+          <button
+            type="button"
+            className="nav-btn icon-only site-toggle site-keys"
+            onClick={() => setShowKeys(true)}
+            title={keyHint(t("shortcuts.title"), "?")}
+            aria-label={t("shortcuts.title")}
+          >
+            ?
+          </button>
+          <ShortcutsModal isOpen={showKeys} onClose={() => setShowKeys(false)} groups={SITE_SHORTCUT_GROUPS} />
         </div>
       </div>
       {searching && (
@@ -396,6 +480,8 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
 
   return (
     <div className="site-home">
+      {/* A row of faces from the family's photos, each opening that person. */}
+      <PhotoTray tree={tree} ds={ds} onNavigate={onNavigate} />
       <section className="site-hero">
         <h1>{tree.title || t("site.untitled")}</h1>
         {intro && <p className="site-intro">{intro}</p>}
@@ -473,7 +559,22 @@ function RecordExtras({ notes, sources }: { notes?: string[]; sources?: PubSourc
 
 /** The events as published: the date in the site's date display, the place
  *  (and address, where published) as text, then the event's notes and sources. */
-function EventRows({ events, family }: { events: PubEvent[] | undefined; family?: boolean }) {
+/** Age badges, "35" or "♂32 ♀28", each with its full age as tooltip. */
+function ageBadges(badges: AgeBadge[] | undefined) {
+  if (!badges) return null;
+  return (
+    <span className="site-event-age">
+      {badges.map((a, i) => <span key={i} title={a.title}>{a.text}</span>)}
+    </span>
+  );
+}
+
+function EventRows({ events, family, ages }: {
+  events: PubEvent[] | undefined;
+  family?: boolean;
+  /** The ages beside each event, as Edit shows them (see ages.ts). */
+  ages?: (e: PubEvent) => AgeBadge[] | undefined;
+}) {
   const { t, i18n } = useTranslation();
   // Re-drawn when the date display is set (the site sets it as it opens).
   useSettingsSlice(DATE_KEYS);
@@ -508,6 +609,8 @@ function EventRows({ events, family }: { events: PubEvent[] | undefined; family?
                 </button>
               ) : where}
               {e.cause && <span className="site-event-cause"> ({e.cause})</span>}
+              {/* The ages at the event, each with its full age as tooltip. */}
+              {ageBadges(ages?.(e))}
               {mapped === i && coord && (
                 <span className="site-event-map">
                   <Suspense fallback={null}>
@@ -556,6 +659,24 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
   const ownFams = indi.spouseOf.map((f) => ds.families.get(f)).filter((f): f is Family => !!f);
   const siblings = [...new Set(parentFams.flatMap((f) => f.children))].filter((c) => c !== id);
   const person = pub.people.get(id);
+  // The start person's control, as in the app's Edit view: the kinship label
+  // itself opens the menu (go to the start person, make this one the start,
+  // choose another, clear), a bare ⌂ where there is no label.
+  const kinship = kin?.label(id);
+  const bareHome = !!startId && !kinship;
+  const startChip = (
+    <StartPersonChip
+      t={t}
+      personId={id}
+      startId={startId}
+      startName={startIndi ? nameOf(startIndi) : undefined}
+      kinship={kinship}
+      kinshipLineage={lineageClass(kin?.lineage(id), kin?.direct(id))}
+      individuals={ds.individuals}
+      onChange={onStartChange}
+      onGoToStart={() => startId && onNavigate(startId)}
+    />
+  );
 
   return (
     <article className="site-person">
@@ -568,23 +689,11 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
             <span className="site-person-years">
               <YearsText text={lifespanLine({ showLifespan: true, showAge }, { years: lifespanOf(indi), age: lifespanAge(indi) }) ?? ""} approx={lifespanApproxOf(indi)} />
             </span>
+            {/* No kinship to name: the bare ⌂ rides after the years rather
+                than taking a line of its own. */}
+            {bareHome && startChip}
           </div>
-          {/* The start person's control, as in the app's Edit view: the kinship
-              label itself opens the menu (go to the start person, make this one
-              the start, choose another), a bare ⌂ where there is no label. */}
-          <div className="site-person-kinship">
-            <StartPersonChip
-              t={t}
-              personId={id}
-              startId={startId}
-              startName={startIndi ? nameOf(startIndi) : undefined}
-              kinship={kin?.label(id)}
-              kinshipLineage={lineageClass(kin?.lineage(id), kin?.direct(id))}
-              individuals={ds.individuals}
-              onChange={onStartChange}
-              onGoToStart={() => startId && onNavigate(startId)}
-            />
-          </div>
+          {!bareHome && <div className="site-person-kinship">{startChip}</div>}
         </div>
         <PersonCharts
           ds={ds}
@@ -595,7 +704,10 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
         />
       </header>
       {person?.living && <p className="site-note">{t(person.deceased ? "site.person.recentDead" : "site.person.living")}</p>}
-      <EventRows events={person?.events} />
+      {/* Their photos: a strip that opens each in the viewer, with the people
+          tagged on it. */}
+      <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate, hideFile: true }} />
+      <EventRows events={person?.events} ages={showAge ? personEventAges(ds, indi, t) : undefined} />
       <RecordExtras notes={person?.notes} sources={person?.sources} />
 
       {parentFams.length > 0 && (
@@ -616,7 +728,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           <section key={f.id} className="site-section">
             <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
             {partner && <p className="site-partner">{link(partner)}</p>}
-            <EventRows events={pub.families.get(f.id)?.events} family />
+            <EventRows events={pub.families.get(f.id)?.events} family ages={showAge ? familyEventAges(ds, f, t) : undefined} />
             <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
             {f.children.length > 0 && (
               <>

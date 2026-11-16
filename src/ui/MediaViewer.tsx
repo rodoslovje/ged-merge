@@ -152,6 +152,9 @@ export interface MediaRefContext {
   /** Why a media item cannot be marked private, when it cannot (see
    *  {@link MediaEdit.privateUnavailable}). */
   privateUnavailable?: (ref: MediaRef) => string | undefined;
+  /** Leave the file's name out of the panel, and out of an untitled photo's
+   *  title (the family website: its files are named by their ids). */
+  hideFile?: boolean;
 }
 
 interface MediaViewerCtx {
@@ -367,7 +370,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
         const eventLabel = ref.eventTag
           ? eventDisplayLabel(ref.eventTag, t)
           : undefined;
-        const metaRows = mediaMetaRows(ref, t);
+        const metaRows = mediaMetaRows(refCtx?.hideFile ? { ...ref, file: undefined } : ref, t);
         if (eventLabel) metaRows.unshift({ label: t("media.field.event"), value: eventLabel });
         // The date the photo depicts, parsed — drives every age display for this
         // photo (the opener's date-row age below, and each tagged person's age on
@@ -418,7 +421,7 @@ export function MediaViewerProvider({ children }: { children: ReactNode }) {
                     : [];
                 }
             : undefined,
-          title: ref.title || basename(ref.file),
+          title: ref.title || (refCtx?.hideFile ? "" : basename(ref.file)),
           // When editable, the form replaces the static rows; otherwise show them.
           meta: onEditMedia ? undefined : metaRows,
           edit: onEditMedia

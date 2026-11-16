@@ -19,9 +19,13 @@ import {
 import { publishedHtml, siteFileName } from "../../publish/page";
 import { clearStoredPublish, readStoredPublish, writeStoredPublish } from "../../publish/stored";
 import type { NameOrder } from "../../gedcom/nameDisplay";
-import { baseStem, downloadText } from "../download";
+import { baseStem, downloadBlob, downloadText } from "../download";
+import { useMediaFolder } from "../MediaFolderContext";
+import { zipFiles, type ZipFile } from "../../publish/zip";
+import { withoutPhotos } from "../../publish/photos";
 import { StartPersonSelector } from "../StartPersonSelector";
 import { SelectMenu } from "../DropdownMenu";
+import { PublishPhotoFolders } from "./PublishPhotoFolders";
 import { overlayDisplayName, useSettingsSlice } from "../SettingsContext";
 import { BASEMAPS, CUSTOM_BASEMAP } from "../map/basemapPresets";
 import { LANGUAGE_FLAGS, LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../../locales/i18n";
@@ -46,7 +50,7 @@ const DISPLAY_TOGGLES: [key: "uppercaseSurname" | "marriedSurname" | "showAge" |
 
 /** Where a download is: which step, and in the walk over the file, how far. */
 interface Phase {
-  step: "viewer" | "data" | "page";
+  step: "viewer" | "data" | "photos" | "page";
   done?: number;
   total?: number;
 }
@@ -91,6 +95,9 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
   }, [persistWorkspace, fileName, options, ownStart]);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // What the last download could not include (photos missing from the folder).
+  const [notice, setNotice] = useState<string | null>(null);
+  const media = useMediaFolder();
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -134,6 +141,7 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
     const version = versionRef.current;
     const alive = () => mounted.current && versionRef.current === version;
     setError(null);
+    setNotice(null);
     setPhase({ step: "viewer" });
     try {
       const bundle = await import("virtual:site-viewer");
@@ -148,9 +156,37 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
         if (mounted.current) setError(t("tools.publish.changed"));
         return;
       }
+      // Photos: each read from the media folder; one that is not there is left
+      // out of the page too, so no picture shows broken.
+      let tree = result.tree;
+      const photos: ZipFile[] = [];
+      if (result.files.length) {
+        const missing = new Set<string>();
+        for (const [i, f] of result.files.entries()) {
+          if (!alive()) return;
+          setPhase({ step: "photos", done: i, total: result.files.length });
+          // The original file, so the photo keeps its time in the ZIP (an
+          // unchanged photo is then skipped by rsync on the next upload).
+          const file = (await media.resolveFileObject?.(f.source)) ?? null;
+          const data = file ? await file.arrayBuffer().catch(() => null) : null;
+          if (file && data) photos.push({ name: f.path, data: new Uint8Array(data), modified: new Date(file.lastModified) });
+          else missing.add(f.path);
+        }
+        if (missing.size) {
+          tree = withoutPhotos(tree, missing);
+          setNotice(t("tools.publish.photosMissing", { count: missing.size }));
+        }
+      }
       setPhase({ step: "page" });
       await nextTask();
-      downloadText(siteFileName(options.title), publishedHtml(result.tree, bundle), "text/html;charset=utf-8");
+      const html = publishedHtml(tree, bundle);
+      if (options.include.photos) {
+        // The page and its photos, ready to unpack onto a web server.
+        const zip = zipFiles([{ name: "index.html", data: new TextEncoder().encode(html) }, ...photos]);
+        downloadBlob(siteFileName(options.title).replace(/\.html$/, ".zip"), new Blob([zip], { type: "application/zip" }));
+      } else {
+        downloadText(siteFileName(options.title), html, "text/html;charset=utf-8");
+      }
     } catch (e) {
       if (alive()) setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -293,6 +329,18 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           ))}
         </div>
         <p className="tools-fix-hint">{t(options.include.addresses ? "tools.publish.include.addressesOn" : "tools.publish.include.addressesOff")}</p>
+        {/* Photos are read from the media folder, as the app shows them. */}
+        {options.include.photos && (
+          <p className="tools-fix-hint">
+            {media.folderName ? t("tools.publish.photosHint", { folder: media.folderName }) : t("tools.publish.photosNoFolder")}{" "}
+            {!media.folderName && (
+              <button type="button" className="tools-issue-link" onClick={() => void media.openFolder()}>{t("media.chooseFolder")}</button>
+            )}
+          </p>
+        )}
+        {options.include.photos && (
+          <PublishPhotoFolders dataset={dataset} value={options.photoFolders} onChange={(photoFolders) => set({ photoFolders })} />
+        )}
       </div>
 
       {/* The site's map: a base map, and which of the author's extra layers
@@ -378,15 +426,19 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           <p className="tools-fix-hint">
             {t("tools.publish.left", { reduced: num(summary.livingReduced), hidden: num(summary.livingHidden), private: num(summary.privateHidden) })}
           </p>
+          {options.include.photos && (
+            <p className="tools-fix-hint">{t("tools.publish.photosCount", { count: summary.photos, withheld: num(summary.photosWithheld) })}</p>
+          )}
           <p className="tools-fix-hint">{t("tools.publish.omitted")}</p>
         </div>
       )}
 
       {error && <p className="tools-error">{t("tools.publish.error", { message: error })}</p>}
+      {notice && <p className="tools-fix-hint">{notice}</p>}
       {/* The steps run beside the button, where the eye already is. */}
       <div className="tools-publish-run">
         <button className="nav-btn primary tools-run" onClick={() => void download()} disabled={!!phase || !summary?.people}>
-          {t("tools.publish.download")}
+          {t(options.include.photos ? "tools.publish.downloadZip" : "tools.publish.download")}
         </button>
         {phase && (
           <ToolsLoading

@@ -75,10 +75,33 @@
   color: var(--text);
 }
 
+/* Tablet and phone: the title with the theme, language, search and ? buttons
+   on the first row, the three pages under them. The app drops its page
+   padding here (its sections run edge to edge); the site's pages keep a 16px
+   side margin instead, and the charts' own frame keeps the full width. */
 @media (max-width: 880px) {
   .site-head .app-head-top {
     flex-wrap: wrap;
     row-gap: 10px;
+  }
+  .site-prefs {
+    order: 1;
+  }
+  .site-nav {
+    order: 2;
+    width: 100%;
+  }
+  .app.site:not(.tree-shell) {
+    padding: 0 16px 8px;
+  }
+  .app.site:not(.tree-shell) > .site-head {
+    padding: 16px 0 0;
+  }
+  .app.site.tree-shell > .site-foot {
+    padding-inline: 16px;
+  }
+  .site-main {
+    padding-top: 12px;
   }
 }
 
@@ -136,14 +159,111 @@
   max-width: 640px;
 }
 
-/* The header's search, opened under the header row on any page. */
+/* The header's search, opened under the header row on any page: over the gap
+   between the header and the page, which it does not push down. */
 .app-head.site-head {
   position: relative;
 }
 .site-search-pop {
-  margin-top: 10px;
-  max-width: 420px;
-  margin-left: auto;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 30;
+  width: min(420px, 100%);
+  margin-top: 2px;
+}
+/* Its matches grow leftwards from the field's right edge, never past the
+   page's. */
+.site-search-pop .start-options {
+  left: auto;
+  right: 0;
+}
+
+/* ── A strip of the family's photos, atop the front page ─────── */
+
+/* Whole photos, one height, edge to edge with no gaps; on a narrow screen
+   the rest scroll in sideways, without a scrollbar. */
+.site-tray {
+  display: flex;
+  height: 120px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 24px;
+  border-block: 1px solid var(--border);
+  background: var(--panel);
+  scrollbar-width: none;
+}
+.site-tray::-webkit-scrollbar {
+  display: none;
+}
+.site-tray-photo {
+  flex: none;
+  height: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.site-tray-photo img {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+.site-tray-photo:hover img,
+.site-tray-photo:focus-visible img {
+  opacity: 0.8;
+}
+.site-tray-photo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* The arrows at the strip's ends, over its photos. */
+.site-tray-wrap {
+  position: relative;
+}
+.site-tray-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  opacity: 0.85;
+  cursor: pointer;
+}
+.site-tray-arrow:hover,
+.site-tray-arrow:focus-visible {
+  opacity: 1;
+  border-color: var(--accent);
+}
+.site-tray-back {
+  left: 6px;
+}
+.site-tray-on {
+  right: 6px;
+}
+/* On a tablet or phone the strip runs from edge to edge of the screen. */
+@media (max-width: 880px) {
+  .site-tray-wrap {
+    margin-inline: -16px;
+  }
+  .site-tray {
+    border-inline: none;
+  }
+}
+@media (max-width: 560px) {
+  .site-tray {
+    height: 88px;
+  }
 }
 
 /* ── Highlights on the front page ───────────────────────────── */
@@ -245,7 +365,10 @@
 
 /* ── Person page ────────────────────────────────────────────── */
 
-.site-person {
+/* The head (name, then the chart tiles at the right), the photos and the
+   events take the page's whole width, so an event and its ages keep to one
+   line; the notes and the family below keep a reading width. */
+.site-person > :not(.site-person-head, .site-events, .person-media) {
   max-width: 760px;
 }
 
@@ -373,6 +496,19 @@
   color: var(--muted);
 }
 
+/* Ages after an event's date, as in Edit: "35", or "♂32 ♀28" at a birth. */
+.site-event-age {
+  display: inline-flex;
+  gap: 0.4em;
+  margin-left: 0.6em;
+  color: var(--muted);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+.site-event-age span {
+  cursor: help;
+}
+
 /* A place with a coordinate: a link that opens it on a small map below. */
 .site-place-link {
   display: inline-flex;
@@ -457,8 +593,20 @@
   .site-head .app-head-top {
     gap: 8px;
   }
+  /* The title keeps the buttons beside it, wrapping (at its hyphens, or
+     anywhere in one long word) rather than pushing them to a row of their own. */
   .site-title {
-    width: 100%;
+    flex: 1 1 0;
+    font-size: 1.2rem;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  /* The three pages share the row evenly. */
+  .site-nav .nav-btn {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
   }
   .site-charts {
     margin-left: 0;
