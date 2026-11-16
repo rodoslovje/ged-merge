@@ -22,7 +22,7 @@ import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { displayDateText } from "../gedcom/dateDisplay";
-import { customEventLabel, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
+import { customEventLabel, EVENT_GLYPHS, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { StartPersonChip } from "../ui/edit/StartPersonChip";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
@@ -633,15 +633,21 @@ function EventRows({ events, family, ages }: {
         const label = (e.tag === "EVEN" || e.tag === "FACT") && e.type
           ? customEventLabel(e.type, t, i18n.language)
           : family ? familyEventLabel(e.tag, t) : eventDisplayLabel(e.tag, t);
-        const text = [e.value, e.date && displayDateText(e.date)].filter(Boolean);
+        const date = e.date && displayDateText(e.date);
         const where = [e.address, e.place].filter(Boolean).join(", ");
         const coord = e.lat !== undefined && e.lon !== undefined ? { lat: e.lat, lon: e.lon } : undefined;
         return (
           <div key={i} className="site-event">
-            <dt>{label}</dt>
+            {/* The event's mark, then its name. */}
+            <dt>
+              <span className="site-event-glyph" aria-hidden="true">{EVENT_GLYPHS[e.tag] ?? "•"}</span>
+              {label}
+            </dt>
             <dd>
-              {text.join(", ")}
-              {text.length > 0 && where && ", "}
+              {e.value}
+              {e.value && date && ", "}
+              {date && <span className="site-event-date gm-data">{date}</span>}
+              {(e.value || date) && where && " · "}
               {/* A place with a coordinate opens it on a small map, in place. */}
               {where && coord ? (
                 <button

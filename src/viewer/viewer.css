@@ -757,11 +757,13 @@
   font-style: italic;
 }
 
+/* The life events: a row each — the mark and name of the event, then its
+   date (in figures that line up) and place — with a hairline between rows. */
 .site-events {
   margin: 16px 0;
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
+  gap: 0 20px;
 }
 
 .site-event {
@@ -769,11 +771,35 @@
 }
 
 .site-event dt {
+  display: flex;
+  gap: 8px;
   color: var(--muted);
+  font-weight: 500;
+}
+
+.site-event dt,
+.site-event dd {
+  padding-block: 8px;
+}
+.site-event + .site-event > dt,
+.site-event + .site-event > dd {
+  border-top: 1px solid var(--border);
 }
 
 .site-event dd {
   margin: 0;
+}
+
+.site-event-glyph {
+  width: 1.25em;
+  flex: none;
+  text-align: center;
+}
+
+.site-event-date {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+  font-variant-numeric: tabular-nums;
 }
 
 .site-event-cause {
@@ -819,8 +845,10 @@
 .site-event-note,
 .site-event-source {
   display: block;
+  max-width: 65ch;
+  margin-top: 4px;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   white-space: pre-line;
 }
 
@@ -915,8 +943,12 @@
     grid-template-columns: 1fr;
     gap: 0;
   }
+  /* One column: the name over its date and place, the hairline over the pair. */
   .site-event dd {
-    margin-bottom: 8px;
+    padding-top: 0;
+  }
+  .site-event + .site-event > dd {
+    border-top: none;
   }
 }
 
