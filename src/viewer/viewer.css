@@ -2,6 +2,13 @@
    components, plus this page frame — a header with the site's title, its three
    pages and the language switch, and the front page / person page bodies. */
 
+/* Links take the theme's colour, visited or not — never the browser's blue.
+   `:where` keeps the rule weightless, so buttons and tiles drawn as links
+   (.nav-btn, .site-chart …) keep their own colours. */
+:where(.app.site) a {
+  color: var(--accent);
+}
+
 /* The front, person and statistics pages scroll as a page; the charts keep
    the app's full-height shell, which their canvas sizes itself in. */
 .app.site:not(.tree-shell) {
@@ -301,14 +308,16 @@
   font-size: 0.75rem;
   color: var(--muted);
 }
+/* The map tile has no caption: the preview fills it, as tall as the others. */
 .site-chart-map {
-  padding: 4px 4px 6px;
+  padding: 3px;
 }
 /* The map is a picture here: the tile's link takes every click. */
 .site-chart-preview {
   display: block;
-  width: 150px;
-  height: 84px;
+  width: 130px;
+  height: 100%;
+  min-height: 62px;
   overflow: hidden;
   border-radius: var(--radius-sm);
   pointer-events: none;

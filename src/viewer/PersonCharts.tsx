@@ -31,30 +31,30 @@ export function PersonCharts({ ds, id, startId, kinship, timeline }: {
   return (
     <nav className="site-charts" aria-label={t("charts.kind.label")}>
       {map && (
-        <a className="site-chart site-chart-map" href={href("map")} title={t("map.button")}>
+        // The map speaks for itself: its name is the tooltip, not a caption.
+        <a className="site-chart site-chart-map" href={href("map")} title={t("map.button")} aria-label={t("map.button")}>
           {/* A picture of the map: the link above it takes the clicks. */}
           <span className="site-chart-preview" aria-hidden="true">
             <Suspense fallback={null}>
               <MiniPlaceMap pins={map.pins} path={map.path} fitKey={id} />
             </Suspense>
           </span>
-          <span className="site-chart-label">{t("map.button")}</span>
         </a>
       )}
       <a className="site-chart" href={href("fan")} title={t("tree.settings.type.fan")}>
         <FanIcon size={26} />
         <span className="site-chart-label">{t("tree.settings.type.fan")}</span>
       </a>
-      {relation && (
-        <a className="site-chart" href={href("relationship")} title={kinship ?? t("relpath.button")}>
-          <RelationIcon size={26} />
-          <span className="site-chart-label">{t("relpath.button")}</span>
-        </a>
-      )}
       {timeline && (
         <a className="site-chart" href={href("timeline")} title={t("timeline.button")}>
           <TimelineIcon size={26} />
           <span className="site-chart-label">{t("timeline.button")}</span>
+        </a>
+      )}
+      {relation && (
+        <a className="site-chart" href={href("relationship")} title={kinship ?? t("relpath.button")}>
+          <RelationIcon size={26} />
+          <span className="site-chart-label">{t("relpath.button")}</span>
         </a>
       )}
     </nav>
