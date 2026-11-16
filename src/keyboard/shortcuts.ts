@@ -23,6 +23,9 @@ export const KEY = {
   tree: "v",
   /** K for kinship: the relationship diagram. */
   relationship: "k",
+  /** The statistics, from anywhere: Tools → Statistics in the app, the
+   *  statistics page on the family website. */
+  stats: "s",
   /** Edit mode: jump to the start ("home") person. */
   home: "h",
   /** Add a new person attached to nobody, from any mode. */
@@ -38,13 +41,6 @@ export const KEY = {
   fan: "p",
   timeline: "l",
   map: "g",
-} as const;
-
-/** Keys of the family website alone (src/viewer), where the app has no such
- *  page; listed on its sheet (SITE_SHORTCUT_GROUPS), not the app's. */
-export const SITE_KEY = {
-  /** The statistics page. */
-  stats: "s",
 } as const;
 
 /** Bare keys active on the full-page chart overlays (handled by
@@ -204,6 +200,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { keys: [[KEY.modeEdit.toUpperCase()]], descKey: "shortcuts.item.modeEdit", scope: ["edit", "merge", "tools"] },
       { keys: [[KEY.modeMerge.toUpperCase()]], descKey: "shortcuts.item.modeMerge" },
       { keys: [[KEY.modeTools.toUpperCase()]], descKey: "shortcuts.item.modeTools" },
+      { keys: [[KEY.stats.toUpperCase()]], descKey: "shortcuts.item.stats" },
     ],
   },
   {
@@ -347,7 +344,7 @@ export const SITE_SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { keys: [[KEY.home.toUpperCase()]], descKey: "shortcuts.site.home" },
       { keys: [[KEY.tree.toUpperCase()]], descKey: "shortcuts.site.charts" },
-      { keys: [[SITE_KEY.stats.toUpperCase()]], descKey: "shortcuts.site.stats" },
+      { keys: [[KEY.stats.toUpperCase()]], descKey: "shortcuts.site.stats" },
       { keys: [[KEY.relationship.toUpperCase()]], descKey: "shortcuts.site.relationship" },
       { keys: [[KEY.fan.toUpperCase()], [KEY.timeline.toUpperCase()], [KEY.map.toUpperCase()]], descKey: "shortcuts.item.chartKinds" },
       { keys: [["alt", "↑"], ["alt", "shift", "↑"]], descKey: "shortcuts.site.goParent" },

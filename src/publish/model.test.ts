@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, type PublishOptions } from "./model";
 import { hydrateTree, pubId } from "./hydrate";
-import { inlineSafe, publishedHtml, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
+import { inlineSafe, publishedHtml, publishedSiteFiles, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -408,6 +408,25 @@ describe("publishedHtml", () => {
     const text = siteDescription({ ...build({ intro: { sl: long } }).tree });
     expect(text.length).toBeLessThanOrEqual(200);
     expect(text.endsWith("beseda…")).toBe(true);
+  });
+
+  it("splits the site into a small page, its data and the viewer named by content", () => {
+    const { tree } = build({ title: "Rodbina" });
+    const bundle = { js: "console.log(1)", css: "a{}" };
+    const files = publishedSiteFiles(tree, bundle);
+    const [index, data, js, css] = files;
+    expect(files.map((f) => f.name.replace(/[0-9a-f]{8}/, "H"))).toEqual(["index.html", "data.js", "viewer-H.js", "viewer-H.css"]);
+    // The page: the head a preview reads and the references — no data, no code.
+    expect(index.text).toContain('<meta property="og:title" content="Rodbina">');
+    expect(index.text).toContain(`<link rel="stylesheet" href="${css.name}">`);
+    expect(index.text).toContain(`<script src="data.js"></script>\n<script src="${js.name}"></script>`);
+    expect(index.text).not.toContain("console.log");
+    expect(index.text.length).toBeLessThan(5000);
+    expect(data.text).toMatch(/^window\.gedmergeSite=\{/);
+    expect(JSON.parse(data.text.replace(/^window\.gedmergeSite=|;\n$/g, "")).title).toBe("Rodbina");
+    // Only the viewer's files are stable, and their name follows their content.
+    expect(files.map((f) => !!f.stable)).toEqual([false, false, true, true]);
+    expect(publishedSiteFiles(tree, { ...bundle, js: "console.log(2)" })[2].name).not.toBe(js.name);
   });
 
   it("escapes helpers", () => {

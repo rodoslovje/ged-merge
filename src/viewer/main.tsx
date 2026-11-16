@@ -21,7 +21,7 @@ import { PublishedViewContext, type PublishedView } from "../ui/PublishedView";
 import { exportSiteLink, setExportSite } from "../ui/exportSvg";
 import { adoptSiteFavicon } from "./favicon";
 import { ChangeJournal } from "../state/mainSync";
-import { DATA_ELEMENT_ID } from "../publish/page";
+import { DATA_ELEMENT_ID, DATA_GLOBAL } from "../publish/page";
 import { PUBLISHED_FORMAT, type PublishedTree } from "../publish/model";
 import { hydrateTree, pubId, xrefOf } from "../publish/hydrate";
 import { routeHash } from "./route";
@@ -30,8 +30,11 @@ import { ViewerApp } from "./ViewerApp";
 const LANG_KEY = "gedmerge-site.lang";
 
 function readTree(): PublishedTree {
-  const text = document.getElementById(DATA_ELEMENT_ID)?.textContent;
-  const tree = text ? (JSON.parse(text) as PublishedTree) : undefined;
+  // A ZIP's site: `data.js` has left it on the window. One file's: it is in
+  // the page itself.
+  const loaded = (window as unknown as Record<string, unknown>)[DATA_GLOBAL] as PublishedTree | undefined;
+  const text = loaded ? undefined : document.getElementById(DATA_ELEMENT_ID)?.textContent;
+  const tree = loaded ?? (text ? (JSON.parse(text) as PublishedTree) : undefined);
   if (tree?.format !== PUBLISHED_FORMAT) throw new Error("No family tree data on this page.");
   return tree;
 }

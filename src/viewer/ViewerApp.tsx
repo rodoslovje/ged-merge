@@ -36,7 +36,7 @@ import { PhotoTray } from "./PhotoTray";
 import { familyEventAges, personEventAges } from "./ages";
 import type { AgeBadge } from "../gedcom/age";
 import { ShortcutsModal } from "../ui/ShortcutsModal";
-import { KEY, SITE_KEY, SITE_SHORTCUT_GROUPS, familyStepFor, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
+import { KEY, SITE_SHORTCUT_GROUPS, familyStepFor, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 import { PersonMedia } from "../ui/PersonMedia";
 import { MapIcon } from "../ui/icons/MapIcon";
@@ -276,7 +276,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
         return;
       }
       // S: the statistics, from any page, a chart page too.
-      if (e.key.toLowerCase() === SITE_KEY.stats && !e.shiftKey) {
+      if (e.key.toLowerCase() === KEY.stats && !e.shiftKey) {
         e.preventDefault();
         go({ page: "stats" });
         return;
@@ -328,7 +328,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           <a
             className={`nav-btn${route.page === "stats" ? " active" : ""}`}
             href="#/stats"
-            title={keyHint(t("site.nav.stats"), SITE_KEY.stats.toUpperCase())}
+            title={keyHint(t("site.nav.stats"), KEY.stats.toUpperCase())}
           >
             <StatsIcon size={16} /> {t("site.nav.stats")}
           </a>
@@ -371,7 +371,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           >
             ?
           </button>
-          <ShortcutsModal isOpen={showKeys} onClose={() => setShowKeys(false)} groups={SITE_SHORTCUT_GROUPS} />
+          <ShortcutsModal isOpen={showKeys} onClose={() => setShowKeys(false)} groups={SITE_SHORTCUT_GROUPS} compact />
         </div>
       </div>
       {searching && (

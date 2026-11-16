@@ -91,6 +91,17 @@ export function shareMeta(tree: PublishedTree): string {
 /** The whole site as one self-contained HTML file: open it from disk, or put it
  *  on any static web server. */
 export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string {
+  return pageShell(
+    tree,
+    `<style>${inlineSafe(bundle.css, "style")}</style>`,
+    `<script type="application/json" id="${DATA_ELEMENT_ID}">${scriptSafeJson(tree)}</script>
+<script>${inlineSafe(bundle.js, "script")}</script>`,
+  );
+}
+
+/** The page around the viewer: the head (title, a shared link's preview, the
+ *  icon, the theme before the first paint), then the root the viewer fills. */
+function pageShell(tree: PublishedTree, styles: string, scripts: string): string {
   const title = escapeHtml(tree.title || "Family tree");
   return `<!doctype html>
 <html lang="${escapeHtml(tree.lang)}">
@@ -103,15 +114,59 @@ export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string
 ${shareMeta(tree)}
 <link rel="icon" type="image/svg+xml" href="${DEFAULT_FAVICON}">
 <script>${THEME_BOOT}</script>
-<style>${inlineSafe(bundle.css, "style")}</style>
+${styles}
 </head>
 <body>
 <div id="root"></div>
-<script type="application/json" id="${DATA_ELEMENT_ID}">${scriptSafeJson(tree)}</script>
-<script>${inlineSafe(bundle.js, "script")}</script>
+${scripts}
 </body>
 </html>
 `;
+}
+
+/** Where `data.js` leaves the site's data for the viewer (see `viewer/main.tsx`). */
+export const DATA_GLOBAL = "gedmergeSite";
+export const DATA_FILE = "data.js";
+
+/** A short content hash (FNV-1a, hex), to name the viewer's files by what they hold. */
+function contentHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+export interface SiteFile {
+  name: string;
+  text: string;
+  /** Named after its content: the same name is the same file, whatever the
+   *  export, so it may carry a fixed time (an unchanged copy then stays
+   *  unchanged for rsync and a browser's cache). */
+  stable?: true;
+}
+
+/**
+ * The site as files beside each other — the ZIP's form: a small `index.html`
+ * (the head a shared link's preview reads, and three references), the data in
+ * `data.js`, and the viewer in files named by their content. A link preview
+ * reads only the start of a page, and a large page is refused outright; this
+ * one is a few kilobytes. Plain `<script src>`, so it opens from disk too.
+ */
+export function publishedSiteFiles(tree: PublishedTree, bundle: ViewerBundle): SiteFile[] {
+  const hash = contentHash(bundle.js + bundle.css);
+  const js = `viewer-${hash}.js`;
+  const css = `viewer-${hash}.css`;
+  return [
+    {
+      name: "index.html",
+      text: pageShell(tree, `<link rel="stylesheet" href="${css}">`, `<script src="${DATA_FILE}"></script>\n<script src="${js}"></script>`),
+    },
+    { name: DATA_FILE, text: `window.${DATA_GLOBAL}=${scriptSafeJson(tree)};\n` },
+    { name: js, text: bundle.js, stable: true },
+    { name: css, text: bundle.css, stable: true },
+  ];
 }
 
 /** A file name for the site: the title, slugged. */

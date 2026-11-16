@@ -57,6 +57,13 @@ test("K then Backspace returns to Merge on the same pair", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Timeline", selected: true })).toBeVisible();
   await page.keyboard.press("Backspace");
   await expect(selected).toContainText("Peter");
+
+  // S: Tools → Statistics from any mode; Back returns to the pair.
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("s");
+  await expect(page.locator(".tools-tab.active", { hasText: "Statistics" })).toBeVisible();
+  await page.goBack();
+  await expect(selected).toContainText("Peter");
 });
 
 test("a pair shown in Matches from the Compare Tree is a Merge page Back returns to", async ({ page }) => {

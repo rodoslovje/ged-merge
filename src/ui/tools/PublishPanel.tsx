@@ -16,7 +16,10 @@ import {
   type SiteDisplay,
   type StartPage,
 } from "../../publish/model";
-import { publishedHtml, siteFileName } from "../../publish/page";
+import { publishedHtml, publishedSiteFiles, siteFileName } from "../../publish/page";
+
+/** The time the viewer's content-named files carry in the ZIP: any fixed one. */
+const STABLE_TIME = new Date(Date.UTC(2026, 0, 1));
 import { clearStoredPublish, readStoredPublish, writeStoredPublish } from "../../publish/stored";
 import type { NameOrder } from "../../gedcom/nameDisplay";
 import { baseStem, downloadBlob, downloadText } from "../download";
@@ -180,13 +183,21 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
       }
       setPhase({ step: "page" });
       await nextTask();
-      const html = publishedHtml(tree, bundle);
       if (options.include.photos) {
-        // The page and its photos, ready to unpack onto a web server.
-        const zip = zipFiles([{ name: "index.html", data: new TextEncoder().encode(html) }, ...photos]);
+        // The site as files and its photos, ready to unpack onto a web server:
+        // a small index.html a link preview can read. The viewer's files keep
+        // a fixed time — their names change with their content — so rsync
+        // skips them until GED Merge changes.
+        const enc = new TextEncoder();
+        const site = publishedSiteFiles(tree, bundle).map((f) => ({
+          name: f.name,
+          data: enc.encode(f.text),
+          ...(f.stable ? { modified: STABLE_TIME } : {}),
+        }));
+        const zip = zipFiles([...site, ...photos]);
         downloadBlob(siteFileName(options.title).replace(/\.html$/, ".zip"), new Blob([zip], { type: "application/zip" }));
       } else {
-        downloadText(siteFileName(options.title), html, "text/html;charset=utf-8");
+        downloadText(siteFileName(options.title), publishedHtml(tree, bundle), "text/html;charset=utf-8");
       }
     } catch (e) {
       if (alive()) setError(e instanceof Error ? e.message : String(e));

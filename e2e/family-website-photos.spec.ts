@@ -57,9 +57,14 @@ test("the family website with photos downloads as a ZIP that works from disk", a
   const zip = readFileSync((await file.path())!);
   const buffer = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength);
   const entries = zipEntries(buffer);
-  expect(entries.map((e) => e.name.replace(/\/o[0-9a-z]+\./, "/ID."))).toEqual(["index.html", "photos/ID.png"]);
+  // A small page, its data, the viewer named by its content, the photos.
+  expect(entries.map((e) => e.name.replace(/\/o[0-9a-z]+\./, "/ID.").replace(/-[0-9a-f]{8}\./, "-H."))).toEqual([
+    "index.html", "data.js", "viewer-H.js", "viewer-H.css", "photos/ID.png",
+  ]);
+  expect(entries[0].uncompressedSize).toBeLessThan(10_000);
   // The extended-timestamp field, just before the photo's data.
-  expect(new DataView(buffer).getUint32(entries[1].dataStart - 4, true)).toBe(TAKEN.getTime() / 1000);
+  const photo = entries.find((e) => e.name.startsWith("photos/"))!;
+  expect(new DataView(buffer).getUint32(photo.dataStart - 4, true)).toBe(TAKEN.getTime() / 1000);
 
   // Unpacked, as a relative would.
   const site = path.join(DIR, "site");
