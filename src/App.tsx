@@ -1461,11 +1461,16 @@ function AppContent() {
     goToPage({ mode: "tools" });
   }
 
+  // S: Tools → Statistics, from any mode or chart page.
+  function openStats() {
+    (overlayOpen ? goToPageFromOverlay : goToPage)({ mode: "tools", tool: "stats" });
+  }
+
   // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
   // Kept locale-independent — label-derived first letters collided across
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
-  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader });
-  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader };
+  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, openStats, leaveOverlayFor, openCharts: openChartsFromHeader });
+  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, openStats, leaveOverlayFor, openCharts: openChartsFromHeader };
 
   // A mode letter on a full-page chart leaves it for that mode, the person the
   // chart stands on carried along as a mode switch carries Merge's selection.
@@ -1485,6 +1490,11 @@ function AppContent() {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
+      if (key === KEY.stats && !e.defaultPrevented && mainDatasetRef.current) {
+        e.preventDefault();
+        modeSwitchRef.current.openStats();
+        return;
+      }
       if (overlayOpenRef.current) {
         // A chart that took the key (E on a selected node) has the say.
         if (e.defaultPrevented) return;

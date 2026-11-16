@@ -1876,24 +1876,27 @@
                 <li><strong>Žive osebe</strong> — izpustite jih ali pa pokažete njihove začetnice, samo ime, ime in priimek ali vse podatke. Osebe, umrle v zadnjih 20 letih, se objavijo enako kot žive, označene kot pokojne, a brez datuma; toliko let zahteva slovenski zakon o varstvu osebnih podatkov (ZVOP-2), število pa lahko spremenite. Osebe, označene kot zasebne, se ne objavijo nikoli.</li>
                 <li><strong>Koga objavim</strong> — vse osebe v datoteki, krvne sorodnike izhodiščne osebe ali njene prednike in potomce, skupaj z zakonci ali brez njih.</li>
                 <li><strong>Objavi tudi</strong> — vire, naslove in opombe; vsako od teh se objavi šele, ko ga obkljukate. Brez naslovov se dogodek na hišnem naslovu prikaže pri naselju, tudi na zemljevidu.</li>
-                <li><strong>Fotografije</strong> — fotografije iz vaše mape z mediji, po mapah: izpuščene, na straneh oseb ali tam in še v traku fotografij na vrhu začetne strani. Fotografija, na kateri je kdo skrit, se ne objavi nikoli, tudi skupinska ne. S fotografijami se stran prenese kot ZIP: <code>index.html</code> in mapa <code>photos</code>. Vsaka fotografija obdrži čas izvirnika, zato <code>rsync</code> po razpakiranju na strežnik pošlje le spremenjene fotografije. <em>Naslovna fotografija</em>, ki jo izberete sami, stoji ob naslovu na začetni strani in je slika ob deljeni povezavi; ker jo izberete vi, se objavi ne glede na to, kdo je na njej, vendar le kot naslovna.</li>
+                <li><strong>Fotografije</strong> — fotografije iz vaše mape z mediji, po mapah: izpuščene, na straneh oseb ali tam in še v traku fotografij na vrhu začetne strani. Fotografija, na kateri je kdo skrit, se ne objavi nikoli, tudi skupinska ne. S fotografijami se stran prenese kot ZIP: majhna <code>index.html</code>, ki jo predogled deljene povezave hitro prebere, datoteke, ki jih naloži, in mapa <code>photos</code>. Vsaka fotografija obdrži čas izvirnika, zato <code>rsync</code> po razpakiranju na strežnik pošlje le spremenjene fotografije. <em>Naslovna fotografija</em>, ki jo izberete sami, stoji ob naslovu na začetni strani in je slika ob deljeni povezavi; ker jo izberete vi, se objavi ne glede na to, kdo je na njej, vendar le kot naslovna.</li>
                 <li><strong>Zemljevid</strong> — osnovni zemljevid in tisti vaši dodatni sloji (Nastavitve → Zemljevid), ki jih obiskovalci smejo vklopiti.</li>
                 <li><strong>Prikaz oseb</strong> — vrstni red imena, prikaz datumov, starosti in oznake sorodstva; izhodišče so vaše nastavitve.</li>
                 <li><strong>Prenosi</strong> — ali lahko obiskovalci prenesejo diagrame, poročila in statistiko.</li>
+                <li><strong>Iskalniki</strong> — stran jih prosi, naj je ne vključijo, razen če jim indeksiranje dovolite; imena in datumi vseh objavljenih oseb se nato lahko pojavijo v rezultatih iskanja.</li>
               </ul>
             </div>
             <p>
               Stran dopolnijo še naslov, nekaj besed za sorodnike v vsakem jeziku, izhodiščna oseba in začetna stran.
               V polje <em>Naslov spletne strani</em> vpišete, kam boste stran naložili: gumb Domov na strani vodi tja,
-              diagrami, ki jih obiskovalci prenesejo, pa ta naslov navajajo poleg »Narejeno z GED Merge«. Ikona strani je
-              ikona tega spletnega mesta (njegov <code>favicon.ico</code>), če obstaja, sicer pa ikona GED Merge. Vsaka oseba in
+              diagrami, ki jih obiskovalci prenesejo, pa ta naslov navajajo poleg »Narejeno z GED Merge«. Ikona strani je slika,
+              ki jo navedete v polju <em>Ikona strani</em>, sicer ikona tega spletnega mesta (njegov <code>favicon.ico</code>), če obstaja, in nazadnje ikona GED Merge. Vsaka oseba in
               vsak pogled vsakega diagrama ima svoj naslov, zato povezava, ki jo pošljete sorodniku, odpre točno to, kar
               ste videli vi. Na strani osebe so ob imenu mali zemljevid njenih krajev in ploščice za pahljačo, časovnico
               in sorodstvo, njene fotografije se odprejo v pregledovalniku z označenimi osebami, ob vsakem dogodku so
               starosti kot v Urejanju, klik na osebo v diagramu pa odpre njeno stran. Stran pozna tudi bližnjice na
               tipkovnici aplikacije — seznam pokaže tipka <kbd>?</kbd>. Povezava do strani, deljena na Facebooku, WhatsAppu
               in podobnih, pokaže naslov, vaše besedilo in naslovno fotografijo; za fotografijo mora biti vpisan
-              <em>Naslov spletne strani</em>, saj jo predogled najde le po polnem naslovu. Povezava do diagrama
+              <em>Naslov spletne strani</em>, saj jo predogled najde le po polnem naslovu. Če je to vaša spletna stran,
+              ki vodi na družinsko stran, vpišite še naslov družinske strani (<em>Naslov te strani</em>); tam predogled
+              najde svojo sliko — manjšo kopijo naslovne fotografije, ki jo sprejme vsaka storitev. Povezava do diagrama
               sorodstva navaja obe osebi, zato vsakomur pokaže isti dve. Če delovni prostor hranite v brskalniku, si orodje izbire zapomni za vsako datoteko posebej.
             </p>
             <h3 id="tool-sources">Viri</h3>
@@ -3707,6 +3710,7 @@
                 <tr><td><span class="gm-key">?</span> / <span class="gm-key">F1</span></td><td>Prikaži seznam bližnjic — F1 deluje tudi iz polja, ki ga urejate</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Zapusti polje, ki ga urejate, in ohrani vpisano (Urejanje) / zapri okno / zapusti stran z diagramom</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Preklopi na Urejanje · Združevanje · Orodja</td></tr>
+                <tr><td><span class="gm-key">S</span></td><td>Odpri statistiko (Orodja)</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Pomakni primerjavo (Združevanje); po tipki <span class="gm-key">Enter</span> se s puščicama premikate po njenih poljih</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Premakni označeno vrstico seznama, v katerem ste — polja primerjave, pari dvojnikov, ugotovitve Pregleda, zadetki iskanja</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Prejšnje / naslednje ujemanje — v Združevanju in Urejanju ter na seznamu dvojnikov</td></tr>

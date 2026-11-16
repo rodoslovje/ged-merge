@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, type PublishOptions } from "./model";
+import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, iconAddress, type PublishOptions } from "./model";
 import { hydrateTree, pubId } from "./hydrate";
-import { inlineSafe, publishedHtml, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
+import { inlineSafe, publishedHtml, publishedSiteFiles, scriptSafeJson, shareMeta, siteDescription, siteFileName } from "./page";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -403,11 +403,74 @@ describe("publishedHtml", () => {
     expect(meta("https://rodbina.si/")).toContain('content="summary_large_image"');
   });
 
+  it("names the page's own address, the small preview image and GED Merge", () => {
+    const base = build({ title: "Rodbina", intro: { sl: "Pozdravljeni." } }).tree;
+    const tree = {
+      ...base,
+      url: "renko.example",
+      siteUrl: "family.renko.example",
+      photos: [{ id: "o1", path: "photos/o1.jpg" }],
+      cover: "o1",
+      preview: { path: "photos/o1-preview.jpg", width: 1200, height: 800 },
+    };
+    const meta = { title: "Rodbina · Družinsko drevo · GED Merge", credit: "Narejeno z GED Merge (gedmerge.com)." };
+    const tags = shareMeta(tree, meta);
+    expect(tags).toContain('<meta property="og:url" content="https://family.renko.example">');
+    expect(tags).toContain('<meta property="og:image" content="https://family.renko.example/photos/o1-preview.jpg">');
+    expect(tags).toContain('<meta property="og:image:width" content="1200">');
+    expect(tags).toContain('<meta property="og:site_name" content="Rodbina">');
+    expect(tags).toContain('<meta property="og:title" content="Rodbina · Družinsko drevo · GED Merge">');
+    expect(tags).toContain('<meta name="description" content="Pozdravljeni. Narejeno z GED Merge (gedmerge.com).">');
+    expect(publishedSiteFiles(tree, { js: "", css: "" }, meta)[0].text).toContain("<title>Rodbina · Družinsko drevo · GED Merge</title>");
+    // The credit stays whole; a long intro makes room for it.
+    const long = siteDescription({ ...tree, intro: { sl: "beseda ".repeat(60) } }, meta.credit);
+    expect(long.length).toBeLessThanOrEqual(200);
+    expect(long.endsWith("… Narejeno z GED Merge (gedmerge.com).")).toBe(true);
+  });
+
+  it("puts the author's icon in the page, else GED Merge's", () => {
+    const bundle = { js: "", css: "" };
+    expect(publishedHtml(build({}).tree, bundle)).toContain('<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,');
+    const named = build({ favicon: "renko.example/user/themes/renko/images/favicon.png" }).tree;
+    expect(named.favicon).toBe("https://renko.example/user/themes/renko/images/favicon.png");
+    expect(publishedSiteFiles(named, bundle)[0].text).toContain('<link rel="icon" href="https://renko.example/user/themes/renko/images/favicon.png">');
+    expect(iconAddress("https://a.example/i.png")).toBe("https://a.example/i.png");
+    expect(iconAddress("favicon.png")).toBe("favicon.png");
+    expect(iconAddress("./icons/i.png")).toBe("./icons/i.png");
+  });
+
+  it("keeps search engines out unless the author lets them in", () => {
+    const bundle = { js: "", css: "" };
+    expect(publishedHtml(build({}).tree, bundle)).toContain('<meta name="robots" content="noindex, nofollow">');
+    const open = build({ indexable: true }).tree;
+    expect(open.indexable).toBe(true);
+    expect(publishedSiteFiles(open, bundle)[0].text).toContain('<meta name="robots" content="index, follow">');
+  });
+
   it("cuts a long intro at a word for the preview", () => {
     const long = "beseda ".repeat(60);
     const text = siteDescription({ ...build({ intro: { sl: long } }).tree });
     expect(text.length).toBeLessThanOrEqual(200);
     expect(text.endsWith("beseda…")).toBe(true);
+  });
+
+  it("splits the site into a small page, its data and the viewer named by content", () => {
+    const { tree } = build({ title: "Rodbina" });
+    const bundle = { js: "console.log(1)", css: "a{}" };
+    const files = publishedSiteFiles(tree, bundle);
+    const [index, data, js, css] = files;
+    expect(files.map((f) => f.name.replace(/[0-9a-f]{8}/, "H"))).toEqual(["index.html", "data.js", "viewer-H.js", "viewer-H.css"]);
+    // The page: the head a preview reads and the references — no data, no code.
+    expect(index.text).toContain('<meta property="og:title" content="Rodbina">');
+    expect(index.text).toContain(`<link rel="stylesheet" href="${css.name}">`);
+    expect(index.text).toContain(`<script src="data.js"></script>\n<script src="${js.name}"></script>`);
+    expect(index.text).not.toContain("console.log");
+    expect(index.text.length).toBeLessThan(5000);
+    expect(data.text).toMatch(/^window\.gedmergeSite=\{/);
+    expect(JSON.parse(data.text.replace(/^window\.gedmergeSite=|;\n$/g, "")).title).toBe("Rodbina");
+    // Only the viewer's files are stable, and their name follows their content.
+    expect(files.map((f) => !!f.stable)).toEqual([false, false, true, true]);
+    expect(publishedSiteFiles(tree, { ...bundle, js: "console.log(2)" })[2].name).not.toBe(js.name);
   });
 
   it("escapes helpers", () => {

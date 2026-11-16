@@ -275,6 +275,12 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
         setSearching(true);
         return;
       }
+      // S: the statistics, from any page, a chart page too.
+      if (e.key.toLowerCase() === KEY.stats && !e.shiftKey) {
+        e.preventDefault();
+        go({ page: "stats" });
+        return;
+      }
       if (live.page === "charts" || e.shiftKey) return;
       const key = e.key.toLowerCase();
       const here = shownPerson ?? chartsRoot;
@@ -311,11 +317,19 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
             <HomeIcon size={16} /> {t("site.nav.home")}
           </a>
           {chartsRoot && (
-            <a className={`nav-btn${route.page === "charts" ? " active" : ""}`} href={routeHash({ page: "charts", id: pubId(chartsRoot) })}>
+            <a
+              className={`nav-btn${route.page === "charts" ? " active" : ""}`}
+              href={routeHash({ page: "charts", id: pubId(chartsRoot) })}
+              title={keyHint(t("site.nav.charts"), KEY.tree.toUpperCase())}
+            >
               <ChartIcon size={16} /> {t("site.nav.charts")}
             </a>
           )}
-          <a className={`nav-btn${route.page === "stats" ? " active" : ""}`} href="#/stats">
+          <a
+            className={`nav-btn${route.page === "stats" ? " active" : ""}`}
+            href="#/stats"
+            title={keyHint(t("site.nav.stats"), KEY.stats.toUpperCase())}
+          >
             <StatsIcon size={16} /> {t("site.nav.stats")}
           </a>
         </nav>
@@ -357,7 +371,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
           >
             ?
           </button>
-          <ShortcutsModal isOpen={showKeys} onClose={() => setShowKeys(false)} groups={SITE_SHORTCUT_GROUPS} />
+          <ShortcutsModal isOpen={showKeys} onClose={() => setShowKeys(false)} groups={SITE_SHORTCUT_GROUPS} compact />
         </div>
       </div>
       {searching && (

@@ -45,12 +45,26 @@ const DESCRIPTION_MAX = 200;
 
 /** The intro in the site's language (else in any), on one line and cut at a
  *  word to what a link preview shows. */
-export function siteDescription(tree: PublishedTree): string {
+export function siteDescription(tree: PublishedTree, credit = ""): string {
   const intro = tree.intro?.[tree.lang] ?? Object.values(tree.intro ?? {})[0] ?? "";
   const text = intro.replace(/\s+/g, " ").trim();
-  if (text.length <= DESCRIPTION_MAX) return text;
-  const cut = text.slice(0, DESCRIPTION_MAX - 1);
-  return `${cut.slice(0, cut.lastIndexOf(" ") > DESCRIPTION_MAX / 2 ? cut.lastIndexOf(" ") : cut.length)}…`;
+  // The credit closes it, whole; the intro gives way to make room.
+  const room = credit ? DESCRIPTION_MAX - credit.length - 1 : DESCRIPTION_MAX;
+  let cut = text;
+  if (text.length > room) {
+    const head = text.slice(0, Math.max(0, room - 1));
+    const at = head.lastIndexOf(" ");
+    cut = room > 1 ? `${head.slice(0, at > room / 2 ? at : head.length)}…` : "";
+  }
+  return [cut, credit].filter(Boolean).join(" ");
+}
+
+/** What the page tells search results and link previews beside the tree's own
+ *  words: a title naming the tree and GED Merge, and a closing line saying
+ *  where it was made — in the site's language (see `site.meta.*`). */
+export interface SiteMeta {
+  title: string;
+  credit: string;
 }
 
 /** The site's address made absolute (`https://` where it names none). */
@@ -63,55 +77,127 @@ const absoluteUrl = (url: string) => (/^https?:\/\//i.test(url) ? url : `https:/
  * image (and the page's own address) need the site's address; the image is
  * then beside the page, in its folder.
  */
-export function shareMeta(tree: PublishedTree): string {
-  const title = tree.title || "Family tree";
-  const description = siteDescription(tree);
+export function shareMeta(tree: PublishedTree, meta?: SiteMeta): string {
+  const name = tree.title || "Family tree";
+  const title = meta?.title ?? name;
+  const description = siteDescription(tree, meta?.credit);
   const tags: [string, string, string][] = [];
   if (description) tags.push(["name", "description", description]);
-  tags.push(["property", "og:type", "website"], ["property", "og:title", title]);
+  tags.push(["property", "og:type", "website"], ["property", "og:site_name", name], ["property", "og:title", title]);
   if (description) tags.push(["property", "og:description", description]);
-  const url = tree.url?.trim() ? absoluteUrl(tree.url.trim()) : undefined;
+  // The page's own address: the site's, else the one its Home button leads to.
+  const own = tree.siteUrl?.trim() || tree.url?.trim();
+  const url = own ? absoluteUrl(own) : undefined;
   const cover = tree.cover ? tree.photos?.find((p) => p.id === tree.cover) : undefined;
+  // The small copy made for previews, else the cover itself.
+  const picture = tree.preview ?? (cover ? { path: cover.path } : undefined);
   let image: string | undefined;
   if (url) {
     tags.push(["property", "og:url", url]);
     try {
       // The page's folder: the address itself, or where its page file sits.
       const folder = /\.html?$/i.test(new URL(url).pathname) ? url : url.replace(/\/*$/, "/");
-      if (cover) image = new URL(cover.path, folder).href;
+      if (picture) image = new URL(picture.path, folder).href;
     } catch {
       // An address that is no URL: no image to point at.
     }
   }
-  if (image) tags.push(["property", "og:image", image], ["property", "og:image:alt", title]);
+  if (image) {
+    tags.push(["property", "og:image", image]);
+    if (tree.preview) {
+      tags.push(
+        ["property", "og:image:type", "image/jpeg"],
+        ["property", "og:image:width", String(tree.preview.width)],
+        ["property", "og:image:height", String(tree.preview.height)],
+      );
+    }
+    tags.push(["property", "og:image:alt", name]);
+  }
   tags.push(["name", "twitter:card", image ? "summary_large_image" : "summary"]);
   return tags.map(([attr, key, value]) => `<meta ${attr}="${key}" content="${escapeHtml(value)}">`).join("\n");
 }
 
 /** The whole site as one self-contained HTML file: open it from disk, or put it
  *  on any static web server. */
-export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string {
-  const title = escapeHtml(tree.title || "Family tree");
+export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle, meta?: SiteMeta): string {
+  return pageShell(
+    tree,
+    meta,
+    `<style>${inlineSafe(bundle.css, "style")}</style>`,
+    `<script type="application/json" id="${DATA_ELEMENT_ID}">${scriptSafeJson(tree)}</script>
+<script>${inlineSafe(bundle.js, "script")}</script>`,
+  );
+}
+
+/** The page around the viewer: the head (title, a shared link's preview, the
+ *  icon, the theme before the first paint), then the root the viewer fills. */
+function pageShell(tree: PublishedTree, meta: SiteMeta | undefined, styles: string, scripts: string): string {
+  // The viewer names the tab by the tree alone once it runs.
+  const title = escapeHtml(meta?.title ?? (tree.title || "Family tree"));
   return `<!doctype html>
 <html lang="${escapeHtml(tree.lang)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
+<meta name="robots" content="${tree.indexable ? "index, follow" : "noindex, nofollow"}">
 <meta name="generator" content="GED Merge (${PUBLISHED_FORMAT})">
 <title>${title}</title>
-${shareMeta(tree)}
-<link rel="icon" type="image/svg+xml" href="${DEFAULT_FAVICON}">
+${shareMeta(tree, meta)}
+${tree.favicon ? `<link rel="icon" href="${escapeHtml(tree.favicon)}">` : `<link rel="icon" type="image/svg+xml" href="${DEFAULT_FAVICON}">`}
 <script>${THEME_BOOT}</script>
-<style>${inlineSafe(bundle.css, "style")}</style>
+${styles}
 </head>
 <body>
 <div id="root"></div>
-<script type="application/json" id="${DATA_ELEMENT_ID}">${scriptSafeJson(tree)}</script>
-<script>${inlineSafe(bundle.js, "script")}</script>
+${scripts}
 </body>
 </html>
 `;
+}
+
+/** Where `data.js` leaves the site's data for the viewer (see `viewer/main.tsx`). */
+export const DATA_GLOBAL = "gedmergeSite";
+export const DATA_FILE = "data.js";
+
+/** A short content hash (FNV-1a, hex), to name the viewer's files by what they hold. */
+function contentHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+export interface SiteFile {
+  name: string;
+  text: string;
+  /** Named after its content: the same name is the same file, whatever the
+   *  export, so it may carry a fixed time (an unchanged copy then stays
+   *  unchanged for rsync and a browser's cache). */
+  stable?: true;
+}
+
+/**
+ * The site as files beside each other — the ZIP's form: a small `index.html`
+ * (the head a shared link's preview reads, and three references), the data in
+ * `data.js`, and the viewer in files named by their content. A link preview
+ * reads only the start of a page, and a large page is refused outright; this
+ * one is a few kilobytes. Plain `<script src>`, so it opens from disk too.
+ */
+export function publishedSiteFiles(tree: PublishedTree, bundle: ViewerBundle, meta?: SiteMeta): SiteFile[] {
+  const hash = contentHash(bundle.js + bundle.css);
+  const js = `viewer-${hash}.js`;
+  const css = `viewer-${hash}.css`;
+  return [
+    {
+      name: "index.html",
+      text: pageShell(tree, meta, `<link rel="stylesheet" href="${css}">`, `<script src="${DATA_FILE}"></script>\n<script src="${js}"></script>`),
+    },
+    { name: DATA_FILE, text: `window.${DATA_GLOBAL}=${scriptSafeJson(tree)};\n` },
+    { name: js, text: bundle.js, stable: true },
+    { name: css, text: bundle.css, stable: true },
+  ];
 }
 
 /** A file name for the site: the title, slugged. */
