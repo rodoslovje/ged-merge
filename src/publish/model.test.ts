@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { buildPublishedTree, defaultPublishOptions, type PublishOptions } from "./model";
+import { buildPublishedTree, buildPublishedTreeSteps, defaultPublishOptions, type PublishOptions } from "./model";
 import { hydrateTree, pubId } from "./hydrate";
 import { inlineSafe, publishedHtml, scriptSafeJson, siteFileName } from "./page";
 
@@ -134,6 +134,13 @@ describe("buildPublishedTree", () => {
     for (const p of a.people) expect(p.id).toMatch(/^p[0-9a-z]+$/);
   });
 
+  it("keeps the opening page only when it has the person it needs", () => {
+    expect(build().tree.startPage).toBeUndefined();
+    expect(build({ startPage: "charts" }).tree.startPage).toBe("charts");
+    expect(buildPublishedTree(ds, opts({ startPage: "person" }), undefined, NOW).tree.startPage).toBeUndefined();
+    expect(buildPublishedTree(ds, opts({ startPage: "stats" }), undefined, NOW).tree.startPage).toBe("stats");
+  });
+
   it("never publishes a person flagged private", () => {
     const { tree, summary } = build({ living: "all" });
     expect(byName(tree, "Skrita")).toBeUndefined();
@@ -185,6 +192,17 @@ describe("buildPublishedTree", () => {
   });
 });
 
+describe("buildPublishedTreeSteps", () => {
+  it("reports its progress and ends on the whole file", () => {
+    const seen: [number, number][] = [];
+    const steps = buildPublishedTreeSteps(ds, opts(), "@I1@", NOW, (done, total) => seen.push([done, total]));
+    let r = steps.next();
+    while (!r.done) r = steps.next();
+    expect(r.value).toEqual(build());
+    expect(seen.at(-1)).toEqual([18, 18]);
+  });
+});
+
 describe("hydrateTree", () => {
   it("reads the published data back as a dataset", () => {
     const { tree } = build({ living: "initials" });
@@ -211,7 +229,7 @@ describe("publishedHtml", () => {
     const html = publishedHtml(tree, { js: 'const s = "</script>";', css: "a{}/*</style>*/" });
     expect(html).toContain("<title>Rodbina &lt;/script&gt; &amp; co</title>");
     expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
-    expect(html.match(/<\/script>/g)).toHaveLength(2);
+    expect(html.match(/<\/script>/g)).toHaveLength(3);
     expect(html.match(/<\/style>/g)).toHaveLength(1);
     const json = html.match(/<script type="application\/json"[^>]*>(.*?)<\/script>/s)![1];
     expect(JSON.parse(json).intro).toBe("<b>hi</b>");

@@ -1,20 +1,31 @@
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
+import { nextTask, runSliced } from "../../state/localLoad";
 import {
   buildPublishedTree,
+  buildPublishedTreeSteps,
   defaultPublishOptions,
   LIVING_MODES,
   SCOPE_KINDS,
+  START_PAGES,
   type LivingMode,
   type PublishOptions,
   type ScopeKind,
+  type StartPage,
 } from "../../publish/model";
 import { publishedHtml, siteFileName } from "../../publish/page";
 import { baseStem, downloadText } from "../download";
 import { StartPersonSelector } from "../StartPersonSelector";
-import { ToolsIntro } from "./shared";
+import { ToolsIntro, ToolsLoading } from "./shared";
 import { ToolSummary } from "./ToolSummary";
+
+/** Where a download is: which step, and in the walk over the file, how far. */
+interface Phase {
+  step: "viewer" | "data" | "page";
+  done?: number;
+  total?: number;
+}
 
 /**
  * Tools → Family website: the tree as one self-contained HTML page for
@@ -32,8 +43,13 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
   const { t, i18n } = useTranslation();
   const [options, setOptions] = useState<PublishOptions>(() => defaultPublishOptions(baseStem(fileName), i18n.language));
   const [ownStart, setOwnStart] = useState<string | undefined>();
-  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<Phase | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const set = (patch: Partial<PublishOptions>) => setOptions((o) => ({ ...o, ...patch }));
   const siteStart = ownStart && dataset.individuals.has(ownStart) ? ownStart : startId;
 
@@ -46,17 +62,29 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
     [active, dataset, settled.scope, settled.partners, settled.living, siteStart, editVersion],
   );
 
+  // The download's three steps, each named while it runs: loading the viewer
+  // (a large chunk, fetched on the first export), walking the file — in slices,
+  // with a percentage — and writing the page.
   const download = async () => {
-    setBusy(true);
+    const alive = () => mounted.current;
     setError(null);
+    setPhase({ step: "viewer" });
     try {
       const bundle = await import("virtual:site-viewer");
-      const { tree } = buildPublishedTree(dataset, { ...options, lang: i18n.language }, siteStart);
-      downloadText(siteFileName(options.title), publishedHtml(tree, bundle), "text/html;charset=utf-8");
+      if (!alive()) return;
+      setPhase({ step: "data", done: 0, total: 1 });
+      const steps = buildPublishedTreeSteps(dataset, { ...options, lang: i18n.language }, siteStart, new Date(), (done, total) => {
+        if (alive()) setPhase({ step: "data", done, total });
+      });
+      const result = await runSliced(steps, alive);
+      if (!result) return;
+      setPhase({ step: "page" });
+      await nextTask();
+      downloadText(siteFileName(options.title), publishedHtml(result.tree, bundle), "text/html;charset=utf-8");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (alive()) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      if (alive()) setPhase(null);
     }
   };
 
@@ -96,6 +124,18 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
           onStartClick={ownStart && ownStart !== startId ? () => setOwnStart(undefined) : undefined}
           startClickTitle={t("tools.publish.startReset")}
         />
+      </div>
+
+      <div className="tools-privacy-group">
+        <div className="tools-privacy-legend">{t("tools.publish.startPage")}</div>
+        <div className="tools-privacy-radios">
+          {START_PAGES.map((p: StartPage) => (
+            <label key={p} className={`tools-norm-check ${options.startPage === p ? "active" : ""}`}>
+              <input type="radio" name="publish-start-page" checked={options.startPage === p} disabled={(p === "person" || p === "charts") && !siteStart} onChange={() => set({ startPage: p })} />
+              <span>{t(`tools.publish.startPage.${p}`)}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="tools-privacy-group">
@@ -140,9 +180,15 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
       )}
 
       {error && <p className="tools-error">{t("tools.publish.error", { message: error })}</p>}
-      <button data-busy-cursor className="nav-btn primary tools-run" onClick={() => void download()} disabled={busy || !summary?.people}>
-        {busy ? t("tools.publish.building") : t("tools.publish.download")}
+      <button className="nav-btn primary tools-run" onClick={() => void download()} disabled={!!phase || !summary?.people}>
+        {t("tools.publish.download")}
       </button>
+      {phase && (
+        <ToolsLoading
+          label={t(`tools.publish.step.${phase.step}`)}
+          progress={phase.total ? { done: phase.done ?? 0, total: phase.total } : undefined}
+        />
+      )}
     </div>
   );
 }

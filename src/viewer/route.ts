@@ -30,6 +30,15 @@ export function routeHash(route: Route): string {
   }
 }
 
+/** Where a visit without an address lands: the page the author chose, as long
+ *  as it has the person it needs. */
+export function startRoute(startPage: string | undefined, start: string | undefined): Route {
+  if (startPage === "stats") return { page: "stats" };
+  if (start && startPage === "person") return { page: "person", id: start };
+  if (start && startPage === "charts") return { page: "charts", id: start };
+  return { page: "home" };
+}
+
 /** Folded for search: lower case, no accents (`Žnidaršič` → `znidarsic`). */
 export function fold(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();

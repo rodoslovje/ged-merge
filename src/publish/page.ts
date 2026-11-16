@@ -30,6 +30,11 @@ export function inlineSafe(code: string, tag: "script" | "style"): string {
   return code.replace(new RegExp(`</(${tag})`, "gi"), "<\\/$1");
 }
 
+/** Sets the theme before the first paint, as the app's `index.html` does: the
+ *  reader's saved choice, else the system's (see `ui/useTheme.ts`). */
+const THEME_BOOT =
+  'try{var s=localStorage.getItem("gedmerge.theme");document.documentElement.setAttribute("data-theme",s==="light"||s==="dark"?s:matchMedia("(prefers-color-scheme: light)").matches?"light":"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}';
+
 /** The whole site as one self-contained HTML file: open it from disk, or put it
  *  on any static web server. */
 export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string {
@@ -42,6 +47,7 @@ export function publishedHtml(tree: PublishedTree, bundle: ViewerBundle): string
 <meta name="robots" content="noindex, nofollow">
 <meta name="generator" content="GED Merge (${PUBLISHED_FORMAT})">
 <title>${title}</title>
+<script>${THEME_BOOT}</script>
 <style>${inlineSafe(bundle.css, "style")}</style>
 </head>
 <body>

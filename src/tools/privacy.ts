@@ -131,7 +131,7 @@ function detailCategory(tag: string): StripCategory {
 
 /** Why this individual counts as living (plus the estimate behind a "relative"
  *  flag), or undefined when presumed deceased. */
-function livingReason(
+export function livingReason(
   indi: Individual,
   ds: Dataset,
   opts: PrivacyOptions,

@@ -41,6 +41,8 @@ test("the family website downloads as one page that works from disk", async ({ p
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download website (.html)" }).click();
   const file = await download;
+  // The step indicator goes away once the page is written.
+  await expect(page.locator(".tools-publish .tools-loading")).toHaveCount(0);
   expect(file.suggestedFilename()).toBe("rodbina-zorman.html");
   const html = readFileSync((await file.path())!, "utf-8");
   expect(html).not.toContain("research note");
@@ -61,8 +63,14 @@ test("the family website downloads as one page that works from disk", async ({ p
   await expect(page.locator(".site-person-name")).toContainText("Franc");
   await expect(page.locator(".site-events").first()).toContainText("Škofja Loka");
 
+  // The visitor makes Franc their start person: relatives are named from him.
+  await page.getByRole("button", { name: "Make start person" }).click();
+  await expect(page.locator(".site-person-kinship")).toHaveText("Start person");
+  await expect(page.locator(".site-person-list li", { hasText: "P." })).toContainText("Daughter");
+
   // The living daughter: initials only, no details.
   await page.locator(".site-person-list .person-ref", { hasText: "P." }).click();
+  await expect(page.locator(".site-person-kinship")).toHaveText("Daughter");
   await expect(page.locator(".site-note")).toBeVisible();
   await expect(page.locator(".site-events")).toHaveCount(0);
 

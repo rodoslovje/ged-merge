@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 export type Theme = "light" | "dark";
 export type ThemeMode = "auto" | "light" | "dark";
+export const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
 
 const THEME_KEY = "gedmerge.theme";
 

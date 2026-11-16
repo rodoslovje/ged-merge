@@ -1,7 +1,8 @@
 import type { Dataset, GedEvent, Individual } from "../gedcom/types";
 import { ALL_EVENT_TAGS, LDS_ORDINANCE_TAGS } from "../gedcom/eventTags";
 import { computeKinship } from "../tools/batch";
-import { defaultPrivacyOptions, findLiving } from "../tools/privacy";
+import { defaultPrivacyOptions, livingReason } from "../tools/privacy";
+import { runSteps, type Steps } from "../gedcom/steps";
 
 /**
  * The family website's data: what a relative browsing the published page can
@@ -32,6 +33,11 @@ export const LIVING_MODES: LivingMode[] = ["hide", "initials", "name", "all"];
 export type ScopeKind = "all" | "blood" | "line";
 export const SCOPE_KINDS: ScopeKind[] = ["all", "blood", "line"];
 
+/** The page a visitor lands on: the front page, the start person, their
+ *  charts, or the statistics. */
+export type StartPage = "home" | "person" | "charts" | "stats";
+export const START_PAGES: StartPage[] = ["home", "person", "charts", "stats"];
+
 export interface PublishOptions {
   title: string;
   /** A few words from the author, shown on the site's front page. */
@@ -41,12 +47,13 @@ export interface PublishOptions {
    *  so their families read whole. */
   partners: boolean;
   living: LivingMode;
+  startPage: StartPage;
   /** The site's language on first open. */
   lang: string;
 }
 
 export function defaultPublishOptions(title: string, lang: string): PublishOptions {
-  return { title, intro: "", scope: "all", partners: true, living: "initials", lang };
+  return { title, intro: "", scope: "all", partners: true, living: "initials", startPage: "home", lang };
 }
 
 export interface PubEvent {
@@ -90,8 +97,10 @@ export interface PublishedTree {
   /** Export date, yyyy-mm-dd. */
   created: string;
   lang: string;
-  /** The person the site opens on. */
+  /** The start person: where the charts open, and the person page offered first. */
   start?: string;
+  /** The page a visitor lands on; absent is the front page. */
+  startPage?: StartPage;
   people: PubPerson[];
   families: PubFamily[];
 }
@@ -170,24 +179,61 @@ function scopeIds(ds: Dataset, opts: PublishOptions, startId: string | undefined
   return ids;
 }
 
+/** Records handled between two yields of {@link buildPublishedTreeSteps}. */
+const RECORDS_PER_STEP = 1_000;
+
+export interface PublishResult {
+  tree: PublishedTree;
+  summary: PublishSummary;
+}
+
 /** Build the site's data from the main file. `now` pins "living" in tests. */
 export function buildPublishedTree(
   ds: Dataset,
   opts: PublishOptions,
   startId: string | undefined,
   now: Date = new Date(),
-): { tree: PublishedTree; summary: PublishSummary } {
+): PublishResult {
+  return runSteps(buildPublishedTreeSteps(ds, opts, startId, now));
+}
+
+/** {@link buildPublishedTree} as a stepped pass (see `steps.ts`): it yields
+ *  every {@link RECORDS_PER_STEP} records, after telling `progress` how many
+ *  of the file's people and families it has been through. */
+export function* buildPublishedTreeSteps(
+  ds: Dataset,
+  opts: PublishOptions,
+  startId: string | undefined,
+  now: Date = new Date(),
+  progress?: (done: number, total: number) => void,
+): Steps<PublishResult> {
+  // People are walked twice — who is living, then what is published — and
+  // families once; the living check is the slow half, so it counts too.
+  const total = 2 * ds.individuals.size + ds.families.size;
+  let done = 0;
+  /** Count one record; true when it is time to yield. */
+  const tick = () => {
+    if (++done % RECORDS_PER_STEP !== 0) return false;
+    progress?.(done, total);
+    return true;
+  };
   const inScope = scopeIds(ds, opts, startId);
-  const flagged = findLiving(ds, defaultPrivacyOptions(), now.getFullYear());
+  const privacy = defaultPrivacyOptions();
+  const year = now.getFullYear();
   const privateIds = new Set<string>();
   const living = new Set<string>();
-  for (const f of flagged) (f.reason === "declared" ? privateIds : living).add(f.id);
+  for (const indi of ds.individuals.values()) {
+    if (tick()) yield;
+    const why = livingReason(indi, ds, privacy, year)?.reason;
+    if (why) (why === "declared" ? privateIds : living).add(indi.id);
+  }
 
   const summary: PublishSummary = { people: 0, families: 0, livingReduced: 0, livingHidden: 0, privateHidden: 0 };
   const taken = new Set<string>();
   const idOf = new Map<string, string>();
   const people: PubPerson[] = [];
   for (const indi of ds.individuals.values()) {
+    if (tick()) yield;
     if (inScope && !inScope.has(indi.id)) continue;
     if (privateIds.has(indi.id)) {
       summary.privateHidden++;
@@ -206,6 +252,7 @@ export function buildPublishedTree(
 
   const families: PubFamily[] = [];
   for (const fam of ds.families.values()) {
+    if (tick()) yield;
     if (fam.private) continue;
     const husband = fam.husband ? idOf.get(fam.husband) : undefined;
     const wife = fam.wife ? idOf.get(fam.wife) : undefined;
@@ -239,6 +286,9 @@ export function buildPublishedTree(
   if (opts.intro.trim()) tree.intro = opts.intro.trim();
   const start = startId ? idOf.get(startId) : undefined;
   if (start) tree.start = start;
+  // The person's pages need the person; without one the site opens at home.
+  if (opts.startPage === "stats" || (opts.startPage !== "home" && start)) tree.startPage = opts.startPage;
+  progress?.(total, total);
   return { tree, summary };
 }
 

@@ -27,24 +27,45 @@
 }
 
 .site-nav,
-.site-lang {
+.site-prefs {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.site-nav .nav-btn,
-.site-lang .nav-btn {
+.site-nav .nav-btn {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.site-nav .nav-btn.active,
-.site-lang .nav-btn.active {
+.site-nav .nav-btn.active {
   background: var(--panel-2);
   color: var(--text);
+}
+
+/* The visitor's start person: the app's picker, at header size. */
+.site-startpick {
+  width: 240px;
+  max-width: 100%;
+  margin-right: 4px;
+}
+
+/* Theme and language: the app's picker, sized to its value and opening
+   leftwards from the page's right edge. */
+.site-picker .picker-menu-btn {
+  width: auto;
+  padding: 4px 10px;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+.site-picker .picker-menu-value {
+  color: var(--text);
+}
+.site-picker .picker-menu-popover {
+  left: auto;
+  right: 0;
 }
 
 .site-main {
@@ -103,6 +124,14 @@
   gap: 4px;
 }
 
+/* A relative's name, then how they are related to the start person. */
+.site-person-list li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
 /* ── Person page ────────────────────────────────────────────── */
 
 .site-person {
@@ -127,11 +156,22 @@
   font-family: var(--font-mono);
 }
 
-.site-charts-btn {
+.site-person-actions {
   margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.site-person-actions .nav-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.site-person-kinship {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
 }
 
 .site-note {
@@ -182,6 +222,10 @@
 
 .site-partner {
   margin: 0 0 8px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 @media (max-width: 560px) {
@@ -190,6 +234,14 @@
   }
   .site-title {
     width: 100%;
+  }
+  .site-prefs {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .site-startpick {
+    width: 100%;
+    margin-right: 0;
   }
   .site-events {
     grid-template-columns: 1fr;
