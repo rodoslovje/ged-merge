@@ -11,6 +11,7 @@ import "./viewer.css";
 import i18n, { SUPPORTED_LANGUAGES } from "../locales/i18n";
 import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { ErrorFallback } from "../ui/ErrorFallback";
+import { IconTipLayer } from "../ui/IconTip";
 import { SettingsProvider, DatasetProvider } from "../ui/SettingsContext";
 import { ChartSettingsProvider } from "../ui/ChartSettingsContext";
 import { MediaFolderProvider } from "../ui/MediaFolderContext";
@@ -57,6 +58,8 @@ function Site({ tree }: { tree: PublishedTree }) {
       <DatasetProvider dataset={ds}>
         <DatasetDerivationsProvider dataset={ds} version={0} changes={changes}>
           <ViewerApp tree={tree} ds={ds} />
+          {/* The hover explanations the statistics (ⓘ) and charts offer. */}
+          <IconTipLayer />
         </DatasetDerivationsProvider>
       </DatasetProvider>
     </PublishedViewContext.Provider>
@@ -69,8 +72,18 @@ const tree = readTree();
 setExportSite(tree.url, () => `${i18n.t("site.footer.madeWith")} GED Merge`);
 // The charts' panel button that opens a person in the app's Edit view opens
 // their page here: it says so, in both languages.
+// The statistics' hints say a name opens "in Edit"; here it opens the person's
+// page, so the words about Edit go.
+const IN_EDIT: Record<string, RegExp> = { en: / in Edit/g, sl: / v Urejanju/g };
 for (const lng of SUPPORTED_LANGUAGES) {
   i18n.addResource(lng, "translation", "relpath.openInEdit", i18n.t("site.person.open", { lng }));
+  const bundle = i18n.getResourceBundle(lng, "translation") as Record<string, string>;
+  for (const [key, text] of Object.entries(bundle)) {
+    if (key.startsWith("stats.") && IN_EDIT[lng].test(text)) {
+      i18n.addResource(lng, "translation", key, text.replace(IN_EDIT[lng], ""));
+    }
+    IN_EDIT[lng].lastIndex = 0;
+  }
 }
 void i18n.changeLanguage(startLanguage(tree));
 i18n.on("languageChanged", (lng) => {

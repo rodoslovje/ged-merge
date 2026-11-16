@@ -3999,7 +3999,6 @@ export const sl = {
   "site.home.moreStats": "Več statistike",
   "site.search.count": "Najdeno: {{count}}",
   "site.search.more": "Prikazanih je prvih {{shown}} od {{count}} — vpišite več imena.",
-  "site.person.charts": "Diagrami",
   "site.person.living": "Podatki živih oseb niso objavljeni.",
   "site.person.parents": "Starši",
   "site.person.partner": "Zakonec ali partner",
@@ -4010,4 +4009,5 @@ export const sl = {
   "site.person.sources": "Viri",
   "site.person.source": "Vir",
   "site.person.open": "Odpri",
+  "site.person.showOnMap": "Pokaži na zemljevidu",
 };

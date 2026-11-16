@@ -91,7 +91,13 @@ test("the family website downloads as one page that works from disk", async ({ p
   await expect(page.locator(".site-events")).toHaveCount(0);
 
   // Charts: the app's own, without the branch GEDCOM export.
-  await page.locator(".site-charts-btn").click();
+  // Her charts sit beside her name: the fan, and the path to the start
+  // person — no timeline for a living person with nothing to draw.
+  await expect(page.locator(".site-chart", { hasText: "Timeline" })).toHaveCount(0);
+  await expect(page.locator(".site-chart", { hasText: "Relationship" })).toHaveCount(1);
+  await page.locator(".site-chart", { hasText: "Fan" }).click();
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/fan$/);
+  await page.getByRole("tab", { name: "Tree", exact: true }).click();
   await expect(page.locator(".tree-page")).toBeVisible();
   await page.locator(".export-menu .tree-export-btn").click();
   await expect(page.getByText("GEDCOM", { exact: false })).toHaveCount(0);

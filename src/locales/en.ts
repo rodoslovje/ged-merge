@@ -3536,7 +3536,6 @@ export const en = {
   "site.home.moreStats": "More statistics",
   "site.search.count": "Found: {{count}}",
   "site.search.more": "The first {{shown}} of {{count}} are shown — type more of the name.",
-  "site.person.charts": "Charts",
   "site.person.living": "The details of living people are not published.",
   "site.person.parents": "Parents",
   "site.person.partner": "Spouse or partner",
@@ -3547,4 +3546,5 @@ export const en = {
   "site.person.sources": "Sources",
   "site.person.source": "Source",
   "site.person.open": "Open",
+  "site.person.showOnMap": "Show on the map",
 };

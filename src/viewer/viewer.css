@@ -244,9 +244,19 @@
 
 .site-person-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 12px;
+}
+.site-person-id {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.site-person-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 12px;
 }
 
 .site-person-name {
@@ -260,17 +270,57 @@
   font-family: var(--font-mono);
 }
 
-.site-person-actions {
+/* The person's charts, right of their name: a small map of their places,
+   then a tile per chart, glyph above its name. */
+.site-charts {
   margin-left: auto;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: stretch;
+  gap: 8px;
 }
-
-.site-person-actions .nav-btn {
-  display: inline-flex;
+.site-chart {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
+  min-width: 72px;
+  padding: 8px 6px 6px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+.site-chart:hover,
+.site-chart:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.site-chart-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.site-chart-map {
+  padding: 4px 4px 6px;
+}
+/* The map is a picture here: the tile's link takes every click. */
+.site-chart-preview {
+  display: block;
+  width: 150px;
+  height: 84px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+.site-chart-preview .tools-geo-minimap {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+.site-chart-preview .leaflet-control-container {
+  display: none;
 }
 
 .site-person-kinship {
@@ -304,6 +354,28 @@
 
 .site-event-cause {
   color: var(--muted);
+}
+
+/* A place with a coordinate: a link that opens it on a small map below. */
+.site-place-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font: inherit;
+  text-align: left;
+}
+.site-place-link svg {
+  align-self: center;
+  flex: none;
+}
+.site-event-map {
+  display: block;
+  margin: 6px 0 4px;
+}
+.site-event-map .tools-geo-minimap {
+  max-width: 420px;
+  height: 200px;
+  margin: 0;
 }
 
 /* An event's notes and sources, each on its own line under it. */
@@ -370,6 +442,22 @@
   }
   .site-title {
     width: 100%;
+  }
+  .site-charts {
+    margin-left: 0;
+    width: 100%;
+    gap: 6px;
+  }
+  .site-chart {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .site-chart-map {
+    flex: 1.6 1 0;
+  }
+  .site-chart-preview {
+    width: 100%;
+    height: 64px;
   }
   .site-events {
     grid-template-columns: 1fr;
