@@ -294,15 +294,18 @@ export function PublishPanel({ dataset, fileName, startId, editVersion, active }
       )}
 
       {error && <p className="tools-error">{t("tools.publish.error", { message: error })}</p>}
-      <button className="nav-btn primary tools-run" onClick={() => void download()} disabled={!!phase || !summary?.people}>
-        {t("tools.publish.download")}
-      </button>
-      {phase && (
-        <ToolsLoading
-          label={t(`tools.publish.step.${phase.step}`)}
-          progress={phase.total ? { done: phase.done ?? 0, total: phase.total } : undefined}
-        />
-      )}
+      {/* The steps run beside the button, where the eye already is. */}
+      <div className="tools-publish-run">
+        <button className="nav-btn primary tools-run" onClick={() => void download()} disabled={!!phase || !summary?.people}>
+          {t("tools.publish.download")}
+        </button>
+        {phase && (
+          <ToolsLoading
+            label={t(`tools.publish.step.${phase.step}`)}
+            progress={phase.total ? { done: phase.done ?? 0, total: phase.total } : undefined}
+          />
+        )}
+      </div>
     </div>
   );
 }
