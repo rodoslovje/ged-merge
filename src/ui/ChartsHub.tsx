@@ -28,7 +28,7 @@ const MapChart = lazy(() => import("./map/MapChart"));
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
  *  (pedigrees, then the timeline) first, then the two-person relationship, then
  *  the contemporaries wheel, then the places map, then the text reports. */
-const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report"];
+export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report"];
 
 interface Props {
   mainDs: Dataset;

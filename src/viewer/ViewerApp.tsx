@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Family, GedEvent, Individual } from "../gedcom/types";
 import { DEFAULT_SITE_DISPLAY, type PublishedTree } from "../publish/model";
 import { pubId, xrefOf } from "../publish/hydrate";
-import { ChartsHub } from "../ui/ChartsHub";
+import { ChartsHub, HUB_KINDS } from "../ui/ChartsHub";
 import { StatsPanel } from "../ui/tools/StatsPanel";
 import type { ToolView } from "../ui/ToolsView";
 import { PersonLink } from "../ui/PersonLink";
 import { YearsText } from "../ui/YearsText";
-import { useChartSettings } from "../ui/ChartSettingsContext";
+import { useChartSettings, type ChartKind } from "../ui/ChartSettingsContext";
 import { useNameOf, useSetSettings, useSettingsSlice } from "../ui/SettingsContext";
 import { sexClass } from "../ui/sex";
 import { ChartIcon } from "../ui/icons/ChartIcon";
@@ -31,7 +31,7 @@ const SEARCH_LIMIT = 100;
 
 /** The page in the address; an address without one is the author's start page
  *  (`#/` is the front page itself). */
-function useRoute(start: Route): [Route, (r: Route) => void] {
+function useRoute(start: Route): [Route, (r: Route) => void, (r: Route) => void] {
   const read = () => (location.hash ? parseRoute(location.hash) : start);
   const [route, setRoute] = useState(read);
   useEffect(() => {
@@ -42,8 +42,17 @@ function useRoute(start: Route): [Route, (r: Route) => void] {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, [start]);
-  return [route, (r) => { location.hash = routeHash(r); }];
+  const go = (r: Route) => { location.hash = routeHash(r); };
+  // The same page, said more exactly (which chart): the address changes, the
+  // history gains no step.
+  const replace = (r: Route) => {
+    history.replaceState(history.state, "", routeHash(r));
+    setRoute(r);
+  };
+  return [route, go, replace];
 }
+
+const isHubKind = (k: string | undefined): k is ChartKind => !!k && (HUB_KINDS as readonly string[]).includes(k);
 
 
 /** The visitor's own start person, kept in their browser. */
@@ -83,14 +92,29 @@ function KinLink({ ds, id, kin, onNavigate }: { ds: Dataset; id: string; kin?: K
 export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const { t, i18n } = useTranslation();
   const start = useMemo(() => startRoute(tree.startPage, tree.start), [tree]);
-  const [route, go] = useRoute(start);
+  const [route, go, replace] = useRoute(start);
   const { theme, changeThemeMode } = useTheme();
   // The two toggles show what a click switches to: the other theme, the other
   // language (the site has two). Their tooltips name it in full.
   const otherTheme = theme === "dark" ? "light" : "dark";
   const otherLang = SUPPORTED_LANGUAGES.find((l) => l !== i18n.language) ?? "en";
   const setSettings = useSetSettings();
-  const { setKind } = useChartSettings();
+  const { settings: chartSettings, setKind } = useChartSettings();
+  // Each chart of each person has its own address (`#/c/<person>/<kind>`): an
+  // address names the chart to draw, and switching charts updates the address.
+  // `applied` is the last kind the address chose, so a switch made in the hub
+  // is not undone by the address it is still on.
+  const applied = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (route.page !== "charts") return;
+    if (isHubKind(route.kind) && route.kind !== applied.current) {
+      applied.current = route.kind;
+      if (route.kind !== chartSettings.kind) setKind(route.kind);
+      return;
+    }
+    if (route.kind !== chartSettings.kind) replace({ ...route, kind: chartSettings.kind });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- replace is a fresh closure each render
+  }, [route, chartSettings.kind, setKind]);
   // The site has no Settings page: people are shown as the author chose when
   // publishing (names, dates, ages, kinship), and the map may load its tiles.
   useEffect(() => {
@@ -118,7 +142,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const living = useMemo(() => new Set(tree.people.filter((p) => p.living).map((p) => xrefOf(p.id))), [tree]);
   const [relationFrom, setRelationFrom] = useState<string | undefined>();
   const openPerson = (xref: string) => go({ page: "person", id: pubId(xref) });
-  const openCharts = (xref: string) => go({ page: "charts", id: pubId(xref) });
+  const openCharts = (xref: string) => go({ page: "charts", id: pubId(xref), kind: chartSettings.kind });
   // The header's search: the front page's search box, focused. A counter, so
   // a second press on the front page focuses it again.
   const [searchNonce, setSearchNonce] = useState(0);

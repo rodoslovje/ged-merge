@@ -6,13 +6,15 @@
 export type Route =
   | { page: "home" }
   | { page: "person"; id: string }
-  | { page: "charts"; id: string }
+  /** A person's charts; `kind` names the chart (`tree`, `fan`, `timeline`…), so
+   *  every chart of every person has an address of its own. */
+  | { page: "charts"; id: string; kind?: string }
   | { page: "stats"; view?: string };
 
 export function parseRoute(hash: string): Route {
-  const [page, arg] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  const [page, arg, sub] = hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
   if (page === "p" && arg) return { page: "person", id: arg };
-  if (page === "c" && arg) return { page: "charts", id: arg };
+  if (page === "c" && arg) return sub ? { page: "charts", id: arg, kind: sub } : { page: "charts", id: arg };
   if (page === "stats") return arg ? { page: "stats", view: arg } : { page: "stats" };
   return { page: "home" };
 }
@@ -22,7 +24,7 @@ export function routeHash(route: Route): string {
     case "person":
       return `#/p/${encodeURIComponent(route.id)}`;
     case "charts":
-      return `#/c/${encodeURIComponent(route.id)}`;
+      return `#/c/${encodeURIComponent(route.id)}${route.kind ? `/${encodeURIComponent(route.kind)}` : ""}`;
     case "stats":
       return route.view ? `#/stats/${encodeURIComponent(route.view)}` : "#/stats";
     default:

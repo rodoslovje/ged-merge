@@ -89,6 +89,18 @@ test("the family website downloads as one page that works from disk", async ({ p
   await expect(page.getByText("GEDCOM", { exact: false })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
+  // Every chart has its own address: switching the chart rewrites it, and the
+  // address opens that chart again.
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/tree$/);
+  await page.getByRole("tab", { name: "Timeline" }).click();
+  await expect(page).toHaveURL(/#\/c\/p[0-9a-z]+\/timeline$/);
+  const timelineUrl = page.url();
+  await page.getByRole("tab", { name: "Tree", exact: true }).click();
+  await expect(page).toHaveURL(/\/tree$/);
+  await page.goto(timelineUrl);
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Timeline" })).toHaveAttribute("aria-selected", "true");
+
   // Statistics.
   await page.locator(".site-nav a", { hasText: "Statistics" }).click();
   await expect(page.locator(".site-stats .stats-tile-value").first()).toBeVisible();
