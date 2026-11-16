@@ -3838,7 +3838,7 @@ export const sl = {
   "shortcuts.item.chartMinimap": "Pokaži / skrij pregledni zemljevid",
   "shortcuts.item.relationship": "Odpri diagram sorodstva",
   "shortcuts.item.chartKinds": "Odpri pahljačo · časovnico · zemljevid osebe",
-  "shortcuts.item.chartKindKeys": "Preklopi na pahljačo · časovnico · zemljevid",
+  "shortcuts.item.chartKindKeys": "Preklopi na pahljačo · časovnico · zemljevid · sorodstvo",
   "shortcuts.item.confirm": "Potrdi ujemanje",
   "shortcuts.item.reject": "Zavrni ujemanje",
   "shortcuts.item.defer": "Preloži ujemanje (odloči kasneje) — v Orodjih pojdi na naslednji par",

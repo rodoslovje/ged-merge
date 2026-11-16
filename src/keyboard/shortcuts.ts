@@ -21,7 +21,8 @@ export const KEY = {
   modeMerge: "m",
   modeTools: "t",
   tree: "v",
-  relationship: "s",
+  /** K for kinship: the relationship diagram. */
+  relationship: "k",
   /** Edit mode: jump to the start ("home") person. */
   home: "h",
   /** Add a new person attached to nobody, from any mode. */
@@ -62,6 +63,7 @@ export const CHART_KEY = {
   fan: KEY.fan,
   timeline: KEY.timeline,
   map: KEY.map,
+  relationship: KEY.relationship,
 } as const;
 
 /**
@@ -264,7 +266,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     scope: ["chart"],
     items: [
       { keys: [["1"], ["9"]], sep: "range", descKey: "shortcuts.item.chartKind" },
-      { keys: [[CHART_KEY.fan.toUpperCase()], [CHART_KEY.timeline.toUpperCase()], [CHART_KEY.map.toUpperCase()]], descKey: "shortcuts.item.chartKindKeys" },
+      { keys: [[CHART_KEY.fan.toUpperCase()], [CHART_KEY.timeline.toUpperCase()], [CHART_KEY.map.toUpperCase()], [CHART_KEY.relationship.toUpperCase()]], descKey: "shortcuts.item.chartKindKeys" },
       { keys: [[CHART_KEY.ancestors.toUpperCase()], [CHART_KEY.descendants.toUpperCase()]], descKey: "shortcuts.item.chartDirection" },
       { keys: [["+"], ["−"]], descKey: "shortcuts.item.chartZoom" },
       { keys: [[CHART_KEY.zoomReset]], descKey: "shortcuts.item.chartZoomReset" },

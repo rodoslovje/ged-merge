@@ -33,7 +33,7 @@ const pick = (page: Page, name: string) =>
 
 async function relationshipAndBack(page: Page) {
   await page.locator("body").click({ position: { x: 1, y: 1 } });
-  await page.keyboard.press("s");
+  await page.keyboard.press("k");
   const chartBack = page.locator(".tree-toolbar .tree-back-btn");
   await expect(chartBack).toBeVisible();
   await page.keyboard.press("Backspace");
