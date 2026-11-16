@@ -1825,7 +1825,7 @@ export const sl = {
   "tools.publish.introText": "Nekaj besed za sorodnike",
   "tools.publish.introPlaceholder": "Besedilo se prikaže na prvi strani",
   "tools.publish.url": "Dodaten naslov",
-  "tools.publish.urlHint": "Vaša druga spletna stran, npr. tista s seznamom vaših dreves. Stran nanjo vodi s povezavo v glavi in nogi.",
+  "tools.publish.urlHint": "Vaša druga (glavna) spletna stran, kjer gostite svoje družinske ali rodoslovne raziskave. Stran nanjo vodi s povezavo v glavi in nogi.",
   "tools.publish.siteUrl": "Naslov te strani",
   "tools.publish.siteUrlHint": "Kam boste stran naložili, npr. https://drevo.example.org. Tam predogled deljene povezave najde naslovno fotografijo, preneseni diagrami in zemljevidi pa ta naslov navajajo namesto gedmerge.com.",
   "tools.publish.favicon": "Ikona strani",

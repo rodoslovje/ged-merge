@@ -1595,7 +1595,7 @@ export const en = {
   "tools.publish.introText": "A few words for your relatives",
   "tools.publish.introPlaceholder": "Shown on the front page of the website",
   "tools.publish.url": "Additional address",
-  "tools.publish.urlHint": "Your other site, such as the one listing your trees. The website links to it in its header and footer.",
+  "tools.publish.urlHint": "Your other (main) site, where you host your family or genealogy research. The website links to it in its header and footer.",
   "tools.publish.siteUrl": "This website's address",
   "tools.publish.siteUrlHint": "Where you will put the website, such as https://tree.example.org. A shared link's preview finds the cover photo there, and downloaded charts and maps name it instead of gedmerge.com.",
   "tools.publish.favicon": "Website icon",

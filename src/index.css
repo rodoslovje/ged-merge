@@ -10249,6 +10249,12 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 /* A name (a field's, a group's, a choice's) with its ⓘ: the explanation in a
    tooltip, not in a paragraph on the page. */
 .tools-publish-label { display: inline-flex; align-items: center; gap: 4px; }
+/* The legend's own bottom margin would lift its text above the ⓘ's centre:
+   the row carries the margin instead. */
+.tools-publish-label > .tools-privacy-legend { margin-bottom: 0; }
+span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
+/* An ⓘ at the end of a line of text: centred on the text, not on its top. */
+.tools-publish .tools-summary .stats-info { vertical-align: -1.5px; }
 .tools-publish-folders-head { display: flex; margin-top: 10px; font-size: 0.9rem; font-weight: 600; }
 .tools-publish-input { width: 100%; max-width: 40rem; padding: 5px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; }
 .tools-publish .tools-privacy-group > .tools-norm-check { margin-top: 10px; }
