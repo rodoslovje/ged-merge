@@ -137,7 +137,7 @@ export interface SiteIncludes {
   notes: boolean;
   addresses: boolean;
 }
-export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "notes", "addresses"];
+export const SITE_INCLUDES: (keyof SiteIncludes)[] = ["sources", "addresses", "notes"];
 
 /** A source citation as the site shows it: the source, the cited page, a link. */
 export interface PubSource {
