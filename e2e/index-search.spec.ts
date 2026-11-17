@@ -116,6 +116,8 @@ test("index hits are ranked against the person and compared with them one by one
   // Cite it: Add source opens with the hit's index link.
   await compare.getByRole("button", { name: "Add as source" }).click();
   await expect(page.locator(".add-source-dialog .add-source-textarea")).toHaveValue(/indeks\.rodoslovje\.si\/\?t=person.*id=%40I19364%40&c=Bandelj/);
+  // Recognized as an index person link: the source proposes its own title.
+  await expect(page.locator(".add-source-dialog").getByLabel("Title")).toHaveValue(/Janez Penko.*Bandelj.*Slovenski rodoslovni indeks/);
   await page.keyboard.press("Escape");
 
   await compare.getByRole("button", { name: /Back to the matches/ }).click();
