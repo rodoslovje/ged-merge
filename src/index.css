@@ -6045,7 +6045,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 /* The Lines layout: event labels sit over the drawing, on a halo. */
 .timeline-lines-history {
   paint-order: stroke;
-  stroke: var(--bg);
+  stroke: var(--panel);
   stroke-width: 3px;
   stroke-linejoin: round;
 }
@@ -6069,7 +6069,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .timeline-lines-name {
   font-size: 11px;
   paint-order: stroke;
-  stroke: var(--bg);
+  stroke: var(--panel);
   stroke-width: 3px;
   stroke-linejoin: round;
 }
@@ -6086,7 +6086,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   z-index: 2;
 }
 .timeline-lines-sticky svg { display: block; }
-.timeline-lines-sticky-bg { fill: var(--bg); }
+.timeline-lines-sticky-bg { fill: var(--panel); }
 .timeline-row { cursor: pointer; }
 .tree-canvas.panning .timeline-lines-person { cursor: grabbing; }
 /* Full-width hit/selection strip behind each row. */

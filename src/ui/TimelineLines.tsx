@@ -63,9 +63,9 @@ const TICK_STEP = 10;
 /** Estimated width per character of an 11px label, for collision checks. */
 const CHAR_W = 5.8;
 const LABEL_H = 12;
-/** Width of the sticky left column's drawing: the year scale plus room for
- *  the event labels, which float over the chart on a halo. */
-const STICKY_W = 520;
+/** The widest the historical-event label column grows; a longer label runs
+ *  on over the drawing, on its halo. */
+const HISTORY_MAX_W = 320;
 
 const COLOR_ANCESTOR = "var(--node-main)";
 const COLOR_DESCENDANT = "var(--node-desc)";
@@ -124,12 +124,44 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     };
   }, [trees, redacted]);
 
+  // The year scale, whole decades either side of the dated people.
+  const y0 = layout.minYear === undefined ? undefined : Math.floor(layout.minYear / TICK_STEP) * TICK_STEP;
+  const y1 = layout.maxYear === undefined ? undefined : Math.ceil(layout.maxYear / TICK_STEP) * TICK_STEP;
+
+  // Historical events over those years, by where the chart's people lived.
+  const nowYear = new Date().getFullYear();
+  const people = useMemo(
+    () =>
+      layout.points.flatMap((p) =>
+        p.node.main && p.year !== undefined
+          ? [{ id: p.node.main.id, from: p.year, to: deathYear(p.node.main) ?? (p.node.living ? nowYear : p.year + 70) }]
+          : [],
+      ),
+    [layout, nowYear],
+  );
+  const history = useHistoryEvents(mainDs, people, y0, y1);
+  // Their labels get a column of their own between the year scale and the
+  // people, as wide as the labels need (within reason): over the drawing they
+  // would sit on the first ancestors' names. A label pushes right past one at
+  // nearly the same height.
+  const { historyLabels, historyW } = useMemo(() => {
+    if (y0 === undefined) return { historyLabels: [], historyW: 0 };
+    const placedLabels: { y: number; x1: number }[] = [];
+    const labels = history.map((e) => {
+      const y = TOP + (e.from - y0) * PX_PER_YEAR - 3;
+      let x = AXIS_W + 4;
+      for (const l of placedLabels) if (Math.abs(l.y - y) < LABEL_H && l.x1 > x) x = l.x1 + 12;
+      placedLabels.push({ y, x1: x + e.text.length * CHAR_W });
+      return { ...e, x, y };
+    });
+    const right = Math.max(AXIS_W, ...placedLabels.map((l) => l.x1));
+    return { historyLabels: labels, historyW: history.length ? Math.min(right - AXIS_W + 8, HISTORY_MAX_W) : 0 };
+  }, [history, y0]);
+
   const geom = useMemo(() => {
-    if (layout.minYear === undefined || layout.maxYear === undefined) return undefined;
-    const y0 = Math.floor(layout.minYear / TICK_STEP) * TICK_STEP;
-    const y1 = Math.ceil(layout.maxYear / TICK_STEP) * TICK_STEP;
+    if (y0 === undefined || y1 === undefined) return undefined;
     const yOf = (year: number) => TOP + (year - y0) * PX_PER_YEAR;
-    const xOf = (slot: number) => AXIS_W + 16 + slot * SLOT_W;
+    const xOf = (slot: number) => AXIS_W + historyW + 16 + slot * SLOT_W;
     const scaleBottom = yOf(y1);
     const undatedY = scaleBottom + UNDATED_GAP;
     const anyUndated = layout.points.some((p) => p.year === undefined);
@@ -140,7 +172,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
       width: xOf(layout.slots - 1) + LABEL_ROOM,
       height: (anyUndated ? undatedY : scaleBottom) + 24,
     };
-  }, [layout]);
+  }, [layout, y0, y1, historyW]);
 
   // Every point in pixels; labels greedily, nearest generations first, each
   // dropped when it would overlap one already placed (the dot keeps its tooltip).
@@ -184,18 +216,6 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     [colorer, positions],
   );
 
-  // Historical events over the years the chart spans, by where its people lived.
-  const nowYear = new Date().getFullYear();
-  const people = useMemo(
-    () =>
-      points.flatMap((p) =>
-        p.node.main && p.year !== undefined
-          ? [{ id: p.node.main.id, from: p.year, to: deathYear(p.node.main) ?? (p.node.living ? nowYear : p.year + 70) }]
-          : [],
-      ),
-    [points, nowYear],
-  );
-  const history = useHistoryEvents(mainDs, people, geom?.y0, geom?.y1);
 
   const rootPoint = points.find((p) => p.gen === 0);
   const laid = useMemo(
@@ -236,29 +256,44 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
   const rootYears = root && !redacted(root) ? root.years : undefined;
   const exportTitle = [root && rootPoint && nameFor(rootPoint), rootYears, "—", pageKind].filter(Boolean).join(" ");
 
-  /** The year scale and the historical events, drawn as the left column. */
-  const yearColumn = (g: NonNullable<typeof geom>) => (
+  /** The year scale, the decade grid and the historical events, drawn across
+   *  to `right` — the whole chart, or just the left column that the sticky
+   *  copy repeats while the chart scrolls sideways. Spans are one flat tint
+   *  however many overlap (solid fills under one group opacity); a single
+   *  year is a dotted rule. */
+  const yearColumn = (g: NonNullable<typeof geom>, right: number) => (
     <>
       {g.ticks.map((year) => (
-        <text key={year} className="timeline-axis gm-data" x={AXIS_W - 8} y={g.yOf(year) + 4} textAnchor="end">
-          {year}
+        <g key={year}>
+          <line className="timeline-grid" x1={AXIS_W} y1={g.yOf(year)} x2={right} y2={g.yOf(year)} />
+          <text className="timeline-axis gm-data" x={AXIS_W - 8} y={g.yOf(year) + 4} textAnchor="end">
+            {year}
+          </text>
+        </g>
+      ))}
+      <g className="timeline-history-bands">
+        {history.map((e) =>
+          e.to !== undefined ? (
+            <rect key={e.key} x={AXIS_W} y={g.yOf(e.from)} width={right - AXIS_W} height={(e.to - e.from) * PX_PER_YEAR}>
+              <title>{e.text}</title>
+            </rect>
+          ) : null,
+        )}
+      </g>
+      {history.map((e) =>
+        e.to === undefined ? (
+          <line key={e.key} className="timeline-history-line" x1={AXIS_W} y1={g.yOf(e.from)} x2={right} y2={g.yOf(e.from)}>
+            <title>{e.text}</title>
+          </line>
+        ) : null,
+      )}
+      {historyLabels.map((e) => (
+        <text key={e.key} className="timeline-history-label timeline-lines-history" x={e.x} y={e.y}>
+          {e.text}
         </text>
       ))}
     </>
   );
-  /** Event labels at the left edge of the plot, pushed right past a label at
-   *  nearly the same height. */
-  const historyLabels = useMemo(() => {
-    if (!geom) return [];
-    const placedLabels: { y: number; x1: number }[] = [];
-    return history.map((e) => {
-      const y = geom.yOf(e.from) - 3;
-      let x = AXIS_W + 4;
-      for (const l of placedLabels) if (Math.abs(l.y - y) < LABEL_H && l.x1 > x) x = l.x1 + 12;
-      placedLabels.push({ y, x1: x + e.text.length * CHAR_W });
-      return { ...e, x, y };
-    });
-  }, [history, geom]);
 
   return (
     <ChartPage
@@ -306,35 +341,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
               <svg className="tree-svg" width={laid.width} height={laid.height} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
                 <g transform={`translate(${PAD},${PAD})`}>
-                  {/* Decade grid across the plot, the year scale down the left. */}
-                  {geom.ticks.map((year) => (
-                    <line key={year} className="timeline-grid" x1={AXIS_W} y1={geom.yOf(year)} x2={geom.width} y2={geom.yOf(year)} />
-                  ))}
-                  {yearColumn(geom)}
-                  {/* Historical spans: one flat tint however many overlap
-                      (solid fills under one group opacity); a single year is
-                      a dotted rule. */}
-                  <g className="timeline-history-bands">
-                    {history.map((e) =>
-                      e.to !== undefined ? (
-                        <rect key={e.key} x={AXIS_W} y={geom.yOf(e.from)} width={geom.width - AXIS_W} height={(e.to - e.from) * PX_PER_YEAR}>
-                          <title>{e.text}</title>
-                        </rect>
-                      ) : null,
-                    )}
-                  </g>
-                  {history.map((e) =>
-                    e.to === undefined ? (
-                      <line key={e.key} className="timeline-history-line" x1={AXIS_W} y1={geom.yOf(e.from)} x2={geom.width} y2={geom.yOf(e.from)}>
-                        <title>{e.text}</title>
-                      </line>
-                    ) : null,
-                  )}
-                  {historyLabels.map((e) => (
-                    <text key={e.key} className="timeline-history-label timeline-lines-history" x={e.x} y={e.y}>
-                      {e.text}
-                    </text>
-                  ))}
+                  {yearColumn(geom, geom.width)}
                   {geom.anyUndated && (
                     <text className="timeline-lines-undated" x={AXIS_W + 4} y={geom.undatedY - 22}>
                       {t("timeline.lines.undated")}
@@ -414,19 +421,14 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
         {laid && geom && viewport.left > 1 && (
           <div className="timeline-lines-sticky" aria-hidden>
             <svg
-              width={STICKY_W * zoom}
+              width={(PAD + AXIS_W + HISTORY_MAX_W) * zoom}
               height={laid.height * zoom}
-              viewBox={`0 0 ${STICKY_W} ${laid.height}`}
+              viewBox={`0 0 ${PAD + AXIS_W + HISTORY_MAX_W} ${laid.height}`}
               style={{ transform: `translateY(${-viewport.top}px)` }}
             >
-              <rect className="timeline-lines-sticky-bg" x={0} y={0} width={AXIS_W + PAD} height={laid.height} />
+              <rect className="timeline-lines-sticky-bg" x={0} y={0} width={PAD + AXIS_W + historyW} height={laid.height} />
               <g transform={`translate(${PAD},${PAD})`}>
-                {yearColumn(geom)}
-                {historyLabels.map((e) => (
-                  <text key={e.key} className="timeline-history-label timeline-lines-history" x={e.x} y={e.y}>
-                    {e.text}
-                  </text>
-                ))}
+                {yearColumn(geom, AXIS_W + historyW)}
               </g>
             </svg>
           </div>
