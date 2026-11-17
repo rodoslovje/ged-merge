@@ -71,7 +71,7 @@ export function gridValues(max: number): number[] {
  * `.stats-columns.gridded`). Drawn only where the columns carry no values of
  * their own, so that a chart is read one way or the other.
  */
-function GridLines({ values, max, last, format }: { values: number[]; max: number; last: boolean; format: (v: number) => string }) {
+export function GridLines({ values, max, last, format }: { values: number[]; max: number; last: boolean; format: (v: number) => string }) {
   return values.map((v) => (
     <span key={v} className="stats-guide" style={{ bottom: `${(100 * v) / max}%` }} aria-hidden="true">
       {last && <span className="stats-guide-value">{format(v)}</span>}
