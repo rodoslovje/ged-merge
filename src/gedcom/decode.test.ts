@@ -126,6 +126,17 @@ describe("decodeGedcom charset detection", () => {
     expect(warnings.some((w) => /split across a line-wrap/.test(w.message))).toBe(true);
   });
 
+  it("heals a split character in a file larger than a JS array can hold byte by byte", () => {
+    // A 136 MB MyHeritage export threw "Invalid array length": the healed
+    // copy was built in a number[], which stops growing near 2^27 elements.
+    const head = new Uint8Array([...ascii("0 HEAD\n1 CHAR UTF-8\n1 NOTE Kra"), 0xc4, ...ascii("\n2 CONC "), 0x87, ...ascii("an\n")]);
+    const bytes = new Uint8Array(2 ** 27 + 1024).fill(0x0a);
+    bytes.set(head);
+    const { text, warnings } = decodeGedcom(bytes.buffer);
+    expect(text.startsWith("0 HEAD\n1 CHAR UTF-8\n1 NOTE Krać\n2 CONC an\n")).toBe(true);
+    expect(warnings.some((w) => /split across a line-wrap/.test(w.message))).toBe(true);
+  }, 60_000);
+
   it("heals a split character in a UTF-8 file with a BOM", () => {
     const bytes = new Uint8Array([
       0xef,
@@ -153,6 +164,23 @@ describe("decodeGedcom ANSEL table", () => {
     );
     expect(text).toContain("ßß€□■ʺeo" + "o\u0338");
     expect(warnings.some((w) => /unmapped/.test(w.message))).toBe(false);
+  });
+});
+
+describe("decodeGedcom CHAR ANSEL over a Windows codepage", () => {
+  it("reads CHAR ANSEL over Windows-1250 bytes as Windows-1250 (Brother's Keeper)", () => {
+    // "Jožef Šeč": ž and Š are no ANSEL character; č would read as a combining diaeresis.
+    const { text, charset } = decodeGedcom(ged("ANSEL", [0x4a, 0x6f, 0x9e, 0x65, 0x66, 0x20, 0x8a, 0x65, 0xe8]));
+    expect(charset).toBe("WINDOWS-1250");
+    expect(text).toContain("Jožef Šeč");
+  });
+
+  it("keeps a genuine ANSEL file with one stray undefined byte as ANSEL", () => {
+    // Ten acute-accented letters (E2 + base) and one byte ANSEL leaves undefined.
+    const name = [...Array(10)].flatMap(() => [0xe2, 0x65]).concat([0x20, 0x9e]);
+    const { text, charset } = decodeGedcom(ged("ANSEL", name));
+    expect(charset).toBe("ANSEL");
+    expect(text).toContain("é".repeat(10));
   });
 });
 

@@ -7,6 +7,7 @@ import { individualFieldRows } from "../review/fields";
 import type { GedNode } from "../gedcom/types";
 import { inferMainProfile } from "../normalize/profile";
 import { normalizeDataset } from "../normalize/normalize";
+import { applyFormatOverrides } from "../normalize/formatOverrides";
 import { formatReport, materializeEventSources, materializeRecordField, mergeDecisions, type ChangeReport, type FieldChange } from "./merge";
 import { rowCanKeepBoth } from "./applyFields";
 import { FAM_CHILD_ORDER, INDI_CHILD_ORDER } from "../gedcom/edit/shared";
@@ -1175,6 +1176,75 @@ describe("mergeDecisions — links", () => {
     const out = serializeGedcom(records);
     expect(out.match(/WWW/g)).toHaveLength(1);
     expect(report.changes).toHaveLength(0);
+  });
+
+  it("writes a strict target's private flag as RESN, not the file's _PRIV", () => {
+    const main = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 _PRIV Y\n",
+    ));
+    const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 RESN privacy\n"));
+    const strict = { standard: "5.5.1" as const, privacy: "RESN" as const };
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr, [], strict).records);
+    const janez = out.split("0 @I1@ INDI")[1]!.split("\n0 ")[0]!;
+    expect(janez).toContain("1 RESN privacy");
+    expect(janez).not.toContain("_PRIV");
+  });
+
+  it("writes a strict 7.0 target's FamilySearch id as EXID, not the record's _FID", () => {
+    const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+    const main = dataset(wrap7("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _FID AAAA-111\n"));
+    const compare = dataset(wrap7("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _FID BBBB-222\n"));
+    const { records } = mergeDecisions(main, compare, confirmed({ fsid: "both" }), NO_MATCHES, tr, [], { standard: "7.0" });
+    const out = serializeGedcom(records);
+    expect(out).toMatch(/1 EXID BBBB-222/);
+    expect(out).not.toContain("_FID BBBB-222");
+  });
+
+  it("writes a strict 7.0 target's carried _UID as the standard UID", () => {
+    const wrap7 = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 7.0\n${body}0 TRLR\n`;
+    const main = dataset(wrap7("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n"));
+    const compare = dataset(wrap7(
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 _UID 0C4F6E2A-1B2C-4D5E-8F90-123456789ABC\n",
+    ));
+    const out = serializeGedcom(mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr, [], { standard: "7.0" }).records);
+    expect(out).toContain("1 UID 0C4F6E2A-1B2C-4D5E-8F90-123456789ABC");
+    expect(out).not.toContain("_UID");
+  });
+
+  it("writes a strict target's record link as _URL even when the main uses _WEBTAG", () => {
+    const main = dataset(
+      wrap("0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 _WEBTAG\n2 URL https://example.com/old\n"),
+    );
+    const compare = dataset(
+      wrap("0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 WWW https://example.com/new\n"),
+    );
+    const { records } = mergeDecisions(main, compare, confirmed({ links: "both" }), NO_MATCHES, tr, [], { standard: "5.5.1" });
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 _URL https://example.com/new");
+    expect(out).not.toContain("2 URL https://example.com/new");
+  });
+
+  it("brings a new person's record link into a strict main as _URL", () => {
+    // A RootsMagic-style `1 WWW` on a person the main does not have: the new
+    // person is copied as the normalized compare file holds it.
+    const compareText =
+      "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+      "0 @P1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMS @G1@\n" +
+      "0 @P2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 WWW https://example.com/ana\n1 FAMS @G1@\n" +
+      "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n0 TRLR\n";
+    for (const version of ["5.5.1", "7.0"] as const) {
+      const form = version === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : "";
+      const main = dataset(`0 HEAD\n1 GEDC\n2 VERS ${version}\n${form}1 SOUR t\n0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n0 TRLR\n`);
+      const profile = applyFormatOverrides(inferMainProfile(main), { standard: version });
+      const { dataset: compare } = normalizeDataset(dataset(compareText), profile);
+      const { records, report } = mergeDecisions(main, compare, confirmed(), NO_MATCHES, tr, [], { standard: version });
+      expect(report.newPersons, version).toBeGreaterThan(0);
+      const out = serializeGedcom(records);
+      expect(out, version).toContain("1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n1 _URL https://example.com/ana\n");
+      expect(out, version).not.toContain("1 WWW");
+      expect(validateConformance({ records }), version).toEqual([]);
+    }
   });
 
   it("adds a new incoming link as a _WEBTAG block when the main uses that format", () => {
@@ -2749,6 +2819,49 @@ describe("mergeDecisions — one family for a couple, however it is reached", ()
         incoming: { name: "Jozef Grca", years: "1940", dates: "1940", sex: "M" },
       },
     ]);
+  });
+
+  it("a graft lists only the joins your file does not back up with a relationship", () => {
+    // Your file already has Tomaž + Marina with their daughter Lucija; a fourth
+    // match, Jernej, is in your file but as nobody's child. Bringing Tomaž's
+    // descendants joins all four. Tomaž is the walk's anchor — nothing vouches
+    // for him — and Jernej sits elsewhere in your file; Marina and Lucija hold
+    // the very places your file gives them, so they go unlisted.
+    const main = dataset(
+      wrap(
+        "0 @I1@ INDI\n1 NAME Tomaz /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1633\n1 FAMS @F1@\n" +
+          "0 @I2@ INDI\n1 NAME Marina /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1633\n1 FAMS @F1@\n" +
+          "0 @I3@ INDI\n1 NAME Lucija /Tepina/\n1 SEX F\n1 BIRT\n2 DATE 1655\n1 FAMC @F1@\n" +
+          "0 @I4@ INDI\n1 NAME Jernej /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1658\n" +
+          "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n",
+      ),
+    );
+    const compare = dataset(
+      wrap(
+        "0 @P1@ INDI\n1 NAME Tomaz /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1633\n1 FAMS @G1@\n" +
+          "0 @P2@ INDI\n1 NAME Marina /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1633\n1 FAMS @G1@\n" +
+          "0 @P3@ INDI\n1 NAME Lucija /Tepina/\n1 SEX F\n1 BIRT\n2 DATE 1655\n1 FAMC @G1@\n" +
+          "0 @P4@ INDI\n1 NAME Jernej /Tepina/\n1 SEX M\n1 BIRT\n2 DATE 1658\n1 FAMC @G1@\n" +
+          "0 @G1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @P3@\n1 CHIL @P4@\n",
+      ),
+    );
+    const matches = {
+      individuals: [
+        { mainId: "@I1@", compareId: "@P1@" },
+        { mainId: "@I2@", compareId: "@P2@" },
+        { mainId: "@I3@", compareId: "@P3@" },
+        { mainId: "@I4@", compareId: "@P4@" },
+      ],
+    } as never;
+    const { records, report } = mergeDecisions(main, compare, NO_PICKS, matches, tr, [
+      { incomingId: "@P1@", direction: "descendants" },
+    ]);
+    // Every join is still made — nobody comes in twice, Jernej joins the family.
+    expect(report.newPersons).toBe(0);
+    expect(block(serializeGedcom(records), "0 @F1@ FAM")).toBe(
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n1 CHIL @I4@\n",
+    );
+    expect(report.graftJoins.map((j) => j.compareId)).toEqual(["@P1@", "@P4@"]);
   });
 
   it("a person with several incoming marriages gets a family per marriage", () => {

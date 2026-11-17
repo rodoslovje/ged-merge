@@ -12,9 +12,8 @@
 import type { Dataset, Individual, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { NODE_H, NODE_W, PAD, type ChartAlignment } from "./treeLayout";
-import { localityParts } from "../gedcom/place";
 import { displayName, primaryName } from "../match/relatives";
-import { coupleLiving, type MarriageInfo } from "./personTree";
+import { marriageOf, type MarriageInfo } from "./personTree";
 import type { RelationshipPath } from "../match/relationshipPath";
 
 export const ROW_GAP_TD = 72;
@@ -168,8 +167,26 @@ export function buildRelationshipChart(
         frontier = Math.max(frontier, railSpouseCol);
       }
       drops.push({ child: childId, parent: parentId }); // previous member, above
+    } else if (i === 1 || steps[i - 1].edge === "spouse") {
+      // Descending from the start person, or from a spouse on the path: they
+      // head the rail themselves, the child directly below, so the line of
+      // descent reads straight down; the child's other parent stands beside
+      // them as a partner (off the spine).
+      railCol = place.get(parentId)!.col;
+      railSpouseCol = null;
+      railSide = 1;
+      descentHead = null;
+      put(steps[i].id, railCol, row, true);
+      if (other) {
+        put(other, frontier + 1, parentRow, false);
+        partners.push([parentId, other]);
+        frontier = Math.max(frontier, place.get(other)!.col);
+        // The partners further down the rail line up in the same column.
+        railSpouseCol = place.get(other)!.col;
+      }
+      drops.push({ child: childId, parent: parentId });
     } else {
-      // Start a new descent rail: crossing a peak, or descending from a spouse.
+      // Start a new descent rail: crossing a peak.
       railSpouseCol = null;
       railSide = 1;
       if (descentHead !== null && other && place.get(other)?.col === descentHead) {
@@ -283,11 +300,7 @@ function coupleMarriage(ds: Dataset, a: string, b: string): MarriageInfo | undef
   for (const famId of indi.spouseOf) {
     const fam = ds.families.get(famId);
     if (!fam || (fam.husband !== b && fam.wife !== b)) continue;
-    const marr = fam.events.find((e) => e.tag === "MARR");
-    if (!marr) return undefined;
-    const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
-    const place = marr.place ? localityParts(marr.place)[0] : undefined;
-    return year || place ? { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) } : undefined;
+    return marriageOf(fam, ds);
   }
   return undefined;
 }

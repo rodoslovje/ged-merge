@@ -13,7 +13,7 @@ import { ownVersion } from "../../save/outputFile";
 import { revealEdgeWhitespace } from "../whitespace";
 import { type ToolsScans } from "../useToolsScans";
 import { BatchSection } from "./BatchSection";
-import { ToolsError, ToolsLoading } from "./shared";
+import { ToolsError, ToolsLoading, ToolsIntro } from "./shared";
 
 /**
  * The "Normalize & batch" sub-tab: two mass-change surfaces behind one toggle —
@@ -156,7 +156,7 @@ function NormalizeFileSection({ dataset, scans, active, onApplyPatches }: { data
           (selected.stripInternal ? counts.stripInternal : 0);
         return (
           <>
-            <p className="tools-intro">{t("tools.normalize.intro")}</p>
+            <ToolsIntro>{t("tools.normalize.intro")}</ToolsIntro>
             <ul className="tools-norm-summary">
               {/* First: what the file's own GEDCOM version requires, as the
                   health check's GEDCOM tab names it. */}

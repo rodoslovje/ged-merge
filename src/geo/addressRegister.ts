@@ -17,6 +17,13 @@ import { foldToken } from "../match/text";
 /** Which country's register — the prefix of every key it stores under. */
 export type RegisterCountry = "SI" | "HR";
 
+/** A country's address register as the app names it everywhere — the
+ *  directory list, the naming check and the badge on every answer it gives:
+ *  "SI-ADR", in the shape of the "SI-GURS" of the places it sits beside. */
+export function addressRegisterId(country: RegisterCountry): `${RegisterCountry}-ADR` {
+  return `${country}-ADR`;
+}
+
 /** How many decimal degrees a stored coordinate is scaled by. 1e6 is ~10 cm,
  *  finer than any register's own positions or anything written to a GEDCOM, and
  *  keeps every European value inside an Int32. */

@@ -1,15 +1,29 @@
 import type { NegativeAssertion } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { deniedEventLabel } from "../EventGlyph";
 import { AddEventSelect } from "./AddEventSelect";
+import { DropdownMenu } from "../DropdownMenu";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
 
+const REMOVE = "remove";
+
+/** What a statement says: "did not happen", and over which period when it is
+ *  limited to one. */
+function NoEventText({ a, t }: { a: NegativeAssertion; t: Translate }) {
+  return (
+    <span className="edit-no-event-text" title={a.note}>
+      {t("edit.noEvent.add")}
+      {a.date?.raw && <span className="edit-no-event-date"> ({a.date.raw})</span>}
+    </span>
+  );
+}
+
 /**
- * The events a record states did *not* happen (GEDCOM 7 `NO`): one chip per
- * statement — the event's name, and the period when the statement is limited to
- * one — with a × that withdraws it. Renders nothing when there are none; the
- * menu that adds one is {@link AddNoEventSelect}, which sits with the record's
- * other "+ Add" chips.
+ * The events a record states did *not* happen (GEDCOM 7 `NO`), ahead of the
+ * events it holds: one row per statement, laid out as an event row — the
+ * event's mark and name, whose ▾ menu withdraws the statement, and beside it
+ * "Did not happen". Renders nothing when there are none.
  */
 export function NoEventsRow({
   assertions,
@@ -25,42 +39,56 @@ export function NoEventsRow({
 }) {
   if (!assertions.length && !merge?.assertions.length) return null;
   return (
-    <div className="edit-event-add-row edit-no-events">
-      <span className="edit-no-events-label">{t("edit.noEvent.label")}</span>
-      {assertions.map((a) => {
-        const event = eventDisplayLabel(a.tag, t);
-        return (
-          <span key={a.tag} className="edit-name-chip edit-no-event" title={a.note}>
-            <span aria-hidden="true">⊘</span> {event}
-            {a.date?.raw && <span className="edit-no-event-date"> ({a.date.raw})</span>}
-            <button
-              type="button"
-              className="edit-no-event-remove"
-              title={t("edit.noEvent.remove", { event })}
-              aria-label={t("edit.noEvent.remove", { event })}
-              onClick={() => onRemove(a.tag)}
-            >
-              ×
-            </button>
-          </span>
-        );
-      })}
+    <div className="edit-no-events">
+      {assertions.map((a) => (
+        <div key={a.tag} className="edit-event edit-no-event-row">
+          <div className="edit-event-main">
+            <div className="edit-event-type-row">
+              <DropdownMenu
+                className="edit-event-label edit-event-label--select"
+                title={t("edit.noEvent.remove", { event: eventDisplayLabel(a.tag, t) })}
+                groups={[{ items: [{ value: REMOVE, label: t("edit.removeEvent") }] }]}
+                onSelect={() => onRemove(a.tag)}
+                trigger={
+                  <>
+                    {deniedEventLabel(a.tag, t)}
+                    <span className="edit-event-type-caret" aria-hidden="true">▾</span>
+                  </>
+                }
+              />
+            </div>
+            <NoEventText a={a} t={t} />
+          </div>
+        </div>
+      ))}
       {merge?.assertions.map((a) => (
-        <MergeChip key={`merge-${a.tag}`} className="edit-no-event" t={t} onTake={merge.onTake} onSkip={merge.onSkip}>
-          <span aria-hidden="true">⊘</span> {eventDisplayLabel(a.tag, t)}
-          {a.date?.raw && <span className="edit-no-event-date"> ({a.date.raw})</span>}
-        </MergeChip>
+        <div key={`merge-${a.tag}`} className="edit-event edit-no-event-row">
+          <div className="edit-event-main">
+            <div className="edit-event-type-row">
+              <div className="edit-event-label">{deniedEventLabel(a.tag, t)}</div>
+            </div>
+            <MergeChip className="edit-no-event" t={t} onTake={merge.onTake} onSkip={merge.onSkip}>
+              <NoEventText a={a} t={t} />
+            </MergeChip>
+          </div>
+        </div>
       ))}
     </div>
   );
 }
 
 /**
- * "+ Did not happen" — the menu of events the record may state did not happen.
- * Leaves out the ones already stated and the ones the record actually holds:
- * saying a recorded marriage never happened is a contradiction the health check
- * reports, not something to offer.
+ * The events a record may state did not happen: `offer` less the ones already
+ * stated and the ones the record actually holds — saying a recorded marriage
+ * never happened is a contradiction the health check reports, not something
+ * to offer.
  */
+export function deniableTags(assertions: NegativeAssertion[], offer: readonly string[], recordedTags: Set<string>): string[] {
+  const stated = new Set(assertions.map((a) => a.tag));
+  return offer.filter((tag) => !stated.has(tag) && !recordedTags.has(tag));
+}
+
+/** "+ Did not happen" — the menu of {@link deniableTags}. */
 export function AddNoEventSelect({
   assertions,
   offer,
@@ -78,10 +106,9 @@ export function AddNoEventSelect({
   tooltip: string;
   onAdd: (tag: string) => void;
 }) {
-  const stated = new Set(assertions.map((a) => a.tag));
   return (
     <AddEventSelect
-      tags={offer.filter((tag) => !stated.has(tag) && !recordedTags.has(tag))}
+      tags={deniableTags(assertions, offer, recordedTags)}
       label={t("edit.noEvent.add")}
       tooltip={tooltip}
       t={t}

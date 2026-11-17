@@ -160,6 +160,7 @@
             <li class="guide-toc-sub"><a href="#duplicates">↳ Find duplicates</a></li>
             <li class="guide-toc-sub"><a href="#normalize">↳ Normalize &amp; batch</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Privacy</a></li>
+            <li class="guide-toc-sub"><a href="#tool-website">↳ Family website</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Sources</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Places</a></li>
 
@@ -221,6 +222,13 @@
               <p>New here? On the landing page, open one of the sample trees (Europe Royal Families, Tudors, US
               Presidents) to explore every feature with real data before loading your own file.</p>
             </div>
+            <div class="gm-callout tip">
+              <span class="gm-callout-label">Video tutorials</span>
+              <p>You can also watch GED Merge at work in video tutorials on YouTube: on the
+              <a href="https://www.youtube.com/@GEDMerge" target="_blank" rel="noopener">GED Merge channel</a>, and in the
+              <a href="https://www.youtube.com/watch?v=qEsR1sWkMNo&amp;list=PLXKQGQgTQGAY" target="_blank" rel="noopener">tutorial
+              playlist</a>, which plays them in order.</p>
+            </div>
           </section>
 
           <section id="workspace">
@@ -231,6 +239,7 @@
               <li><strong>File pills</strong> — the loaded main and incoming file names. Click a pill to see or replace that file, or drop a new file on it to replace it straight away. On a phone the names are in the <span class="gm-glyph">☰</span> menu instead.</li>
               <li><strong>Undo / Redo</strong> — one shared history across edits, tool passes and merge decisions (<span class="gm-key">Ctrl</span><span class="gm-key">Z</span> / <span class="gm-key">Ctrl</span><span class="gm-key">Shift</span><span class="gm-key">Z</span>) — see <a href="#undo"><em>Undo &amp; redo</em></a> below.</li>
               <li><strong>Save GEDCOM</strong> — preview and download your changes (<span class="gm-key">Ctrl</span><span class="gm-key">S</span>). The button is greyed out while there is nothing new to save.</li>
+              <li><strong>Background downloads</strong> — while anything is being fetched, a spinner with a count appears beside Undo. Click it for the list: place and address lookups, source pages being read and place registers being downloaded, each with how far it has got. It shows them whichever view started them, so a lookup or download goes on after you close its panel; a register download in the list opens <em>Settings › Map</em>.</li>
               <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name — the opening letters of each part are enough, in any order and with the accents optional, so <em>sebas kala</em> finds Sebastjan Kalan, and every other box you type a name into (the relative pickers, the start person, find-in-chart, the match list) reads a name the same way; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens their charts. Typing a record id instead of a name — <em>@I1262@</em>, or just <em>I1262</em> — finds exactly that person. When a media folder is connected (<a href="#photos">§12</a>), each result also shows the person's photo — their marked region of a group photo — so namesakes are told apart at a glance. Here and in every other list you pick a person from, each person also shows where they lived: the place and address of their last residence, else of their birth, else of their death. <strong>Filters</strong> narrow a common name down: sex, a birth-year range, a place, text in <em>any field</em> of the person's record or of their unions' events (an occupation, a marriage place, a citation's page, a word in a note), whether the person has links, notes or sources, whether you have edited them, their merge decision, and how close they are to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>). If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person. On a very large file the search list is prepared in the background once the file has opened; a search opened before it is ready shows how far the preparation has got.</li>
               <li><strong>Add new person</strong> — the <span class="gm-glyph">＋</span> button (or <span class="gm-key">N</span>) creates a person linked to nobody, from any mode — see <a href="#edit">§8</a>.</li>
               <li><strong>Settings</strong> — the <span class="gm-glyph">⚙</span> menu holds appearance (theme and language), name and record display, and data options — see <em>Settings</em> below.</li>
@@ -288,24 +297,30 @@
 
             <h3>Settings</h3>
             <p>
-              The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has four tabs. <strong>General</strong>
-              covers everyday preferences; <strong>GEDCOM</strong> lets you pin the file conventions GED Merge otherwise
+              The <span class="gm-glyph">⚙</span> <strong>Settings</strong> menu has five tabs. <strong>General</strong>
+              covers everyday preferences; <strong>Editing</strong> holds you as the file's author and the helpers for
+              adding people and events; <strong>GEDCOM</strong> lets you pin the file conventions GED Merge otherwise
               detects automatically; <strong>Map</strong> controls the map background and the additional map layers; and
               <strong>Advanced</strong> holds the online lookups and the locally stored data. Every choice is remembered
               in this browser.
             </p>
-            <p><strong>General</strong> — five groups, in this order:</p>
+            <p><strong>General</strong> — four groups, in this order:</p>
             <ul>
               <li><strong>Language</strong> — English or Slovenščina.</li>
               <li><strong>Appearance</strong> — <em>Theme</em>: Automatic, Light or Dark (Automatic follows your operating system).</li>
-              <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač) — someone married more than once shows all married surnames, comma-separated in marriage order — and <em>Uppercase surnames</em> (e.g. Ana NOVAK). A live sample above the options shows the result. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
+              <li><strong>Name display</strong> — <em>Name order</em> (given name first or surname first), <em>Show married surname</em>, which appends it in parentheses, e.g. Ana Novak (Kovač) — someone married more than once shows all married surnames, comma-separated in marriage order — and <em>Uppercase surnames</em> (e.g. Ana NOVAK). A live sample above the options shows the result, together with the display settings below it — age, kinship, the bold direct line and the record id. These change how names <em>display</em> everywhere; your stored data is untouched.</li>
               <li><strong>Display</strong> — <em>Date display</em> shows dates as the file writes them, in words (<em>about 5 March 1850</em>) or in a format of your choice, with signs in place of the GEDCOM words (<em>~05.03.1850</em>, <em>&lt;1850</em>, <em>&gt;1850</em>, <em>1850–1860</em> for a range, <em>1850 → 1860</em> for a period) while the file keeps its own format, and a date field turns back into the file's text when you click into it; <em>Show ages</em> adds ages after lifespans and beside event dates; <em>Show kinship</em> shows each person's relationship to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>) throughout the app; <em>Highlight ancestors and descendants</em> sets the start person's direct line in bold; and <em>Show record IDs</em> puts each person's GEDCOM record id (xref) next to their name.</li>
-              <li><strong>Editing</strong> — <em>Your name (file author)</em> is written as the file's author (<em>SUBM</em>) wherever GED Merge has to supply one: in a new tree, and in a GEDCOM 5.5.1 file saved without one (<a href="#saving">§14</a>). Left empty, the author is “GED Merge”. <em>Married surname from partner</em> records a husband's known surname as the married name of a wife you add to him, and <em>Quick add events</em> sets the buttons under the event list (<a href="#edit">§8</a>).</li>
+            </ul>
+            <p><strong>Editing</strong> — three groups:</p>
+            <ul>
+              <li><strong>File author</strong> — <em>Your name</em>, <em>Your e-mail</em> and <em>Your website</em> are written as the file's author (<em>SUBM</em>) wherever GED Merge has to supply one: in a new tree, and in a GEDCOM 5.5.1 file saved without one (<a href="#saving">§14</a>). With no name, the author is “GED Merge”; an empty e-mail or website is left out.</li>
+              <li><strong>Adding people</strong> — <em>Married surname from partner</em> records a husband's known surname as the married name of a wife you add to him.</li>
+              <li><strong>Quick add events</strong> — the buttons under the event list (<a href="#edit">§8</a>).</li>
             </ul>
             <p>The other three tabs:</p>
             <ul>
               <li><strong>GEDCOM</strong> — first the file's <em>Target format</em> (<a href="#target-format">§4</a>), then the file conventions you can override instead of letting GED Merge detect them, grouped as <em>Dates</em>, <em>Names</em>, <em>Places</em>, <em>Sources</em> and <em>Privacy</em>: date format, unknown date parts, alternate names, the unknown-name marker, place format and the comma form between place levels, source and citation layout, page links, baptism citations, source coverage (the program's own place-and-years fields, or the standard's <em>DATA</em> structure), doubled links, the Matricula and Geneanet link languages, and the private-flag tag. Each row shows a sample of what the choice writes and defaults to <em>Auto (detected)</em> — following the file's own habit — but a chosen value is then enforced by the incoming-file normalizer, the <a href="#tools">Normalize</a> tool, <a href="#tools">Organize sources</a>, Add Source and inline editing. Date, place, name and link choices take effect from the next file load. Beneath them sits <em>Home country</em>, which is not a convention but a reading of your file: which country a place that names none is taken to be in (<a href="#geocode">§10</a>). It follows the file — the country three quarters of its country-naming places agree on, shown in the option itself — and can be set to any country instead, or to assume nothing. See <a href="#house-style">§4</a> and <a href="#sources">§13</a>.</li>
-              <li><strong>Map</strong> — <em>Place directories</em> holds the gazetteers your place names are matched against: download Slovenia's GURS register, Croatia's DGU register of geographical names or any country from OpenStreetMap, import a GeoNames file, and see what is loaded with its size and date or remove it. Croatia's <em>DGU address register</em> is offered here too — every house number in the country, downloaded once and thereafter looked up in this browser (<a href="#geocode">§10</a>). They live in this browser, not in the file, so they outlive the file you have open and serve every file you load; <a href="#geocode">Geocode places</a> (<a href="#tools">§10</a>) offers the same downloads while you have none. <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
+              <li><strong>Map</strong> — <em>Place directories</em> holds the gazetteers your place names are matched against: download Slovenia's GURS register, Croatia's DGU register of geographical names or any country from OpenStreetMap, import a GeoNames file, and see what is loaded with its size and date or remove it. Croatia's <em>DGU address register</em> is offered here too — every house number in the country, downloaded once and thereafter looked up in this browser (<a href="#geocode">§10</a>). Different sources download side by side; each download shows its progress in its own button, and a click on that button cancels it. They live in this browser, not in the file, so they outlive the file you have open and serve every file you load; <a href="#geocode">Geocode places</a> (<a href="#tools">§10</a>) offers the same downloads while you have none. <em>Load base-map tiles</em> opts in to a map background for every map in the app (tile requests reveal the viewed region; off = a built-in offline outline), and <em>Base map</em> picks which one: CARTO, OpenStreetMap, terrain, Esri satellite or topographic, or your own tile-URL template. Once tiles are allowed, a live sample above the picker draws the current choice. <em>Additional map layers</em> configures maps drawn over the base — pick a bundled free preset (including Slovenia's national GURS maps), or add your own tile-URL template or OGC&nbsp;WMS service (name, URL, valid years, attribution). See <a href="#map">§11</a>.</li>
               <li><strong>Advanced › Online lookups</strong> — <em>Look up details online</em>: when you add a source from a bare URL, GED Merge fetches its page title through a public relay. The same switch powers the per-row online searches (OpenStreetMap and the Genealogical Gazetteer, GOV) and the GURS address-register lookups used by <a href="#geocode">Geocode places</a>; those services are called directly, not through a relay. The one-click OpenStreetMap, GURS and DGU directory downloads are outside it — a download asks nothing about your file, so it is always offered. Croatian addresses are the exception that proves the rule: once the DGU address register is downloaded they are answered from this browser, so those lookups are offered whether the switch is on or off. <strong>Apart from the map tiles you opt into separately, these are the only features that send anything off your device, and they are off by default.</strong></li>
               <li><strong>Advanced › Locally stored data</strong> — <em>Remember my work in this browser</em>, <em>Clear locally stored data</em>, and <em>Silenced media-folder dialogs</em> (see <a href="#photos">§12</a>), which appears once you have dismissed one for good and restores it.</li>
             </ul>
@@ -536,16 +551,17 @@
               the matches it finds (<a href="#score">§6</a>) by <strong>kinship distance</strong>: how many relationship
               hops separate each candidate from your start person. Your closest relatives then surface first, and each match shows its relationship (e.g.
               <em>Grandfather</em>, <em>2nd cousin</em>). A sensible start person is chosen automatically when a file
-              loads; you can change or clear it at any time. <strong>Go to start person</strong> jumps the current view
+              loads; you can change or clear it at any time. Each file remembers its start person by its name, so
+              opening the same file again brings back the person you last chose, as long as they are still in it. <strong>Go to start person</strong> jumps the current view
               back to them at any moment.
             </p>
             <p>
               In Edit you set it from the kinship label beside the person's name — <em>Grandmother</em>, say, or
-              <em>Start Person</em>. Clicking the label opens a menu: <strong>Go to</strong> the start person,
+              <em>Start Person</em>, with the start person's target <span class="gm-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span> in front of it. Clicking the label opens a menu: <strong>Go to</strong> the start person,
               <strong>Make this person the start person</strong>, <strong>Choose another person…</strong> by name, or
               <strong>Clear start person</strong>. While no start person is set, a faint <strong>Set start person</strong>
               chip stands where the label would be. When the label is not shown — <em>Show kinship</em> is off in
-              Settings → Display, or the person is no relation — a small <span class="gm-glyph">⌂</span> opens the
+              Settings → Display, or the person is no relation — the target alone opens the
               same menu. On a phone the start person is also in the <span class="gm-glyph">☰</span> menu.
             </p>
             <p>
@@ -597,7 +613,8 @@
               it: new values, names, notes, ids and events in purple, with any value they replace struck through, and a
               relative the save links to someone already in your file as a dashed card — marked ⚠ when that match is
               the app's proposal rather than your own confirmation. A click takes a purple value into the record, where
-              you edit it like any other; its × leaves it out of the save. Every
+              you edit it like any other; its × leaves it out of the save. The cards of relatives with a confirmed match
+              show their merged name, sex and years too, and the parents' marriage its merged date. Every
               change is held in memory and
               reversible with <span class="gm-key">Ctrl</span><span class="gm-key">Z</span> until you download.
             </p>
@@ -650,7 +667,7 @@
               <span class="gm-key">⌥</span><span class="gm-key">⇧</span> with <span class="gm-key">1</span>–<span class="gm-key">9</span>
               does the same, in the buttons' order, and <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span>
               opens the full menu. Which events appear here is set under
-              <strong>Settings → General → Editing</strong>, where a button can be removed or another
+              <strong>Settings → Editing → Quick add events</strong>, where a button can be removed or another
               event added. Each button is its event's mark and name (<a href="#legend">§15</a>), and its border says what
               it does: dashed adds the event, solid leads to the row already holding it — which is what a button becomes
               for an event a person can have only one of, their birth, death or burial, once they have it.
@@ -682,11 +699,11 @@
               </ul>
               <p>
                 <strong>+ Did not happen</strong>, at the end of the same row, records the opposite: that an event did
-                <em>not</em> take place — a person never baptised, a couple who never married (the family has its own
-                button beside <strong>+ Add Family Event</strong>). This is GEDCOM 7's <code>NO</code>; a GEDCOM 5.5.1
-                file keeps it as <code>_NO</code>. Each statement shows below the buttons as a
-                <span class="gm-glyph">⊘</span> chip with the event's name, and its <span class="gm-glyph">×</span>
-                removes it. The <a href="#validate">health check</a> reports a record that holds both the event and the
+                <em>not</em> take place — a person never baptised, a couple who never married (for a family, the
+                <strong>+ Add Family Event</strong> menu ends with a <em>Did not happen:</em> group). This is GEDCOM 7's
+                <code>NO</code>; a GEDCOM 5.5.1 file keeps it as <code>_NO</code>. Each statement is a row of its own
+                ahead of the events, led by <span class="gm-glyph">⊘</span> (<span class="gm-glyph">⚯</span> for no
+                marriage) and the event's name, whose ▾ menu removes it. The <a href="#validate">health check</a> reports a record that holds both the event and the
                 statement, and Merge compares and brings in these statements like any other field.
               </p>
               <p>
@@ -830,6 +847,10 @@
               directory.
               Picking one fills in the place, its <strong>address</strong> when you typed a house number the address
               register recognised, and the <strong>coordinate</strong> that register puts it at — all in one step.
+              A house number typed into the place itself — <em>Žirovnica 7</em>, as files without an address line write
+              it — is set aside while the directories are searched and shown beside each offer for that settlement.
+              Picking one moves it to the address, which is where GEDCOM keeps it; a file that writes its addresses
+              into the place keeps it there.
             </p>
             <p>
               If your file labels what its place levels are — the standard <span class="gm-data">FORM</span> line under a
@@ -1036,6 +1057,26 @@
               if a start person is set — its relationship distance. Selecting a row opens the side-by-side comparison.
               Step through with <span class="gm-key">←</span> / <span class="gm-key">→</span>.
             </p>
+            <h3 id="whole-file">Bringing in the whole incoming file</h3>
+            <p>
+              Above the list, <strong>By person</strong> and <strong>Whole file</strong> choose what the save brings
+              in. <strong>By person</strong> brings only the people you confirm, the relatives you add with them and the
+              branches you mark in the Compare Tree. <strong>Whole file</strong> brings everyone in the incoming file:
+              before you switch, a confirmation says how many people are on the match list and how many more, with no
+              match in your file, are added as new. The people you confirm are merged as usual, the ones you reject are
+              added as people of their own, and <strong>Reviewed</strong> beside the switch counts how far you have got;
+              the relatives the file brings are marked <strong>✓ added</strong> instead of offering <strong>+ add</strong>.
+            </p>
+            <p>
+              Every incoming family comes across with its marriage, divorce, sources and notes — also a family with no
+              parents recorded, and a second family a child was adopted into — and so does every source, repository,
+              shared note and media record of the incoming file, unless your file already holds the same one. Where the
+              two files disagree, your file stands: a child your file gives other parents stays one person under them,
+              and the save preview names what was left out (<a href="#saving">§14</a>). If any possible match is still
+              unreviewed when you save, you choose whether those people are <strong>added as new people</strong> or
+              <strong>merged where name, sex and birth year agree</strong>. After the save the switch returns to
+              <strong>By person</strong>, so the same file is never brought in twice.
+            </p>
             <p>
               With a <strong>matches CSV</strong> the list is not limited to the people the index itself matched: the
               partners, parents and children named inside each row are offered as candidates too, whenever your main
@@ -1105,6 +1146,13 @@
               <li><strong>Differences</strong> — only matches with conflicting fields</li>
               <li><strong>Search name</strong> — filter by given name or surname (<span class="gm-key">Ctrl</span><span class="gm-key">F</span> reveals the controls and puts the cursor here)</li>
             </ul>
+            <p>
+              Beside the filter button, <strong>↻ Recompute matches</strong> scores the two files again — worth doing
+              after you have edited your main file, when a corrected date or a newly added person can pair better. Every
+              confirmed, rejected and deferred pair keeps its decision and stays in the list even where the new scores
+              would drop it, and the pair you are looking at stays on screen. An incoming file you changed in another
+              program still has to be loaded again, and loading it starts its decisions afresh.
+            </p>
             <h3>Columns &amp; sorting</h3>
             <p>
               Each row shows the candidate's name and life span, then a set of count columns. Every column header is
@@ -1117,7 +1165,7 @@
                 <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Distance</td><td>Kinship hops from your start person — shown only when a start person is set.</td></tr>
                 <tr><td><svg class="gm-ico import" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>New persons</td><td>Incoming-only ancestors and descendants this match could bring in. Confirming the merge doesn't import them — choose which to bring in from the Compare Tree.</td></tr>
                 <tr><td><svg class="gm-ico new" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New data</td><td>New fields the incoming file would add.</td></tr>
-                <tr><td><svg class="gm-ico link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>New links</td><td>Attached links the incoming adds or that differ.</td></tr>
+                <tr><td><svg class="gm-ico link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>New links</td><td>Links the incoming adds or that differ, attached directly or carried by a source citation.</td></tr>
                 <tr><td><svg class="gm-ico diff" viewBox="0 0 24 24"><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="17" y1="5" x2="7" y2="19"/></svg>Differences</td><td>Fields present in both files but differing.</td></tr>
                 <tr><td><svg class="gm-ico" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Status</td><td>Your decision — confirmed, rejected or deferred (round status badge; see <a href="#legend">§15</a>).</td></tr>
               </tbody>
@@ -1164,7 +1212,9 @@
               <strong>Marriages compare one at a time.</strong> Each of the person's unions gets its own
               <em>Family with …</em> group holding that marriage's partner, its events and its children. Two unions
               share a group only when they are the same marriage — the partners agree, or their children do (a wife
-              recorded under her maiden name in one file and her married name in the other still pairs). A union whose
+              recorded under her maiden name in one file and her married name in the other still pairs). The dates can
+              keep two unions apart even when the partners' names agree: a partner who died before the other wedding, or
+              two exactly dated weddings years apart, are two marriages. A union whose
               partner is plainly somebody else stands in a group of its own, with an empty Main column: take its partner
               and children there and they arrive as a <strong>second family</strong> on save, leaving the existing
               marriage exactly as it was.
@@ -1230,7 +1280,9 @@
               <span class="gm-swatch main"></span> main file only, <span class="gm-swatch incoming"></span> incoming only.
               From here you can re-root on any person (the ‹ › arrows beside Back step through the people you rooted
               on, as in the charts — <a href="#charts">§11</a> — and <strong>Back</strong> returns to Merge in one
-              step), mark a status, or use
+              step), mark a status — with the panel's buttons or, while a matched pair is selected,
+              <span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span> as in Merge
+              (<span class="gm-key">D</span> then defers the pair instead of switching to descendants) — or use
               <strong>+ Bring ancestors</strong> / <strong>+ Bring descendants</strong> to graft a whole incoming branch
               into your main file on save; back in Merge, the comparison marks the people the branch brings with
               <strong>✓ added</strong>. An ancestor import stops wherever the two files disagree about a parent: if
@@ -1248,7 +1300,9 @@
               children with them, rather than filing them under someone else. A pairing you confirmed is exempt: your
               word settles who is who. Every person the import would join to someone in your file on the app's
               suggestion alone carries a <strong>⚠</strong> on their node instead of the import's letter: its tooltip
-              names your record, so you can check that match before you save. The <strong>Chart</strong>
+              names your record, so you can check that match before you save. A person your file already places in the
+              same spot — the wife of a husband joined before her, a child of a couple joined before them — is joined
+              just the same but carries no ⚠, since your file and the incoming one agree on that relationship. The <strong>Chart</strong>
               settings, zoom controls, overview minimap and
               <strong>Export</strong> menu all work here just like the other diagrams (see <a href="#charts">§11</a>) —
               except there's no GEDCOM export, since a compare tree can include incoming-only people not yet in your
@@ -1324,8 +1378,9 @@
                 deceased, birth years, the highest ages, the largest families), how complete the data is, the most
                 common names, and the countries and places people were born in.</li>
               <li><strong>Names</strong> — surnames, men's and women's given names, the most common names per century,
-                how many given names people carry, children named after a parent or a grandparent, and the kinds of
-                additional name people have, with those missing a given name or a surname.</li>
+                the most common surnames decade by decade, a network of the surnames joined by their bearers' marriages
+                with the most-married pairs of surnames, how many given names people carry, and children named after a
+                parent or a grandparent.</li>
               <li><strong>Lifespan</strong> — age at death, for everyone and for men and women apart, its average per
                 century of birth, how many children died before the age of five, and how many children per family grew
                 up or died young.</li>
@@ -1338,14 +1393,17 @@
                 died in.</li>
               <li><strong>Occupation</strong> — the most common occupations per century, occupations and education for
                 men and women, and how many occupations a person has.</li>
-              <li><strong>Migration</strong> — the distance from the birth place to the death place, moves between
-                countries, and spouses born in the same place.</li>
+              <li><strong>Places &amp; migration</strong> — the most common birth places decade by decade, births by
+                decade coloured by birth place, a flow from the parents' birth places to their children's (by place or
+                by country), the distance from the birth place to the death place, moves between countries, and spouses
+                born in the same place.</li>
               <li><strong>Generations</strong> — one person's ancestors generation by generation, on the father's side
                 and on the mother's, how many children they had, the person's descendants, men and women apart, the
                 ancestors where two lines meet, and the nearest brick walls: the ancestors whose father or mother is
                 missing, a worklist for research.</li>
               <li><strong>Research</strong> — how many events cite a source, by kind of event and by side of the family,
-                and the source citations each person carries.</li>
+                the source citations each person carries, and the kinds of additional name people have, with those
+                missing a given name or a surname.</li>
             </ul>
             <p>
               Beside the pages, <em>All</em>, <em>Blood relatives</em>, <em>Ancestors</em> and <em>Descendants</em>
@@ -1377,7 +1435,8 @@
               and an extension that stands in for a structure the file's version has (<code>_UID</code> in a 7.0 file)
               has a standard form, so both are reported as deviations. With <em>GEDCOM 7.0</em> the second kind has a
               <strong>Write the standard way</strong> fix. Other extensions are valid GEDCOM and are listed for
-              information only.
+              information only. Every custom tag's row also has <strong>Remove tag</strong>, which removes each line
+              of that tag in the file, with the lines beneath it.
             </p>
             <p>
               A finding about a source names the source. Click the name, or the row's <strong>Edit source</strong>
@@ -1386,7 +1445,9 @@
             </p>
             <p>
               Scans every individual and family for data problems and groups them by category: no name, no sex, no vital
-              dates, disconnected records, broken or one-way family links, duplicate pointers, the <strong>same couple
+              dates (each row offers the birth the Batch estimate gives, <strong>→ ABT 1670</strong>), an
+              <strong>undated marriage</strong> (a couple's marriage recorded without a date, offered the Batch
+              marriage estimate, <strong>→ BEF 23 OCT 1762</strong>), disconnected records, broken or one-way family links, duplicate pointers, the <strong>same couple
               twice</strong> (the same two people recorded as a couple in more than one family — the children, marriage
               and notes may be split between the records; the finding names the partner and the records), <strong>pedigree
               loops</strong> (a person who is their own ancestor), <strong>sex vs. role</strong> conflicts (a female
@@ -1412,14 +1473,22 @@
               (a child whose birth year follows a parent's death — the father's side allows the posthumous child born
               within the year, the mother's does not, and adopted or foster links are not flagged; either the child sits
               in the wrong family or one of the dates belongs to somebody else, often a same-named infant, which also
-              costs you the merge match for that person), and <strong>children by two fathers at
+              costs you the merge match for that person), <strong>born before the marriage</strong> (a child born or
+              baptized before the parents' dated marriage — a later legitimation as often as a mistake; a birth that is
+              only estimated is listed as a possibility, and against a marriage the file only estimates or bounds,
+              <em>ABT 1775</em> or <em>BEF 1773</em>, the row offers the date the eldest child's birth proves,
+              <strong>→ BEF 3 MAY 1770</strong>, the same date the Batch marriage estimate writes), and <strong>children by two fathers at
               once</strong> — a mother whose children with one partner are interleaved in time with her children by
               another, which usually means a child or a whole sibling set hangs off the wrong family (consecutive
-              marriages and adopted children are not flagged). <strong>Detached groups</strong> catches what a single
-              disconnected person doesn't: up to nine people linked only to each other and to nobody else in the file —
-              usually an import that never got attached, or a duplicate of a branch you already have. One finding per
-              group, on its youngest member, so you can open them and walk the group's relatives; the file's main tree
-              is never a group. <strong>Associations</strong> checks the people a record or an event names
+              marriages and adopted children are not flagged). <strong>Detached branches</strong> catches what a single
+              disconnected person doesn't: two or more people linked only to each other and to nobody else in the file —
+              usually an import that never got attached, a duplicate of a branch you already have, or a branch whose
+              link to the main tree is missing. One finding per branch, on its youngest member, so you can open them and
+              walk their relatives. The main tree is the one your start person belongs to, or the largest one when no
+              start person is set; it is never reported. On a branch's row, <strong>GEDCOM</strong> downloads the whole
+              branch as a file of its own and <strong>Remove branch</strong> deletes it from the file, after a
+              confirmation that lists the people, families, sources, notes and media that go with it; a disconnected
+              person's row has <strong>Remove person</strong> for the same. <strong>Associations</strong> checks the people a record or an event names
               (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
               was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
@@ -1446,7 +1515,9 @@
               <strong>tags out of place</strong> (a standard tag under a line that cannot carry it, listed once per
               habit with a count), <strong>non-standard values</strong> (a value outside the standard's list in SEX,
               PEDI, QUAY, RESN, ROLE, MEDI, a name's TYPE and the other enumerated lines), <strong>malformed
-              values</strong> (an AGE or LANG written outside its grammar) and <strong>malformed record ids</strong>.
+              values</strong> (an AGE or LANG written outside its grammar) and <strong>malformed record ids</strong>,
+              where <strong>Fix the ID</strong> gives a source, note or media record an id the version accepts and no
+              other record holds, and every reference to it follows.
               Extension tags such as <em>_UID</em> are allowed anywhere and not judged. Findings of one kind are listed once, with a count: a misplaced
               tag, a value written the same wrong way (<em>TYPE aka</em> on every name), the media files missing the
               same FORM, MyHeritage's Smart Match citations, change stamps on events. Most have a repair on their
@@ -1520,13 +1591,15 @@
               <li>same-couple families: a couple's family records fold into one, carrying every child, event, note
                 and source across;</li>
               <li>no sex: unspecified spouses take the sex of their role (husband → male, wife → female);</li>
+              <li>marriage dates: a marriage the file only estimates or bounds is dated before its eldest child's
+                birth;</li>
               <li>switched spouses: both partners return to their own role, only where the man is the wife and the
                 woman the husband — where a single spouse contradicts their role, the recorded sex may be the mistake
                 instead, so the finding is left for you.</li>
             </ul>
             <p>
               The check runs once per file, so findings you have since repaired in <span class="gm-pill">Edit</span> stay
-              on the list until it runs again. When the file has changed since the last check, <strong>Run again</strong>
+              on the list until it runs again. When your data has changed since the last check, <strong>Run again</strong>
               appears at the top of the panel and says so; while the list is current there is nothing to re-run, so the
               button stays away.
             </p>
@@ -1595,45 +1668,59 @@
               given name or surname), a name part the record has or lacks (given name, surname, or married name in
               either notation), sex, birth year, age (at
               death; for people without a death record, to today), living (has a death record or not), an event the
-              person has or does not have (birth, death, occupation, … — or any non-standard event), an event the
-              person's unions carry or lack (marriage, divorce, a partnership status … — or any event at all, so
+              person has or does not have (birth, death, occupation, … — or any non-standard event; for a custom
+              event, an attribute such as occupation, or any non-standard event, a text field narrows it to the ones
+              whose name or value contains what you type, so <em>Event has Occupation farmer</em> finds the farmers),
+              the cause of death (any recorded cause, or one containing what you type — <em>Cause of death has
+              typhus</em>), an event the
+              person's unions carry or lack (marriage, divorce, a partnership status, a custom event narrowed by its
+              name the same way — <em>Union has Event Separation</em> — … or any event at all, so
               <em>Union does not have any event</em> next to <em>Relatives has a partner</em> finds the couples the
-              file says nothing about), place, note text (matched against the note as written, so a note that is
+              file says nothing about; <em>has no date for</em> finds a union whose event is recorded without a date, and
+              <em>has an estimated date for</em> one dated only by an estimate such as ABT, BEF or AFT), place, note text (matched against the note as written, so a note that is
               nothing but a link is found by any part of it — <em>Note contains facebook.com</em>), text in any
               field of the person's record (<em>Any field contains</em>: every word you type must appear somewhere
               in it or in the events of the person's unions — names, dates, places, occupations, citations or
               notes), whether the
               person's record is flagged private, whether any note they carry is (two different questions — see
               <a href="#privacy">§18</a>), media
-              (none, any, or one specific image), sources, relatives in the file (a partner, children or parents —
+              (none, any, or one specific image, from the file or the media folder), sources (none, any, or on one event — the births that cite a source, or those still to document), relatives in the file (a partner, children or parents —
               present or missing), kinship to the start person (direct ancestor, descendant,
               blood relative or neither), and maternal or paternal line relative
-              to the start person — and apply one action to every match: attach an image (existing or new), add a
+              to the start person — and apply one action to every match: attach an image (one the file already uses, one from your media folder found by typing part of its name, or a new path), add a
               source citation, remove an image, mark them as deceased (an undated death event — handy after
               filtering for living people with an impossible age), give people without any birth or baptism date an
               <strong>estimated birth year</strong> — calculated, where a dated event states the person's age (a
               death at 62), from that age and written as a <em>CAL</em> date, and otherwise
-              written as an <em>ABT</em> date and rounded to the nearest five
-              years, so the file itself says it is approximate, derived from the birth years of dated parents, spouse
-              or children (the same estimate the Privacy tool explains), with undated siblings kept at least a year
-              apart in the family's child order, anchored on a dated sibling where one exists; people with no dated
+              written as an <em>ABT</em> date, always on a year ending in 0 or 5, so the file itself says it is
+              approximate, derived from the birth years of dated parents, spouse or children — a father about 30 and
+              a mother about 25 at a child's birth, a husband about 5 years older than his wife (the same estimate the
+              Privacy tool explains) — or from a dated sibling in the family's child order; people with no dated
               close relative are skipped, and running the action again
               reaches them through the estimates just written — record <strong>married names from the partners</strong>,
               taking each partner's surname and writing it the way the file itself writes married names (an inline
               tag, comma-joined when there are several, or one name record per union); every union contributes, in
               marriage order, so a second marriage adds a second name, and surnames the person already carries are
-              left untouched — or convert a non-standard event to a standard
+              left untouched — give the selected people's marriages recorded without a date an <strong>estimated marriage
+              date</strong>: <em>before</em> the birth date of the oldest child born to the couple with a stated birth, otherwise
+              <em>about</em> two years before the oldest child's estimated birth or from the spouses' births (a wife
+              marrying at about 25, a husband at about 30), on a year ending in 0 or 5; a <em>before</em> later than the oldest child's birth, or an <em>about</em> the
+              oldest child was born before, is corrected, other dates stay, the <a href="#validate">Health check</a> offers the same estimates, and a family naming one parent only (most often a child born out of wedlock) gets no marriage
+              — or convert a non-standard event to a standard
               type or to a named custom event, keeping its dates, places and sources; the target is proposed per tag
               (an interment becomes a burial, a state such as an illness a fact, anything else a custom event), and
-              text the new type cannot carry on its own line moves into the event's note. Each match has a checkbox so you can drop individuals before
-              applying — with the estimate action, each row also previews the year that person would get, and with the
+              text the new type cannot carry on its own line moves into the event's note. A family event such as a
+              separation (<code>SEPA</code>) is converted in every union of the selected people. Each match has a checkbox so you can drop individuals before
+              applying — with the estimate actions, each row also previews the date that person or their marriage would get, and with the
               married-name action the surnames it would write. That action also arrives with the doubtful people
               already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or
               its children carry the mother's surname rather than the father's — the classic sign of a birth outside
               marriage. Nothing is refused, though: tick such a row and the name is written. The whole run is a single step, and people who already carry the image or citation are
               skipped. A filter can be saved by name together with its action, and the saved list always shows how
               many people currently match — so a recurring chore, say giving everyone who died before age 20 a
-              died-young image, is a glance and two clicks.
+              died-young image, is a glance and two clicks. The saved filters, the filters, the action and the save field sit on the
+              left with the matches beside them (below them on a narrow screen), the <em>Add filter</em> menu sorts
+              the filters into groups, and <em>Clear all</em> empties the filters and the action to start over.
             </p>
             <p>
               <strong>Normalize file</strong> detects the file's own dominant date format, place layout and link
@@ -1697,6 +1784,44 @@
               name, address and email), external tree ids (<code>_UID</code>, <code>_FID</code>, <code>AFN</code>), and
               every postal address, email or phone number across the whole file. A preview counts how many people are
               redacted or removed before you download the redacted GEDCOM.
+            </p>
+            <h3 id="tool-website">Family website</h3>
+            <p>
+              Downloads your tree as <strong>one HTML page</strong> for relatives to browse: they open it from disk, or you
+              put it on any web server. The page has a front page with search and highlights, a page for every person,
+              the charts and the map, and the statistics — with no GEDCOM to download, so the tree can be looked at but
+              not taken away. Your live main file is never touched.
+            </p>
+            <div>
+              You choose what the website shows:
+              <ul>
+                <li><strong>Living people</strong> — left out, or shown with their initials, their given name, their given name and surname, or all their details. People who died in the last 20 years — what Slovenia's data protection act (ZVOP-2) asks; the number is yours to change — are published as the living are, marked as deceased but without a date. People marked private are never published.</li>
+                <li><strong>Who is published</strong> — everyone in the file, the start person's blood relatives, or their ancestors and descendants, with or without their spouses.</li>
+                <li><strong>Also publish</strong> — sources, addresses and notes, each off until you tick it. Without addresses, an event at a house is shown at its settlement, on the map too.</li>
+                <li><strong>Photos</strong> — the photos of your media folder, folder by folder: left out, on the person pages, or there and in the strip of photos atop the front page. A photo with anyone hidden on it — a group photo too — is never published. With photos the website downloads as a ZIP: a small <code>index.html</code> that a shared link's preview reads quickly, the files it loads, and a <code>photos</code> folder. Each photo keeps its original's time, so after unpacking, <code>rsync</code> to your server sends only the photos that changed. A <em>Cover photo</em> of your choice stands beside the title on the front page and is the picture a shared link shows; it is yours to choose, so it goes in whoever is on it, though only as the cover.</li>
+                <li><strong>Map</strong> — the base map, and which of your extra layers (Settings → Map) visitors may switch on.</li>
+                <li><strong>How people are shown</strong> — name order, date display, ages and kinship labels, starting from your own settings.</li>
+                <li><strong>Downloads</strong> — whether visitors may download the charts, reports and statistics.</li>
+                <li><strong>Search engines</strong> — the website asks them to leave it out, unless you let them index it; the names and dates of everyone published can then turn up in search results.</li>
+              </ul>
+            </div>
+            <p>
+              A title, a few words in each language, the start person and the page the website opens on finish it.
+              <em>This website's address</em> is where you will put it: the charts visitors download name it
+              beside "Made with GED Merge". The website's icon is the image you give as its <em>Website icon</em>,
+              else the <code>favicon.ico</code> at that address when there is one, and GED Merge's otherwise. An
+              <em>Additional address</em> — your other (main) site, where you host your family or genealogy research — gets a link of its
+              own in the website's header and footer. Every person, and every view of every
+              chart, has an address of its own, so a link you send a relative opens exactly what you saw. On a
+              person's page, a small map of their places and tiles for the fan, the timeline and the relationship
+              sit beside the name, their photos open in the viewer with the people tagged on them, ages show beside each
+              event as in Edit, half-siblings have a card of their own beside the parents and siblings, grouped by the
+              parent they share, and a person picked on a chart opens their page. The website answers the app's keyboard
+              shortcuts — <kbd>?</kbd> lists them. A link to the website, shared on Facebook, WhatsApp and the like, shows its
+              title, your words and the cover photo; the photo needs <em>This website's address</em>, as a preview finds it
+              only by its full address — a small copy of the cover that every service accepts. A link to a relationship diagram names both people, so it shows the same two to
+              anyone. With your
+              workspace kept in the browser, these choices are remembered for each file.
             </p>
             <h3 id="tool-sources">Sources</h3>
             <p>
@@ -2035,7 +2160,7 @@
               house number in the country, with street, post office and its own coordinate. Ordinarily a house number is
               looked up over the wire, one question at a time and a second apart, and Croatia cannot even do that, since
               it publishes no address service at all. Downloaded instead, the whole register sits in this browser:
-              <strong>Addresses</strong> under <strong>GURS (Slovenia)</strong> brings 575 773 Slovenian houses (~45 MB,
+              <strong>Addresses</strong> under <strong>GURS (Slovenia)</strong> brings 580 505 Slovenian houses (~20 MB,
               several minutes), and under <strong>DGU (Croatia)</strong> all 1.68 million Croatian ones (~85 MB, a few
               minutes, some 40 MB of space). Either is a one-time step like a gazetteer — it survives reloads and serves
               every file you open, and is listed and removed beside the place directories under
@@ -2180,7 +2305,7 @@
               under the returning <strong>Already placed</strong> chip, in case a position wants checking or a rough one
               sharpening. A house whose events hold the settlement's own coordinate prints it too, marked
               <em>(from the place)</em>: the position every address there inherits, so the house itself still counts as
-              unplaced — it is placed with the pin, or with a whole run of them at once below. The pin is the app's mark for a position: it precedes every coordinate printed anywhere, muted while nothing is placed there and green once something is. <strong>Select confident</strong> stages every address the register answered with exactly one house — a hit filed under a different settlement is left out, since that is the split warning's case — so after a group lookup, one click handles the unambiguous majority and only the real questions remain. <span class="gm-glyph">✎</span> on an address <strong>renames</strong> it on every event at that house — in the <code>ADDR</code> line and its labelled lines, or inside a packed place value, annotations kept — so a typo is fixed once, and renaming one spelling onto another merges the two rows into one house. The rename box completes as you type from the other addresses at that same place — including houses already placed, which the list keeps hidden until asked — so joining two spellings is a pick rather than a retype. Emptied, that same box removes the address instead — the button changes to <strong>Remove address</strong>, and the whole <code>ADDR</code> line goes from every event at the house, in the one step a rename takes. This is the answer to an address that tells the file nothing its place does not — a settlement's own name repeated on the <code>ADDR</code> line — where clearing it by hand meant opening every person the row lists. The place itself stays as it is, and an event whose coordinate was the house's takes the one the file records for the place, so the settlement no longer disagrees with itself; an event carrying no coordinate is not given one. A row marked <em>in the place</em> is not offered it: there the house sits inside the place value, and it cannot go without the village going with it. <strong>Written twice</strong> finds those pairs for you: within one place, a house recorded both plainly and with a note of yours behind it (<em>Breg ob Savi 26</em> and <em>Breg ob Savi 26 (pd Mlinar)</em>), under one of the two street names it carries (<em>Labore 4</em> against <em>Labore 4 / Škofjeloška 4</em>), or with its street spelt more briefly (<em>Kidričeva 38</em> against <em>Kidričeva cesta 38</em>). The leaner row then names what it would become, and <strong>Join</strong> writes that spelling on its events, so the two rows are the one house they always were; the chip beside the status buttons narrows the list to those pairs, both halves of each. It is a suggestion and not a verdict — the fuller spelling is offered because it holds more, but joining <em>26</em> into <em>26 (pd Mlinar)</em> gives your note to events that never carried it, so where that is not what you mean, rename the other way with <span class="gm-glyph">✎</span>. <strong>Place several at one coordinate…</strong> on a group's header is for the houses no register can answer — old village numbering, a farm that no longer stands: tick the addresses, pick one position (the centre of the village will do, and the file's own coordinate for the place is offered first), and every ticked address takes it. The whole place is ticked to start with; <em>Starting with</em> narrows that to the addresses beginning with what you type — <em>Stražišče 11</em> for both farms of that number — and the ticks stay on screen, so you read off what it caught before taking it. What you type there is also what the panel's own lookup asks about — <em>Stražišče</em> under Kranj is searched as Stražišče, not as Kranj — so the position offered is the one being ticked for. The picks are staged like any other, so <strong>Write coordinates</strong> commits the whole village as one step. The address, its pin and the position it holds are one control: a click anywhere on them opens the coordinate panel — a map to pick on, the register lookup and manual entry together. A staged row then names where its pin now points — the register's own address line, <em>from this file</em>, <em>manual</em> — so a village placed in one go is read off the list rather than one tooltip at a time. A coordinate offered by the register opens the place's map on it with one click. The register link sits after that position, and goes once it has answered — whether you asked from the row or inside the coordinate panel, whose lookup lists its houses here just the same; renaming the address brings it back. Either search does the same in the panel: the answers are numbered on the row and on its map, and the link that has answered — with houses or with none, since a second press asks the same service the same question — gives way to what it found or to the note saying it found nothing. <strong>Search OpenStreetMap</strong> stands beside it as the register's fallback, and is the only lookup for the rows the register cannot take at all: one address at a time — the service allows one request a second, so there is no group lookup — with its hits joining the register's in the same list of candidates, each badged <span class="gm-data">OSM</span>, <span class="gm-data">GURS</span> or <span class="gm-data">DGU</span> for where it came from. OpenStreetMap answers a name with everything carrying it — <em>Huje</em> is a suburb, the street named after it and a service road off that street, under one and the same line — so each hit also says what it is, and every answer is numbered — the number is the row's radio, so clicking it takes that answer. Clicking any answer's coordinate opens the row's coordinate panel with all of them drawn on one map under those same numbers: which of three identical lines is the house is a question only the map answers. An answer that names no part of the address searched for — OpenStreetMap matching a house number in the next village, <em>Čirče 5</em> answered with a house in Breg ob Savi — is marked <em>in Breg ob Savi</em> and sinks below the ones that fit; where nothing fits at all, the street or hamlet is looked up without its number, since its position is worth more here than a stranger's front door. And like a place row, each address carries its person count: hover it for the names, click it for the people themselves (with kinship, where enabled), each a link into Edit. The place above them carries the same count for the village as a whole — everyone with an address there, counted once however many houses and events they hold — and answers the same click, whether the group is open or shut.
+              unplaced — it is placed with the pin, or with a whole run of them at once below. The pin is the app's mark for a position: it precedes every coordinate printed anywhere, muted while nothing is placed there and green once something is. <strong>Select confident</strong> stages every address the register answered with exactly one house — a hit filed under a different settlement is left out, since that is the split warning's case — so after a group lookup, one click handles the unambiguous majority and only the real questions remain. <span class="gm-glyph">✎</span> on an address <strong>renames</strong> it on every event at that house — in the <code>ADDR</code> line and its labelled lines, or inside a packed place value, annotations kept — so a typo is fixed once, and renaming one spelling onto another merges the two rows into one house. The rename box completes as you type from the other addresses at that same place — including houses already placed, which the list keeps hidden until asked — so joining two spellings is a pick rather than a retype. Emptied, that same box removes the address instead — the button changes to <strong>Remove address</strong>, and the whole <code>ADDR</code> line goes from every event at the house, in the one step a rename takes. This is the answer to an address that tells the file nothing its place does not — a settlement's own name repeated on the <code>ADDR</code> line — where clearing it by hand meant opening every person the row lists. The place itself stays as it is, and an event whose coordinate was the house's takes the one the file records for the place, so the settlement no longer disagrees with itself; an event carrying no coordinate is not given one. A row marked <em>in the place</em> is not offered it: there the house sits inside the place value, and it cannot go without the village going with it. <strong>Written twice</strong> finds those pairs for you: within one place, a house recorded both plainly and with a note of yours behind it (<em>Breg ob Savi 26</em> and <em>Breg ob Savi 26 (pd Mlinar)</em>), under one of the two street names it carries (<em>Labore 4</em> against <em>Labore 4 / Škofjeloška 4</em>), or with its street spelt more briefly (<em>Kidričeva 38</em> against <em>Kidričeva cesta 38</em>). The leaner row then names what it would become, and <strong>Join</strong> writes that spelling on its events, so the two rows are the one house they always were; the chip beside the status buttons narrows the list to those pairs, both halves of each. It is a suggestion and not a verdict — the fuller spelling is offered because it holds more, but joining <em>26</em> into <em>26 (pd Mlinar)</em> gives your note to events that never carried it, so where that is not what you mean, rename the other way with <span class="gm-glyph">✎</span>. <strong>Place several at one coordinate…</strong> on a group's header is for the houses no register can answer — old village numbering, a farm that no longer stands: tick the addresses, pick one position (the centre of the village will do, and the file's own coordinate for the place is offered first), and every ticked address takes it. The whole place is ticked to start with; <em>Starting with</em> narrows that to the addresses beginning with what you type — <em>Stražišče 11</em> for both farms of that number — and the ticks stay on screen, so you read off what it caught before taking it. What you type there is also what the panel's own lookup asks about — <em>Stražišče</em> under Kranj is searched as Stražišče, not as Kranj — so the position offered is the one being ticked for. The picks are staged like any other, so <strong>Write coordinates</strong> commits the whole village as one step. The address, its pin and the position it holds are one control: a click anywhere on them opens the coordinate panel — a map to pick on, the register lookup and manual entry together. A staged row then names where its pin now points — the register's own address line, <em>from this file</em>, <em>manual</em> — so a village placed in one go is read off the list rather than one tooltip at a time. A coordinate offered by the register opens the place's map on it with one click. The register link sits after that position, and goes once it has answered — whether you asked from the row or inside the coordinate panel, whose lookup lists its houses here just the same; renaming the address brings it back. Either search does the same in the panel: the answers are numbered on the row and on its map, and the link that has answered — with houses or with none, since a second press asks the same service the same question — gives way to what it found or to the note saying it found nothing. <strong>Search OpenStreetMap</strong> stands beside it as the register's fallback, and is the only lookup for the rows the register cannot take at all: one address at a time — the service allows one request a second, so there is no group lookup — with its hits joining the register's in the same list of candidates, each badged <span class="gm-data">OSM</span>, <span class="gm-data">SI-ADR</span> or <span class="gm-data">HR-ADR</span> for where it came from. OpenStreetMap answers a name with everything carrying it — <em>Huje</em> is a suburb, the street named after it and a service road off that street, under one and the same line — so each hit also says what it is, and every answer is numbered — the number is the row's radio, so clicking it takes that answer. Clicking any answer's coordinate opens the row's coordinate panel with all of them drawn on one map under those same numbers: which of three identical lines is the house is a question only the map answers. An answer that names no part of the address searched for — OpenStreetMap matching a house number in the next village, <em>Čirče 5</em> answered with a house in Breg ob Savi — is marked <em>in Breg ob Savi</em> and sinks below the ones that fit; where nothing fits at all, the street or hamlet is looked up without its number, since its position is worth more here than a stranger's front door. And like a place row, each address carries its person count: hover it for the names, click it for the people themselves (with kinship, where enabled), each a link into Edit. The place above them carries the same count for the village as a whole — everyone with an address there, counted once however many houses and events they hold — and answers the same click, whether the group is open or shut.
             </p>
             <p>
               A row is one house, not one spelling: where your file writes the same house several ways — the same number
@@ -2232,7 +2357,9 @@
               <strong>Same place and address, different coordinates</strong> lists those at the top of this page. Expand a
               row for a map of its coordinates, each circle wearing the number of its option in the list below it, where the
               number of events on that coordinate stands beside it — twelve on the church and
-              one two kilometres off is a typo, not a second church. Choose the right circle (or its number in the list) and
+              one two kilometres off is a typo, not a second church. A coordinate that is the place's own position — the one
+              its events without an address carry — is marked <em>(place's position)</em>: usually the address merely
+              inherited it and was never placed. Choose the right circle (or its number in the list) and
               press <em>Settle coordinates</em> to write it onto every event of that place and address, in one step. When none of them is right — a maternity hospital recorded at three different guesses is none
               of the three — click anywhere on the map, or type or paste a coordinate, and that becomes the choice. The <a href="#tools">Health check</a>'s coordinate fill likewise copies only within one address,
               so a house's position can never spread across a settlement.
@@ -2389,7 +2516,7 @@
               header's chart icon — opens the full-page <strong>Charts hub</strong> for
               the selected person. A tab strip switches between seven kinds (digits <span class="gm-key">1</span>–<span
               class="gm-key">7</span> jump straight to one); GED Merge remembers whichever you used last. Re-rooting a
-              chart — a node's <strong>Root</strong>, a <span class="gm-badge rep">+7</span> pill, a search hit
+              chart — the tree button in a node's panel, a <span class="gm-badge rep">+7</span> pill, a search hit
               off the chart — adds the person to the hub's list of people. The ‹ › arrows beside Back (keys
               <span class="gm-key">,</span> and <span class="gm-key">.</span>) step through the people you rooted on,
               and the ▾ between them lists them all. <strong>Back</strong> (the button, <span class="gm-key">Esc</span>
@@ -2421,12 +2548,13 @@
                 and is left off rather than cut short.</li>
               <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
                 below.</li>
-              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
+              <li><strong>Relationship</strong> (<span class="gm-key">K</span>) — traces how the selected person is
                 related to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>); if none is set
                 yet, it prompts for one inline. The diagram lays out the chain of relatives between the two, labelled
-                with the exact kinship (e.g. <em>2nd cousin +1</em>, the notation of <a href="#home-person">§7</a>). When more than one route exists, the
-                <strong>Available paths</strong> menu switches between the <em>shortest path</em> and a
-                <em>bloodline</em> through a shared ancestor. Click either endpoint's <span class="gm-glyph">✎</span> to
+                with the exact kinship (e.g. <em>2nd cousin +1</em>, the notation of <a href="#home-person">§7</a>). The chart opens on the
+                <em>bloodline</em> through a shared ancestor — for a relative by marriage, the bloodline to their spouse
+                plus that marriage — so the drawing always matches the label. When the <em>shortest path</em> runs
+                another way, the <strong>Available paths</strong> menu offers it as well. Click either endpoint's <span class="gm-glyph">✎</span> to
                 swap that person, click any node to re-centre, or open a node in <span class="gm-pill">Edit</span>.</li>
               <li><strong>Contemporaries</strong> — every blood relative of the person, placed by how closely they
                 are related and filtered to those alive in their lifetime; see <a href="#contemporaries">below</a>.</li>
@@ -2469,21 +2597,28 @@
                 whatever it's set to.</li>
               <li><strong>Marriage</strong> — add the marriage <em>Date</em> and/or <em>Place</em> to each couple's
                 connector (the fan / circle collar, or beside the Timeline's <span aria-hidden="true">⚭</span> markers).
-                Both off by default.</li>
+                A couple the file records as divorced, living apart or never married adds
+                <span class="gm-glyph">⚮</span> with the year, <span class="gm-glyph">⚬⚬</span> or
+                <span class="gm-glyph">⚯</span> there. Both off by default.</li>
               <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
                 people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
-                shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below).</li>
+                shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below); and
+                <strong>Historical events</strong> (see <em>Timeline</em>, below). The <em>Lines</em> layout keeps only
+                <strong>Historical events</strong> and adds <strong>Lifelines</strong>.</li>
               <li><strong>Color</strong> (every kind but the Report and the Map) — what a person's fill says.
                 <em>Plain</em> is the chart's own colouring; <em>Generation</em> and <em>Family line</em> read the
                 person's place on the chart, so <em>Generation</em> serves every kind while <em>Family line</em> is
-                offered where the lines are actually drawn — the pedigree charts and Contemporaries; <em>Sex</em>,
+                offered where the lines are actually drawn — the pedigree charts, the Timeline and Contemporaries; <em>Sex</em>,
                 <em>Living</em>, <em>Country</em> (of the birth, residence, death or burial place, whichever is recorded
-                first), <em>Birth place</em>, <em>Surname</em>, <em>Parents' age</em> at the person's birth (the average of
+                first), <em>Birth place</em> (with none recorded, the residence or death place the chart writes on the
+                person), <em>Surname</em>, <em>Parents' age</em> at the person's birth (the average of
                 the two), <em>Lifespan</em>, <em>Century</em> of birth and <em>Sources</em> (how much of the
                 birth, death and marriages is cited) read the record. On <em>Country</em>, <em>Birth place</em> and
-                <em>Surname</em> the home country, or else the most frequent value, keeps the <em>Plain</em> colour, so
-                only what differs from it stands out; neighbouring countries take related colours, and birth places
-                in one country share a family of related hues. A key along the bottom of the chart names each colour with
+                <em>Surname</em> the home country (on <em>Birth place</em> its most frequent place), or else the most frequent value, keeps the <em>Plain</em> colour, so
+                only what differs from it stands out; neighbouring countries take related colours. Birth places are grouped by
+                country and then by the municipality or county they lie in: each country takes its own range of hues,
+                and each municipality a tighter cluster within it. A key along the bottom of the chart, on more lines
+                when it needs them, names each colour with
                 its head-count; the twelve most frequent places or surnames get a colour each, the rest fold into
                 <em>Other</em>, and a person the axis cannot place stays grey.</li>
               <li><strong>Names</strong> (Contemporaries only) — whether the closest relatives are named on the
@@ -2518,7 +2653,7 @@
             <p>
               <strong>Repeated people.</strong> The same person can reach the root down more than one line — cousins who
               married each other, or a couple whose <em>both</em> partners descend from the root person. Their branch is
-              drawn at the first position only; every later position still shows the person and their marriage, but is
+              drawn at one position only — among ancestors, the one nearest the root person; every other position still shows the person and their marriage, but is
               left empty and carries a <span class="gm-badge rep round">→</span> badge — in the box's bottom-right
               corner on the Tree and the Grid, at the outer edge of the wedge on the Fan and the Circle, where the
               ancestors would have continued. Click it to go to the position that does carry the branch (see
@@ -2556,7 +2691,10 @@
               sheets often prints on one A1. <strong>Custom</strong> takes any size in millimetres, so a plotter roll —
               say 1100 × 2000 mm — prints as a single enormous sheet; a custom size is used exactly as you type it
               (width × height), so the orientation switch doesn't apply to it. Whatever the paper, the set is scaled to
-              fill it, and the dialog says what that comes to — <em>Prints as 3 sheets · at 62% size</em>. Print size is
+              fill it, and the dialog says what that comes to — <em>Prints as 3 sheets · at 62% size</em>. Only the part
+              of the canvas the chart draws on is printed, so a <strong>Circle Chart</strong> with a few rings of descendants
+              no longer leaves an empty band of paper under them. The saved PDF is named after the chart, as the SVG
+              is. Print size is
               the setting that matters most: an ancestors chart doubles in width with every
               generation, so <em>Large</em> (readable at arm's length) can want several times the sheets of
               <em>Small</em> (a wall chart in fine print), and <em>One sheet</em> refuses to cut at all — the whole
@@ -2588,6 +2726,32 @@
               aria-hidden="true">←</span> emigration/immigration), and <span aria-hidden="true">⚭</span> marks a
               marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
               if the person is presumed living.
+            </p>
+            <p>
+              <strong>Historical events</strong> in the chart settings marks wars, reforms, epidemics and migrations on
+              the year axis: a span as a faint band with a bracket over its years under the label, a single year as a
+              dotted line. The world wars, the Spanish flu, the Great Depression and the COVID-19 pandemic always show. A country's own events
+              show only when someone on the chart lived in that country at the time, judged by the places of their
+              events. A place that names no country counts as the country chosen under <em>Settings → Places naming no country</em>. So a family
+              from Carniola sees the Illyrian Provinces and the Franciscan cadastre, and an emigrant to Ohio adds the
+              Civil War and Ellis Island. The year ruler and the event labels stay at the top while you scroll down.
+            </p>
+            <p>
+              The <em>Lines</em> layout, beside <em>Bars</em> above the chart, draws the person's blood line on a
+              vertical year axis instead. Each ancestor is a dot at their birth year, joined by a line to their child,
+              so the lines converge down onto the person; the descendants branch out below. The father's side stands on
+              the left and the mother's on the right. A missing birth year is estimated a generation (30 years) from a
+              dated relative and drawn as a hollow dot. <strong>Lifelines</strong> hang each life from the birth dot down
+              to the death, or to today, dashed where the start is estimated. The historical events cross the chart as
+              bands and lines, their labels in a column beside the year scale, and the decades grow taller where events
+              crowd. The Color setting's <em>Family line</em> gives the four grandparents' lines four distinct colours,
+              here and on the bars.
+            </p>
+            <p>
+              With <em>Hide living people</em> on, a living person's year never shows. On either layout they stand at
+              the middle of their birth decade, ±5 years from the truth, with a dashed bar or lifeline to today; siblings
+              who land on the same year step two years apart. On the family website, people published without details
+              keep no date of their own: they stand where their generation puts them, within 25 years.
             </p>
             <h3 id="contemporaries">Contemporaries</h3>
             <p>
@@ -2701,7 +2865,8 @@
                 their chronological stops
                 joined by a line with direction arrows. Click a path (or a person's <span class="gm-glyph">〰</span>
                 button in the event panel) to single it out — the rest dim, the legs get numbered, and a name chip
-                appears over the map.</li>
+                appears over the map. The tree button beside a person in the event panel makes them the root of the
+                map, which then shows their ancestors and descendants.</li>
               <li><strong>Period borders</strong> — the <strong>Borders</strong> chip lays the administrative
                 territories of one year over the map, from
                 <a href="https://www.openhistoricalmap.org/" target="_blank" rel="noopener noreferrer">OpenHistoricalMap</a>:
@@ -2860,7 +3025,10 @@
                 SPOUSE”</em> heading that jumps back to the parents' entry. Partners are named on the ⚭ lines but never
                 numbered, each introduced NGSQ-style with their lifespan and parents — <em>“⚭ 1866, Škofja Loka — Marija
                 Oblak (1845–1913), daughter of Janez Oblak and Neža Zupan”</em> — and a union without a recorded
-                marriage date still gets its ⚭ line, so no partner goes unmentioned.</li>
+                marriage date still gets its line, so no partner goes unmentioned. The line takes the couple's
+                symbol: ⚭ for a recorded marriage (even one without a date), ⚮ for a divorce, ⚬⚬ for a separation,
+                and ⚯ for a partnership — one the file records as unmarried, or one with no marriage on record at
+                all.</li>
             </ul>
             <p>A second toggle switches the writing style:</p>
             <ul>
@@ -2869,7 +3037,13 @@
                 interface language. Sentences use the correct tense for people presumed still living, and Slovenian
                 narrative correctly declines dates and pronouns (place names are never inflected). Sources become
                 numbered footnote markers on the sentence they support; short notes are woven in parenthetically, longer
-                ones become their own footnote.</li>
+                ones become their own footnote. Each union reads by what the file records: a wife or husband for a
+                recorded marriage, with its date when there is one, and a partner for a partnership. The story also
+                says when a couple married only after their first child, when a widow or widower married again, and
+                when a couple divorced or separated — but only when the dates make it certain, so an <em>about</em>
+                date never triggers it, while <em>before</em>, <em>after</em> and <em>between</em> count by their
+                known edge. A union without a wedding date takes its place in the story at its first child's
+                birth.</li>
             </ul>
             <p>
               The <strong>Facts</strong> group in Chart settings adds optional lines (or narrative sentences) per person:
@@ -2916,6 +3090,17 @@
               drag a rectangle on a group photo to mark this person — it becomes their thumbnail and the highlighted
               region above. The <span class="gm-glyph">×</span> control removes a photo from the
               person; the image file on disk is kept.
+            </p>
+            <p>
+              On a group photo you rarely need to draw at all: the viewer finds the faces itself, on your computer — the
+              photo is never sent anywhere. Move the mouse over the photo and every face nobody is marked on yet shows
+              with a <strong>?</strong>. Click one and pick who it is: the person whose photo it is and their close family
+              (partners, children, parents, brothers and sisters, the partner's parents and siblings) are offered first,
+              and typing a name searches the whole file. Anyone else you pick gets the photo too, with that region as
+              their thumbnail; people already marked on the photo are not offered again. Every marked person's region —
+              found or drawn, whoever's photo you opened — has a handle at each corner while the mouse is over the
+              photo: drag one to make the region larger or smaller, for example to take in the whole head. The face finder loads the first
+              time you open a photo and needs a network connection that once.
             </p>
             <h3>Browser support</h3>
             <p>
@@ -3085,7 +3270,10 @@
             <p>
               <strong>⚠ Linked to people already in your file — matches you did not confirm</strong> names every identity
               the app acted on that you never confirmed yourself — a partner or parent stitched in alongside a match you
-              confirmed, or anyone reached by bringing in a whole branch (<a href="#merge">§9</a>). The same ⚠ marks
+              confirmed, or anyone reached by bringing in a whole branch (<a href="#merge">§9</a>). A join your file
+              already backs up is made but not listed: a spouse, parent or child who holds the very place your file gives
+              them beside someone joined before them. So the list keeps the ones worth checking — the person a branch
+              starts from, and anyone your file records somewhere else. The same ⚠ marks
               these people before you save: beside the relative's choice in the comparison, and on their node in the
               Compare Tree. Where an incoming person matched someone your file
               already holds, their relatives were attached to your record instead of arriving as a second copy of them.
@@ -3147,7 +3335,9 @@
             <p>
               The download is always written as <strong>UTF-8</strong>, and its header is set to say so. A file that
               arrived in an older encoding (ANSEL, ANSI, Windows-1250, UTF-16) is therefore converted, and the preview —
-              like <a href="#tools">Health check</a> — says which encoding it came from. The conversion is what keeps
+              like <a href="#tools">Health check</a> — says which encoding it came from. A header that names the wrong
+              encoding is read in the one the text is really in: Brother's Keeper, for one, writes ANSEL over
+              Windows-1250 text, and some MyHeritage files hold a few Windows-1250 letters among UTF-8. The conversion is what keeps
               accented letters correct, but it does change a line other software reads, so after your first save of such
               a file, check that it still imports into the programs and services you use. Characters that could not be
               read from the original at all show as “�”; saving cannot bring those back, so correct them in
@@ -3157,13 +3347,15 @@
               The download is also a <strong>complete GEDCOM file</strong>. A file that arrived without its header
               (<em>HEAD</em>) or its closing line (<em>TRLR</em>), or whose header does not declare the GEDCOM version or
               the encoding, gets what is missing. GEDCOM 5.5.1 also requires a submitter record (<em>SUBM</em>), which says
-              who compiled the file. A 5.5.1 file without one gets a submitter with your name when you have entered it in
-              <strong>Settings › General › Your name (file author)</strong>, and one named “GED Merge” otherwise; a
+              who compiled the file. A 5.5.1 file without one gets a submitter with your name, e-mail and website when you have entered them in
+              <strong>Settings › Editing › File author</strong>, and one named “GED Merge” otherwise; a
               submitter the file already has is never changed. A new tree is given the same name when you start it. The preview
               lists each of these repairs before you download, and so does the <a href="#validate">Health check</a>.
               Text you write or edit follows the at-sign rule of its version: GEDCOM 5.5.1 doubles every literal
               <code>@</code> (<code>ana@@example.si</code>), GEDCOM 7.0 only one that starts a value. A line you have not
               touched keeps the at-signs it was read with, and a converted file follows the rule of its new version.
+              The exception is a 5.5.1 value with a line that starts with <code>@</code>: it is written with every
+              at-sign doubled, so the next save writes it the same.
             </p>
             <p>
               <strong>GEDCOM version</strong>, under the file list, chooses the version the download is written in. It
@@ -3171,7 +3363,10 @@
               (<a href="#target-format">§4</a>). Choose the other one — GEDCOM 7.0 for a 5.5.1 file, 5.5.1 for a 7.0 file —
               and the file is converted the way an incoming file is (<a href="#house-style">§4</a>): shared notes, dates,
               ages and the other version-specific structures are rewritten into that version's form, the header
-              included. The preview lists every rewritten line, and the change report
+              included. In GEDCOM 7.0 a text citation becomes a citation of a source the file does not record
+              (<code>@VOID@</code>, with the text as its page), media held inside a person or an event move into a
+              media record of their own, a witness linked to a family moves onto that family, and record ids GEDCOM
+              7.0 does not accept (<code>@f1_I1@</code>) get ones it does. The preview lists every rewritten line, and the change report
               carries the whole list. Like any save, the converted file becomes your working baseline, so from then on
               you work in the new version. A file you have not changed can be saved too when its target format holds
               it to the other version (<a href="#target-format">§4</a>): the preview then opens on that version.
@@ -3319,8 +3514,8 @@
               relatives, the chart headings and side panels, the pickers, and the save preview. Hover the years for the
               birth and death dates as your file writes them, an approximate date included (<em>ABT 1908</em>). The
               year of an approximate date (ABT, CAL, EST, BEF, AFT or BET … AND) is set in italics:
-              <span class="gm-data"><em>1908</em>–1970</span>. The text in Edit's date field turns italic too once it
-              holds such a date.</p>
+              <span class="gm-data"><em>1908</em>–1970</span>, and so is such a marriage year on the charts. The text in
+              Edit's date field turns italic too once it holds such a date.</p>
             <p><strong>Event marks</strong> — the classic genealogy symbols, the same everywhere an event is drawn
               rather than named: leading each event row in Edit (<a href="#edit">§8</a>), following a name in the place
               lists (<a href="#places">§10</a>), on the Timeline's bars and in the text reports (<a href="#charts">§11</a>).
@@ -3412,6 +3607,7 @@
                 <tr><td><span class="gm-key">?</span> / <span class="gm-key">F1</span></td><td>Show the shortcut list — F1 works from inside a field too</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Leave the field you're typing in, keeping what you typed (Edit) / close a dialog / leave a chart page</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Switch to Edit · Merge · Tools</td></tr>
+                <tr><td><span class="gm-key">S</span></td><td>Open the statistics (Tools)</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Scroll the comparison (Merge); after <span class="gm-key">Enter</span> they step its fields</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Step the highlighted row of the list you are in — the comparison's fields, the duplicate pairs, the health check's findings, the search results</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Previous / next match — in Merge and Edit, and in the duplicates list</td></tr>
@@ -3420,7 +3616,8 @@
                 <tr><td><span class="gm-key">Enter</span></td><td>Save the field you're editing and step to the next one — the event's <strong>+ Add</strong> button after the last (Edit) — or open the highlighted row: the comparison in Merge, a duplicate pair or group in Tools, the record in the health check</td></tr>
                 <tr><td><span class="gm-key">1</span> · <span class="gm-key">2</span> · <span class="gm-key">3</span></td><td>In the comparison (Merge): keep <strong>Main</strong> · take <strong>Incoming</strong> · keep <strong>Both</strong> for the highlighted field; <span class="gm-key">Esc</span> returns to the match list</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Open the person's chart (tree, grid, fan, circle)</td></tr>
-                <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram</td></tr>
+                <tr><td><span class="gm-key">K</span></td><td>Open the relationship diagram</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span></td><td>Open the person's fan · timeline · map</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Go to the start person (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↑</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↑</span></td><td>Open the father · the mother (Edit, and on a chart)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Open the previous · next sibling, by birth (Edit)</td></tr>
@@ -3445,7 +3642,9 @@
               <thead><tr><th>Keys</th><th>Action</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Switch chart kind (Tree … Report)</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span> · <span class="gm-key">K</span></td><td>Switch to the fan · timeline · map · relationship</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Ancestors / Descendants</td></tr>
+                <tr><td><span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span></td><td>Compare Tree: confirm / reject / defer the selected pair (while a pair is selected, D defers it instead of showing descendants)</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Zoom in / out</td></tr>
                 <tr><td><span class="gm-key">0</span></td><td>Reset zoom to 100%</td></tr>
                 <tr><td><span class="gm-key">F</span></td><td>Fit the whole chart on screen</td></tr>

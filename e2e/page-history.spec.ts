@@ -37,7 +37,7 @@ test("Back retraces Edit → Tools → Places → Geocoding one page at a time",
   await expect(page.locator(".tools-view")).toBeVisible();
   // A tool of its own, then that tool's geocoding page.
   await page.getByRole("tab", { name: /Sources/ }).click();
-  await page.getByRole("tab", { name: /Places/ }).click();
+  await page.getByRole("tab", { name: /^Places(?! &)/ }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await expect(page.locator(geocodeList).first()).toBeVisible();
 
@@ -70,7 +70,7 @@ test("⌫ takes the same steps as the browser's Back, and the two can be mixed",
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByRole("tab", { name: /Sources/ }).click();
-  await page.getByRole("tab", { name: /Places/ }).click();
+  await page.getByRole("tab", { name: /^Places(?! &)/ }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await expect(page.locator(geocodeList).first()).toBeVisible();
 
@@ -81,7 +81,7 @@ test("⌫ takes the same steps as the browser's Back, and the two can be mixed",
   // Alternate the key and the button down the same stairs.
   await backspace();
   await expect(page.locator(geocodeList).first()).toBeHidden();
-  await expect(page.getByRole("tab", { name: /Places/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /^Places(?! &)/ })).toHaveAttribute("aria-selected", "true");
 
   await page.goBack();
   await expect(page.getByRole("tab", { name: /Sources/ })).toHaveAttribute("aria-selected", "true");
@@ -106,7 +106,7 @@ test("a tool's own Back walks up to its front page, and the browser's undoes tha
   await page.locator(".edit-person").first().waitFor();
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
-  await page.getByRole("tab", { name: /Places/ }).click();
+  await page.getByRole("tab", { name: /^Places(?! &)/ }).click();
   await page.getByRole("button", { name: /Geocoding/ }).click();
   await expect(page.locator(geocodeList).first()).toBeVisible();
 

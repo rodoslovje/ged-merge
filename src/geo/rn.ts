@@ -314,9 +314,11 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
  *
  * False for an empty list — there is nothing to answer, and "yes, offline" would
  * read as an offer.
+ *
+ * `stored` is the set to ask against; a memo passes the one `useLocalRegisters`
+ * gave it, so a register landing mid-session recomputes it.
  */
-export function isOfflineQuery(queries: readonly RnQuery[]): boolean {
-  const stored = localRegisters();
+export function isOfflineQuery(queries: readonly RnQuery[], stored: ReadonlySet<string> = localRegisters()): boolean {
   return queries.length > 0 && queries.every((q) => stored.has(q.country ?? "SI"));
 }
 
@@ -486,7 +488,7 @@ export function rnFeaturesToResults(data: RnFeatureCollection, max = MAX_RESULTS
 }
 
 // One shared queue so concurrent rows still space their requests out.
-const enqueue = createThrottledQueue(INTERVAL_MS);
+const enqueue = createThrottledQueue(INTERVAL_MS, { activity: "addresses" });
 
 /** Run one throttled register request and return the parsed response. */
 function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Promise<RnFeatureCollection> {

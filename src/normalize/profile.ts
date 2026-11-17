@@ -24,7 +24,7 @@ import type {
   PlaceLayout,
   PlaceTargetFormat,
 } from "./types";
-import { detectLinkLangs } from "./links";
+import { detectLinkLangs, recordLinksOf } from "./links";
 import { inferNameVariants } from "./nameVariants";
 import { analyzeUnknownNames } from "./unknownName";
 import { walkNodes } from "./walk";
@@ -97,6 +97,7 @@ export function inferMainProfile(main: Dataset): MainProfile {
     unknownName: analyzeUnknownNames(main).target,
     privacyStyle: detectPrivacyStyleIfAny(main.records),
     sourceTags: { FILN: keepsSourceTag(main.records, "FILN"), PERI: keepsSourceTag(main.records, "PERI") },
+    recordLinks: recordLinksOf(main.records),
   };
 }
 
@@ -406,6 +407,11 @@ export function detectPlaceLayout(values: Values, addrCount: number): PlaceLayou
   if (frac(parenCountry) > 0.3 || frac(parish) > 0.15) return "packed-plac";
   // Structured hierarchy with house numbers kept in separate ADDR lines.
   if (addrCount / n > 0.15 && frac(multiPart) > 0.4) return "structured-addr";
+  // The same convention in a file that knows few houses: a comma hierarchy that
+  // (next to) never writes a number into a place, but keeps the house numbers
+  // it has in ADDR lines — a file geocoded place by place, with three addresses
+  // among forty places. The numbers belong in ADDR there too.
+  if (addrCount >= 2 && frac(withNumber) < 0.02 && frac(multiPart) > 0.4) return "structured-addr";
   // Mostly single-part "Name 52" values.
   if (frac(multiPart) < 0.2 && frac(withNumber) > 0.4) return "address-only";
   // Comma hierarchy with no embedded addresses.

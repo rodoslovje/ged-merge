@@ -31,6 +31,7 @@ import {
   RenameEditor,
   RenameToggle,
   useRenameDraft,
+  ToolsIntro,
 } from "./shared";
 import { sameCoord } from "../../geo/points";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
@@ -587,7 +588,7 @@ export function RegisterCheckSection({
           <div className="tools-dup-bulk">{actions}</div>
         </div>
       )}
-      <p className="tools-intro">{t("tools.register.intro")}</p>
+      <ToolsIntro>{t("tools.register.intro")}</ToolsIntro>
       {/* One line of standing: how much agrees, out of how much was looked at,
           against what — with the places nothing could judge counted at its end
           rather than given a paragraph of their own. */}

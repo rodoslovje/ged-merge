@@ -74,6 +74,9 @@ describe("linkKey", () => {
   });
 
   it("keeps case-sensitive resource ids distinct through the fold", () => {
+    expect(linkKey("https://books.google.com/books/about/Poezije.html?id=0F9EAAAAIAAJ")).not.toBe(
+      linkKey("https://books.google.com/books/about/Poezije.html?id=0f9eaaaaiaaj"),
+    );
     expect(linkKey("https://www.youtube.com/watch?v=AbCdEf12345")).not.toBe(
       linkKey("https://www.youtube.com/watch?v=abcdef12345"),
     );

@@ -1,6 +1,6 @@
 import { cloneNode } from "../gedcom/node";
 import { isPointer } from "../gedcom/uri";
-import { isPrivacyMarker, isPrivateNode, isV7,setPrivateFlag, detectPrivacyStyle, type PrivacyTagStyle } from "../gedcom/private";
+import { isPrivacyMarker, isPrivateNode, setPrivateFlag, detectPrivacyStyle, type PrivacyTagStyle } from "../gedcom/private";
 import { NOTE_TAGS } from "../gedcom/builder";
 import type { GedNode } from "../gedcom/types";
 import type { NormChange } from "../normalize/types";
@@ -61,11 +61,15 @@ function carriesNotes(rec: GedNode): boolean {
  * record inside a note record is not a shape anyone writes) and `HEAD`, whose
  * note is the file's own metadata rather than genealogy.
  *
+ * A lifted note and its pointer are written in `version`, the target's: an
+ * `SNOTE` in 7.0, a `NOTE` in 5.5.1.
+ *
  * Returns how many notes moved, plus a handful of illustrative examples.
  */
 export function reshapeNotes(
   records: GedNode[],
   target: NoteShape,
+  version: "5.5.1" | "7.0",
   scope: NoteReshapeScope = { record: true, event: true },
 ): { changed: number; examples: NormChange[] } {
   let changed = 0;
@@ -106,9 +110,9 @@ export function reshapeNotes(
       if (NOTE_TAGS.includes(child.tag) && inScope(depth)) {
         const value = child.value?.trim() ?? "";
         if (target === "shared" && !isPointer(value) && value) {
-          toShared(child, note, records, noteRecords);
+          toShared(child, note, records, noteRecords, version);
         } else if (target === "inline" && isPointer(value)) {
-          toInline(child, value, note, noteRecords, refCounts, style, records);
+          toInline(child, value, note, noteRecords, refCounts, style, version);
         }
       }
       walk(child, depth + 1);
@@ -149,12 +153,13 @@ function toShared(
   note: (before: string, after: string) => void,
   records: GedNode[],
   noteRecords: Map<string, GedNode>,
+  version: "5.5.1" | "7.0",
 ): void {
   const text = noteNode.value ?? "";
   const xref = nextXref(records, "N");
   // GEDCOM 7 spells a shared note and its pointer `SNOTE` (its `NOTE` is
   // inline text only); 5.5.1 uses `NOTE` for both.
-  const tag = isV7(records) ? "SNOTE" : "NOTE";
+  const tag = version === "7.0" ? "SNOTE" : "NOTE";
   const rec: GedNode = { level: 0, xref, tag, value: text, children: [] };
   // Everything hanging off the inline note travels with it, privacy marker
   // included — the flag belongs to the note, and on a pointer note the note is
@@ -178,7 +183,7 @@ function toInline(
   noteRecords: Map<string, GedNode>,
   refCounts: Map<string, number>,
   style: PrivacyTagStyle,
-  records: GedNode[],
+  version: "5.5.1" | "7.0",
 ): void {
   const rec = noteRecords.get(xref);
   if (!rec) return; // dangling pointer — not this pass's business to invent text
@@ -197,7 +202,7 @@ function toInline(
   noteNode.children = rec.children
     .filter((c) => !RECORD_ONLY_TAGS.has(c.tag) && !isPrivacyMarker(c))
     .map((c) => relevel(cloneNode(c), noteNode.level + 1));
-  if (isPrivateNode(rec)) setPrivateFlag(noteNode, true, style, records);
+  if (isPrivateNode(rec)) setPrivateFlag(noteNode, true, style, version);
   refCounts.set(xref, (refCounts.get(xref) ?? 1) - 1);
   note(`${xref} → ${preview(rec.value ?? "")}`, preview(rec.value ?? ""));
 }

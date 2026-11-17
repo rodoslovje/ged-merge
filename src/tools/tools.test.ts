@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { validateConformance } from "./conformance/conformance";
+import { fixMarriageDates } from "./fixMarriageDate";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { validateDataset } from "./validate";
+import { branchOf, validateDataset } from "./validate";
 import { KNOWN_TAGS, validateStructure } from "./structure";
 import { countFixableDates, dateFixContext, fixDates, fixNonStandardDates, isUnparseable, proposeDateFix } from "./fixDates";
 import { formatGedDate } from "../normalize/date";
 import { parseDate } from "../gedcom/date";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { findDuplicates } from "./duplicates";
-import { buildSourceTree, mediaUsedBy } from "./sources";
+import { buildSourceTree, mediaUsedBy, usesBeyondMedia } from "./sources";
 import { collectLocalMediaFiles } from "./mediaFiles";
 import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
@@ -20,7 +22,7 @@ import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
 import { bulkNormalize } from "./bulkNormalize";
 import { serializeGedcom } from "../gedcom/serialize";
 import { applyRecordPatches } from "../ui/historyTypes";
-import { applyBatchAction } from "./batch";
+import { applyBatchAction, previewBirthEstimateDates, previewMarriageEstimates } from "./batch";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -212,7 +214,7 @@ describe("validateDataset", () => {
     // I5 is just as old but carries an undated DEAT Y — deceased, not flagged.
     expect(tooOld.map((i) => i.id)).not.toContain("@I5@");
     // The finding's own repair (the batch "mark deceased" action) settles it.
-    expect(applyBatchAction(ds, tooOld.map((i) => i.id), { kind: "markDeceased" }).changed).toBe(tooOld.length);
+    expect(applyBatchAction(ds, tooOld.map((i) => i.id), { kind: "markDeceased" }, "5.5.1").changed).toBe(tooOld.length);
     expect(validateDataset(ds, 2026).issues.some((i) => i.category === "livingTooOld")).toBe(false);
     // The father-age finding is reported on the child record.
     expect(report.issues.find((i) => i.category === "parentAge")?.id).toBe("@I3@");
@@ -320,6 +322,112 @@ describe("validateDataset", () => {
     ]);
     expect(found[0].messageVars).toEqual({ birth: 1921, death: 1897 });
     expect(report.counts.bornAfterParentDeath).toBe(2);
+  });
+
+  it("lists a child born before the parents' dated marriage, only when the dates are certain", () => {
+    const child = (id: string, birth: string, tag = "BIRT") => `0 @${id}@ INDI\n1 NAME Otrok /${id}/\n1 SEX F\n1 ${tag}\n2 DATE ${birth}\n1 FAMC @F1@\n`;
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      child("C1", "3 MAY 1763") + // before
+      child("C2", "1764") + // same year as a dated marriage — undecided
+      child("C3", "ABT 1760") + // an estimate — listed as a possibility
+      child("C4", "2 FEB 1764", "CHR") + // baptized before the wedding
+      child("C5", "1 JUL 1764") + // after
+      `0 @F1@ FAM\n1 MARR\n2 DATE 12 FEB 1764\n1 CHIL @C1@\n1 CHIL @C2@\n1 CHIL @C3@\n1 CHIL @C4@\n1 CHIL @C5@\n` +
+      `0 @F2@ FAM\n1 MARR\n2 PLAC Kranj\n0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "bornBeforeMarriage");
+    expect(found.map((i) => [i.id, i.messageKey.split(".").pop()])).toEqual([
+      ["@C1@", "bornBeforeMarriage"],
+      ["@C3@", "bornBeforeMarriageEstimatedBirth"],
+      ["@C4@", "bornBeforeMarriage"],
+    ]);
+    expect(found[0].messageVars).toEqual({ birth: "3 MAY 1763", marriage: "12 FEB 1764" });
+    expect(found.every((i) => !i.marriageFix)).toBe(true);
+  });
+
+  it("offers an estimated or bounded marriage the date its eldest child proves", () => {
+    const child = (id: string, fam: string, birth: string) => `0 @${id}@ INDI\n1 NAME Otrok /${id}/\n1 SEX M\n1 BIRT\n2 DATE ${birth}\n1 FAMC @${fam}@\n`;
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      child("A1", "F1", "3 MAY 1770") + child("A2", "F1", "1772") + child("A3", "F1", "1776") +
+      child("B1", "F2", "11 JAN 1773") + child("B2", "F2", "5 JUN 1768") +
+      child("D1", "F3", "1774") +
+      `0 @F1@ FAM\n1 MARR\n2 DATE ABT 1775\n1 CHIL @A1@\n1 CHIL @A2@\n1 CHIL @A3@\n` +
+      `0 @F2@ FAM\n1 MARR\n2 DATE BEF 1773\n1 CHIL @B1@\n1 CHIL @B2@\n` +
+      `0 @F3@ FAM\n1 MARR\n2 DATE BEF 1773\n1 CHIL @D1@\n0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "bornBeforeMarriage");
+    // ABT 1775: both children born before it; the 1776 one is not. BEF 1773:
+    // only the child born before the bound (11 JAN 1773 is not); a child after
+    // the bound is no finding at all.
+    expect(found.map((i) => [i.id, i.messageKey.split(".").pop(), i.marriageFix?.value])).toEqual([
+      ["@A1@", "bornBeforeEstimatedMarriage", "BEF 3 MAY 1770"],
+      ["@A2@", "bornBeforeEstimatedMarriage", "BEF 3 MAY 1770"],
+      ["@B2@", "bornBeforeEstimatedMarriage", "BEF 5 JUN 1768"],
+    ]);
+
+    // The fix writes one date per family; the findings it settles go away.
+    const patches = fixMarriageDates(ds, found.map((i) => i.marriageFix!));
+    expect(patches.map((p) => p.id)).toEqual(["@F1@", "@F2@"]);
+    expect(ds.families.get("@F1@")!.events.find((e) => e.tag === "MARR")?.date?.raw).toBe("BEF 3 MAY 1770");
+    expect(validateDataset(ds, 2026).issues.filter((i) => i.category === "bornBeforeMarriage")).toEqual([]);
+  });
+
+  it("writes a marriage date that strict 5.5.1 and 7.0 accept", () => {
+    for (const vers of ["5.5.1", "7.0"]) {
+      const ds = dataset(`0 HEAD\n1 GEDC\n2 VERS ${vers}\n${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}` +
+        "0 @C1@ INDI\n1 NAME Otrok /Novak/\n1 BIRT\n2 DATE 3 MAY 1770\n1 FAMC @F1@\n" +
+        "0 @F1@ FAM\n1 MARR\n2 DATE ABT 1775\n1 CHIL @C1@\n0 TRLR\n");
+      const before = validateConformance(ds).length;
+      const fixes = validateDataset(ds, 2026).issues.flatMap((i) => (i.marriageFix ? [i.marriageFix] : []));
+      expect(fixMarriageDates(ds, fixes)).toHaveLength(1);
+      expect(validateConformance(ds)).toHaveLength(before);
+    }
+  });
+
+  it("reports an undated marriage, with the estimate Batch writes", () => {
+    const person = (id: string, sex: string, birth?: string, famc?: string, fams?: string) =>
+      `0 @${id}@ INDI\n1 NAME Oseba /${id}/\n1 SEX ${sex}\n` +
+      (birth ? `1 BIRT\n2 DATE ${birth}\n` : "") + (famc ? `1 FAMC @${famc}@\n` : "") + (fams ? `1 FAMS @${fams}@\n` : "");
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      person("H1", "M", "1740", undefined, "F1") + person("W1", "F", "1745", undefined, "F1") +
+      person("C1", "F", "3 MAY 1770", "F1") + person("C2", "M", "1772", "F1") +
+      person("H2", "M", undefined, undefined, "F2") + person("W2", "F", "1752", undefined, "F2") +
+      person("H3", "M", undefined, undefined, "F3") + person("W3", "F", undefined, undefined, "F3") +
+      person("W4", "F", "1760", undefined, "F4") +
+      `0 @F1@ FAM\n1 HUSB @H1@\n1 WIFE @W1@\n1 MARR Y\n1 CHIL @C2@\n1 CHIL @C1@\n` +
+      `0 @F2@ FAM\n1 HUSB @H2@\n1 WIFE @W2@\n1 MARR\n2 PLAC Kranj\n` +
+      `0 @F3@ FAM\n1 HUSB @H3@\n1 WIFE @W3@\n1 MARR Y\n` +
+      `0 @F4@ FAM\n1 WIFE @W4@\n1 MARR Y\n` +
+      `0 @F5@ FAM\n1 HUSB @H1@\n1 WIFE @W2@\n0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "undatedMarriage");
+    // F1: the eldest stated birth, day and month kept; F2: the wife's birth +25;
+    // F3: nothing to estimate from; F4 names one parent; F5 records no marriage.
+    expect(found.map((i) => [i.id, i.marriageFix?.value])).toEqual([
+      ["@H1@", "BEF 3 MAY 1770"],
+      ["@H2@", "ABT 1775"],
+      ["@H3@", undefined],
+    ]);
+    const all = [...ds.individuals.keys()];
+    expect(Object.fromEntries(found.flatMap((i) => (i.marriageFix ? [[i.marriageFix.famId, i.marriageFix.value]] : []))))
+      .toEqual(Object.fromEntries(previewMarriageEstimates(ds, all)));
+    expect(fixMarriageDates(ds, found.flatMap((i) => (i.marriageFix ? [i.marriageFix] : [])))).toHaveLength(2);
+    expect(validateDataset(ds, 2026).issues.filter((i) => i.category === "undatedMarriage").map((i) => i.id)).toEqual(["@H3@"]);
+  });
+
+  it("offers the people without vital dates the birth Batch estimates", () => {
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n` +
+      "0 @P1@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1801\n1 FAMS @F1@\n" +
+      "0 @P2@ INDI\n1 NAME Mati /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @C1@ INDI\n1 NAME Sin /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @X1@ INDI\n1 NAME Sam /Novak/\n1 SEX M\n" +
+      "0 @F1@ FAM\n1 HUSB @P1@\n1 WIFE @P2@\n1 CHIL @C1@\n0 TRLR");
+    const undated = validateDataset(ds, 2026).issues.filter((i) => i.category === "missingVitals");
+    expect(undated.map((i) => [i.id, i.birthEstimate])).toEqual([
+      ["@P2@", "ABT 1805"],
+      ["@X1@", undefined],
+      ["@C1@", "ABT 1830"],
+    ]);
+    const ids = undated.map((i) => i.id);
+    const preview = previewBirthEstimateDates(ds, ids);
+    for (const i of undated) expect(i.birthEstimate).toBe(preview.get(i.id));
   });
 
   it("flags a mother with children by two fathers in the same years", () => {
@@ -605,6 +713,40 @@ describe("validateDataset", () => {
     expect(report.issues.filter((i) => i.category === "orphan").map((i) => i.id)).toEqual(["@I8@"]);
   });
 
+  it("lists everyone in a person's branch", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 FAMS @F1@
+0 @I2@ INDI
+1 FAMS @F1@
+1 FAMC @F2@
+0 @I3@ INDI
+1 FAMC @F1@
+0 @I4@ INDI
+1 FAMS @F2@
+0 @I5@ INDI
+1 FAMS @F3@
+0 @I6@ INDI
+1 FAMC @F3@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+0 @F2@ FAM
+1 HUSB @I4@
+1 CHIL @I2@
+0 @F3@ FAM
+1 HUSB @I5@
+1 CHIL @I6@
+0 TRLR`);
+    // Through a marriage and up to the wife's father; the other group stays out.
+    expect(branchOf(ds, "@I3@").sort()).toEqual(["@I1@", "@I2@", "@I3@", "@I4@"]);
+    expect(branchOf(ds, "@I3@")[0]).toBe("@I3@");
+    expect(branchOf(ds, "@I6@").sort()).toEqual(["@I5@", "@I6@"]);
+    expect(branchOf(ds, "@I99@")).toEqual([]);
+  });
+
   it("leaves the main tree alone, however small the file", () => {
     // One family and nothing else: the only group is the file's tree.
     const ds = dataset(`0 HEAD
@@ -620,6 +762,38 @@ describe("validateDataset", () => {
 1 WIFE @I2@
 0 TRLR`);
     expect(validateDataset(ds, 2026).counts.island).toBe(0);
+  });
+
+  /** A couple (`@F<f>@`, husband `@I<n>@`) with `kids` children born from 1950. */
+  const family = (f: number, n: number, kids: number): string => {
+    const ids = Array.from({ length: kids + 2 }, (_, i) => `@I${n + i}@`);
+    const people = ids.map((id, i) =>
+      `0 ${id} INDI\n1 NAME P${n + i} /X/\n` +
+      (i < 2 ? `1 FAMS @F${f}@\n` : `1 BIRT\n2 DATE ${1948 + i}\n1 FAMC @F${f}@\n`));
+    const fam = `0 @F${f}@ FAM\n1 HUSB ${ids[0]}\n1 WIFE ${ids[1]}\n` + ids.slice(2).map((id) => `1 CHIL ${id}\n`).join("");
+    return people.join("") + fam;
+  };
+
+  it("reports every detached group, however large, on its youngest", () => {
+    // Main tree of 14 (I1–I14), a detached branch of 11 (I101–I111) and a
+    // stray group of 3 (I201–I203) — smallest first.
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(2, 101, 9)}${family(3, 201, 1)}0 TRLR`);
+    const report = validateDataset(ds, 2026);
+    const found = report.issues.filter((i) => i.category === "island");
+    expect(found.map((i) => [i.id, i.severity, i.messageVars?.count])).toEqual([
+      ["@I111@", "warning", 11],
+      ["@I203@", "warning", 3],
+    ]);
+  });
+
+  it("takes the start person's group as the main tree", () => {
+    // The start person sits in the 3-person group, so the 14-person tree is
+    // the one reported and the small group is not.
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(3, 201, 1)}0 TRLR`);
+    const report = validateDataset(ds, 2026, "@I201@");
+    expect(report.issues.filter((i) => i.category === "island").map((i) => i.id)).toEqual(["@I14@"]);
+    // A start person not in the file falls back to the largest group.
+    expect(validateDataset(ds, 2026, "@I999@").counts.island).toBe(1);
   });
 
   it("detects broken and non-reciprocal family links", () => {
@@ -1824,7 +1998,7 @@ describe("fixDanglingRefs", () => {
 1 TITL Parish register
 0 TRLR`;
 
-  it("drops every dangling pointer except the ones the broken-links fix owns", () => {
+  it("repairs or drops every dangling pointer except the ones the broken-links fix owns", () => {
     const ds = dataset(FILE);
     // @F9@ is the record-level FAMC (a brokenLink finding); the rest are this
     // fix's: the ADOP's nested FAMC, the citation, the media link.
@@ -1838,12 +2012,14 @@ describe("fixDanglingRefs", () => {
     const tags = (node: { children: { tag: string; value?: string }[] }) =>
       node.children.map((c) => `${c.tag}${c.value ? ` ${c.value}` : ""}`);
     // The good citation, the record-level FAMC and the vendor subtree stay; the
-    // dangling OBJE and the ADOP's FAMC are gone.
+    // dangling OBJE and the ADOP's FAMC carried nothing, so they are gone.
     expect(tags(indi.raw)).toEqual([
       "NAME Bo /Horvat/", "SEX M", "FAMC @F9@", "ADOP", "BIRT", "SOUR @S1@", "_CUSTOM @X9@",
     ]);
     const birt = indi.raw.children.find((c) => c.tag === "BIRT")!;
-    expect(tags(birt)).toEqual(["DATE 1900"]); // the citation went with its PAGE
+    // A 5.5.1 file: the citation of the missing source is a text citation now,
+    // its PAGE the text.
+    expect(tags(birt)).toEqual(["DATE 1900", "SOUR p. 12"]);
     expect(countDanglingRefs(ds)).toBe(0);
     // Untouched: the family link is still the broken-links fix's to remove.
     expect(indi.childOf).toEqual(["@F9@"]);
@@ -2075,6 +2251,47 @@ describe("findDuplicates", () => {
     expect(findDuplicates(ds)).toHaveLength(0);
   });
 
+  // Anka/Alenka spell ≈ 0.90 alike — above the general 0.85 line — and an ABT
+  // date dodges the exact-year veto; within one family that is two sisters.
+  const sisters = (given2: string, date2: string) => dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Alenka /Pavlin/
+1 SEX F
+1 BIRT
+2 DATE ABT 1 AUG 1962
+2 PLAC Naklo
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME ${given2} /Pavlin/
+1 SEX F
+1 BIRT
+2 DATE ${date2}
+2 PLAC Naklo
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Metod /Pavlin/
+1 SEX M
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Ivana /Ravnik/
+1 SEX F
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I3@
+1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+
+  it("does not flag siblings whose different given names merely spell alike", () => {
+    expect(findDuplicates(sisters("Anka", "3 SEP 1963"))).toHaveLength(0);
+  });
+
+  it("still flags a child entered twice in one family under the same name", () => {
+    expect(findDuplicates(sisters("Alenka", "1 AUG 1962"))).toHaveLength(1);
+  });
+
   it("does not flag twins (shared parents, same birth year, different given names)", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -2101,6 +2318,32 @@ describe("findDuplicates", () => {
 0 @F1@ FAM
 1 HUSB @I3@
 1 WIFE @I4@
+1 CHIL @I1@
+1 CHIL @I2@
+0 TRLR`);
+    expect(findDuplicates(ds)).toHaveLength(0);
+  });
+
+  it("does not flag twins whose names are spelled alike (Marija / Marijana)", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Marija /Vončina/
+1 SEX F
+1 BIRT
+2 DATE 3 FEB 1832
+1 FAMC @F1@
+0 @I2@ INDI
+1 NAME Marijana /Vončina/
+1 SEX F
+1 BIRT
+2 DATE 3 FEB 1832
+1 FAMC @F1@
+0 @I3@ INDI
+1 NAME Jakob /Vončina/
+1 SEX M
+0 @F1@ FAM
+1 HUSB @I3@
 1 CHIL @I1@
 1 CHIL @I2@
 0 TRLR`);
@@ -2345,6 +2588,8 @@ describe("mediaUsedBy", () => {
     expect(byId.get("@I2@")).toEqual({ top: 200, left: 300, height: 120, width: 90 });
     // A reference without a CROP carries no region.
     expect(byId.get("@I3@")).toBeUndefined();
+    // Each use names its record, so the viewer can write that region back.
+    expect(uses.map((u) => u.record).sort()).toEqual(["@I1@", "@I2@", "@I3@"]);
   });
 
   it("says which events a page image is cited on, and nothing for a record-level link", () => {
@@ -2374,6 +2619,31 @@ describe("mediaUsedBy", () => {
 });
 
 describe("buildSourceTree", () => {
+  it("lists a book's citer once when a page under it already names them", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 42
+2 OBJE @O1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+1 OBJE @O1@
+0 @O1@ OBJE
+1 FILE https://example.org/scan.jpg?pg=42
+1 TITL Stran 42
+0 TRLR`);
+    const src = buildSourceTree(ds).repos.flatMap((r) => r.sources).find((s) => s.xref === "@S1@")!;
+    expect(src.usedBy.map((u) => u.persons[0].id).sort()).toEqual(["@I1@", "@I2@"]);
+    // Janez is under page 42 already; only Ana, who cites the book alone, stays beneath it.
+    expect(usesBeyondMedia(src).map((u) => u.persons[0].id)).toEqual(["@I2@"]);
+  });
+
   it("nests REPO → SOUR → OBJE and tracks the records that cite them", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8
@@ -2957,6 +3227,29 @@ describe("bulkNormalize vendor-tag dialect", () => {
 0 TRLR`));
     const fam = out.families.get("@F1@")!.raw;
     expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(true);
+  });
+
+  it.each(["5.5.1", "7.0"] as const)("keeps a standard EVEN + TYPE partnership in a strict %s target", (version) => {
+    // `_MSTAT` is the producer's own tag here, so only the strict target
+    // keeps the standard event from becoming the extension.
+    const { dataset: out } = bulkNormalize(
+      dataset(`0 HEAD
+1 CHAR UTF-8
+1 SOUR BROSKEEP
+1 GEDC
+2 VERS ${version}
+2 FORM LINEAGE-LINKED
+0 @F1@ FAM
+1 EVEN
+2 TYPE MYHERITAGE:REL_PARTNERS
+0 TRLR`),
+      undefined,
+      { standard: version, writeVersion: version },
+    );
+    const fam = out.families.get("@F1@")!.raw;
+    expect(fam.children.some((c) => c.tag === "_MSTAT")).toBe(false);
+    expect(fam.children.find((c) => c.tag === "EVEN")?.children[0]?.value).toBe("MYHERITAGE:REL_PARTNERS");
+    expect(validateConformance(out).filter((i) => i.recordId === "@F1@")).toEqual([]);
   });
 
   it("still renames _MILI in a Brother's Keeper file — _MILT is BK's own spelling too", () => {

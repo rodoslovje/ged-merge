@@ -7,9 +7,11 @@ import type { GedNode } from "../gedcom/types";
  *
  * Diffed, not recorded: normalization is a dozen passes over a cloned record
  * forest, and comparing that forest with the one it was cloned from catches
- * every change any pass makes, including passes written later. The forest
- * keeps its length (no pass adds or drops a top-level record), so each edit
- * names a record by index and a node below it by a child-index path.
+ * every change any pass makes, including passes written later. No pass drops
+ * a top-level record, and the one that adds them (a 7.0 conversion moving
+ * inline media into records of their own) adds one block at one place, which
+ * travels whole as `added`; so each edit names a record by its index in the
+ * forest as parsed, and a node below it by a child-index path.
  *
  * Compact on purpose: against a main with another place style, nearly every
  * event of a large file changes, and a patch of a million small objects costs
@@ -21,8 +23,8 @@ import type { GedNode } from "../gedcom/types";
  * Ops, each `[op, record, depth, ...path, ...operands]` (paths in the
  * numbering the node's parent has once earlier ops ran):
  *  - `SCALARS mask` — the node's fields in `SCALAR_FIELDS` order whose bit is
- *    set take the next strings (length -1 = remove the field); bit 5 takes the
- *    next object as `conc`.
+ *    set take the next strings (length -1 = remove the field); bit 6 takes the
+ *    next object as `conc`, bit 7 the next object as `upgradedFrom`.
  *  - `CHILDREN n e1…en` — the node's children become: `e ≥ 0` its old child at
  *    that index, `e < 0` the object `-e - 1`. Later ops then reach them.
  *  - `REPLACE obj keepXref` — the node (its level or xref changed) is
@@ -39,13 +41,16 @@ export interface NormPatch {
   text: string;
   /** Whole nodes (and CONC tables) that travel as objects. */
   objs: unknown[];
+  /** Records the normalization added, inserted at `at` once the edits ran. */
+  added?: { at: number; records: GedNode[] };
 }
 
 const OP_SCALARS = 1;
 const OP_CHILDREN = 2;
 const OP_REPLACE = 3;
-const SCALAR_FIELDS = ["tag", "value", "spelling", "reshapedFrom", "verbatim"] as const;
+const SCALAR_FIELDS = ["tag", "value", "spelling", "reshapedFrom", "verbatim", "atText"] as const;
 const CONC_BIT = 1 << SCALAR_FIELDS.length;
+const UPGRADED_BIT = CONC_BIT << 1;
 
 class Writer {
   ops: number[] = [];
@@ -69,20 +74,40 @@ class Writer {
 }
 
 /** The edits that turn `before` into `after` (see {@link NormPatch}).
- *  Undefined when the two forests differ in length — not expected of
- *  normalization; the caller then has no patch to offer. */
+ *  Undefined when `after` is not `before` plus at most one block of new
+ *  records — not expected of normalization; the caller then has no patch to
+ *  offer. */
 export function diffNormalized(before: GedNode[], after: GedNode[]): NormPatch | undefined {
-  if (before.length !== after.length) return undefined;
+  const added = addedBlock(before, after);
+  if (!added) return undefined;
+  const kept = added.records.length ? [...after.slice(0, added.at), ...after.slice(added.at + added.records.length)] : after;
   const w = new Writer();
   const path: number[] = [];
-  for (let r = 0; r < before.length; r++) diffNode(before[r], after[r], r, path, w);
+  for (let r = 0; r < before.length; r++) diffNode(before[r], kept[r], r, path, w);
   return {
     count: before.length,
     ops: Int32Array.from(w.ops),
     lens: Int32Array.from(w.lens),
     text: w.parts.join(""),
     objs: w.objs,
+    ...(added.records.length ? { added } : {}),
   };
+}
+
+/** Where `after` holds records `before` has none of — one block of new xrefs
+ *  — or undefined when the two do not line up that way. */
+function addedBlock(before: GedNode[], after: GedNode[]): { at: number; records: GedNode[] } | undefined {
+  const k = after.length - before.length;
+  if (k < 0) return undefined;
+  if (k === 0) return { at: after.length, records: [] };
+  const same = (a: GedNode, b: GedNode) => a.tag === b.tag && a.xref === b.xref;
+  let at = 0;
+  while (at < before.length && same(before[at], after[at])) at++;
+  const old = new Set(before.map((r) => r.xref).filter(Boolean));
+  const records = after.slice(at, at + k);
+  if (records.some((r) => !r.xref || old.has(r.xref))) return undefined;
+  for (let i = at; i < before.length; i++) if (!same(before[i], after[i + k])) return undefined;
+  return { at, records };
 }
 
 /** Whether `b` can be reached from `a` by field and child edits. */
@@ -100,6 +125,7 @@ function diffNode(a: GedNode, b: GedNode, r: number, path: number[], w: Writer):
     if (a[k] !== b[k]) mask |= 1 << i;
   });
   if (!concEqual(a.conc, b.conc)) mask |= CONC_BIT;
+  if (!upgradedEqual(a.upgradedFrom, b.upgradedFrom)) mask |= UPGRADED_BIT;
   if (mask) {
     w.head(OP_SCALARS, r, path);
     w.ops.push(mask);
@@ -107,6 +133,7 @@ function diffNode(a: GedNode, b: GedNode, r: number, path: number[], w: Writer):
       if (mask & (1 << i)) w.str(b[k]);
     });
     if (mask & CONC_BIT) w.ops.push(w.obj(b.conc ?? null));
+    if (mask & UPGRADED_BIT) w.ops.push(w.obj(b.upgradedFrom ?? null));
   }
   // Align the children: each new child reuses the next old one of the same
   // tag and shape (normalization drops and appends lines, it never reorders
@@ -146,6 +173,11 @@ function concEqual(a: GedNode["conc"], b: GedNode["conc"]): boolean {
   if (a === b) return true;
   if (!a || !b || a.of !== b.of || a.at.length !== b.at.length) return false;
   return a.at.every((v, i) => v === b.at[i]);
+}
+
+function upgradedEqual(a: GedNode["upgradedFrom"], b: GedNode["upgradedFrom"]): boolean {
+  if (a === b) return true;
+  return !!a && !!b && a.tag === b.tag && a.spelling === b.spelling && a.index === b.index && a.value === b.value;
 }
 
 /**
@@ -197,6 +229,11 @@ export function applyNormPatch(records: GedNode[], patch: NormPatch): boolean {
         if (conc) node.conc = conc;
         else delete node.conc;
       }
+      if (mask & UPGRADED_BIT) {
+        const from = objs[ops[at++]] as GedNode["upgradedFrom"] | null;
+        if (from) node.upgradedFrom = from;
+        else delete node.upgradedFrom;
+      }
     } else if (op === OP_CHILDREN) {
       const n = ops[at++];
       const old = node.children;
@@ -218,5 +255,6 @@ export function applyNormPatch(records: GedNode[], patch: NormPatch): boolean {
       else records[r] = next;
     } else return false;
   }
+  if (patch.added) records.splice(patch.added.at, 0, ...patch.added.records);
   return true;
 }

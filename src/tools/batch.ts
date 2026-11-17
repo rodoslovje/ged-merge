@@ -1,19 +1,21 @@
-import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedNode, Individual, Sex } from "../gedcom/types";
 import { todayDate } from "../gedcom/age";
 import { birthParentFamilies } from "../gedcom/couple";
 import {
-  DEATH_TAGS, birthDateOf, birthDateText, birthFromStatedAges, birthYear, deathDateOf, estimateBirthYear, isDeceased,
+  DEATH_TAGS, birthDateOf, deathDateOf,
+  isDeceased,
 } from "../gedcom/lifespan";
-import { addEventNode, setEventField } from "../gedcom/edit/events";
+import { addEventNode, setEventField, setFamilyEventField } from "../gedcom/edit/events";
 import { addAdditionalName, setAdditionalName, setMarriedName } from "../gedcom/edit/names";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { inferNameVariants } from "../normalize/nameVariants";
-import { rebuildIndividual } from "../gedcom/edit/cache";
+import { rebuildFamily, rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
 import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { unionMarriage, type UnionMarriage } from "../gedcom/union";
+import { previewBirthEstimateDates, previewMarriageEstimates } from "./estimates";
 import { isPrivateNode } from "../gedcom/private";
 import { NOTE_TAGS } from "../gedcom/builder";
 import {
@@ -64,15 +66,27 @@ export type BatchCriterion =
   | { kind: "living"; value: boolean }
   /** Presence of one event/attribute on the person, by its GEDCOM tag —
    *  `lacks BIRT` finds everyone without a birth record. The sentinel
-   *  {@link ANY_VENDOR_EVENT} tag matches any non-standard (`_`) event. */
-  | { kind: "event"; tag: string; mode: "has" | "lacks" }
+   *  {@link ANY_VENDOR_EVENT} tag matches any non-standard (`_`) event. A
+   *  non-empty `text` narrows the events to those whose name (`TYPE`) or value
+   *  contains it — `has EVEN "Graduation"`, `has OCCU "farmer"`. */
+  | { kind: "event"; tag: string; mode: "has" | "lacks"; text?: string }
+  /** The cause recorded on the person's death (`DEAT`/`CAUS`): `has` with no
+   *  text finds any recorded cause, with text a cause containing it; `lacks`
+   *  the opposite. */
+  | { kind: "deathCause"; mode: "has" | "lacks"; text?: string }
   /** Presence of one event across the person's unions, by its GEDCOM tag —
    *  `lacks MARR`, next to a "has a partner" filter, finds the couples the file
    *  never married. The sentinel {@link ANY_EVENT} tag matches a union carrying
    *  any event at all, so `lacks` finds the unions nothing is recorded about.
    *  `has` means one union carries it, `lacks` that none does; people with no
-   *  union at all count as lacking everything. */
-  | { kind: "familyEvent"; tag: string; mode: "has" | "lacks" }
+   *  union at all count as lacking everything. `undated` finds a union whose
+   *  event is recorded without a date (a union without the event at all is
+   *  `lacks`'s question), `estimated` one whose event is dated
+   *  only by an estimate (ABT, CAL, EST, BEF, AFT, BET) — both look at each
+   *  union on its own, and people with no union match neither. A non-empty
+   *  `text` narrows the events to those whose name (`TYPE`) or value contains
+   *  it — `has EVEN "Partners"` finds the unions a custom event calls partners. */
+  | { kind: "familyEvent"; tag: string; mode: FamilyEventMode; text?: string }
   /** Blood-line relationship to the start person (see {@link computeKinship}). */
   | { kind: "kinship"; rel: "ancestor" | "descendant" | "blood" | "notBlood" }
   /** Presence of a close relative in the file: a partner in some union (a
@@ -96,8 +110,15 @@ export type BatchCriterion =
   /** `none`/`any` look at the person's whole media tray; `has`/`lacks` test one
    *  specific image, identified by shared-record xref and/or `FILE` value. */
   | { kind: "media"; mode: "none" | "any" | "has" | "lacks"; xref?: string; file?: string }
-  | { kind: "sources"; mode: "none" | "any" }
+  /** `none`/`any` look at every citation the person carries; `eventHas` /
+   *  `eventLacks` ask whether one event — the person's own or one of their
+   *  unions' (a marriage) — cites a source: `eventLacks BIRT` finds the
+   *  births still to document, whether or not the birth is recorded at all. */
+  | { kind: "sources"; mode: "none" | "any" | "eventHas" | "eventLacks"; tag?: string }
   | { kind: "line"; side: LineSide };
+
+/** How the family-event criterion tests a union's event. */
+export type FamilyEventMode = "has" | "lacks" | "undated" | "estimated";
 
 /** Sentinel `tag` for the event criterion: any non-standard (`_`) event. */
 export const ANY_VENDOR_EVENT = "_*";
@@ -106,8 +127,8 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "familyEvent", "place", "note", "anyField", "private",
-  "privateNote", "media", "sources", "relation", "kinship", "line",
+  "name", "nameField", "sex", "birthYear", "age", "living", "event", "deathCause", "familyEvent", "place", "note", "anyField", "media",
+  "sources", "relation", "kinship", "line", "private", "privateNote",
 ];
 
 /**
@@ -123,8 +144,18 @@ export interface BatchRow extends SearchRow {
   deceased: boolean;
   /** Tags of the person's lifted events/attributes (BIRT, OCCU, …). */
   eventTags: string[];
+  /** The same events with their folded name (`TYPE`) and value, for the
+   *  event criterion's text. */
+  events: { tag: string; text: string }[];
+  /** Folded causes of the person's death records, joined (empty when none). */
+  deathCause: string;
   /** The same across every union the person is a partner in (MARR, DIV, `_MSTAT`, …). */
   familyEventTags: string[];
+  /** Tags of the person's events, and their unions' events, that cite a source. */
+  sourcedEventTags: string[];
+  /** Per union, its events with how they are dated — for the `undated` and
+   *  `estimated` family-event tests, which judge each union on its own. */
+  unionEvents: { tag: string; dated: boolean; estimated: boolean; text: string }[][];
   /** Folded given names / surnames across every name form, for scoped matching. */
   givenText: string;
   surnameText: string;
@@ -201,7 +232,18 @@ export function buildBatchRows(
       age: ageOf(indi, now),
       deceased: isDeceased(indi),
       eventTags: indi.events.map((e) => e.tag),
+      events: indi.events.map((e) => ({ tag: e.tag, text: eventText(e) })),
+      deathCause: foldSearch(indi.events.filter((e) => e.tag === "DEAT").map((e) => e.cause ?? "").join(" ").trim()),
       familyEventTags: [...new Set(unions.flatMap((f) => f.events.map((e) => e.tag)))],
+      sourcedEventTags: [...new Set([indi.raw, ...unions.map((f) => f.raw)].flatMap(citingEventTags))],
+      unionEvents: unions.map((f) =>
+        f.events.map((e) => ({
+          tag: e.tag,
+          dated: e.date?.year !== undefined,
+          estimated: isEstimatedDate(e.date),
+          text: eventText(e),
+        })),
+      ),
       givenText: foldSearch(indi.names.map((n) => n.given ?? "").join(" ")),
       surnameText: foldSearch(indi.names.map((n) => n.surname ?? "").join(" ")),
       hasGiven: !!indi.names[0]?.given?.trim(),
@@ -291,11 +333,34 @@ export function computeKinship(ds: Dataset, startId: string): KinshipSets | null
   };
 }
 
+/** Tags of a record's events that carry a source citation of their own. */
+function citingEventTags(record: GedNode): string[] {
+  return record.children.filter((ev) => ev.children.some((c) => c.tag === "SOUR")).map((ev) => ev.tag);
+}
+
+/** A date that only estimates the moment: about/calculated/estimated, before,
+ *  after or between — the qualifiers a researcher writes when the record is
+ *  missing. Periods (FROM/TO) and phrases are not estimates. */
+export function isEstimatedDate(d: GedDate | undefined): boolean {
+  if (d?.year === undefined) return false;
+  return d.qualifier === "about" || d.qualifier === "before" || d.qualifier === "after" || d.qualifier === "between";
+}
+
 /** Whether one specific image (by shared xref and/or file) is in the row's tray. */
 function hasMedia(row: BatchRow, xref?: string, file?: string): boolean {
   if (xref && row.mediaXrefs.includes(xref)) return true;
   if (file && row.mediaFiles.includes(file.toLowerCase())) return true;
   return false;
+}
+
+/** An event's name (`TYPE`) and line value, folded for matching. */
+function eventText(e: { type?: string; value?: string }): string {
+  return foldSearch([e.type, e.value].filter(Boolean).join(" "));
+}
+
+/** A criterion's optional text as folded search terms — every one must appear. */
+function textTerms(text: string | undefined): string[] {
+  return foldSearch(text ?? "").split(/\s+/).filter(Boolean);
 }
 
 /** True when the person passes every criterion (empty list matches everyone). */
@@ -331,17 +396,35 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         if (row.deceased === c.value) return false;
         break;
       case "event": {
-        const has =
-          c.tag === ANY_VENDOR_EVENT
-            ? row.eventTags.some(isNonStandardTag)
-            : row.eventTags.includes(c.tag);
+        const terms = textTerms(c.text);
+        const has = row.events.some(
+          (e) =>
+            (c.tag === ANY_VENDOR_EVENT ? isNonStandardTag(e.tag) : e.tag === c.tag) &&
+            terms.every((t) => e.text.includes(t)),
+        );
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
+      case "deathCause": {
+        const terms = textTerms(c.text);
+        const has = row.deathCause !== "" && terms.every((t) => row.deathCause.includes(t));
         if (c.mode === "has" ? !has : has) return false;
         break;
       }
       case "familyEvent": {
-        const has = c.tag === ANY_EVENT
-          ? row.familyEventTags.length > 0
-          : row.familyEventTags.includes(c.tag);
+        const terms = textTerms(c.text);
+        const of = (events: BatchRow["unionEvents"][number]) =>
+          events.filter(
+            (e) => (c.tag === ANY_EVENT || e.tag === c.tag) && terms.every((t) => e.text.includes(t)),
+          );
+        if (c.mode === "undated" || c.mode === "estimated") {
+          const ok = c.mode === "undated"
+            ? row.unionEvents.some((u) => of(u).length > 0 && !of(u).some((e) => e.dated))
+            : row.unionEvents.some((u) => of(u).some((e) => e.estimated));
+          if (!ok) return false;
+          break;
+        }
+        const has = row.unionEvents.some((u) => of(u).length > 0);
         if (c.mode === "has" ? !has : has) return false;
         break;
       }
@@ -384,7 +467,10 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
         if (c.mode === "lacks" && hasMedia(row, c.xref, c.file)) return false;
         break;
       case "sources":
-        if (c.mode === "none" ? row.hasSources : !row.hasSources) return false;
+        if (c.mode === "eventHas" || c.mode === "eventLacks") {
+          const has = !!c.tag && row.sourcedEventTags.includes(c.tag);
+          if (c.mode === "eventHas" ? !has : has) return false;
+        } else if (c.mode === "none" ? row.hasSources : !row.hasSources) return false;
         break;
       case "line":
         if (ctx.lineSides?.get(row.id) !== c.side) return false;
@@ -487,10 +573,10 @@ export type BatchActionSpec =
   /** Write an estimated birth year as `BIRT` → `DATE ABT <year>` (rounded to
    *  the nearest 5, so estimates read as the rough guesses they are), derived
    *  from dated immediate relatives (see {@link estimateBirthYear} — the same
-   *  estimate the privacy check explains). Undated siblings are kept at least
-   *  `SIBLING_STEP` apart: anchored on the nearest dated sibling, or spread in
-   *  the family's child order (see the sibling pass in `estimateBirthBatch`).
-   *  People with any dated birth/baptism event, and people with no dated
+   *  estimate the privacy check explains). Undated siblings anchor on the
+   *  nearest dated sibling in the family's child order, `SIBLING_STEP` per
+   *  position, rounded the same way (see the sibling pass in
+   *  `previewBirthEstimates`). People with any dated birth/baptism event, and people with no dated
    *  close relative, are skipped. Estimates are computed before anything is
    *  written, so one run never chains an estimate off another — re-running
    *  reaches one relative-hop further. */
@@ -505,6 +591,12 @@ export type BatchActionSpec =
    *  whether a union looks like a marriage ({@link unionMarriage}) decides only
    *  which rows the panel leaves unchecked. */
   | { kind: "addMarriedName" }
+  /** Date each recorded but undated marriage of the selected people with the strongest
+   *  estimate the family supports — `BEF` the oldest exactly dated child, else
+   *  `ABT` from an estimated child or from the spouses' births (see
+   *  {@link previewMarriageEstimates}). A family is written once even when
+   *  both partners are selected. */
+  | { kind: "estimateMarriage" }
   /** Re-tag every `fromTag` event to `toTag`, keeping the whole substructure
    *  (dates, places, sources). The line value stays where the target holds
    *  one (`carriesLineValue`) and becomes a note where it does not. When the
@@ -513,7 +605,7 @@ export type BatchActionSpec =
   | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
-  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "addMarriedName", "convertEvent",
+  "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "estimateMarriage", "addMarriedName", "convertEvent",
 ];
 
 export interface BatchApplyResult {
@@ -531,10 +623,16 @@ export interface BatchApplyResult {
  * entry. No-op targets are skipped, so re-running an action never duplicates
  * media links or citations.
  */
-export function applyBatchAction(ds: Dataset, ids: string[], action: BatchActionSpec): BatchApplyResult {
+export function applyBatchAction(
+  ds: Dataset,
+  ids: string[],
+  action: BatchActionSpec,
+  /** The version new lines are written in — the target's. */
+  version: "5.5.1" | "7.0",
+): BatchApplyResult {
   switch (action.kind) {
     case "addMedia":
-      return addMediaBatch(ds, ids, action);
+      return addMediaBatch(ds, ids, action, version);
     case "addSource":
       return addSourceBatch(ds, ids, action);
     case "removeMedia":
@@ -543,6 +641,8 @@ export function applyBatchAction(ds: Dataset, ids: string[], action: BatchAction
       return markDeceasedBatch(ds, ids);
     case "estimateBirth":
       return estimateBirthBatch(ds, ids);
+    case "estimateMarriage":
+      return estimateMarriageBatch(ds, ids);
     case "addMarriedName":
       return addMarriedNameBatch(ds, ids);
     case "convertEvent":
@@ -558,40 +658,55 @@ function convertEventBatch(
 ): BatchApplyResult {
   const { fromTag, toTag } = action;
   if (!fromTag || !toTag || fromTag === toTag) return { patches: [], changed: 0, skipped: ids.length };
-  const snap = snapshotRecords(ds, ids, []);
+  // A family event (`SEPA`) is the couple's: converted in every union a
+  // picked person is a partner in, each union once.
+  const famIds = [...new Set(ids.flatMap((id) => ds.individuals.get(id)?.spouseOf ?? []))];
+  const snap = snapshotRecords(ds, ids, famIds);
   const type = action.type?.trim();
+  const convert = (node: GedNode) => {
+    node.tag = toTag;
+    if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
+      node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+    }
+    // A target with no line value of its own (a burial) cannot hold the
+    // text the old tag carried there (`1 _INTE Žale`), so it becomes the
+    // event's note instead of being lost. The bare `Y` flag says only that
+    // the event happened, which the event now says by itself.
+    const value = node.value?.trim();
+    if (value && !carriesLineValue(toTag)) {
+      if (!isOccurrenceFlag(value)) {
+        insertOrdered(node, { level: node.level + 1, tag: "NOTE", value, children: [] }, EVENT_CHILD_ORDER);
+      }
+      node.value = undefined;
+    }
+    markEventTouched(node, "changed");
+  };
+  const doneFams = new Set<string>();
   let changed = 0;
   let skipped = 0;
   for (const id of ids) {
     const indi = ds.individuals.get(id);
     if (!indi) continue;
     const nodes = childrenByTag(indi.raw, fromTag);
-    if (nodes.length === 0) {
-      skipped++;
-      continue;
-    }
-    for (const node of nodes) {
-      node.tag = toTag;
-      if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
-        node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
-      }
-      // A target with no line value of its own (a burial) cannot hold the
-      // text the old tag carried there (`1 _INTE Žale`), so it becomes the
-      // event's note instead of being lost. The bare `Y` flag says only that
-      // the event happened, which the event now says by itself.
-      const value = node.value?.trim();
-      if (value && !carriesLineValue(toTag)) {
-        if (!isOccurrenceFlag(value)) {
-          insertOrdered(node, { level: node.level + 1, tag: "NOTE", value, children: [] }, EVENT_CHILD_ORDER);
-        }
-        node.value = undefined;
-      }
-      markEventTouched(node, "changed");
-    }
+    let touched = nodes.length > 0;
+    nodes.forEach(convert);
     // The typed record must follow the raw tree, or the panel's own filters
     // (`event has _FNRL`) still find the person after the conversion.
-    rebuildIndividual(ds, indi);
-    changed++;
+    if (nodes.length) rebuildIndividual(ds, indi);
+    for (const famId of indi.spouseOf) {
+      // Already converted from the partner's side: still this person's change.
+      if (doneFams.has(famId)) { touched = true; continue; }
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      const famNodes = childrenByTag(fam.raw, fromTag);
+      if (famNodes.length === 0) continue;
+      touched = true;
+      doneFams.add(famId);
+      famNodes.forEach(convert);
+      rebuildFamily(ds, fam);
+    }
+    if (touched) changed++;
+    else skipped++;
   }
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
 }
@@ -619,111 +734,8 @@ function markDeceasedBatch(ds: Dataset, ids: string[]): BatchApplyResult {
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
 }
 
-/** Rounding grain for batch birth estimates — a guess on a multiple of 5
- *  (ABT 1880, not ABT 1878) reads as the approximation it is. */
-const ESTIMATE_ROUND = 5;
-/** Minimum spacing between same-family sibling estimates. */
-const SIBLING_STEP = 1;
-
-const roundEstimate = (y: number) => Math.round(y / ESTIMATE_ROUND) * ESTIMATE_ROUND;
-
-/**
- * The years the estimate action would write, keyed by person id — people it
- * would skip (already dated, or nothing to estimate from) get no entry. Pure
- * dry-run of {@link estimateBirthBatch}'s computation, shared with the panel's
- * per-row preview. Note the result depends on the whole `ids` selection, not
- * just the person: sibling spreading spaces the selected siblings out.
- */
-export function previewBirthEstimates(ds: Dataset, ids: string[]): Map<string, number> {
-  // Rounded to the nearest 5 years: a 28-year generation offset would land
-  // on oddly specific years (ABT 1878) that read like computed-from-a-record
-  // precision; ABT 1880 looks like the rough guess it is.
-  const estimates = new Map<string, number>();
-  /** Parent-derived estimates, grouped by the family the person is a child of —
-   *  these all share one number, so they take the sibling pass below. */
-  const parentDerived = new Map<string, string[]>();
-  for (const id of ids) {
-    const indi = ds.individuals.get(id);
-    if (!indi) continue;
-    // Any recorded birth/baptism date — even one without a parseable year —
-    // is the researcher's data; never overwrite it with an estimate.
-    if (birthYear(indi) !== undefined || birthDateText(indi) !== undefined) continue;
-    // An age the person's records state is evidence, not a generation's
-    // guess: it wins, unrounded, and stays out of the sibling spreading.
-    const stated = birthFromStatedAges(indi, ds);
-    if (stated) {
-      estimates.set(id, stated.year);
-      continue;
-    }
-    const est = estimateBirthYear(indi, ds);
-    if (est) estimates.set(id, roundEstimate(est.estimatedYear));
-    if (est && est.relation !== "father" && est.relation !== "mother") continue;
-    // Parent-derived (or absent) estimate: queue for the sibling pass, keyed
-    // by the driving parent's family — or, with no estimate at all, by a
-    // family holding a dated sibling, the one relative estimateBirthYear
-    // itself never looks at.
-    const famId = est
-      ? (indi.childOf.find((fid) => {
-          const fam = ds.families.get(fid);
-          return fam?.husband === est.relativeId || fam?.wife === est.relativeId;
-        }) ?? indi.childOf[0])
-      : indi.childOf.find((fid) =>
-          (ds.families.get(fid)?.children ?? []).some((cid) => birthYear(ds.individuals.get(cid)) !== undefined),
-        );
-    if (famId) parentDerived.set(famId, [...(parentDerived.get(famId) ?? []), id]);
-  }
-  // Sibling pass: undated children of one couple would otherwise all get the
-  // identical parent+generation guess. Children are taken in the order the
-  // family lists them (usually birth order): a dated sibling is the closest
-  // evidence there is, so each estimate re-anchors on the nearest one, one
-  // SIBLING_STEP per list position away (unrounded — it follows real data);
-  // with no dated sibling the shared rounded guess stays the center and the
-  // group spreads a step apart around it. Estimates driven by the person's
-  // own spouse/children keep their number.
-  for (const [famId, group] of parentDerived) {
-    const order = ds.families.get(famId)?.children ?? [];
-    const members = order.filter((cid) => group.includes(cid));
-    const anchors = order
-      .map((cid, i) => ({ i, y: birthYear(ds.individuals.get(cid)) }))
-      .filter((a): a is { i: number; y: number } => a.y !== undefined);
-    if (anchors.length > 0) {
-      for (const cid of members) {
-        const i = order.indexOf(cid);
-        let best = anchors[0];
-        for (const a of anchors) if (Math.abs(a.i - i) < Math.abs(best.i - i)) best = a;
-        estimates.set(cid, best.y + SIBLING_STEP * (i - best.i));
-      }
-    } else if (members.length > 1) {
-      const start = estimates.get(members[0])! - SIBLING_STEP * Math.floor((members.length - 1) / 2);
-      members.forEach((cid, k) => estimates.set(cid, start + SIBLING_STEP * k));
-    }
-    // Anchoring can still collide (two children equidistant from different
-    // dated siblings) — keep the group strictly increasing in list order.
-    let prev: number | undefined;
-    for (const cid of members) {
-      let y = estimates.get(cid)!;
-      if (prev !== undefined && y <= prev) y = prev + SIBLING_STEP;
-      estimates.set(cid, y);
-      prev = y;
-    }
-  }
-  return estimates;
-}
-
-/**
- * The `DATE` values the estimate action would write, keyed by person id — the
- * years of {@link previewBirthEstimates}, each with its keyword: `CAL` where
- * the year was calculated from an age the records state (GEDCOM's word for
- * exactly that), `ABT` where it is a guess from relatives.
- */
-export function previewBirthEstimateDates(ds: Dataset, ids: string[]): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const [id, year] of previewBirthEstimates(ds, ids)) {
-    const indi = ds.individuals.get(id);
-    out.set(id, `${indi && birthFromStatedAges(indi, ds) ? "CAL" : "ABT"} ${year}`);
-  }
-  return out;
-}
+// The estimates themselves are shared with the health check's row fixes.
+export { previewBirthEstimates, previewBirthEstimateDates, previewMarriageEstimates } from "./estimates";
 
 /** Write `BIRT` → `DATE ABT <estimated year>` for everyone without any dated
  *  birth-proxy event (see the {@link BatchActionSpec} member). All estimates
@@ -741,6 +753,25 @@ function estimateBirthBatch(ds: Dataset, ids: string[]): BatchApplyResult {
     patches: estimates.size > 0 ? patchesFromSnapshots(ds, snap) : [],
     changed: estimates.size,
     skipped,
+  };
+}
+
+/** Write the marriage estimates (see {@link previewMarriageEstimates}). A
+ *  person counts as changed when any of their unions was written. */
+function estimateMarriageBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+  const estimates = previewMarriageEstimates(ds, ids);
+  const snap = snapshotRecords(ds, [], estimates.keys());
+  for (const [famId, date] of estimates) {
+    const fam = ds.families.get(famId)!;
+    setFamilyEventField(fam, "MARR", { date });
+    rebuildFamily(ds, fam);
+  }
+  const present = ids.filter((id) => ds.individuals.has(id));
+  const changed = present.filter((id) => ds.individuals.get(id)!.spouseOf.some((f) => estimates.has(f))).length;
+  return {
+    patches: estimates.size > 0 ? patchesFromSnapshots(ds, snap) : [],
+    changed,
+    skipped: present.length - changed,
   };
 }
 
@@ -903,6 +934,7 @@ function addMediaBatch(
   ds: Dataset,
   ids: string[],
   action: { xref?: string; file: string; title?: string },
+  version: "5.5.1" | "7.0",
 ): BatchApplyResult {
   const extra: RecordPatch[] = [];
   // Resolve the shared record to point at: the picked one, else one already
@@ -911,8 +943,8 @@ function addMediaBatch(
     (action.xref && ds.records.find((r) => r.tag === "OBJE" && r.xref === action.xref)) ||
     findSharedMediaByFile(ds.records, action.file) ||
     undefined;
-  if (!shared && detectMediaMode(ds.records) === "shared") {
-    shared = createMediaRecord(ds.records, action.file, action.title);
+  if (!shared && detectMediaMode(ds.records, version) === "shared") {
+    shared = createMediaRecord(ds.records, action.file, version, action.title);
     extra.push({ type: "record", id: shared.xref!, before: null, after: cloneNode(shared) });
   }
   const snap = snapshotRecords(ds, ids, []);

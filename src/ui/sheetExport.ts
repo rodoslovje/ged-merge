@@ -26,6 +26,8 @@ import {
   type Flat,
 } from "../chart/treeLayout";
 import type { TreeNode } from "../chart/personTree";
+import { APPROX_YEAR } from "../chart/nodeDisplay";
+import { yearsSegments } from "../gedcom/lifespan";
 import {
   fillScale,
   pageBox,
@@ -198,7 +200,14 @@ function drawSheet(prepared: PreparedDiagram, flat: Flat, src: SheetChartSource)
       const span = document.createElementNS(SVG_NS, "tspan");
       span.setAttribute("x", String(e.label!.x));
       span.setAttribute("dy", String(i ? LABEL_LINE_H : (-(e.label!.lines.length - 1) / 2) * LABEL_LINE_H));
-      span.textContent = line;
+      // The approximate marriage year in italics, as TreeSvg sets it.
+      for (const seg of yearsSegments(line, i === e.label!.approxLine ? APPROX_YEAR : undefined)) {
+        if (!seg.approx) { span.appendChild(document.createTextNode(seg.text)); continue; }
+        const run = document.createElementNS(SVG_NS, "tspan");
+        run.setAttribute("class", "gm-approx");
+        run.textContent = seg.text;
+        span.appendChild(run);
+      }
       text.appendChild(span);
     });
     g.appendChild(text);

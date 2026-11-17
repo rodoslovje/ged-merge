@@ -16,6 +16,8 @@ import { Section } from "./Section";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
 import { ScoreBadge } from "./ScoreBadge";
+import { Segmented } from "./Segmented";
+import type { MergeScope } from "../state/workspace";
 import {
   candidateLifespan,
   type Candidate,
@@ -60,6 +62,9 @@ interface Props {
   compareDataset: Dataset | undefined;
   onUpdateDecision: (next: CandidateDecision) => void;
   onOpenTree: (mainId: string, compareId: string) => void;
+  /** Match the files again after editing the main, keeping every decision.
+   *  Omitted while a match is running. */
+  onRecompute?: () => void;
   /** Opens the Charts hub on a main-file person — S, the relationship diagram. */
   onShowCharts: (id: string, kind?: ChartKind) => void;
   canNavigatePerson: (side: "main" | "incoming", id: string) => boolean;
@@ -71,6 +76,11 @@ interface Props {
    * re-render the whole tab from scratch. Gates the global keydown shortcut
    * so it doesn't fire while another mode is the one actually visible. */
   active: boolean;
+  /** What the save brings across: the people decided on, or the whole file. */
+  mergeScope: MergeScope;
+  onMergeScope: (scope: MergeScope) => void;
+  /** A whole-file merge's review progress. */
+  wholeFileProgress?: { reviewed: number; candidates: number };
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -81,6 +91,9 @@ const SETTINGS_KEYS = ["showAge", "showKinship"] as const;
  * merge preview/export modal. Extracted from App.tsx as the "Merge" mode body
  * — the Main GEDCOM is loaded by the shared shell. */
 export function MergeView({
+  mergeScope,
+  onMergeScope,
+  wholeFileProgress,
   matches,
   sort,
   onToggleSort,
@@ -106,6 +119,7 @@ export function MergeView({
   compareDataset,
   onUpdateDecision,
   onOpenTree,
+  onRecompute,
   onShowCharts,
   canNavigatePerson,
   onNavigatePerson,
@@ -155,6 +169,15 @@ export function MergeView({
         title={keyHint(t("filter.title"), KEY.filter.toUpperCase())}
       >
         <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+      </button>
+      <button
+        className="nav-btn icon-only"
+        onClick={onRecompute}
+        disabled={!onRecompute}
+        title={t("matches.recompute.title")}
+        aria-label={t("matches.recompute")}
+      >
+        <svg style={{ display: "block" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><polyline points="21 3 21 9 15 9"></polyline></svg>
       </button>
     </div>
   ) : undefined;
@@ -240,7 +263,9 @@ export function MergeView({
         e.preventDefault();
         const step = e.key.startsWith("Page") ? el.clientHeight * 0.9 : 96;
         const down = e.key === "ArrowDown" || e.key === "PageDown";
-        el.scrollBy({ top: down ? step : -step, behavior: "smooth" });
+        // A held key repeats faster than a smooth scroll runs, and each new one
+        // restarts the animation from its slow start — so repeats jump.
+        el.scrollBy({ top: down ? step : -step, behavior: e.repeat ? "auto" : "smooth" });
         return;
       }
       if (handleListKey(e, {
@@ -258,6 +283,9 @@ export function MergeView({
         if (current!.mainId !== startId) { e.preventDefault(); onShowCharts(current!.mainId, "relationship"); }
         return;
       }
+      // P / L / G: the main person's fan, timeline and map, as in Edit.
+      const lettered = key === KEY.fan ? "fan" : key === KEY.timeline ? "timeline" : key === KEY.map ? "map" : undefined;
+      if (lettered) { e.preventDefault(); onShowCharts(current!.mainId, lettered); return; }
       if (key === KEY.filter) {
         // The filter row lives in the match section, so showing it opens that too.
         e.preventDefault();
@@ -365,6 +393,24 @@ export function MergeView({
                 open={openMatches}
                 onToggle={() => setOpenMatches((o) => !o)}
               >
+                {/* What the save brings across — above the list, since in a
+                    whole-file merge the list is what is left to review. */}
+                <div className="merge-scope-bar">
+                  <Segmented<MergeScope>
+                    label={t("merge.scope.label")}
+                    value={mergeScope}
+                    onChange={onMergeScope}
+                    items={[
+                      { key: "people", label: t("merge.scope.people"), title: t("merge.scope.peopleTip") },
+                      { key: "file", label: t("merge.scope.file"), title: t("merge.scope.fileTip") },
+                    ]}
+                  />
+                  {wholeFileProgress && wholeFileProgress.candidates > 0 && (
+                    <span className="muted merge-scope-progress" title={t("merge.wholeFile.progressTip")}>
+                      {t("merge.wholeFile.progress", { reviewed: wholeFileProgress.reviewed, count: wholeFileProgress.candidates })}
+                    </span>
+                  )}
+                </div>
                 <MatchResults
                   result={matches}
                   sort={sort}
@@ -391,6 +437,7 @@ export function MergeView({
                 <div className="section-body" ref={compareBodyRef}>
                   {current && mainDataset && compareDataset ? (
                     <ComparePanel
+                      wholeFile={mergeScope === "file"}
                       candidate={current}
                       mainDs={mainDataset}
                       compareDs={compareDataset}

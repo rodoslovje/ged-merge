@@ -186,7 +186,7 @@ export const FanChartBody = memo(function FanChartBody({
               dominantBaseline="middle"
             >
               <textPath href={`#fm-${i}-${j}`} startOffset="50%" textAnchor="middle">
-                {l.text}
+                <YearsText text={l.text} approx={l.approx} svg />
               </textPath>
             </text>
           )),

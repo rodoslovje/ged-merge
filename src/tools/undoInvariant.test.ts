@@ -190,7 +190,7 @@ describe("undo invariant: batch actions", () => {
     const targets = (ids ?? individualsOf)(ds);
     const res = applyPassSafely(ds, (journal) => {
       for (const id of targets) journal.touch(id);
-      return applyBatchAction(ds, targets, action);
+      return applyBatchAction(ds, targets, action, "5.5.1");
     });
     return res.patches;
   };
@@ -638,12 +638,12 @@ describe("run twice: a second run changes nothing", () => {
   ];
   it.each(noteCases)("note reshape: %s → %s %o", (file, target, scope) => {
     const ds = load(corpusText(file));
-    expect(reshapeNotes(ds.records, target, scope).changed).toBeGreaterThan(0);
+    expect(reshapeNotes(ds.records, target, file.includes("-7.0-") ? "7.0" : "5.5.1", scope).changed).toBeGreaterThan(0);
     const once = serializeGedcom(ds.records);
-    expect(reshapeNotes(ds.records, target, scope).changed).toBe(0);
+    expect(reshapeNotes(ds.records, target, file.includes("-7.0-") ? "7.0" : "5.5.1", scope).changed).toBe(0);
     expect(serializeGedcom(ds.records)).toBe(once);
     const reloaded = load(once);
-    expect(reshapeNotes(reloaded.records, target, scope).changed).toBe(0);
+    expect(reshapeNotes(reloaded.records, target, file.includes("-7.0-") ? "7.0" : "5.5.1", scope).changed).toBe(0);
     expect(serializeGedcom(reloaded.records)).toBe(once);
   });
 

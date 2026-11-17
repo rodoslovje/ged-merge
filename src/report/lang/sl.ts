@@ -113,9 +113,12 @@ function valuePhrase(d: GedDate): string {
 }
 
 /** Accusative after "imeti": 1/101 otroka (sg), 2 otroka (dual), 3–4 otroke,
- *  5+ otrok (genitive) — Intl.PluralRules("sl") encodes exactly this split. */
+ *  5+ otrok (genitive) — Intl.PluralRules("sl") encodes exactly this split.
+ *  One to four read as words, book-style ("enega otroka", "tri otroke"). */
 const PLURALS = new Intl.PluralRules("sl");
+const CHILD_WORDS = ["enega otroka", "dva otroka", "tri otroke", "štiri otroke"];
 function childCount(n: number): string {
+  if (n >= 1 && n <= 4) return CHILD_WORDS[n - 1];
   const form = PLURALS.select(n);
   return `${n} ${form === "few" ? "otroke" : form === "other" ? "otrok" : "otroka"}`;
 }

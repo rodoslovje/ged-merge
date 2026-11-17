@@ -7,8 +7,10 @@ import { ExportMenu, type ExportItem } from "./ExportMenu";
 import { GedIcon, ImageIcon, PrinterIcon } from "./icons/FormatIcons";
 import { SheetPrintDialog } from "./SheetPrintDialog";
 import { useChartSettings } from "./ChartSettingsContext";
-import { useSettingsSlice } from "./SettingsContext";
+import { useTargetFormat } from "./TargetFormatContext";
+import { AUTHOR_KEYS, submitterOf, useSettingsSlice } from "./SettingsContext";
 import type { SheetChartSource } from "./sheetExport";
+import { usePublishedView } from "./PublishedView";
 
 // The chart pages' Export menu with the standard items built in: the branch
 // GEDCOM (first — the shareable format), then the canvas SVG and print-PDF.
@@ -21,9 +23,6 @@ import type { SheetChartSource } from "./sheetExport";
 // is the one thing the app cannot guess, and a page sized to the diagram is a
 // page no printer can make. The dialog offers the cut-into-sheets settings on
 // top when the page hands it a tree that can be cut.
-
-/** The name a branch file without a submitter is given as its author. */
-const AUTHOR_KEYS = ["authorName"] as const;
 
 interface Props {
   /** Disable the whole menu while the chart hasn't been built yet. */
@@ -49,18 +48,22 @@ interface Props {
 
 export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, canvasRef, sheets, extraItems }: Props) {
   const { t } = useTranslation();
-  const { authorName } = useSettingsSlice(AUTHOR_KEYS);
+  // The author a branch file without a submitter is given.
+  const author = submitterOf(useSettingsSlice(AUTHOR_KEYS));
   const { privacyLiving } = useChartSettings().settings;
+  // The branch file is written in the version the main file saves in.
+  const { target } = useTargetFormat();
   const [sheetDialog, setSheetDialog] = useState(false);
+  const published = usePublishedView();
   const items: ExportItem[] = [];
-  if (gedcom) {
+  if (gedcom && !published) {
     items.push({
       key: "ged",
       icon: <GedIcon />,
       label: t("export.gedcom", { count: gedcom.personIds.length }),
       title: t("tree.exportGedcom.tooltip"),
       // Living people the chart keeps private stay private in the file too.
-      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug, authorName, privacyLiving),
+      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug, target, author, privacyLiving),
     });
   }
   if (canvasRef) {

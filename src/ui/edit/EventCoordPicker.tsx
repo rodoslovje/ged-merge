@@ -4,6 +4,7 @@ import type { GeoCoord } from "../../gedcom/types";
 import { countryCodeOfName } from "../../geo/placeCountry";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
+import { addressRegisterId } from "../../geo/addressRegister";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
@@ -759,7 +760,7 @@ export function EventCoordPicker({
                       </span>
                       <span className="gm-data gm-coord">
                         {formatCoord(r.coord)}{" "}
-                        <span className="tools-reshape-badge official">GURS</span>
+                        <span className="tools-reshape-badge official">{addressRegisterId(queries[0]?.country ?? "SI")}</span>
                       </span>
                     </li>
                   ))}

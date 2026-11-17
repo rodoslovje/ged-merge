@@ -5,9 +5,11 @@ import { nameType70 } from "../../gedcom/name";
 import { isVoidPointer } from "../../gedcom/uri";
 import { VOID_XREF } from "../../gedcom/assoc";
 import { vendorTagInfo } from "../../gedcom/vendorTags";
+import { eventTypeFor } from "../../normalize/migrate";
 import { isUnparseable } from "../fixDates";
+import { standardCoordValue } from "../../gedcom/place";
 import type { SpecTable } from "./types";
-import { compile, type Compiled } from "./compile";
+import { compile, type Compiled, type Struct } from "./compile";
 import { SPEC_55, SPEC_551, SPEC_555 } from "./spec551";
 import { SPEC_70 } from "./spec70";
 
@@ -98,6 +100,9 @@ export interface ConformanceIssue {
   /** Set on a text `SOUR` inside a citation — a page typed under the wrong
    *  tag: the fix makes it the citation's `PAGE`. */
   citationPage?: boolean;
+  /** Set on a 7.0 person's or family's `EVEN`/`FACT` with no `TYPE`: the fix
+   *  adds the one `fix` names (the event's own text, or `Event`/`Fact`). */
+  eventType?: boolean;
 }
 
 /** A text (not pointer) `SOUR` line inside a citation, with no lines of its own. */
@@ -134,6 +139,14 @@ const AGE_551 = /^[<>]?\s*(?:CHILD|INFANT|STILLBORN|(?=\d)(?:\d+y)?\s*(?:\d+m)?\
 const AGE_70 = /^[<>]?\s*(?=\d)(?:\d+y)?\s*(?:\d+m)?\s*(?:\d+w)?\s*(?:\d+d)?$/i;
 /** BCP 47, by shape: a 2–8 letter language subtag and any 1–8 character subtags. */
 const BCP47 = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/;
+const MONTHS = "JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC";
+/** 7.0's DateExact: day, month and year, Gregorian, upper case. */
+const EXACT_70 = new RegExp(`^\\d{1,2} (?:${MONTHS}) \\d+$`);
+/** 5.5.1's DATE_EXACT: the same, a 3–4 digit year (or a dual one, 1700/01). */
+const EXACT_551 = new RegExp(`^\\d{1,2}\\s+(?:${MONTHS})\\s+\\d{3,4}(?:/\\d{2})?$`, "i");
+/** LATI / LONG: the hemisphere letter and decimal degrees. */
+const LATI = /^[NS]\d+(?:\.\d+)?$/;
+const LONG = /^[EW]\d+(?:\.\d+)?$/;
 /** The 5.5.1 calendar escapes 7.0 writes as a word (it has no ROMAN or UNKNOWN). */
 const CALENDARS_70: Record<string, string> = {
   GREGORIAN: "GREGORIAN", JULIAN: "JULIAN", HEBREW: "HEBREW", "FRENCH R": "FRENCH_R",
@@ -192,10 +205,10 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
   const tags: string[] = [rec.tag];
   const loc: Loc = { path: () => indices.join("."), where: () => tags.join(".") };
 
-  const walk = (node: GedNode, structId: string): void => {
+  const walk = (node: GedNode, structId: string, parent?: GedNode): void => {
     const struct = spec.structs.get(structId);
     if (!struct) return;
-    checkPayload(node, struct.payload, loc, ctx, base);
+    checkPayload(node, struct, loc, ctx, base);
     if (!node.children.length && !struct.required.length) return;
 
     let seen: Map<string, GedNode[]> | undefined;
@@ -238,7 +251,7 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       else seen.set(tag, [child]);
       indices.push(i);
       tags.push(tag);
-      walk(child, childSpec.id);
+      walk(child, childSpec.id, node);
       indices.pop();
       tags.pop();
     });
@@ -261,14 +274,25 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
     }
     for (const [tag] of struct.required) {
       if (seen?.has(tag)) continue;
+      // A FILE whose FORM stands beside it (the 5.5 shape) has its format:
+      // the inline link allows that shape, and in a media record it is the
+      // misplaced FORM the relocate fix moves under FILE.
+      if (tag === "FORM" && node.tag === "FILE" && parent?.children.some((c) => c.tag === "FORM")) continue;
       // A media file's missing FORM is read off its name (`.jpg`, a web
       // address) — the one missing line the fix can add without guessing.
       const add = recordId && tag === "FORM" && node.tag === "FILE" && node.value
         ? fileFormOf(node.value, spec.is70)
         : undefined;
-      if (add) {
-        // One row per form the fix would write, however many files lack it.
-        const k = `\0form\0${loc.where()}\0${add}`;
+      // A 7.0 event's or fact's missing TYPE is the kind 5.5.1 left implicit:
+      // the fix writes what the 5.5.1 → 7.0 conversion would.
+      const eventType = recordId && spec.is70 && tag === "TYPE" && tags.length === 2
+        && (node.tag === "EVEN" || node.tag === "FACT") && (rec.tag === "INDI" || rec.tag === "FAM")
+        ? eventTypeFor(node)
+        : undefined;
+      if (add || eventType) {
+        const value = (add ?? eventType)!;
+        // One row per value the fix would write, however many lines lack it.
+        const k = `\0${add ? "form" : "type"}\0${loc.where()}\0${value}`;
         const seen = ctx.misplaced.get(k);
         if (seen) seen.count++;
         else {
@@ -278,8 +302,8 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
               ...base, category: "missingLine", severity: "warning",
               messageKey: "tools.validate.struct.issue.missing",
               messageVars: { tag, parent: loc.where() },
-              sample: tag, tooltip: `${lineOf(node)} → ${tag} ${add}`, path: loc.path(),
-              fix: add,
+              sample: tag, tooltip: `${lineOf(node)} → ${tag} ${value}`, path: loc.path(),
+              fix: value, eventType: !!eventType || undefined,
             },
           });
         }
@@ -357,12 +381,13 @@ function checkXref(xref: string, ctx: Ctx, base: { recordId?: string; recordTag?
 }
 
 function checkPayload(
-  node: GedNode, payload: string, loc: Loc, ctx: Ctx,
+  node: GedNode, struct: Struct, loc: Loc, ctx: Ctx,
   base: { recordId?: string; recordTag?: string },
 ): void {
   const { spec } = ctx;
+  const { payload } = struct;
   // Most lines are text: nothing to hold them to unless they look like a pointer.
-  if ((payload === "T" || payload === "") && !node.value?.includes("@")) return;
+  if (payload === "T" && !node.value?.includes("@")) return;
   const value = node.value?.trim() ?? "";
   const tag = node.tag;
   const fixable = !!base.recordId;
@@ -419,7 +444,15 @@ function checkPayload(
   }
   if (!value) return;
 
-  if (payload === "Y") {
+  if (payload === "") {
+    // Text on a line that takes none (`CHAN today`, 5.5.1's `RESI Ljubljana`):
+    // the fix keeps it word for word in a NOTE beneath, where the line may
+    // carry one more.
+    const note = struct.children.get("NOTE");
+    const notes = note ? node.children.filter((c) => c.tag === "NOTE").length : 0;
+    const toNote = !!note && notes < note.max;
+    emit("valueFormat", "valueNotAllowed", {}, toNote ? value : undefined, { toNote });
+  } else if (payload === "Y") {
     // A lower-case y is the Y. Any other text is something said about the
     // event (a doubtful date or place, an address): the fix keeps it word for
     // word in a NOTE on the event.
@@ -458,11 +491,46 @@ function checkPayload(
     emit("enumValue", fix ? "enumCase" : "enumValue", fix ? { allowed, standard: fix } : { allowed }, fix);
   } else if (payload === "D") {
     checkCalendar(value, spec.is70, emit);
+  } else if (payload === "DX") {
+    // A date that does not parse at all is "Unparseable dates".
+    if (!(spec.is70 ? EXACT_70 : EXACT_551).test(value) && !isUnparseable(value)) tallyInexact(node, value, loc, ctx, base);
+  } else if (payload === "LAT" || payload === "LON") {
+    if (!(payload === "LAT" ? LATI : LONG).test(value)) {
+      emit("valueFormat", payload === "LAT" ? "badLati" : "badLong", {}, standardCoordValue(value, payload === "LAT" ? "lat" : "lon"));
+    }
   } else if (payload === "A") {
     if (!(spec.is70 ? AGE_70 : AGE_551).test(value)) emit("valueFormat", "badAge", {});
   } else if (payload === "G") {
     if (!BCP47.test(value)) emit("valueFormat", "badLang", {});
   }
+}
+
+/**
+ * A date the standard wants exact (a change or creation stamp, the header's,
+ * an ordinance status's) written as a range, an estimate or a partial date.
+ * The program writes these for itself, so they come as a habit: one row per
+ * place they stand in. The day the stamp meant is not in the value, so there
+ * is no fix.
+ */
+function tallyInexact(
+  node: GedNode, value: string, loc: Loc, ctx: Ctx, base: { recordId?: string; recordTag?: string },
+): void {
+  const parent = loc.where();
+  const k = `\0inexact\0${parent}`;
+  const seen = ctx.misplaced.get(k);
+  if (seen) {
+    seen.count++;
+    return;
+  }
+  ctx.misplaced.set(k, {
+    count: 1,
+    issue: {
+      ...base, category: "valueFormat", severity: "warning",
+      messageKey: "tools.validate.struct.issue.inexactDate",
+      messageVars: { tag: node.tag, parent, sample: truncate(value), version: ctx.spec.version },
+      sample: truncate(value), tooltip: lineOf(node), path: loc.path(),
+    },
+  });
 }
 
 /**

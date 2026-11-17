@@ -53,11 +53,13 @@ export interface MarriageFields {
 
 /**
  * The connector label for a marriage: `⚭ <year>, <place>` — the year (when `date`)
- * and place (when `place`), joined. Returns undefined when nothing is selected or
- * recorded, so callers render nothing.
+ * and place (when `place`), joined — then the union's status when the file
+ * records one: `⚮ 1960` divorced, `⚬⚬` living apart, `⚯` never married.
+ * Returns undefined when nothing is selected or recorded, so callers render
+ * nothing.
  */
 export function formatMarriage(
-  marriage: { year?: string; place?: string; living?: boolean } | undefined,
+  marriage: { year?: string; place?: string; living?: boolean; status?: { glyph: string; year?: string } } | undefined,
   fields: MarriageFields,
   /** Redacting the living (the charts' privacy switch): a couple with a living
    *  partner then has no label at all — the wedding is that person's data. */
@@ -66,8 +68,26 @@ export function formatMarriage(
   if (!marriage) return undefined;
   if (redactLiving && marriage.living) return undefined;
   const parts = [fields.date ? marriage.year : undefined, fields.place ? marriage.place : undefined].filter(Boolean);
-  if (!parts.length) return undefined;
-  return `${MARRIAGE_SYMBOL} ${parts.join(" ")}`;
+  const wedding = parts.length ? `${MARRIAGE_SYMBOL} ${parts.join(" ")}` : undefined;
+  const { status } = marriage;
+  const ending = status && (fields.date || fields.place)
+    ? (fields.date && status.year ? `${status.glyph} ${status.year}` : status.glyph)
+    : undefined;
+  return [wedding, ending].filter(Boolean).join(" ") || undefined;
+}
+
+/** The italics mark for a line whose one year is approximate: the
+ *  `yearsSegments` rule "first number of a dashless line" picks it. */
+export const APPROX_YEAR: YearsApprox = { birth: true };
+
+/** Which part of a marriage label to set in italics: its year, when the label
+ *  carries one and the date is not exact (see `MarriageInfo.approx`). The
+ *  label leads with that year, so {@link APPROX_YEAR} marks it. */
+export function marriageApprox(
+  marriage: { year?: string; approx?: boolean } | undefined,
+  text: string | undefined,
+): YearsApprox | undefined {
+  return marriage?.approx && marriage.year && text?.includes(marriage.year) ? APPROX_YEAR : undefined;
 }
 
 /**
@@ -97,8 +117,11 @@ export function modeSummary(t: Translate, people: number, generations: number): 
   return `${t("tree.mode.people", { count: people })} · ${t("tree.gen.count", { count: generations })}`;
 }
 
-/** Place events tried in order — show the first one that records a place. */
-const PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
+/** Place events tried in order — show the first one that records a place.
+ *  The Birth place colour axis reads the same, so a wedge's colour always
+ *  answers the place written on it. */
+export const LABEL_PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
+const PLACE_TAGS = LABEL_PLACE_TAGS;
 
 /**
  * The place label for a person: the most-specific locality of the first available

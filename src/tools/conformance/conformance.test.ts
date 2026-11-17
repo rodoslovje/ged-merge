@@ -120,6 +120,30 @@ describe("cardinality", () => {
     ]);
   });
 
+  it("requires 5.5.1's FORM under every FILE, in a media record and an inline link", () => {
+    const missing = { messageKey: "tools.validate.struct.issue.missing", messageVars: { tag: "FORM", parent: "OBJE.FILE" }, fix: "jpg" };
+    expect(check551(`0 @O1@ OBJE\n1 FILE a.jpg`)).toMatchObject([missing]);
+    expect(check551(`0 @I1@ INDI\n1 OBJE\n2 FILE a.jpg`)).toMatchObject([{ ...missing, messageVars: { tag: "FORM", parent: "INDI.OBJE.FILE" } }]);
+    // A name with no format in it: reported, nothing to add.
+    expect(check551(`0 @O1@ OBJE\n1 FILE scans/poroka`)).toMatchObject([{ messageVars: { tag: "FORM" }, fix: undefined }]);
+    // The 5.5 shape, FORM beside FILE: allowed inline; in a media record only
+    // the misplaced FORM is reported, not a missing one too.
+    expect(check551(`0 @I1@ INDI\n1 OBJE\n2 FORM jpg\n2 FILE a.jpg`)).toEqual([]);
+    expect(check551(`0 @O1@ OBJE\n1 FILE a.jpg\n1 FORM jpg`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.misplaced", relocate: true }]);
+    expect(check70(`0 @O1@ OBJE\n1 FILE a.jpg\n1 FORM image/jpeg`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.misplaced", relocate: true }]);
+  });
+
+  it("fills 5.5.1's missing FORM, and leaves a FILE whose FORM stands beside it to the move", () => {
+    const ds = dataset(`${HEAD_551}\n0 @O1@ OBJE\n1 FILE a.jpg\n0 @I1@ INDI\n1 OBJE\n2 FILE b.PNG\n0 @I2@ INDI\n1 OBJE\n2 FORM gif\n2 FILE c.gif\n0 TRLR`);
+    expect(countFixableConformance(ds, "forms")).toBe(2);
+    fixConformance(ds, "forms");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 FILE a.jpg\n2 FORM jpg\n");
+    expect(out).toContain("2 FILE b.PNG\n3 FORM png\n");
+    expect(out).toContain("1 OBJE\n2 FORM gif\n2 FILE c.gif\n0 TRLR");
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it("holds 5.5.5 to its own header", () => {
     const ds = dataset(`0 HEAD\n1 SOUR T\n1 GEDC\n2 VERS 5.5.5\n2 FORM LINEAGE-LINKED\n1 CHAR ANSEL\n0 TRLR`);
     expect(kinds(validateConformance(ds)).sort()).toEqual(["enumValue", "missing"]);
@@ -272,6 +296,34 @@ describe("enumerations", () => {
     expect(check70(`0 @I1@ INDI\n1 BIRT nezakonski`)).toMatchObject([{ fix: "nezakonski", toNote: true }]);
   });
 
+  it("holds 5.5.1's events to Y, attributes and EVEN to text, and RESI to nothing", () => {
+    // Clean: Y or nothing on events, any text on attributes and EVEN.
+    expect(check551(`0 @I1@ INDI\n1 BIRT Y\n1 DEAT\n1 BURI y\n1 OCCU kmet\n1 TITL dr.\n1 EVEN Birma\n2 TYPE Zakrament\n1 FACT 3 krave\n2 TYPE Imetje\n1 RESI\n0 @F1@ FAM\n1 MARR Y\n1 EVEN Oklici\n1 RESI`))
+      .toMatchObject([{ messageKey: "tools.validate.struct.issue.badY", fix: "Y" }]);
+    // An individual event, a birth, an adoption, a family event: text → NOTE.
+    for (const line of ["1 DEAT umrl mlad", "1 CHR ali Ravna Gora?", "1 ADOP posvojen"]) {
+      expect(check551(`0 @I1@ INDI\n${line}`), line).toMatchObject([
+        { messageKey: "tools.validate.struct.issue.badY", toNote: true },
+      ]);
+    }
+    expect(check551(`0 @F1@ FAM\n1 MARR v Kranju`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.badY", fix: "v Kranju", toNote: true }]);
+    // A residence's text, on a person or a family.
+    expect(check551(`0 @I1@ INDI\n1 RESI Bojanja vas 17`)).toMatchObject([
+      { messageKey: "tools.validate.struct.issue.valueNotAllowed", fix: "Bojanja vas 17", toNote: true },
+    ]);
+    expect(kinds(check551(`0 @F1@ FAM\n1 RESI Metlika`))).toEqual(["valueNotAllowed"]);
+    // 7.0's residence is text.
+    expect(check70(`0 @I1@ INDI\n1 RESI Bojanja vas 17`)).toEqual([]);
+  });
+
+  it("moves 5.5.1 event and residence text into notes", () => {
+    const ds = dataset(`${HEAD_551}\n0 @I1@ INDI\n1 DEAT umrl mlad\n1 RESI Bojanja vas 17\n2 NOTE hiša\n0 TRLR`);
+    expect(countFixableConformance(ds, "notes")).toBe(2);
+    fixConformance(ds, "notes");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 DEAT\n2 NOTE umrl mlad\n1 RESI\n2 NOTE hiša\n2 NOTE Bojanja vas 17\n");
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it("rewrites a 5.5.1 calendar escape left in a 7.0 date, where the word has a place", () => {
     expect(check70(`0 @I1@ INDI\n1 BIRT\n2 DATE ABT @#DJULIAN@ 1700`)).toMatchObject([
       { messageKey: "tools.validate.struct.issue.calendarEscape", fix: "ABT JULIAN 1700" },
@@ -299,6 +351,88 @@ describe("value formats and record ids", () => {
     // 5.5.1's language names do not carry over.
     expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TRAN B\n3 LANG Slovenian`))).toEqual(["badLang"]);
     expect(kinds(check70(`0 @I1@ INDI\n1 NAME A\n2 TRAN B\n3 LANG Slovenian language`))).toEqual(["badLang"]);
+  });
+
+  it("holds stamp, header and ordinance dates to an exact date, one row per place, with no fix", () => {
+    const stamp = (v: string, check = check551) => check(`0 @I1@ INDI\n1 CHAN\n2 DATE ${v}`);
+    for (const ok of ["1 JAN 2020", "15 MAR 1999", "1 FEB 1700/01"]) expect(stamp(ok), ok).toEqual([]);
+    expect(stamp("1 JAN 2020", check70)).toEqual([]);
+    for (const bad of ["ABT 2020", "2020", "MAR 2020", "BET 1 JAN 2020 AND 2 JAN 2020", "@#DJULIAN@ 1 JAN 2020"]) {
+      expect(kinds(stamp(bad)), bad).toEqual(["inexactDate"]);
+      expect(kinds(stamp(bad, check70)), bad).toEqual(["inexactDate"]);
+    }
+    // 7.0 writes its months in capitals; a calendar is not exact either.
+    expect(kinds(stamp("1 Jan 2020", check70))).toEqual(["inexactDate"]);
+    expect(kinds(stamp("JULIAN 1 JAN 2020", check70))).toEqual(["inexactDate"]);
+    // Not readable at all: "Unparseable dates", not this.
+    expect(stamp("včeraj")).toEqual([]);
+    // Every place an exact date stands.
+    expect(validateConformance(dataset(`0 HEAD\n1 SOUR T\n2 DATA D\n3 DATE 2020\n1 DATE ABT 2020\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR`))
+      .map((i) => `${i.messageVars.parent} ${kinds([i])[0]}`).sort()).toEqual(["HEAD.DATE inexactDate", "HEAD.SOUR.DATA.DATE inexactDate"]);
+    expect(kinds(check551(`0 @I1@ INDI\n1 BAPL\n2 STAT COMPLETED\n3 DATE 1990`))).toEqual(["inexactDate"]);
+    expect(kinds(check70(`0 @I1@ INDI\n1 BAPL\n2 STAT COMPLETED\n3 DATE 1990`))).toEqual(["inexactDate"]);
+    expect(kinds(check70(`0 @I1@ INDI\n1 CREA\n2 DATE 2020`))).toEqual(["inexactDate"]);
+    // 7.0's sort date is any date.
+    expect(check70(`0 @I1@ INDI\n1 BIRT\n2 SDATE ABT 1900`)).toEqual([]);
+    // A habit is one row, counted; nothing to fix.
+    const issues = check551(`0 @I1@ INDI\n1 CHAN\n2 DATE 2019\n0 @I2@ INDI\n1 CHAN\n2 DATE 2020`);
+    expect(issues).toMatchObject([{ messageKey: "tools.validate.struct.issue.inexactDate", messageVars: { parent: "INDI.CHAN.DATE", count: 2 }, recordId: "@I1@" }]);
+    expect(issues[0].fix).toBeUndefined();
+    expect(fixConformance(dataset(`${HEAD_551}\n0 @I1@ INDI\n1 CHAN\n2 DATE 2019\n0 TRLR`))).toEqual([]);
+  });
+
+  it("holds LATI and LONG to a hemisphere and decimal degrees, and writes them so", () => {
+    const map = (lati: string, long: string, check = check551) =>
+      check(`0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n3 MAP\n4 LATI ${lati}\n4 LONG ${long}`);
+    for (const check of [check551, check70]) {
+      expect(map("N46.2389", "E14.3556", check)).toEqual([]);
+      expect(map("S33", "W70.5", check)).toEqual([]);
+      expect(map("46.05", "-14.5", check).map((i) => [kinds([i])[0], i.fix])).toEqual([["badLati", "N46.05"], ["badLong", "W14.5"]]);
+      expect(map("n46.05", "E14", check).map((i) => i.fix)).toEqual(["N46.05"]);
+      expect(map(`N46::3::19"`, "E14", check).map((i) => i.fix)).toEqual(["N46.05528"]);
+      // No coordinate, the wrong axis, out of range: reported, nothing to write.
+      expect(map("foo", "E14.5", check).map((i) => [kinds([i])[0], i.fix])).toEqual([["badLati", undefined]]);
+      expect(map("E46", "N14", check).map((i) => i.fix)).toEqual([undefined, undefined]);
+      expect(map("95", "E14", check).map((i) => i.fix)).toEqual([undefined]);
+    }
+  });
+
+  it("fixes a coordinate to the standard form, once", () => {
+    const ds = dataset(`${HEAD_70}\n0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n3 MAP\n4 LATI 46.2389\n4 LONG 14.3556\n0 TRLR`);
+    expect(countFixableConformance(ds, "values")).toBe(2);
+    fixConformance(ds, "values");
+    expect(serializeGedcom(ds.records, ds)).toContain("4 LATI N46.2389\n4 LONG E14.3556\n");
+    expect(validateConformance(ds)).toEqual([]);
+    expect(fixConformance(ds, "values")).toEqual([]);
+  });
+
+  it("flags a value on a line that takes none, and moves it into a NOTE where the line may carry one", () => {
+    // A change stamp: NOTE allowed beneath it in both versions.
+    for (const check of [check551, check70]) {
+      expect(check(`0 @I1@ INDI\n1 CHAN danes\n2 DATE 1 JAN 2020`)).toMatchObject([
+        { messageKey: "tools.validate.struct.issue.valueNotAllowed", sample: "danes", fix: "danes", toNote: true },
+      ]);
+    }
+    // A record line: the record's NOTE.
+    expect(check551(`0 @S1@ SOUR Matična knjiga`)).toMatchObject([{ messageKey: "tools.validate.struct.issue.valueNotAllowed", toNote: true }]);
+    // MAP has no NOTE: reported, no fix.
+    const map = check551(`0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n3 MAP tu\n4 LATI N46.2\n4 LONG E14.3`);
+    expect(kinds(map)).toEqual(["valueNotAllowed"]);
+    expect(map[0].fix).toBeUndefined();
+    expect(map[0].toNote).toBeUndefined();
+    // A NOTE already used up ({0:1} under 5.5.1's HEAD) — and no record id to patch.
+    expect(validateConformance(dataset(`${HEAD_551.replace("0 HEAD", "0 HEAD x")}\n0 TRLR`))[0]).toMatchObject({ messageKey: "tools.validate.struct.issue.valueNotAllowed" });
+    // Empty stays clean.
+    expect(check551(`0 @I1@ INDI\n1 CHAN\n2 DATE 1 JAN 2020`)).toEqual([]);
+  });
+
+  it("fixes a value on a line that takes none into a NOTE, once", () => {
+    const ds = dataset(`${HEAD_70}\n0 @I1@ INDI\n1 CHAN danes\n2 DATE 1 JAN 2020\n0 TRLR`);
+    expect(countFixableConformance(ds, "notes")).toBe(1);
+    fixConformance(ds, "notes");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 CHAN\n2 DATE 1 JAN 2020\n2 NOTE danes\n");
+    expect(validateConformance(ds)).toEqual([]);
+    expect(fixConformance(ds, "notes")).toEqual([]);
   });
 
   it("checks the record id's shape", () => {
@@ -413,6 +547,47 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it("adds the TYPE a 7.0 event or fact lacks, once", () => {
+    const ds = dataset(`${HEAD_70}
+0 @I1@ INDI
+1 EVEN Graduation
+2 DATE 1900
+1 EVEN 1900 in Ljubljana
+1 FACT blue
+1 FACT tall
+2 TYPE Height
+0 @F1@ FAM
+1 EVEN
+0 TRLR`);
+    const missing = validateConformance(ds).filter((i) => i.messageVars.tag === "TYPE");
+    expect(missing.map((i) => [i.messageVars.parent, i.fix, i.eventType])).toEqual([
+      ["INDI.EVEN", "Graduation", true], ["INDI.EVEN", "Event", true], ["INDI.FACT", "Fact", true], ["FAM.EVEN", "Event", true],
+    ]);
+    expect(countFixableConformance(ds, "eventTypes")).toBe(4);
+    expect(countFixableConformance(ds, "forms")).toBe(0);
+    const before = serializeGedcom(ds.records, ds);
+
+    // A row's own button adds only the type it names.
+    fixConformance(ds, "eventTypes", { value: "Graduation" });
+    expect(countFixableConformance(ds, "eventTypes")).toBe(3);
+    const patches = fixConformance(ds, "eventTypes");
+    expect(patches.map((p) => p.id)).toEqual(["@I1@", "@F1@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 EVEN Graduation\n2 TYPE Graduation\n2 DATE 1900\n1 EVEN 1900 in Ljubljana\n2 TYPE Event\n1 FACT blue\n2 TYPE Fact\n1 FACT tall\n2 TYPE Height\n");
+    expect(out).toContain("0 @F1@ FAM\n1 EVEN\n2 TYPE Event\n");
+    expect(validateConformance(ds)).toEqual([]);
+    // Idempotent: nothing left to add.
+    expect(fixConformance(ds, "eventTypes")).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(countFixableConformance(ds, "eventTypes")).toBe(3);
+    expect(serializeGedcom(ds.records, ds)).not.toBe(before);
+  });
+
+  it("does not ask a 5.5.1 event for a TYPE", () => {
+    expect(check551("0 @I1@ INDI\n1 EVEN Graduation\n1 FACT blue").filter((i) => i.messageVars.tag === "TYPE")).toEqual([]);
+  });
+
   it("moves media titles and formats kept beside FILE under it, in every media record", () => {
     const ds = dataset(`${HEAD_551}
 0 @O1@ OBJE
@@ -421,6 +596,7 @@ describe("fixConformance", () => {
 1 TITL Krst 1870
 0 @O2@ OBJE
 1 FILE b.jpg
+2 FORM jpg
 2 TITL Poroka
 1 TITL Poroka
 0 @O3@ OBJE
@@ -438,7 +614,7 @@ describe("fixConformance", () => {
     expect(patches.map((p) => p.id)).toEqual(["@O1@", "@O2@"]);
     const out = serializeGedcom(ds.records, ds);
     expect(out).toContain("0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n2 TITL Krst 1870\n");
-    expect(out).toContain("0 @O2@ OBJE\n1 FILE b.jpg\n2 TITL Poroka\n0 @O3@"); // the copy goes
+    expect(out).toContain("0 @O2@ OBJE\n1 FILE b.jpg\n2 FORM jpg\n2 TITL Poroka\n0 @O3@"); // the copy goes
     expect(out).toContain("2 TITL Pogreb\n1 TITL Different\n"); // left for the user
 
     // Only on the user's word: the FILE's own title stays, the other goes.
@@ -843,6 +1019,8 @@ describe("corpus", () => {
     // Windows code pages declared as CHAR ANSI, which no 5.5.x lists.
     "brotherskeeper-5.5-w1250.ged": ["enumValue CHAR@HEAD.CHAR"],
     "brotherskeeper-5.5.1-w1250.ged": ["enumValue CHAR@HEAD.CHAR"],
+    // CHAR ANSEL over Windows-1250 bytes: the label is valid, only wrong.
+    "brotherskeeper-ansel-w1250.ged": [],
     // Address parts straight under RESI instead of under its ADDR.
     "familyhistorian-5.5.1-utf8.ged": ["misplaced ADR1@INDI.RESI", "misplaced CITY@INDI.RESI", "misplaced NAME@INDI.RESI"],
     "familyhistorian-5.5.1-w1250.ged": ["enumValue CHAR@HEAD.CHAR"],
@@ -863,8 +1041,9 @@ describe("corpus", () => {
     "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
-    // webtrees: RESN NONE, RESN on source/media records, TIME on event dates.
-    "webtrees-5.5.1-utf8.ged": ["enumCase PEDI@INDI.FAMC.PEDI", "enumValue RESN@FAM.MARR.RESN", "enumValue RESN@INDI.BIRT.RESN", "misplaced RESN@OBJE", "misplaced RESN@SOUR", "misplaced TIME@INDI.DEAT.DATE", "tooMany NICK@INDI.NAME"],
+    // webtrees: RESN NONE, RESN on source/media records, TIME on event dates,
+    // coordinates in degrees::minutes::seconds (N46::3::19").
+    "webtrees-5.5.1-utf8.ged": ["badLati LATI@FAM.MARR.PLAC.MAP.LATI", "badLati LATI@INDI.DEAT.PLAC.MAP.LATI", "badLong LONG@FAM.MARR.PLAC.MAP.LONG", "badLong LONG@INDI.DEAT.PLAC.MAP.LONG", "enumCase PEDI@INDI.FAMC.PEDI", "enumValue RESN@FAM.MARR.RESN", "enumValue RESN@INDI.BIRT.RESN", "misplaced RESN@OBJE", "misplaced RESN@SOUR", "misplaced TIME@INDI.DEAT.DATE", "tooMany NICK@INDI.NAME"],
   };
   const files = readdirSync(DIR).filter((f) => f.endsWith(".ged")).sort();
 
@@ -883,11 +1062,26 @@ describe("corpus", () => {
     });
   }
 
-  it("the bundled sample files are clean", () => {
+  it("the bundled sample files are clean but for their exporter's text on event and residence lines", () => {
     const SAMPLES = resolve(dirname(fileURLToPath(import.meta.url)), "../../../public/samples");
-    for (const file of readdirSync(SAMPLES).filter((f) => f.endsWith(".ged"))) {
+    // Census details on RESI ("Age: 57; Occupation: Farmer"), a cemetery on
+    // DEAT/BURI: text 5.5.1 gives those lines no room for. The notes fix
+    // settles every one.
+    const EXPECTED_SAMPLES: Record<string, string[]> = {
+      "EnglishTudorRoyalFamily.ged": [],
+      // No GEDC.VERS: no table to hold it to.
+      "EuropeRoyalFamilies.ged": [],
+      "USPresidents.ged": ["badY", "valueNotAllowed"],
+    };
+    const files = readdirSync(SAMPLES).filter((f) => f.endsWith(".ged")).sort();
+    expect(files).toEqual(Object.keys(EXPECTED_SAMPLES).sort());
+    for (const file of files) {
       const buf = readFileSync(resolve(SAMPLES, file));
       const ds = buildDataset(parseGedcom(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer));
+      const issues = validateConformance(ds);
+      expect([...new Set(kinds(issues))].sort(), file).toEqual(EXPECTED_SAMPLES[file]);
+      expect(issues.every((i) => i.toNote), file).toBe(true);
+      fixConformance(ds, "notes");
       expect(validateConformance(ds), file).toEqual([]);
     }
   });

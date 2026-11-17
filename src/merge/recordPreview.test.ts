@@ -5,7 +5,8 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { INDI_CHILD_ORDER } from "../gedcom/edit/shared";
 import type { FieldChoice } from "../review/types";
 import { materializeRecordField, type RecordField } from "./applyFields";
-import { familyMergePreview, personMergePreview } from "./recordPreview";
+import { familyEventsPreview, familyMergePreview, personCardPreview, personMergePreview } from "./recordPreview";
+import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -98,5 +99,61 @@ describe("familyMergePreview", () => {
     expect(p.notes).toEqual({ notes: [expect.objectContaining({ text: "Family note" })], replaces: false });
     expect(p.private).toBe(true);
     expect(p.noEvents?.map((a) => a.tag)).toEqual(["DIV"]);
+  });
+});
+
+describe("personCardPreview", () => {
+  const main = dataset(wrap("0 @I1@ INDI\n1 NAME Doroteja /Lukanič/\n1 BIRT\n2 DATE ABT 1772\n"));
+  const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Doroteja /Lukanič/\n1 BIRT\n2 DATE 11 JAN 1773\n1 DEAT\n2 DATE 1840\n"));
+  const person = main.individuals.get("@I1@")!;
+  const incoming = compare.individuals.get("@P1@")!;
+
+  it("is the person itself when no life-span date is written", () => {
+    expect(personCardPreview(person, incoming, () => undefined)).toBe(person);
+  });
+
+  it("carries the dates the save writes, replacing and adding events", () => {
+    const p = personCardPreview(person, incoming, pick({ "BIRT.date": "incoming", "DEAT.date": "incoming" }));
+    expect(lifespanOf(p)).toBe("1773–1840");
+    expect(lifespanApproxOf(p)).toBeUndefined();
+    expect(lifespanOf(person)).toBe("1772");
+  });
+});
+
+describe("personCardPreview names and sex", () => {
+  const main = dataset(wrap("0 @I1@ INDI\n1 NAME Dorotea /Lukanich/\n1 SEX U\n1 NAME Dora /Filak/\n2 TYPE MARRIED\n"));
+  const compare = dataset(wrap("0 @P1@ INDI\n1 NAME Doroteja /Lukanič/\n1 SEX F\n1 NAME Doroteja /Filak/\n2 TYPE MARRIED\n"));
+  const person = main.individuals.get("@I1@")!;
+  const incoming = compare.individuals.get("@P1@")!;
+
+  it("takes the name parts and sex the save writes", () => {
+    const p = personCardPreview(person, incoming, pick({ given: "incoming", surname: "incoming", sex: "incoming" }));
+    expect(p.names[0]).toMatchObject({ given: "Doroteja", surname: "Lukanič", full: "Doroteja Lukanič" });
+    expect(p.names.slice(1).map((n) => n.full)).toEqual(["Dora Filak"]);
+    expect(p.sex).toBe("F");
+  });
+
+  it("adds the incoming name beside the own one under \"both\", and replaces extras", () => {
+    const p = personCardPreview(person, incoming, pick({ given: "both", additionalNames: "incoming" }));
+    expect(p.names.map((n) => n.full)).toEqual(["Dorotea Lukanich", "Doroteja Lukanič", "Doroteja Filak"]);
+  });
+});
+
+describe("familyEventsPreview", () => {
+  const main = dataset(wrap("0 @F1@ FAM\n1 MARR\n2 DATE BEF 1773\n"));
+  const compare = dataset(wrap("0 @G1@ FAM\n1 MARR\n2 DATE 7 FEB 1771\n2 PLAC Podzemelj\n1 DIV\n2 DATE 1790\n"));
+  const fam = main.families.get("@F1@")!;
+  const incoming = compare.families.get("@G1@")!;
+
+  it("is the family itself when no event row is written", () => {
+    expect(familyEventsPreview(fam, incoming, () => undefined)).toBe(fam);
+  });
+
+  it("carries the date and place the save writes, and an incoming-only event", () => {
+    const f = familyEventsPreview(fam, incoming, pick({ "MARR.date": "incoming", "DIV.date": "incoming" }));
+    const marr = f.events.find((e) => e.tag === "MARR")!;
+    expect(marr.date?.raw).toBe("7 FEB 1771");
+    expect(marr.place).toBeUndefined();
+    expect(f.events.find((e) => e.tag === "DIV")?.date?.year).toBe(1790);
   });
 });

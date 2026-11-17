@@ -13,7 +13,7 @@ import { linkPlacementFor, previewLinkPlacement } from "../../merge/linkPlacemen
 import { detectPageMediaStyle } from "../../tools/sourceReshape";
 import { familyMergeKeyBases, individualFieldRows, lifespanAnchors, orderedEventTags, zoneSortKey } from "../../review/fields";
 import { orderingDate } from "../../gedcom/sortDate";
-import { confirmedPeople, defaultChoice, EVENT_TEXT_SUBS, findConfirmedDecision, type CandidateDecision, type FieldChoice } from "../../review/types";
+import { confirmedPeople, EVENT_TEXT_SUBS, findConfirmedDecision, pendingFieldChoices, type CandidateDecision, type FieldChoice } from "../../review/types";
 import { type RecordPatch } from "../historyTypes";
 import { useStableHandler } from "./useStableHandler";
 
@@ -177,13 +177,10 @@ export function useMergeOverlay({
         map.set(key, list);
       };
       let namesChoice: FieldChoice | undefined;
-      const mergePending = new Map<string, FieldChoice>();
+      const mergePending = pendingFieldChoices(rows, dec);
       for (const row of rows) {
-        if (row.isGroupHeader) continue;
-        if (row.state === "agree" || row.state === "main-only") continue;
-        const choice = dec.fields[row.key] ?? defaultChoice(row);
-        if (choice === "main") continue;
-        mergePending.set(row.key, choice);
+        const choice = mergePending.get(row.key);
+        if (!choice) continue;
         if (row.incoming) mergeHighlight.set(row.key, row.incoming);
         if (row.key === "additionalNames") namesChoice = choice;
         // The record-level "Sources" row carries plain links as `incomingLinkIcons`

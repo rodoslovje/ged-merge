@@ -77,7 +77,7 @@ describe("applyNoteRefs (record-level notes)", () => {
   it("edits a pointer note inside the shared record, keeping the pointer", () => {
     const ds = buildFromText(SHARED);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, [{ xref: "@N1@", text: "Corrected family story" }]);
 
     const out = serializeGedcom(ds.records);
@@ -95,7 +95,7 @@ describe("applyNoteRefs (record-level notes)", () => {
   it("does not touch the record when the text is unchanged", () => {
     const ds = buildFromText(SHARED);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, [{ xref: "@N1@", text: "Shared family story" }]);
     expect(ctx.changes).toHaveLength(0);
   });
@@ -103,7 +103,7 @@ describe("applyNoteRefs (record-level notes)", () => {
   it("keeps the shared record when another referrer still uses it", () => {
     const ds = buildFromText(SHARED);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, []); // remove @I1@'s reference
 
     const out = serializeGedcom(ds.records);
@@ -114,7 +114,7 @@ describe("applyNoteRefs (record-level notes)", () => {
 
   it("deletes the shared record when the last reference is removed", () => {
     const ds = buildFromText(SHARED);
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, ds.individuals.get("@I1@")!, []);
     setNotes(ctx, ds.individuals.get("@I2@")!, []);
 
@@ -137,7 +137,7 @@ describe("applyNoteRefs (record-level notes)", () => {
     const indi = ds.individuals.get("@I1@")!;
     // Simulates the editor committing: hidden URL-only ref passes through
     // untouched, an inline note is added.
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     applyNoteRefs(ctx, indi.raw, [
       { xref: "@N1@", text: "ptr text" },
       { text: "https://example.com/x" },
@@ -178,7 +178,7 @@ describe("applyNoteRefs keeps the notes it was not asked to change", () => {
     const indi = ds.individuals.get("@I1@")!;
     const refs = committed(indi.noteRefs!);
     refs[1] = { ...refs[1], text: "two, corrected" };
-    setNotes(noteCtx(ds.records), indi, refs);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, refs);
     expect(serializeGedcom(ds.records)).toContain(
       "1 NOTE one\n2 SOUR @S1@\n1 SEX F\n1 NOTE two, corrected\n2 LANG Slovenian\n1 NOTE three \n2 _CUSTOM x",
     );
@@ -188,7 +188,7 @@ describe("applyNoteRefs keeps the notes it was not asked to change", () => {
     const ds = buildFromText(LINES);
     const before = serializeGedcom(ds.records);
     const indi = ds.individuals.get("@I1@")!;
-    setNotes(noteCtx(ds.records), indi, committed(indi.noteRefs!));
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, committed(indi.noteRefs!));
     expect(serializeGedcom(ds.records)).toBe(before);
   });
 
@@ -196,7 +196,7 @@ describe("applyNoteRefs keeps the notes it was not asked to change", () => {
     const ds = buildFromText(LINES);
     const indi = ds.individuals.get("@I1@")!;
     const refs = committed(indi.noteRefs!).filter((_, i) => i !== 0);
-    setNotes(noteCtx(ds.records), indi, [...refs, { text: "four" }]);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, [...refs, { text: "four" }]);
     const out = serializeGedcom(ds.records);
     expect(out).not.toContain("1 NOTE one");
     expect(out).not.toContain("2 SOUR @S1@");
@@ -207,7 +207,7 @@ describe("applyNoteRefs keeps the notes it was not asked to change", () => {
     const ds = buildFromText(LINES);
     const indi = ds.individuals.get("@I1@")!;
     const refs = committed(indi.noteRefs!).map((r, i) => (i === 0 ? { ...r, private: true } : r));
-    setNotes(noteCtx(ds.records), indi, refs);
+    setNotes(noteCtx(ds.records, "5.5.1"), indi, refs);
     const note = indi.raw.children.find((c) => c.tag === "NOTE")!;
     expect(note.children.map((c) => c.tag)[0]).toBe("SOUR");
     expect(note.children).toHaveLength(2);
@@ -226,7 +226,7 @@ describe("applyNoteRefs keeps the notes it was not asked to change", () => {
     ]);
     const indi = ds.individuals.get("@I1@")!;
     const birt = firstChild(indi.raw, "BIRT")!;
-    applyEventNodeUpdate(indi.raw, birt, { noteRefs: [{ text: "first" }, { text: "second, corrected" }] }, noteCtx(ds.records));
+    applyEventNodeUpdate(indi.raw, birt, { noteRefs: [{ text: "first" }, { text: "second, corrected" }] }, noteCtx(ds.records, "5.5.1"));
     expect(serializeGedcom(ds.records)).toContain("2 NOTE first\n3 SOUR @S1@\n2 NOTE second, corrected");
   });
 });
@@ -265,7 +265,7 @@ describe("GEDCOM 7 SNOTE shared notes", () => {
     const ds = buildFromText(V7);
     const before = serializeGedcom(ds.records);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "7.0");
     setNotes(ctx, indi, indi.noteRefs!);
     const birt = firstChild(indi.raw, "BIRT")!;
     applyEventNodeUpdate(indi.raw, birt, { noteRefs: indi.events[0].noteRefs }, ctx);
@@ -276,7 +276,7 @@ describe("GEDCOM 7 SNOTE shared notes", () => {
   it("edits an SNOTE's text inside the shared record, and a removal releases it", () => {
     const ds = buildFromText(V7);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "7.0");
     setNotes(ctx, indi, [{ xref: "@N1@", text: "Corrected story" }]);
     let out = serializeGedcom(ds.records);
     expect(out).toContain("0 @N1@ SNOTE Corrected story");
@@ -293,7 +293,7 @@ describe("GEDCOM 7 SNOTE shared notes", () => {
   it("a new note in a file of SNOTE records is written as an SNOTE record and pointer", () => {
     const ds = buildFromText(V7);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "7.0");
     setNotes(ctx, indi, [...indi.noteRefs!, { text: "A new remark" }]);
     const out = serializeGedcom(ds.records);
     expect(out).toContain("0 @N3@ SNOTE A new remark");
@@ -329,13 +329,13 @@ describe("private notes", () => {
     const ds = buildFromText(PRIVATE_FILE);
     const indi = ds.individuals.get("@I1@")!;
     const n1 = ds.records.find((r) => r.xref === "@N1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, indi.noteRefs!.map((r) => (r.xref === "@N1@" ? { ...r, private: false } : r)));
     expect(n1.children.some((c) => c.tag === "PRIV")).toBe(false);
     expect(ctx.changes.map((c) => c.xref)).toEqual(["@N1@"]);
 
     // Toggle back on: the file's dialect (bare PRIV) is what gets written.
-    const ctx2 = noteCtx(ds.records);
+    const ctx2 = noteCtx(ds.records, "5.5.1");
     setNotes(ctx2, indi, indi.noteRefs!.map((r) => (r.xref === "@N1@" ? { ...r, private: true } : r)));
     expect(n1.children.some((c) => c.tag === "PRIV" && c.value === undefined)).toBe(true);
   });
@@ -343,7 +343,7 @@ describe("private notes", () => {
   it("an inline note's private flag is written as a marker child", () => {
     const ds = buildFromText(PRIVATE_FILE);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, indi.noteRefs!.map((r) => (r.xref ? r : { ...r, private: true })));
     const out = serializeGedcom(ds.records);
     expect(out).toContain("1 NOTE inline note https://example.com/public");
@@ -366,7 +366,7 @@ describe("private notes", () => {
       "0 TRLR",
     ]);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, [...indi.noteRefs!, { text: "https://web.facebook.com/someone", private: true }]);
 
     const out = serializeGedcom(ds.records);
@@ -394,7 +394,7 @@ describe("private notes", () => {
       "0 TRLR",
     ]);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     // Exactly the commit the 🔒 makes: same notes, one flag flipped.
     setNotes(ctx, indi, indi.noteRefs!.map((r) => (r.xref ? r : { ...r, private: true })));
 
@@ -415,7 +415,7 @@ describe("private notes", () => {
       "0 TRLR",
     ]);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, [...indi.noteRefs!, { text: "a third remark" }]);
 
     const out = serializeGedcom(ds.records);
@@ -444,7 +444,7 @@ describe("event pointer notes", () => {
     const ds = buildFromText(SHARED);
     const indi = ds.individuals.get("@I1@")!;
     const birt = firstChild(indi.raw, "BIRT")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     applyEventNodeUpdate(indi.raw, birt, { note: "Better remark" }, ctx);
 
     const out = serializeGedcom(ds.records);
@@ -457,7 +457,7 @@ describe("event pointer notes", () => {
     const ds = buildFromText(SHARED);
     const indi = ds.individuals.get("@I1@")!;
     const birt = firstChild(indi.raw, "BIRT")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     applyEventNodeUpdate(indi.raw, birt, { note: "" }, ctx);
 
     const out = serializeGedcom(ds.records);
@@ -478,7 +478,7 @@ describe("event pointer notes", () => {
     ]);
     const indi = ds.individuals.get("@I1@")!;
     const birt = firstChild(indi.raw, "BIRT")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     applyEventNodeUpdate(indi.raw, birt, { note: "" }, ctx);
 
     const out = serializeGedcom(ds.records);
@@ -500,7 +500,7 @@ describe("event pointer notes", () => {
       "0 TRLR",
     ]);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     updateSourceCitation(ds.records, indi.raw, 0, { title: "Parish register", page: "p. 5", note: "better remark" }, ctx);
 
     const out = serializeGedcom(ds.records);
@@ -556,7 +556,7 @@ describe("event pointer notes", () => {
     ]);
     // The record's text starts on a CONT line → verbatim value has a leading
     // newline; committing the trimmed form back must be a no-op.
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, ds.individuals.get("@I1@")!, [{ xref: "@N1@", text: "https://www.facebook.com/annik.alvarado" }]);
     expect(ctx.changes).toHaveLength(0);
     expect(serializeGedcom(ds.records)).toContain("1 CONT https://www.facebook.com/annik.alvarado");
@@ -565,7 +565,7 @@ describe("event pointer notes", () => {
   it("multi-line pointer-note text serializes as CONT lines in the record", () => {
     const ds = buildFromText(SHARED);
     const indi = ds.individuals.get("@I1@")!;
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     setNotes(ctx, indi, [{ xref: "@N1@", text: "line one\nline two" }]);
     const out = serializeGedcom(ds.records);
     expect(out).toContain("0 @N1@ NOTE line one");

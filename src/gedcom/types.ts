@@ -89,8 +89,10 @@ export interface GedNode {
   /**
    * A source line the parser could not interpret, kept verbatim so saving
    * never silently drops it. Such a node carries the empty tag "" (so no
-   * tag-matching logic ever picks it up), has no children, and serializes
-   * back as exactly this text at its original position in the stream.
+   * tag-matching logic ever picks it up) and serializes back as exactly this
+   * text at its original position in the stream. It has no children, except a
+   * bare level line (`1 `, a MyHeritage event with its tag lost): the lines
+   * below it are its own, not the previous event's.
    */
   verbatim?: string;
   /**
@@ -122,6 +124,15 @@ export interface GedNode {
    * nothing: it is the same string.
    */
   atBare?: string;
+  /**
+   * The file escaped a value that reads like a pointer (`1 NOTE @@I1@` in 7.0,
+   * `@@I1@@` in 5.5.x): decoded, it is the text `@I1@`, which looks exactly
+   * like a link. Holds the value it describes: while `value` still equals it
+   * the value is text, not a pointer — the builder reads it as a note's words
+   * and the serializer escapes it again. An edited value is read afresh. Like
+   * {@link atBare}, it costs nothing: it is the same string.
+   */
+  atText?: string;
 }
 
 /** Result of parsing raw bytes into a tree, plus detected metadata. */
@@ -518,6 +529,9 @@ export interface GedEvent {
   /** People this event names who are not the record's relatives — the
    *  godparents at a baptism, the witnesses at a wedding. */
   associations?: Association[];
+  /** The event itself is flagged private (`RESN privacy`/`confidential`,
+   *  `_PRIV Y`, `PRIV` — see {@link NoteRef.private}): never published. */
+  private?: boolean;
 }
 
 /**

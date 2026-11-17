@@ -94,3 +94,18 @@ test("map find box flies to a point, by person or by place", async ({ page }) =>
   await page.locator(".chart-find input").fill("zzzznobody");
   await expect(page.locator(".chart-find-msg")).toContainText("places need coordinates", { timeout: 5000 });
 });
+
+test("map event panel re-roots the map on a listed person", async ({ page }) => {
+  await openChart(page, MAPPED, MAP_KEY);
+  await page.locator(".map-count").first().waitFor({ timeout: 20000 });
+  await expect(page.locator(".tree-title-name")).toHaveText(/Ana Kovac/);
+
+  await page.keyboard.press("ControlOrMeta+f");
+  await page.locator(".chart-find input").fill("Jozef");
+  const person = page.locator(".map-panel .map-panel-person", { hasText: "Jozef" });
+  await expect(person).toBeVisible({ timeout: 5000 });
+
+  await person.locator(".map-panel-rootbtn").click();
+  await expect(page.locator(".tree-title-name")).toHaveText(/Jozef Kovac/);
+  await expect(page.locator(".map-panel")).toHaveCount(0);
+});

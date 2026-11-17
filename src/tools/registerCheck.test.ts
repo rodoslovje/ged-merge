@@ -197,6 +197,15 @@ describe("checkPlacesAgainstRegister", () => {
     expect(checkPlacesAgainstRegister(placed, REGISTER, NO_DECISIONS).findings).toEqual([]);
   });
 
+  it("settles a tie with an address-bound coordinate when the place carries none of its own", () => {
+    // Every event at the place has a house: "Write coordinate" puts the pick
+    // on those events, and the tie must stay settled by it.
+    const housed = fileWith(
+      `1 BIRT\n2 PLAC Soteska, Slovenija\n3 MAP\n4 LATI N45.78\n4 LONG E15.02\n2 ADDR Soteska 4`,
+    );
+    expect(checkPlacesAgainstRegister(housed, REGISTER, NO_DECISIONS).findings).toEqual([]);
+  });
+
   it("offers every country's answer for a name that names no country of its own", () => {
     // "Bela" is a place in Slovenia and one in Croatia; the row's whole point is
     // that both are still open, so both are listed.

@@ -4,15 +4,15 @@
 // glyph fact lines (* born, ~ baptized, ⚭ married, † died, ▭ buried).
 
 import type { Dataset, Family, GedDate, GedEvent, Individual, Sex, SourceCitation } from "../gedcom/types";
-import { birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving, lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
+import { BIRTH_TAGS, birthSortKey, birthYear, deathYear, formatLifespan, isDeceased, isPresumedLiving, lifespanApproxOf, type YearsApprox } from "../gedcom/lifespan";
 import { dateText } from "../gedcom/date";
 import { orderingDate } from "../gedcom/sortDate";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import { ageWholeYears, parseAge } from "../gedcom/ageValue";
 import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS } from "../gedcom/eventTags";
-import { MARRIAGE_SYMBOL } from "../chart/nodeDisplay";
+import { EVENT_GLYPHS, UNMARRIED_UNION_GLYPH } from "../gedcom/eventTags";
+import { unionMark, unionMarriage } from "../gedcom/union";
 
 /** Name formatter injected by the UI (honours the Name-display settings). */
 export type { NameOf } from "../chart/timeline";
@@ -47,6 +47,9 @@ export interface FactLine {
   placeParts?: string[];
   /** Marriage lines carry the partner's display name. */
   spouse?: string;
+  /** The partner's xref, so a renderer can replace a living partner's name
+   *  with their kinship / "Living" label under the privacy option. */
+  spouseId?: string;
   /** Whether the named partner is presumed living — the narrative needs the
    *  tense ("njegova žena je" vs "je bila"). Undefined when unknown. */
   spouseLiving?: boolean;
@@ -62,6 +65,23 @@ export interface FactLine {
   /** Marriage lines carry the union's family xref, so the narrative can pair
    *  each marriage sentence with that union's children. */
   fam?: string;
+  /** The union line of a couple the file records as never married (see
+   *  {@link unionMarriage}) — ⚯ in the list, partner wording in the narrative. */
+  unmarried?: boolean;
+  /** The union line of a couple the file says nothing about — no MARR, no
+   *  divorce, no status: the narrative names a partner, never a spouse. */
+  unrecorded?: boolean;
+  /** Union lines: the earliest birth (or baptism) among the union's children —
+   *  it places an undated union in the story and tells a couple who had
+   *  children before their wedding. */
+  firstChildBorn?: GedDate;
+  /** Union lines: the partner's death date — a later marriage after it is a
+   *  widower's / widow's remarriage. */
+  spouseDied?: GedDate;
+  /** Union lines: the divorce (`DIV`), annulment (`ANUL`) or separation
+   *  (`SEPA`) that ended the couple's life together, as its own fact (date
+   *  and place when recorded). */
+  ended?: FactLine;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
   /** The event's formatted source citations, when enabled. */
@@ -356,9 +376,17 @@ export function marriageFact(
 ): FactLine | undefined {
   const marr = fam.events.find((e) => e.tag === "MARR");
   if (!(marr && dated(marr)) && !spouse) return undefined;
+  const status = unionMarriage(fam);
+  const mark = unionMark(fam);
   const base: FactLine = {
     tag: "MARR",
-    glyph: MARRIAGE_SYMBOL,
+    // The couple's mark as the file records it: ⚭, ⚯ unmarried, ⚮ divorced,
+    // ⚬⚬ separated. Unlike Edit, the report gives ⚭ only to a recorded
+    // marriage: a union with no record either way is a partnership here too,
+    // as its narrative sentence names a partner, not a spouse.
+    glyph: status === "unknown" && !mark.ended ? UNMARRIED_UNION_GLYPH : mark.glyph,
+    ...(status === "unmarried" ? { unmarried: true } : null),
+    ...(status === "unknown" ? { unrecorded: true } : null),
     date: marr?.date && dateText(marr.date),
     parsed: marr?.date,
     place: marr ? factPlace(marr) : undefined,
@@ -369,7 +397,45 @@ export function marriageFact(
   };
   const fact = marr ? withNote(base, marr, opts) : base;
   if (opts.age && ds && marr) fact.ages = coupleAges(fam, ds, marr.date, marr);
+  // A divorce or annulment wins over a separation recorded beside it.
+  const end =
+    fam.events.find((e) => e.tag === "DIV" || e.tag === "ANUL") ?? fam.events.find((e) => e.tag === "SEPA");
+  if (end) {
+    fact.ended = {
+      tag: end.tag,
+      glyph: EVENT_GLYPHS[end.tag],
+      date: end.date && dateText(end.date),
+      parsed: end.date,
+      place: factPlace(end),
+      ...factWhere(end),
+    };
+  }
+  if (ds) {
+    const born = firstChildBirth(fam, ds);
+    if (born) fact.firstChildBorn = born;
+  }
   return fact;
+}
+
+/** The earliest dated birth (else baptism/christening) among a union's
+ *  children — the same pick {@link birthSortKey} sorts siblings by. */
+function firstChildBirth(fam: Family, ds: Dataset): GedDate | undefined {
+  let best: GedDate | undefined;
+  let bestKey = Infinity;
+  for (const cid of fam.children) {
+    const child = ds.individuals.get(cid);
+    const key = birthSortKey(child);
+    if (key >= bestKey) continue;
+    for (const tag of BIRTH_TAGS) {
+      const d = child?.events.find((e) => e.tag === tag)?.date;
+      if (d?.year !== undefined) {
+        best = d;
+        bestKey = key;
+        break;
+      }
+    }
+  }
+  return best;
 }
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
@@ -497,7 +563,10 @@ export function marriageFacts(
       const partnerId = fam.husband === indi.id ? fam.wife : fam.husband;
       const partner = partnerId ? ds.individuals.get(partnerId) : undefined;
       const fact = marriageFact(fam, partner && nameOf(partner), opts, partner && (isPresumedLiving(partner, ds, nowYear) || !!partner.private), ds);
-      if (fact && partner) enrichSpouse(fact, partner, ds, nameOf, nowYear);
+      if (fact && partner) {
+        fact.spouseId = partner.id;
+        enrichSpouse(fact, partner, ds, nameOf, nowYear);
+      }
       return fact;
     })
     .filter((f): f is FactLine => f !== undefined);
@@ -509,6 +578,8 @@ function enrichSpouse(fact: FactLine, partner: Individual, ds: Dataset, nameOf: 
   const years = formatLifespan(birthYear(partner), deathYear(partner), isDeceased(partner));
   if (years) fact.spouseYears = years;
   fact.spouseSex = partner.sex;
+  const died = partner.events.find((e) => e.tag === "DEAT")?.date;
+  if (died?.year !== undefined) fact.spouseDied = died;
   // First family with a recorded parent = the partner's birth family.
   for (const famId of partner.childOf) {
     const fam = ds.families.get(famId);

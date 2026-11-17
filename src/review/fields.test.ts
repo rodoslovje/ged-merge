@@ -578,6 +578,12 @@ ${mother}1 SEX F
     expect(byKey(rowsOf(mainGed, incomingGed), "father")?.relatives).toHaveLength(2);
     expect(byKey(rowsOf(mainGed, incomingGed, new Map([["@FA@", "@FA@"]])), "father")?.relatives).toHaveLength(1);
   });
+
+  it("agrees on a confirmed parent the two files name differently", () => {
+    const mainGed = parents("Janez /Kos/", "1 NAME Mina /Novak/\n");
+    const incomingGed = parents("Janez /Kos/", "1 NAME Marija /Novak/\n");
+    expect(byKey(rowsOf(mainGed, incomingGed, new Map([["@MO@", "@MO@"]])), "mother")).toMatchObject({ state: "agree" });
+  });
 });
 
 describe("pairing unions by their partners", () => {
@@ -614,6 +620,20 @@ ${extra}0 TRLR
     expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).size).toBe(0);
   });
 
+  it("does not pair two wives through the husband's surname they both married into", () => {
+    // Both files carry each wife's married name as well: "Katarina /Bratuša/"
+    // and "Ana /Bratuša/" share a surname only because they married one man.
+    const m = dataset(union("@F1@", "Katarina /Gregorič/\n1 NAME Katarina /Bratuša/\n2 TYPE married", "@W1@",
+      "1 MARR\n2 DATE 24 FEB 1868\n"));
+    const c = dataset(union("@F2@", "Ana /Skala/\n1 NAME Ana /Bratuša/\n2 TYPE married", "@W2@",
+      "1 MARR\n2 DATE 10 FEB 1858\n"));
+    const rows = individualFieldRows(tr, m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+
+    expect(byKey(rows, "fam.main:@F1@.partner")).toMatchObject({ main: "Katarina Gregorič", state: "main-only" });
+    expect(byKey(rows, "fam.@F2@.partner")).toMatchObject({ incoming: "Ana Skala", state: "incoming-only" });
+    expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).size).toBe(0);
+  });
+
   it("pairs a partner recorded under her maiden name in one file and her married name in the other", () => {
     const m = dataset(union("@F1@", "Ana /Novak/", "@W1@"));
     const c = dataset(union("@F2@", "Ana /Bratuša/", "@W2@", "1 MARR\n2 PLAC Križe\n"));
@@ -621,6 +641,40 @@ ${extra}0 TRLR
 
     expect(byKey(rows, "fam.@F2@.MARR.place")).toMatchObject({ incoming: "Križe", state: "incoming-only" });
     expect(pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c).get("@F2@")).toBe("@F1@");
+  });
+
+  const pairedOf = (mainGed: string, incomingGed: string) => {
+    const m = dataset(mainGed);
+    const c = dataset(incomingGed);
+    return pairedMainFamilies(m.individuals.get("@H@"), c.individuals.get("@H@"), m, c);
+  };
+
+  it("does not take an estimated birth year nine years off as evidence two wives are one", () => {
+    // "Marija Kambič"/"Marija Jaklič" score 0.82 on the name; the estimate's
+    // wide tolerance spares them the year penalty but must not add a bonus.
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/\n1 BIRT\n2 DATE 1848", "@W1@"),
+      union("@F2@", "Marija /Jaklič/\n1 BIRT\n2 DATE ABT 1839", "@W2@"),
+    ).size).toBe(0);
+  });
+
+  it("keeps a widower's second marriage apart from a first wife dead before it", () => {
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/", "@W1@", "1 MARR\n2 DATE 7 FEB 1872\n"),
+      union("@F2@", "Marija /Kambič/\n1 DEAT\n2 DATE 13 MAR 1871", "@W2@"),
+    ).size).toBe(0);
+  });
+
+  it("keeps two exactly dated marriages years apart as two families", () => {
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/", "@W1@", "1 MARR\n2 DATE 7 FEB 1872\n"),
+      union("@F2@", "Marija /Kambič/", "@W2@", "1 MARR\n2 DATE 3 FEB 1864\n"),
+    ).size).toBe(0);
+    // An approximate marriage date contradicts nothing.
+    expect(pairedOf(
+      union("@F1@", "Marija /Kambič/", "@W1@", "1 MARR\n2 DATE 7 FEB 1872\n"),
+      union("@F2@", "Marija /Kambič/", "@W2@", "1 MARR\n2 DATE ABT 1864\n"),
+    ).get("@F2@")).toBe("@F1@");
   });
 
   it("pairs unions whose partners differ but whose children match", () => {
@@ -1327,6 +1381,23 @@ describe("attached links", () => {
     expect(birtSources?.incomingLinkIcons).toEqual(["https://example.com/birth"]);
     expect(birtSources?.mainLinkIcons).toBeUndefined();
     expect(fieldDiffCounts(rows)).toEqual({ newCount: 0, diffCount: 0, linkCount: 1 });
+  });
+
+  it("tallies a new citation's page URL as a new link too", () => {
+    const m = dataset(`0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1861\n0 TRLR\n`);
+    const c = dataset(
+      `0 HEAD\n0 @P1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1861\n2 SOUR @S1@\n3 PAGE 175\n` +
+        `0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O1@\n0 @O1@ OBJE\n1 FILE https://data.matricula-online.eu/sl/x/?pg=175\n0 TRLR\n`,
+    );
+    const rows = individualFieldRows(tr, m.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(fieldDiffCounts(rows)).toEqual({ newCount: 1, diffCount: 0, linkCount: 1 });
+
+    // The same page already cited on the main side brings no new link.
+    const m2 = dataset(
+      `0 HEAD\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE 1861\n2 WWW https://data.matricula-online.eu/sl/x/?pg=175\n0 TRLR\n`,
+    );
+    const rows2 = individualFieldRows(tr, m2.individuals.get("@I1@"), c.individuals.get("@P1@"));
+    expect(fieldDiffCounts(rows2).linkCount).toBe(0);
   });
 
   it("drops the link icon when a citation on the same side already links to it", () => {

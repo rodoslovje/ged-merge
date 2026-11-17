@@ -1,0 +1,156 @@
+0 HEAD
+1 SOUR GED_MERGE_DEMO
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SUBM @U1@
+1 NOTE Prešernovi predniki iz rodovnika prispevkarja Odar, kot je objavljen v Slovenskem rodoslovnem indeksu. / Prešeren's ancestors from contributor Odar's pedigree as published in the Slovenian genealogical index.
+0 @I17608@ INDI
+1 NAME France /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 3 DEC 1800
+2 PLAC Vrba 2, (stara hš 1)
+1 BAPM
+2 DATE 3 DEC 1800
+2 PLAC Breznica
+1 DEAT
+2 DATE 8 FEB 1849
+2 PLAC Kranj 181
+1 BURI
+2 DATE 10 FEB 1849
+2 PLAC Kranj
+1 FAMC @F1@
+1 FAMS @F2@
+0 @I17609@ INDI
+1 NAME Ana /Jelovšek/
+1 SEX F
+1 BIRT
+2 DATE 6 JUL 1823
+2 PLAC Karlovško predmestje 12
+1 BAPM
+2 DATE 6 JUL 1823
+2 PLAC Ljubljana - Sv. Jakob
+1 DEAT
+2 DATE 18 NOV 1875
+1 FAMC @F3@
+1 FAMS @F2@
+0 @I17610@ INDI
+1 NAME Martin /Jelovšek/
+1 SEX M
+1 FAMS @F3@
+0 @I17611@ INDI
+1 NAME Marija /Bobek/
+1 SEX F
+1 FAMS @F3@
+0 @I17606@ INDI
+1 NAME Simon /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 23 OCT 1762
+2 PLAC Vrba
+1 DEAT
+2 DATE 22 SEP 1837
+2 PLAC Skaručna
+1 FAMC @F4@
+1 FAMS @F1@
+0 @I17607@ INDI
+1 NAME Mina /Svetina/
+1 SEX F
+1 FAMS @F1@
+0 @I17605@ INDI
+1 NAME Jernej /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 21 AUG 1742
+2 PLAC Vrba 2, (stara hš 1)
+1 BAPM
+2 DATE 22 AUG 1742
+1 DEAT
+2 DATE 23 APR 1800
+2 PLAC Vrba
+1 FAMC @F5@
+1 FAMS @F4@
+0 @I17604@ INDI
+1 NAME Marija /Prešeren/
+1 SEX F
+1 BIRT
+2 DATE 22 DEC 1737
+2 PLAC Vrba
+1 BAPM
+2 DATE 22 DEC 1737
+2 PLAC Radovljica
+1 DEAT
+2 DATE 9 OCT 1823
+2 PLAC Vrba
+1 FAMC @F6@
+1 FAMS @F4@
+0 @I17616@ INDI
+1 NAME Jožef /Prešeren/
+1 SEX M
+1 FAMS @F5@
+0 @I17617@ INDI
+1 NAME Marjeta //
+1 SEX F
+1 FAMS @F5@
+0 @I17592@ INDI
+1 NAME Janez /Prešeren/
+1 SEX M
+1 BIRT
+2 DATE 3 MAY 1696
+2 PLAC Vrba
+1 DEAT
+2 DATE 19 MAY 1770
+1 FAMC @F7@
+1 FAMS @F6@
+1 FAMS @F8@
+0 @I17593@ INDI
+1 NAME Jera /Mulej/
+1 SEX F
+1 FAMS @F6@
+0 @I17596@ INDI
+1 NAME Marija /Triplat/
+1 SEX F
+1 FAMS @F8@
+0 @I17594@ INDI
+1 NAME Matija /Prešeren/
+1 SEX M
+1 FAMS @F7@
+0 @I17595@ INDI
+1 NAME Marija //
+1 SEX F
+1 FAMS @F7@
+0 @F1@ FAM
+1 HUSB @I17606@
+1 WIFE @I17607@
+1 CHIL @I17608@
+0 @F2@ FAM
+1 HUSB @I17608@
+1 WIFE @I17609@
+0 @F3@ FAM
+1 HUSB @I17610@
+1 WIFE @I17611@
+1 CHIL @I17609@
+0 @F4@ FAM
+1 HUSB @I17605@
+1 WIFE @I17604@
+1 CHIL @I17606@
+0 @F5@ FAM
+1 HUSB @I17616@
+1 WIFE @I17617@
+1 CHIL @I17605@
+0 @F6@ FAM
+1 HUSB @I17592@
+1 WIFE @I17593@
+1 CHIL @I17604@
+0 @F7@ FAM
+1 HUSB @I17594@
+1 WIFE @I17595@
+1 CHIL @I17592@
+0 @F8@ FAM
+1 HUSB @I17592@
+1 WIFE @I17596@
+0 @U1@ SUBM
+1 NAME Odar
+0 TRLR

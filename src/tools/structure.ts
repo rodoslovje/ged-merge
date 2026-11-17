@@ -46,6 +46,9 @@ export type StructSeverity = "error" | "warning" | "info";
 /** Sort weight per severity — errors first, informational (custom tags) last. */
 const SEV_RANK: Record<StructSeverity, number> = { error: 0, warning: 1, info: 2 };
 
+/** The order the categories are listed in, within one severity. */
+export const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "missingLine", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
+
 export interface StructIssue {
   category: StructCategory;
   severity: StructSeverity;
@@ -72,8 +75,8 @@ export interface StructIssue {
   /** Conformance `cardinality`: every repeat is an exact copy of the first,
    *  so the fix can drop them without losing anything. */
   repeat?: boolean;
-  /** Conformance `badY`: `fix` is the event line's text, which the fix moves
-   *  into a NOTE on the event. */
+  /** Conformance `badY` / `valueNotAllowed`: `fix` is the line's text, which
+   *  the fix moves into a NOTE beneath it. */
   toNote?: boolean;
   /** Conformance `misplacedTag`: a media record's TITL/FORM beside its FILE,
    *  which the fix moves under it file-wide. */
@@ -108,6 +111,9 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a text SOUR inside a citation, made its
    *  PAGE by the fix file-wide. */
   citationPage?: boolean;
+  /** Conformance `missingLine`: a 7.0 EVEN/FACT with no TYPE, which the fix
+   *  adds file-wide (the value is `fix`). */
+  eventType?: boolean;
   /** Set by the findings list on the one row it shows for many equal value
    *  fixes (same line, same value, same fix): how many it stands for. */
   groupCount?: number;
@@ -562,7 +568,6 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
   for (const issue of validateConformance(ds)) push(issue);
 
   // Errors first, then by category, then by line (text issues) / sample.
-  const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "missingLine", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return SEV_RANK[a.severity] - SEV_RANK[b.severity];
     if (a.category !== b.category) return CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);

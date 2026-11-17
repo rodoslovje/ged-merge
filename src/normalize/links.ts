@@ -1,3 +1,7 @@
+import type { GedNode } from "../gedcom/types";
+import { isRecordLinkLine, recordLinkHabit } from "../gedcom/edit/records";
+import type { MainProfile } from "./types";
+
 /**
  * Recognize and rewrite genealogy-site links whose URL encodes a UI language
  * that varies by file (Matricula Online's `/sl/`-style path segment, Geneanet
@@ -97,7 +101,7 @@ export function canonicalFamilySearchUrl(url: string): string {
  *  Books volume. Case-folding these would make two different resources
  *  compare equal, so the key carries the id as written. */
 const CASE_SENSITIVE_ID_RE =
-  /(?:youtube\.com\/watch\?(?:[^#]*&)?v=|youtu\.be\/|books\.google\.[a-z.]+\/books\?(?:[^#]*&)?id=|google\.[a-z.]+\/books\/edition\/[^/?#]+\/)([A-Za-z0-9_-]+)/;
+  /(?:youtube\.com\/watch\?(?:[^#]*&)?v=|youtu\.be\/|books\.google\.[a-z.]+\/books[^?#]*\?(?:[^#]*&)?id=|play\.google\.com\/store\/books\/details\?(?:[^#]*&)?id=|google\.[a-z.]+\/books\/edition\/[^/?#]+\/)([A-Za-z0-9_-]+)/;
 
 /**
  * Normalize a URL for set comparison: case-fold, fold `http://` to `https://`
@@ -282,4 +286,36 @@ export function familySearchPageUrl(url: string, fill?: { image?: string; cc?: s
     .join("&");
   const base = `https://www.familysearch.org/ark:/61903/${fs.ark}`;
   return query ? `${base}?${query}` : base;
+}
+
+/** How a file writes links on its person and family records — what
+ *  {@link reshapeRecordLinks} brings an incoming record's links to. */
+export function recordLinksOf(records: GedNode[]): NonNullable<MainProfile["recordLinks"]> {
+  const { tag, tags } = recordLinkHabit(records);
+  return { tag, keep: tags };
+}
+
+/**
+ * Restate the bare `WWW`/`URL` link lines on person and family records in the
+ * main's form. Neither GEDCOM version has a link there, so a strict main writes
+ * the `_URL` extension; the file's own format writes the tag the file uses,
+ * and keeps a bare tag the file itself writes. A new person copied into the
+ * main carries its record as is, so this is what keeps a RootsMagic file's (or
+ * a CSV import's) `1 WWW` out of a strict main. Calls `onChange` per rewrite.
+ */
+export function reshapeRecordLinks(
+  records: GedNode[],
+  target: NonNullable<MainProfile["recordLinks"]>,
+  onChange: (before: string, after: string) => void,
+): void {
+  for (const rec of records) {
+    if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
+    for (const line of rec.children) {
+      if (!isRecordLinkLine(line) || line.tag.startsWith("_")) continue;
+      if (line.tag === target.tag || target.keep.includes(line.tag)) continue;
+      onChange(`${rec.tag}.${line.tag}`, `${rec.tag}.${target.tag}`);
+      line.tag = target.tag;
+      line.spelling = undefined;
+    }
+  }
 }

@@ -3,7 +3,7 @@ import { parseName } from "./name";
 import { parsePlace, placeNodeCoord } from "./place";
 import { childValue, childrenByTag, firstChild } from "./node";
 import { buildSourceContext, objeInfoOf, resolveSourceCitation, type SourceContext } from "./source";
-import { isPointer, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
+import { isPointer, isPointerNode, isVoidPointer, looksLikeUrl, stripTrailingPunct, URL_RE } from "./uri";
 import { isPrivateNode } from "./private";
 import { associationsIn, parseAssociation } from "./assoc";
 import { runSteps, type Steps } from "./steps";
@@ -86,22 +86,35 @@ export function* buildDatasetSteps(parsed: ParseResult): Steps<Dataset> {
   // names it. Deterministic, so the worker's parse and the main thread's agree.
   // (Indexing ~700k xrefs takes a few hundred milliseconds, so these passes
   // yield too.)
+  // A submitter never wins an id over another record: only the header points
+  // at it, while a person's id is what every FAMC/FAMS/CHIL means (older saves
+  // wrote `0 @I1@ SUBM` beside the person @I1@ when HEAD.SUBM named a person).
+  const isSubmitter = (r: GedNode) => r.tag === "SUBM" || r.tag === "SUBN";
   const lastIndex = new Map<string, number>();
   for (let i = 0; i < records.length; i++) {
     if (i % XREFS_PER_STEP === XREFS_PER_STEP - 1) yield;
     const xref = records[i].xref;
-    if (xref) lastIndex.set(xref, i);
+    if (!xref) continue;
+    const kept = lastIndex.get(xref);
+    if (kept === undefined || !isSubmitter(records[i]) || isSubmitter(records[kept])) lastIndex.set(xref, i);
   }
+  const head = records.find((r) => r.tag === "HEAD");
   for (let i = 0; i < records.length; i++) {
     if (i % XREFS_PER_STEP === XREFS_PER_STEP - 1) yield;
     const record = records[i];
     if (!record.xref || lastIndex.get(record.xref) === i) continue;
-    const prefix = record.xref.match(/^@([A-Za-z]+)/)?.[1] ?? (record.tag.match(/^[A-Za-z]/)?.[0] ?? "X");
+    const prefix = isSubmitter(record) ? "U" : record.xref.match(/^@([A-Za-z]+)/)?.[1] ?? (record.tag.match(/^[A-Za-z]/)?.[0] ?? "X");
     const fresh = nextXref(records, prefix);
     parsed.warnings.push({
       kind: "structure",
-      message: `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is kept as ${fresh}.`,
+      message: isSubmitter(record)
+        ? `Duplicate xref ${record.xref}: a ${record.tag} record shares its id with another record; the ${record.tag} record is kept as ${fresh}.`
+        : `Duplicate xref ${record.xref}: a later ${record.tag} record overrides an earlier record with the same id; the earlier record is kept as ${fresh}.`,
     });
+    if (isSubmitter(record)) {
+      const pointer = head?.children.find((c) => c.tag === record.tag && c.value?.trim() === record.xref);
+      if (pointer) pointer.value = fresh;
+    }
     record.xref = fresh;
   }
   yield;
@@ -360,6 +373,7 @@ function readOrdinance(node: GedNode, event: GedEvent): void {
 
 function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
   const event: GedEvent = { tag: node.tag };
+  if (isPrivateNode(node)) event.private = true;
   if (node.value?.trim()) event.value = node.value.trim();
   const dateNode = firstChild(node, "DATE");
   const placeNode = firstChild(node, "PLAC");
@@ -368,7 +382,8 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const agncNode = firstChild(node, "AGNC");
   const causNode = firstChild(node, "CAUS");
   if (dateNode?.value) event.date = parseDate(dateNode.value);
-  const time = dateNode && childValue(dateNode, "TIME")?.trim();
+  // 5.5.1 keeps an event's time as `_TIME` (see `eventTimeTag`).
+  const time = dateNode && (childValue(dateNode, "TIME") ?? childValue(dateNode, "_TIME"))?.trim();
   if (time) event.time = time;
   // A GEDCOM 7 date's own wording — beside the value, or the whole date.
   const datePhrase = phraseOf(dateNode);
@@ -422,8 +437,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   const links = collectLinks(node, media);
   const noteNode = firstChild(node, NOTE_TAGS);
   if (noteNode) {
-    const notePtr = noteNode.value?.trim() ?? "";
-    if (isPointer(notePtr)) event.noteXref = notePtr;
+    if (isPointerNode(noteNode)) event.noteXref = noteNode.value!.trim();
     const text = resolveNoteText(noteNode, noteIndex, links);
     const noteStripped = text && stripNoteLinks(text);
     if (noteStripped) event.note = noteStripped;
@@ -557,8 +571,8 @@ export function buildNoteIndex(records: GedNode[]): NoteIndex {
  * any URLs in the resolved text are collected into it.
  */
 function resolveNoteText(node: GedNode, notes: NoteIndex, links?: string[]): string | undefined {
-  const v = node.value?.trim();
-  if (!(v && isPointer(v))) return node.value;
+  if (!isPointerNode(node)) return node.value;
+  const v = node.value!.trim();
   const entry = notes.get(v);
   // A private note's URLs stay inside the note — never surfaced as links,
   // where they'd be one click from becoming a (public) source citation.
@@ -602,7 +616,7 @@ function collectNote(
   out: string[], links: string[], outFull: string[], outRefs?: NoteRef[],
 ): void {
   const ptr = node.value?.trim() ?? "";
-  const isPtr = isPointer(ptr);
+  const isPtr = isPointerNode(node);
   const isPrivate = isPtr ? !!notes.get(ptr)?.private : isPrivateNode(node);
   const text = resolveNoteText(node, notes, links);
   const stripped = text && stripNoteLinks(text);

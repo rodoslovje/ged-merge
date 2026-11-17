@@ -75,6 +75,29 @@ writeFileSync(WITH_FATHER, [
   "0 TRLR", "",
 ].join("\n"), "utf-8");
 
+test("the Save badge counts each added person once", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Merge", exact: true }).click();
+  await page.locator("input.file-input").last().setInputFiles(COMPARE);
+  const badge = page.locator(".app-head-actions .export-btn");
+
+  await page.locator(".candidate", { hasText: "Janez" }).first().locator(".candidate-main").click();
+  await page.locator(".decision-bar button").first().click();
+  await expect(badge).toContainText("(1)");
+
+  // The ticked child is a new person: one more.
+  await page.locator(".compare-panel button.choice.take", { hasText: "add" }).click();
+  await expect(badge).toContainText("(2)");
+
+  // The mother's match lists the same child as already added: only she counts.
+  await page.locator(".candidate", { hasText: "Ana" }).first().locator(".candidate-main").click();
+  await page.locator(".decision-bar button").first().click();
+  await expect(page.locator(".compare-panel .gm-added-tag")).toBeVisible();
+  await expect(badge).toContainText("(3)");
+});
+
 test("confirming a match adds the incoming father, who opens in Edit", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(MAIN);

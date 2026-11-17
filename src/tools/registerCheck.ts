@@ -337,25 +337,31 @@ export function checkPlacesAgainstRegister(
   // house's, not the place's, the same rule scanGeocode's `fileCoord` follows).
   const groups = new Map<
     string,
-    { count: number; coords: Map<string, { coord: GeoCoord; n: number }>; people: Set<string> }
+    {
+      count: number;
+      coords: Map<string, { coord: GeoCoord; n: number }>;
+      /** Address-bound coordinates: a house, not the place, but still in it. */
+      addrCoords: Map<string, { coord: GeoCoord; n: number }>;
+      people: Set<string>;
+    }
   >();
   const visit = (raw: Parameters<typeof walkPlaceAddr>[0], personIds: string[]) =>
     walkPlaceAddr(raw, (plac, addr) => {
       const key = plac.value!.trim();
       let g = groups.get(key);
       if (!g) {
-        g = { count: 0, coords: new Map(), people: new Set() };
+        g = { count: 0, coords: new Map(), addrCoords: new Map(), people: new Set() };
         groups.set(key, g);
       }
       g.count++;
       for (const id of personIds) g.people.add(id);
-      if (addr) return;
       const coord = coordOf(plac);
       if (!coord) return;
+      const tally = addr ? g.addrCoords : g.coords;
       const ck = `${coord.lat}:${coord.lon}`;
-      const hit = g.coords.get(ck);
+      const hit = tally.get(ck);
       if (hit) hit.n++;
-      else g.coords.set(ck, { coord, n: 1 });
+      else tally.set(ck, { coord, n: 1 });
     });
   for (const indi of dataset.individuals.values()) visit(indi.raw, [indi.id]);
   // A family event belongs to both spouses, the way scanGeocode attributes them.
@@ -618,13 +624,16 @@ export function checkPlacesAgainstRegister(
 
     // Same name, several register entries. A coordinate in the file settles it
     // — the nearest entry is the place meant — and only without one does the
-    // tie stand as a finding of its own.
+    // tie stand as a finding of its own. Where every event at the place has a
+    // house, a house's coordinate settles it too: it stands in the village
+    // meant, and it is where "Write coordinate" puts the pick on such a file.
     const tied = candidates.filter((c) => c.score > candidates[0].score - AMBIGUITY_GAP);
     let best = candidates[0].entry;
     if (tied.length > 1) {
-      if (fileCoord) {
+      const settling = fileCoord ?? [...g.addrCoords.values()].sort((a, b) => b.n - a.n)[0]?.coord;
+      if (settling) {
         best = tied
-          .map((c) => ({ entry: c.entry, km: distanceKm(fileCoord, c.entry) }))
+          .map((c) => ({ entry: c.entry, km: distanceKm(settling, c.entry) }))
           .sort((a, b) => a.km - b.km)[0].entry;
       } else {
         findings.push({

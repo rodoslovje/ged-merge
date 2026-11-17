@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { Dataset } from "../gedcom/types";
 import {
-  MAX_REMEMBERED_TARGETS, detectDialect, proposeTarget, rememberTarget, sanitizeTargetFormats,
+  MAX_REMEMBERED_TARGETS, detectDialect, proposeTarget, rememberTarget, sanitizeStartPersons, sanitizeTargetFormats,
   targetFileKey, targetFormatOverrides, writeTarget,
 } from "./target";
 
@@ -34,6 +34,16 @@ describe("target format", () => {
     expect(map).not.toHaveProperty("f0");
     map = rememberTarget(map, "f10", "file");
     expect(Object.keys(map).at(-1)).toBe("f10");
+  });
+
+  it("forgets a file's choice when it is set to nothing", () => {
+    const map = rememberTarget<string>({ a: "@I1@", b: "@I2@" }, "a", undefined);
+    expect(map).toEqual({ b: "@I2@" });
+  });
+
+  it("keeps only xref strings among the stored start persons", () => {
+    expect(sanitizeStartPersons({ a: "@I1@", b: 3, c: "", "": "@I2@" })).toEqual({ a: "@I1@" });
+    expect(sanitizeStartPersons(null)).toEqual({});
   });
 
   it("drops stored entries that are not a mode", () => {

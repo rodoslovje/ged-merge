@@ -20,6 +20,9 @@ interface Props {
   onAdd: (photos: PickedMedia[]) => void;
   dataset: Dataset;
   t: Translate;
+  /** One photo, not several: a click picks it in place of the one before
+   *  (the family website's cover). The title and the button then say so. */
+  single?: { title: string; pick: string };
 }
 
 interface FolderImage {
@@ -81,7 +84,7 @@ function groupBySubfolder(items: FolderImage[]): { folder: string; items: Folder
  *  in the file ("New") and ones already referenced ("Existing"), and adds the
  *  selected photos to the current person. Works in both handle and filemap
  *  modes — it only references files by relative path, never writes. */
-export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
+export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t, single }: Props) {
   const { folderName, canReferenceFiles, openFolder, listMediaFiles, resolveFile, canImportFiles, importFile } = useMediaFolder();
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<FolderImage[]>([]);
@@ -171,6 +174,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
 
   const toggle = (path: string) =>
     setSelected((prev) => {
+      if (single) return prev.has(path) ? new Set() : new Set([path]);
       const next = new Set(prev);
       if (next.has(path)) next.delete(path);
       else next.add(path);
@@ -219,9 +223,9 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal add-media-dialog" ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t("addMedia.title")} onClick={(e) => e.stopPropagation()}>
+      <div className="modal add-media-dialog" ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={single?.title ?? t("addMedia.title")} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{t("addMedia.title")}</h2>
+          <h2>{single?.title ?? t("addMedia.title")}</h2>
           <div className="name-search-wrap add-media-search">
             <input
               type="text"
@@ -294,7 +298,7 @@ export function AddMediaDialog({ isOpen, onClose, onAdd, dataset, t }: Props) {
           </button>
           <button className="tree-open-btn" onClick={onClose}>{t("addMedia.cancel")}</button>
           <button className="tree-open-btn" disabled={selected.size === 0} onClick={handleAdd}>
-            {t("addMedia.add", { count: selected.size })}
+            {single?.pick ?? t("addMedia.add", { count: selected.size })}
           </button>
         </div>
       </div>

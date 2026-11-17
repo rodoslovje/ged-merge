@@ -1,14 +1,16 @@
 import { useEffect, useRef } from "react";
-import { CHART_KEY, isEditableTarget, isModalOpen } from "./shortcuts";
+import { CHART_KEY, KEY_STATUS, isEditableTarget, isModalOpen, type ActiveStatus } from "./shortcuts";
 import type { ChartKind } from "../ui/ChartSettingsContext";
 import type { TreeMode } from "../chart/personTree";
 
 // Bare-key shortcuts for the full-page chart overlays: +/− zoom, 0 reset,
 // F fit-to-screen, A/D ancestors/descendants, H back to the start person,
-// digits 1–n for the kind switcher, and the arrows to scroll the canvas
+// digits 1–n (and P / L / G / K for the fan / timeline / map / relationship)
+// for the kind switcher, and the arrows to scroll the canvas
 // (Shift for a bigger step, PageUp/PageDown for most of a screen). Each chart page passes only the handlers it supports; the hidden
 // Edit/Merge views gate their own key handlers while an overlay is open, so
-// these keys never collide with the decision shortcuts (C/R/D) underneath.
+// these keys never collide with the decision shortcuts (C/R/D) underneath; the
+// Compare tree takes C/R/D itself while a match pair is selected.
 
 interface Handlers {
   zoomIn?: () => void;
@@ -25,7 +27,7 @@ interface Handlers {
   onHome?: () => void;
   /** Arrows scroll the chart: a step in pixels, or a share of the viewport
    *  (`unit: "page"`). Omitted where the page has no canvas of its own. */
-  scrollBy?: (dx: number, dy: number, unit?: "px" | "page") => void;
+  scrollBy?: (dx: number, dy: number, unit?: "px" | "page", instant?: boolean) => void;
   /** E opens the selected person in Edit. Omitted while nobody is selected,
    *  or where the page has no Edit to open into. */
   onEdit?: () => void;
@@ -36,6 +38,10 @@ interface Handlers {
   onLeave?: () => void;
   /** , / . step back / forward through the hub's trail of people. */
   onTrail?: (step: -1 | 1) => void;
+  /** C / R / D decide the selected match pair, as they do in Merge — given
+   *  only while a pair is selected (Compare tree), so D otherwise stays the
+   *  descendants key. */
+  onDecide?: (status: ActiveStatus) => void;
 }
 
 const ARROW: Record<string, [number, number]> = {
@@ -67,12 +73,13 @@ export function useChartShortcuts(handlers: Handlers) {
         e.preventDefault();
         const [dx, dy] = ARROW[key];
         const step = e.shiftKey ? 400 : 80;
-        h.scrollBy(dx * step, dy * step);
+        // A held key's repeats jump: each would restart a smooth scroll from its slow start.
+        h.scrollBy(dx * step, dy * step, "px", e.repeat);
         return;
       }
       if (h.scrollBy && (key === "PageUp" || key === "PageDown")) {
         e.preventDefault();
-        h.scrollBy(0, key === "PageDown" ? 1 : -1, "page");
+        h.scrollBy(0, key === "PageDown" ? 1 : -1, "page", e.repeat);
         return;
       }
       if (key === "Escape") {
@@ -92,6 +99,12 @@ export function useChartShortcuts(handlers: Handlers) {
         return;
       }
       const lower = key.toLowerCase();
+      const status = h.onDecide && !e.shiftKey ? KEY_STATUS[lower] : undefined;
+      if (status) {
+        e.preventDefault();
+        h.onDecide!(status);
+        return;
+      }
       if (lower === CHART_KEY.fit) {
         if (h.fitToScreen) { e.preventDefault(); h.fitToScreen(); }
         return;
@@ -114,6 +127,18 @@ export function useChartShortcuts(handlers: Handlers) {
       }
       if (lower === CHART_KEY.descendants) {
         if (h.onMode) { e.preventDefault(); h.onMode("descendants"); }
+        return;
+      }
+      // P / L / G / K: the fan, the timeline, the map, the relationship — the
+      // keys that open them from Edit.
+      const lettered = lower === CHART_KEY.fan ? "fan"
+        : lower === CHART_KEY.timeline ? "timeline"
+        : lower === CHART_KEY.map ? "map"
+        : lower === CHART_KEY.relationship ? "relationship"
+        : undefined;
+      if (lettered && !e.shiftKey && h.kinds?.includes(lettered) && h.onKind) {
+        e.preventDefault();
+        h.onKind(lettered);
         return;
       }
       if (h.kinds && h.onKind && key >= "1" && key <= "9") {

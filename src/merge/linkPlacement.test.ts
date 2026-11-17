@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { insertRecord, rebuildIndividual } from "../gedcom/edit";
-import { linkPlacementFor, pendingBookLookups, previewLinkCitation, previewLinkPlacement } from "./linkPlacement";
+import { incomingCitationPage, linkPlacementFor, pendingBookLookups, previewLinkCitation, previewLinkPlacement } from "./linkPlacement";
 
 function records(body: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(`0 HEAD\n1 CHAR UTF-8\n${body}0 TRLR\n`).buffer)).records;
@@ -76,6 +76,23 @@ describe("previewLinkCitation", () => {
     expect(previewLinkPlacement(person, url, recs).eventTag).toBeUndefined();
   });
 
+  it("finds a source record added after the lookup was cached", () => {
+    // The file names this book only through a citation of its page by link;
+    // the SOUR it points to arrives later in the merge. The cached lookup
+    // predates it, so the name must still come from the record itself.
+    const page = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56";
+    const recs = records(`0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SOUR @S9@\n2 PAGE ${page}\n`);
+    const url = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=58";
+    expect(previewLinkCitation(recs, url)).toMatchObject({ sourceId: "@S9@", title: undefined });
+    recs.splice(recs.length - 1, 0, {
+      level: 0,
+      xref: "@S9@",
+      tag: "SOUR",
+      children: [{ level: 1, tag: "TITL", value: "Krstna knjiga - Šenčur", children: [] }],
+    });
+    expect(previewLinkCitation(recs, url)).toMatchObject({ sourceId: "@S9@", title: "Krstna knjiga - Šenčur" });
+  });
+
   it("leaves a link of an unknown site a plain link", () => {
     expect(previewLinkCitation(records(BOOK), "https://example.com/janez")).toBeUndefined();
   });
@@ -140,5 +157,24 @@ describe("linkPlacementFor", () => {
     }
     ds.records.push({ level: 0, tag: "NOTE", xref: "@N1@", children: [] });
     expect(linkPlacementFor(ds).linkFormat).toBe("OBJE");
+  });
+});
+
+describe("incomingCitationPage", () => {
+  it("finds the cited source through the placement's index, not a scan of the incoming records", () => {
+    const dataset = (body: string) =>
+      buildDataset(parseGedcom(new TextEncoder().encode(`0 HEAD\n1 CHAR UTF-8\n${body}0 TRLR\n`).buffer));
+    const compare = dataset(BOOK);
+    const placement = linkPlacementFor(dataset(""), undefined, compare);
+    // A merge copies thousands of citations: a scan of the incoming file per
+    // citation is what this guards against.
+    compare.records.find = () => {
+      throw new Error("scanned the incoming records");
+    };
+    const pageUrl = "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03173/?pg=56";
+    const citation = { level: 2, tag: "SOUR", value: "@S1@", children: [{ level: 3, tag: "PAGE", value: pageUrl, children: [] }] };
+    const page = incomingCitationPage(citation, placement);
+    expect(page?.source?.xref).toBe("@S1@");
+    expect(page?.url).toBe(pageUrl);
   });
 });

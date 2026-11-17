@@ -17,7 +17,8 @@ import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
 import type { MiniMapPin } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
-import { SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { THEME_MODES, type ThemeMode } from "./useTheme";
 import { COUNTRY_CODES } from "../gedcom/countryCode";
 import { countryFacetLabel } from "../geo/placeCountry";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
@@ -27,17 +28,19 @@ import { DATE_PATTERN_CHOICES, type DetectedFormats, type FormatOverrides } from
 import { placeLayoutSample, sampleDateFor } from "../normalize/formatDefaults";
 import { placeSeparatorText } from "../normalize/profile";
 import { sexClass } from "./sex";
+import { lineageClass } from "../match/kinship";
 import { anyMediaDialogSuppressed, resetMediaDialogs } from "./mediaPrefs";
 import { altShiftLabel } from "../keyboard/shortcuts";
 import { AddEventSelect } from "./edit/AddEventSelect";
 import type { SettingsTab } from "./settingsBus";
 import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
+import { TrashIcon } from "./icons/TrashIcon";
 
 // Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
 // the base-map sample is actually shown.
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
 
-export type ThemeMode = "auto" | "light" | "dark";
+export type { ThemeMode };
 
 interface Props {
   isOpen: boolean;
@@ -55,7 +58,7 @@ interface Props {
   initialTab?: SettingsTab;
 }
 
-const SETTINGS_TABS: SettingsTab[] = ["general", "format", "map", "advanced"];
+const SETTINGS_TABS: SettingsTab[] = ["general", "editing", "format", "map", "advanced"];
 
 /** One format dimension: a select whose first option is "Detected" (= no
  *  override) and whose value patches a single {@link FormatOverrides} key. */
@@ -159,8 +162,6 @@ function isGedcomStandard(key: keyof FormatOverrides, choice: string): boolean {
   return key === "placeSeparator" && choice === "comma-space";
 }
 
-const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
-const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
 
 /** Sample person used by the live name-display preview — a married woman so the
  * married-surname, order and uppercase options are all visible at once. */
@@ -216,8 +217,12 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
   // somewhere in its middle — past its first heading, with no sign of what was
   // skipped.
   const bodyRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
+    // On a phone the tab bar scrolls sideways — keep the chosen tab in view.
+    tabsRef.current?.querySelector<HTMLElement>("[aria-selected=true]")
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [tab]);
 
   // What "Auto (detected)" resolves to — computed at load in the worker and
@@ -400,7 +405,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             ×
           </button>
         </div>
-        <div className="settings-tabs" role="tablist" aria-label={t("settings.title")} onKeyDown={tablistKeyDown}>
+        <div className="settings-tabs" ref={tabsRef} role="tablist" aria-label={t("settings.title")} onKeyDown={tablistKeyDown}>
           {SETTINGS_TABS.map((id) => (
             <button
               key={id}
@@ -430,7 +435,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     checked={i18n.language === lng}
                     onChange={() => i18n.changeLanguage(lng)}
                   />
-                  <span className="settings-row-label">{LANG_LABELS[lng] ?? lng}</span>
+                  <span className="settings-row-label">{LANGUAGE_LABELS[lng]}</span>
                 </label>
               ))}
             </div>
@@ -460,9 +465,15 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             <div className="settings-preview">
               <span className="settings-preview-label">{t("settings.name.preview")}</span>
               <span className="settings-preview-person">
-                <span className={`person-name ${sexClass("F")}`}>{nameOf(SAMPLE_NAME)}</span>
+                {/* The sample is a direct ancestor (Great-grandmother), so the
+                    app-wide `.emphasize-direct` rule bolds the name and label
+                    alike — the name even with kinship hidden. */}
+                <span className={`person-name ${sexClass("F")} kinship-direct`}>{nameOf(SAMPLE_NAME)}</span>
                 {settings.showXref && <span className="person-xref gm-data">{xrefLabel(SAMPLE_XREF)}</span>}
                 <span className="person-years gm-data">{settings.showAge ? `${SAMPLE_LIFESPAN} (${SAMPLE_AGE})` : SAMPLE_LIFESPAN}</span>
+                {settings.showKinship && (
+                  <span className={`person-kinship ${lineageClass("maternal", true)}`}>{t("kinship.greatGrandmother")}</span>
+                )}
               </span>
             </div>
 
@@ -581,13 +592,18 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
             </label>
           </section>
 
+          </>
+          )}
+
+          {tab === "editing" && (
+          <>
+          {/* The reader as the author of the files GED Merge writes: name,
+              e-mail and website (SUBM NAME / EMAIL / WWW), one rule for all. */}
           <section className="settings-section">
-            <h3>{t("settings.editing.title")}</h3>
+            <h3>{t("settings.author.title")}</h3>
+            <p className="settings-hint">{t("settings.author.hint")}</p>
             <label className="settings-row settings-format-row">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.editing.authorName")}</span>
-                <span className="settings-hint">{t("settings.editing.authorName.hint")}</span>
-              </span>
+              <span className="settings-row-label">{t("settings.editing.authorName")}</span>
               <input
                 type="text"
                 className="settings-text-input"
@@ -597,6 +613,41 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 onChange={(e) => set({ authorName: e.target.value })}
               />
             </label>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-label">{t("settings.editing.authorEmail")}</span>
+              {/* Not `type="email"` / `autocomplete="email"`: password
+                  managers read those as a login's username field and offer
+                  stored accounts. A plain field, e-mail keyboard on phones. */}
+              <input
+                type="text"
+                inputMode="email"
+                className="settings-text-input"
+                value={settings.authorEmail}
+                autoComplete="off"
+                data-1p-ignore=""
+                data-lpignore="true"
+                data-bwignore=""
+                data-form-type="other"
+                maxLength={MAX_AUTHOR_NAME}
+                onChange={(e) => set({ authorEmail: e.target.value })}
+              />
+            </label>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-label">{t("settings.editing.authorWww")}</span>
+              <input
+                type="url"
+                className="settings-text-input"
+                value={settings.authorWww}
+                autoComplete="url"
+                placeholder="https://"
+                maxLength={MAX_AUTHOR_NAME}
+                onChange={(e) => set({ authorWww: e.target.value })}
+              />
+            </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.addPeople.title")}</h3>
             <label className="settings-row settings-row-toggle">
               <input
                 type="checkbox"
@@ -608,12 +659,11 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 <span className="settings-hint">{t("settings.editing.marriedFromPartner.hint")}</span>
               </span>
             </label>
-            <div className="settings-row settings-quick-head">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.quickEvents.title")}</span>
-                <span className="settings-hint">{t("settings.quickEvents.hint", { keys: altShiftLabel("1–9") })}</span>
-              </span>
-            </div>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.quickEvents.title")}</h3>
+            <p className="settings-hint">{t("settings.quickEvents.hint", { keys: altShiftLabel("1–9") })}</p>
             <div className="settings-quick-events">
               {settings.quickEventTags.map((tag, i) => (
                 <span key={tag} className="edit-name-chip-wrap">
@@ -1044,7 +1094,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                       title={t("settings.map.overlays.remove")}
                       aria-label={t("settings.map.overlays.remove")}
                     >
-                      🗑
+                      <TrashIcon />
                     </button>
                   </div>
                   {open && (

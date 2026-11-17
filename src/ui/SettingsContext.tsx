@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Individual, PersonName } from "../gedcom/types";
+import type { Submitter } from "../gedcom/newFile";
 import { marriedSurnamesOf, primaryName } from "../match/relatives";
 import {
   DEFAULT_NAME_DISPLAY,
@@ -19,7 +20,7 @@ import {
   type NameOrder,
 } from "../gedcom/nameDisplay";
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
-import { MAX_REMEMBERED_TARGETS, sanitizeTargetFormats, type TargetMode } from "../normalize/target";
+import { MAX_REMEMBERED_TARGETS, sanitizeStartPersons, sanitizeTargetFormats, type TargetMode } from "../normalize/target";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
 import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { setDateDisplay } from "../gedcom/dateDisplay";
@@ -164,6 +165,10 @@ export interface AppSettings extends NameDisplayOptions {
   /** The files (by `targetFileKey`) whose "keeps its own format" notice the
    *  reader silenced with Don't show again. */
   targetNoticeHidden: string[];
+  /** Each main file's start person (an INDI xref), by `targetFileKey` of its
+   *  name — so opening the file again brings back the person last chosen.
+   *  Used only while that person still exists in the file. */
+  startPersons: Record<string, string>;
   /** Cache the loaded files + progress to IndexedDB so a reload restores the
    *  workspace. Opt-in: off by default, and only when on may the browser be
    *  asked for persistent storage. */
@@ -194,6 +199,10 @@ export interface AppSettings extends NameDisplayOptions {
    *  5.5.1 save without a submitter. Empty = the program's name. Stored as
    *  typed; trimmed where it is written. */
   authorName: string;
+  /** The reader's e-mail and website, written beside the name into such a
+   *  submitter record (EMAIL, WWW); empty = left out. */
+  authorEmail: string;
+  authorWww: string;
 }
 
 const DEFAULTS: AppSettings = {
@@ -213,6 +222,7 @@ const DEFAULTS: AppSettings = {
   formatOverrides: {},
   targetFormats: {},
   targetNoticeHidden: [],
+  startPersons: {},
   persistWorkspace: false,
   saveReport: false,
   saveDiffView: false,
@@ -220,10 +230,26 @@ const DEFAULTS: AppSettings = {
   marriedNameFromPartner: false,
   homeCountry: HOME_COUNTRY_AUTO,
   authorName: "",
+  authorEmail: "",
+  authorWww: "",
 };
 
-/** A GEDCOM NAME line is short; a longer stored value is cut, not rejected. */
+/** GEDCOM's NAME, EMAIL and WWW lines are short (5.5.1 caps each at 120); a
+ *  longer stored value is cut, not rejected. */
 export const MAX_AUTHOR_NAME = 120;
+
+/** The settings that make up the file's author — for `useSettingsSlice`. */
+export const AUTHOR_KEYS = ["authorName", "authorEmail", "authorWww"] as const;
+
+/** The reader as a file's author, for the writers (`completeStructure`,
+ *  `newGedcomText`). */
+export function submitterOf(s: Pick<AppSettings, (typeof AUTHOR_KEYS)[number]>): Submitter {
+  return { name: s.authorName, email: s.authorEmail, www: s.authorWww };
+}
+
+/** One line of text, cut to {@link MAX_AUTHOR_NAME}; anything else = "". */
+const authorField = (value: unknown): string =>
+  typeof value === "string" ? value.replace(/[\r\n]+/g, " ").slice(0, MAX_AUTHOR_NAME) : "";
 
 /** Digits 1–9 trigger the quick-add buttons, so the list is capped at nine. */
 export const MAX_QUICK_EVENTS = 9;
@@ -311,9 +337,10 @@ function applyDateDisplay(s: AppSettings): void {
 }
 
 /** The preferences store the provider holds: read from localStorage once,
- *  written back on every change. Exported for its tests. */
-export function createSettingsStore(): SettingsStore {
-  let current = load();
+ *  written back on every change — or, with `persist` off, kept in memory
+ *  only, from the defaults. Exported for its tests. */
+export function createSettingsStore(persist = true): SettingsStore {
+  let current = persist ? load() : DEFAULTS;
   applyDateDisplay(current);
   const listeners = new Set<() => void>();
   return {
@@ -326,7 +353,7 @@ export function createSettingsStore(): SettingsStore {
     },
     set(patch) {
       current = { ...current, ...patch };
-      save(current);
+      if (persist) save(current);
       if ("dateDisplay" in patch) applyDateDisplay(current);
       // Copy first: a listener may unsubscribe as it runs.
       for (const listener of [...listeners]) listener();
@@ -463,15 +490,16 @@ function load(): AppSettings {
       targetNoticeHidden: Array.isArray(parsed.targetNoticeHidden)
         ? parsed.targetNoticeHidden.filter((k): k is string => typeof k === "string" && !!k).slice(-MAX_REMEMBERED_TARGETS)
         : [],
+      startPersons: sanitizeStartPersons(parsed.startPersons),
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
       saveReport: bool(parsed.saveReport, DEFAULTS.saveReport),
       saveDiffView: bool(parsed.saveDiffView, DEFAULTS.saveDiffView),
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
       marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),
       homeCountry: sanitizeHomeCountry(parsed.homeCountry),
-      authorName: typeof parsed.authorName === "string"
-        ? parsed.authorName.replace(/[\r\n]+/g, " ").slice(0, MAX_AUTHOR_NAME)
-        : DEFAULTS.authorName,
+      authorName: authorField(parsed.authorName),
+      authorEmail: authorField(parsed.authorEmail),
+      authorWww: authorField(parsed.authorWww),
     };
   } catch {
     return DEFAULTS;
@@ -486,10 +514,16 @@ function save(settings: AppSettings): void {
   }
 }
 
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
+export function SettingsProvider({ children, persist = true }: {
+  children: React.ReactNode;
+  /** Off for the family website: it starts from the defaults and never writes
+   *  the app's stored preferences, which a site on the same origin as GED
+   *  Merge would otherwise overwrite with its author's. */
+  persist?: boolean;
+}) {
   // Created once and never replaced, so the provider itself never re-renders
   // on a preference change — only the components subscribed to what changed.
-  const [store] = useState(createSettingsStore);
+  const [store] = useState(() => createSettingsStore(persist));
   return <SettingsContext.Provider value={store}>{children}</SettingsContext.Provider>;
 }
 

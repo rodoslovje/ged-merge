@@ -13,6 +13,7 @@ import { ageBetween } from "../gedcom/age";
 export const STATED_AGE_TOLERANCE = 1;
 import { birthParentFamilies, isBirthChildLink, isSameSexCouple } from "../gedcom/couple";
 import { contradicts } from "../gedcom/negative";
+import { birthBound, daySpan, marriageEstimate, previewBirthEstimateDates } from "./estimates";
 
 /**
  * Plausibility limits for age-based sanity checks, in whole years. Computed from
@@ -35,14 +36,6 @@ export const AGE_LIMITS = {
  * birth span by a rounding artefact.
  */
 export const MIN_BIRTH_INTERVAL_MONTHS = 9;
-
-/**
- * Largest group of people, linked only to each other, still reported as a stray
- * island rather than left alone as a branch in its own right. A handful of
- * people who connect to nobody else is usually an import that never got
- * attached, or a duplicate of a branch already in the file.
- */
-export const MAX_ISLAND_SIZE = 9;
 
 /**
  * Main-file health check.
@@ -79,6 +72,8 @@ export type IssueCategory =
   | "ageAtMarriage"
   | "parentAge"
   | "bornAfterParentDeath"
+  | "bornBeforeMarriage"
+  | "undatedMarriage"
   | "parallelFamilies"
   | "spouseAgeGap"
   | "futureDate"
@@ -106,6 +101,18 @@ export interface ValidationIssue {
    * its neutral form.
    */
   sexContext?: "M" | "F";
+  /** A better marriage date the finding proves (`bornBeforeMarriage` against
+   *  an estimated or bounded marriage) — what the row's fix writes. */
+  marriageFix?: MarriageDateFix;
+  /** The birth date the estimate would write (`missingVitals`) — the same
+   *  one Batch's "Estimate birth" proposes, and what the row's fix writes. */
+  birthEstimate?: string;
+}
+
+/** Write `value` as the `MARR` date of family `famId`. */
+export interface MarriageDateFix {
+  famId: string;
+  value: string;
 }
 
 export interface ValidationReport {
@@ -140,6 +147,8 @@ const EMPTY_COUNTS: Record<IssueCategory, number> = {
   ageAtMarriage: 0,
   parentAge: 0,
   bornAfterParentDeath: 0,
+  bornBeforeMarriage: 0,
+  undatedMarriage: 0,
   parallelFamilies: 0,
   spouseAgeGap: 0,
   futureDate: 0,
@@ -271,54 +280,81 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
  * The file's disconnected groups: each set of people reachable from one another
  * through family links, smallest-first, with the file's main tree left out.
  *
- * The largest component is the tree the file is about, so it's never an island —
- * and when several tie for largest, none of them stands out as the stray, so
- * they all stay out. A component of one is already an `orphan` finding, and
- * anything above {@link MAX_ISLAND_SIZE} is a branch in its own right; both are
- * dropped here so nothing is reported twice or cried wolf over.
+ * The main tree is the group the start person (`startId`) belongs to. Without
+ * one, or when it names nobody in the file, it is the largest group, and when
+ * several tie for largest none of them stands out as the stray, so they all
+ * stay out. A group of one is already an `orphan` finding and is dropped here,
+ * so nothing is reported twice. Every other group is reported, whatever its
+ * size: a handful of people is usually an import that never got attached or a
+ * duplicate of a branch already in the file, a larger one a branch whose link
+ * to the main tree is missing.
  *
  * Iterative breadth-first walk over `childOf`/`spouseOf` and back out through
  * each family's members — one pass over the graph, no recursion.
  */
-function findIslands(ds: Dataset): Individual[][] {
+function findIslands(ds: Dataset, startId?: string): Individual[][] {
   const seen = new Set<string>();
   const components: Individual[][] = [];
-
-  const membersOf = (indi: Individual): string[] => {
-    const out: string[] = [];
-    for (const famId of [...indi.childOf, ...indi.spouseOf]) {
-      const fam = ds.families.get(famId);
-      if (!fam) continue;
-      if (fam.husband) out.push(fam.husband);
-      if (fam.wife) out.push(fam.wife);
-      out.push(...fam.children);
-    }
-    return out;
-  };
+  let mainGroup: Individual[] | undefined;
 
   for (const start of ds.individuals.values()) {
     if (seen.has(start.id)) continue;
-    const group: Individual[] = [];
-    const queue = [start];
-    seen.add(start.id);
-    while (queue.length) {
-      const indi = queue.pop()!;
-      group.push(indi);
-      for (const id of membersOf(indi)) {
-        if (seen.has(id)) continue;
-        const next = ds.individuals.get(id);
-        if (!next) continue; // dangling member — the brokenLink check's
-        seen.add(id);
-        queue.push(next);
-      }
-    }
+    const group = groupOf(ds, start, seen);
+    if (group.some((indi) => indi.id === startId)) mainGroup = group;
     components.push(group);
   }
 
   const largest = components.reduce((max, c) => Math.max(max, c.length), 0);
+  const isMain = (c: Individual[]) => (mainGroup ? c === mainGroup : c.length >= largest);
   return components
-    .filter((c) => c.length > 1 && c.length <= MAX_ISLAND_SIZE && c.length < largest)
+    .filter((c) => c.length > 1 && !isMain(c))
     .sort((a, b) => a.length - b.length);
+}
+
+/** The people a person's own family links reach in one step: everyone in the
+ *  families they are a child or a partner in. */
+function linkedPeople(ds: Dataset, indi: Individual): string[] {
+  const out: string[] = [];
+  for (const famId of [...indi.childOf, ...indi.spouseOf]) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    if (fam.husband) out.push(fam.husband);
+    if (fam.wife) out.push(fam.wife);
+    out.push(...fam.children);
+  }
+  return out;
+}
+
+/** Everyone reachable from `start` through family links, `start` first —
+ *  marking each in `seen`, and skipping anyone already in it. Iterative, so a
+ *  long line does not grow the stack. */
+function groupOf(ds: Dataset, start: Individual, seen: Set<string>): Individual[] {
+  const group: Individual[] = [];
+  const queue = [start];
+  seen.add(start.id);
+  while (queue.length) {
+    const indi = queue.pop()!;
+    group.push(indi);
+    for (const id of linkedPeople(ds, indi)) {
+      if (seen.has(id)) continue;
+      const next = ds.individuals.get(id);
+      if (!next) continue; // dangling member — the brokenLink check's
+      seen.add(id);
+      queue.push(next);
+    }
+  }
+  return group;
+}
+
+/**
+ * The ids of everyone in `personId`'s branch — the group of people linked to
+ * one another through families that a detached-branch finding names by its
+ * youngest member. Empty when the file has no such person. Asked when the
+ * finding's row is acted on, so the scan itself only carries the count.
+ */
+export function branchOf(ds: Dataset, personId: string): string[] {
+  const start = ds.individuals.get(personId);
+  return start ? groupOf(ds, start, new Set()).map((indi) => indi.id) : [];
 }
 
 /**
@@ -490,7 +526,15 @@ function findParallelFamilies(ds: Dataset): ParallelFamilies[] {
   }
 }
 
-export function validateDataset(ds: Dataset, currentYear: number = new Date().getFullYear()): ValidationReport {
+/**
+ * @param startId The main file's start person, if one is set: its group is the
+ *   main tree that detached groups are measured against.
+ */
+export function validateDataset(
+  ds: Dataset,
+  currentYear: number = new Date().getFullYear(),
+  startId?: string,
+): ValidationReport {
   const issues: ValidationIssue[] = [];
   const counts: Record<IssueCategory, number> = { ...EMPTY_COUNTS };
 
@@ -761,7 +805,35 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     const wife = fam.wife ? ds.individuals.get(fam.wife) : undefined;
     const hb = birthYear(husband);
     const wb = birthYear(wife);
-    const marrYear = fam.events.find((e) => e.tag === "MARR")?.date?.year;
+    const marrDate = fam.events.find((e) => e.tag === "MARR")?.date;
+    const marrYear = marrDate?.year;
+    const marrSpan = marrDate && daySpan(marrDate);
+    // The marriage is only estimated (ABT) or bounded from above (BEF): what
+    // the eldest stated birth proves it was before, offered as its fix — the
+    // same estimate Batch writes.
+    const marrVague = !!marrSpan && (!marrSpan.sure || marrSpan.from === -Infinity);
+    const marrValue = marrVague ? marriageEstimate(ds, fam) : undefined;
+    const marrFix: MarriageDateFix | undefined = marrValue ? { famId: fam.id, value: marrValue } : undefined;
+
+    // A couple's marriage recorded without a date — reported on the husband
+    // (the wife when his record is missing), offered the estimate Batch writes
+    // when the family supports one.
+    const marr = fam.events.find((e) => e.tag === "MARR");
+    if (marr && !marr.date?.raw.trim() && fam.husband && fam.wife) {
+      const person = husband ?? wife;
+      if (person) {
+        const partnerId = person === husband ? fam.wife : fam.husband;
+        const partner = ds.individuals.get(partnerId);
+        const value = marriageEstimate(ds, fam);
+        push({
+          scope: "individual", id: person.id, category: "undatedMarriage", severity: "warning",
+          subject: subjectOf(person), sexContext: sexOf(person),
+          messageKey: "tools.validate.issue.undatedMarriage",
+          messageVars: { partner: partner ? subjectOf(partner) : partnerId },
+          ...(value ? { marriageFix: { famId: fam.id, value } } : null),
+        });
+      }
+    }
 
     // Role/sex contradiction: a HUSB recorded female or a WIFE recorded male.
     // SEX U is left alone (unknown, not contradictory). Reported on the person,
@@ -860,6 +932,33 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
           messageVars: { birth: cb, death: wd },
         });
       }
+
+      // A child born before the parents married — a fact worth seeing (a
+      // later legitimation, or a marriage or child on the wrong record), not
+      // an error. Only when the marriage is dated. A baptism before the
+      // wedding says the same. Three cases:
+      //  - both dates stated: listed when the birth's last possible day falls
+      //    before the marriage's first;
+      //  - the birth only estimated: listed the same way, as a possibility;
+      //  - the marriage only estimated or bounded (ABT 1775, BEF 1773): listed
+      //    when a stated birth falls before the estimate, or before the bound —
+      //    and offered the better date that birth proves (BEF the eldest's).
+      const born = birthBound(child);
+      if (marrSpan && born) {
+        const finding = (messageKey: string, fix?: MarriageDateFix) => push({
+          scope: "individual", id: child.id, category: "bornBeforeMarriage", severity: "warning",
+          subject: subjectOf(child), sexContext: sexOf(child), messageKey,
+          messageVars: { birth: dateText(born.date), marriage: dateText(marrDate!) },
+          ...(fix ? { marriageFix: fix } : null),
+        });
+        if (!marrVague) {
+          if (born.to < marrSpan.from) {
+            finding(born.sure ? "tools.validate.issue.bornBeforeMarriage" : "tools.validate.issue.bornBeforeMarriageEstimatedBirth");
+          }
+        } else if (born.sure && born.to < (marrSpan.sure ? marrSpan.to : marrSpan.from)) {
+          finding("tools.validate.issue.bornBeforeEstimatedMarriage", marrFix);
+        }
+      }
     }
   }
 
@@ -900,9 +999,9 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     });
   }
 
-  // Small groups linked only to each other — reported once, on the youngest,
-  // who is where the search for the missing link starts.
-  for (const group of findIslands(ds)) {
+  // Groups linked only to each other — reported once, on the youngest, who is
+  // where the search for the missing link starts.
+  for (const group of findIslands(ds, startId)) {
     const person = youngestOf(group);
     push({
       scope: "individual", id: person.id, category: "island", severity: "warning",
@@ -938,6 +1037,10 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
       const ref = fam[role];
       if (ref && !ds.individuals.has(ref)) {
         add("tools.validate.issue.spouseMissing", { indi: ref });
+      } else if (ref && !ds.individuals.get(ref)!.spouseOf.includes(fam.id)) {
+        // The family names a spouse who doesn't name it back — the other half
+        // of the person-side `famsNotReciprocal` (reciprocal from both sides).
+        add("tools.validate.issue.spouseNotReciprocal", { indi: ref });
       }
     }
     // Two different individuals crammed into one spouse slot — some exporters
@@ -966,6 +1069,8 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
     for (const childId of fam.children) {
       if (!ds.individuals.has(childId)) {
         add("tools.validate.issue.childMissing", { indi: childId });
+      } else if (!ds.individuals.get(childId)!.childOf.includes(fam.id)) {
+        add("tools.validate.issue.childNotReciprocal", { indi: childId });
       }
     }
     // Redundant pointer lines: the same child listed twice as CHIL.
@@ -975,6 +1080,15 @@ export function validateDataset(ds: Dataset, currentYear: number = new Date().ge
         subject, messageKey: "tools.validate.issue.dupChil", messageVars: { indi: indiId },
       });
     }
+  }
+
+  // Undated people: the birth Batch would estimate, computed once for all of
+  // them so the sibling spreading sees the same set it does there.
+  const undated = issues.filter((i) => i.category === "missingVitals");
+  const births = previewBirthEstimateDates(ds, undated.map((i) => i.id));
+  for (const issue of undated) {
+    const value = births.get(issue.id);
+    if (value) issue.birthEstimate = value;
   }
 
   // Stable, useful ordering: errors first, then by category, then by subject.

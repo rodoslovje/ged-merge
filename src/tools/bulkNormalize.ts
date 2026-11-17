@@ -3,6 +3,7 @@ import type { NormChange, NormalizationReport, NormalizeOptions } from "../norma
 import { childValue, cloneNode, nodesEqual } from "../gedcom/node";
 import { bumpSourceCacheVersion, rebuildNoteReferrers } from "../gedcom/edit";
 import { clearObjeNodeCache } from "../gedcom/source";
+import { NOTE_TAGS } from "../gedcom/builder";
 import type { RecordPatch } from "../ui/historyTypes";
 import { recordPatch } from "./fixConformance";
 import { DATE_REPAIRS, normalizeRepairKinds, runNormalizeRepair } from "./normalizeRepairs";
@@ -12,7 +13,8 @@ const DEFAULT_PASSES: NormalizeOptions = { dates: true, places: true, links: tru
 import { applyPassSafely, type PassJournal } from "./passSafety";
 import { foreignAliasTags, isNativeTag, producerSoftware } from "../gedcom/vendorTags";
 import { inferMainProfile, collectLayoutValues } from "../normalize/profile";
-import { applyFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
+import { applyFormatOverrides, writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
+import { versionFamily } from "../normalize/migrate";
 import { normalizeDataset, recordExample } from "../normalize/normalize";
 import { detectSourceCoverage } from "../gedcom/source";
 import { baptismTargetTag, normalizeSourceCoverage } from "./sourceReshape";
@@ -87,6 +89,8 @@ export function bulkNormalize(
   // follows each of them rather than forcing one on both.
   if (options?.noteShape !== false) {
     const detected = detectNoteShapes(ds.records);
+    // The target's version, else (no target given) the file's own.
+    const version = overrides?.writeVersion ? writeVersionOf(overrides) : versionFamily(ds.version);
     const recordTarget = overrides?.notes ?? detected.record;
     const eventTarget = overrides?.eventNotes ?? detected.event;
     const passes = [
@@ -96,7 +100,7 @@ export function bulkNormalize(
     let changed = 0;
     const examples: NormChange[] = [];
     for (const { target, scope } of passes) {
-      const r = reshapeNotes(result.dataset.records, target, scope);
+      const r = reshapeNotes(result.dataset.records, target, version, scope);
       changed += r.changed;
       for (const ex of r.examples) if (examples.length < 12) examples.push(ex);
     }
@@ -160,7 +164,7 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
     const node = live.get(r.xref);
     if (!node) {
       patches.push({ type: "record", id: r.xref, before: null, after: cloneNode(r), index: records.length });
-      if (r.tag === "NOTE") notes.push({ xref: r.xref });
+      if (NOTE_TAGS.includes(r.tag)) notes.push({ xref: r.xref });
       records.push(r);
       continue;
     }
@@ -170,7 +174,7 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
     journal.keep(r.xref, before);
     node.value = r.value;
     node.children = r.children;
-    if (node.tag === "NOTE") notes.push({ xref: r.xref });
+    if (NOTE_TAGS.includes(node.tag)) notes.push({ xref: r.xref });
     changed.push({ node, before });
   }
   records.push(...headless);
@@ -178,7 +182,7 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
     if (nextXrefs.has(xref)) continue;
     journal.keep(xref, node);
     patches.push({ type: "record", id: xref, before: node, after: null, index: liveIndex.get(xref) });
-    if (node.tag === "NOTE") notes.push({ xref });
+    if (NOTE_TAGS.includes(node.tag)) notes.push({ xref });
   }
   if (!patches.length && !changed.length) return [];
   // Pushed one by one: a spread of a large file's records overflows the stack.

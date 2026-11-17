@@ -14,6 +14,8 @@ import { EventGlyphs } from "../EventGlyph";
 import { foldSearch, matchesTerms } from "../globalSearch";
 import { useNameOf } from "../SettingsContext";
 import { MapIcon } from "../icons/MapIcon";
+import { InfoIcon } from "../icons/InfoIcon";
+import { tipProps } from "../IconTip";
 import { SuggestInput } from "../edit/SuggestInput";
 import { usePlaceLookup } from "../edit/PlaceLookupContext";
 import { placeKey, type FieldSuggestions } from "../edit/fieldSuggestions";
@@ -411,6 +413,27 @@ export function MapToggle({ open, onToggle }: { open: boolean; onToggle: () => v
 }
 
 /**
+ * A list's explanation behind ⓘ »How it works«, closed until asked for.
+ *
+ * The places pages each opened on a paragraph of how the list works — useful
+ * once, then a block of grey text the eye has to step over to reach the list,
+ * every time. The words stay one click away, with any link inside them still
+ * a link (which a tooltip could not keep).
+ */
+export function ToolsIntro({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="tools-intro-wrap">
+      <button type="button" className="tools-intro-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <InfoIcon size={14} /> {t("tools.introToggle")}
+      </button>
+      {open && <p className="tools-intro">{children}</p>}
+    </div>
+  );
+}
+
+/**
  * The ✎ (U+270E) that opens a row's rename editor, and the ✕ that closes it —
  * the same mark the places tree, both geocoding lists, the compliance lists and
  * Organize sources put beside a value they let you rewrite.
@@ -788,6 +811,16 @@ export function ExpandAllToggle({ allOpen, onToggle }: { allOpen: boolean; onTog
   return (
     <button className="tools-issue-link" onClick={onToggle}>
       {t(allOpen ? "tools.sources.collapseAll" : "tools.sources.expandAll")}
+    </button>
+  );
+}
+
+/** An ⓘ that holds an explanation: shown in the app's quick tooltip on hover,
+ *  keyboard focus and tap, instead of a paragraph on the page. */
+export function InfoTip({ hint, heading }: { hint: string; heading?: string }) {
+  return (
+    <button type="button" className="stats-info" {...tipProps(hint, heading ? { heading } : undefined)}>
+      <InfoIcon size={14} />
     </button>
   );
 }

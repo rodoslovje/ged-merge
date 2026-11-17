@@ -181,7 +181,7 @@ describe("undo of a pruned shared note", () => {
     const snap = snapshotRecords(ds, ["@I1@"], []);
     const indi = ds.individuals.get("@I1@")!;
     indi.raw.children = indi.raw.children.filter((c) => c.tag !== "NOTE");
-    const ctx = noteCtx(ds.records);
+    const ctx = noteCtx(ds.records, "5.5.1");
     removeNoteRecordIfOrphaned(ctx, "@N1@");
     const patches = [
       ...patchesFromSnapshots(ds, snap),

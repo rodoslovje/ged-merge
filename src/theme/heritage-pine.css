@@ -25,8 +25,15 @@
   --faint:     #66635e;   /* NEW — tertiary / empty values     */
   --accent:    #60c09e;   /* Heritage Pine                    */
   --accent-ink:#071a13;   /* NEW — text/icon on accent fills   */
+  /* A mark drawn on a photo (the family website's tagged people): the pine
+     that shows on any photo, and the ink of a label filled with it. */
+  --photo-mark:     var(--accent);
+  --photo-mark-ink: var(--accent-ink);
   /* Tinted accent fill (hover rows, soft highlights); adapts to light via --accent. */
   --accent-soft: color-mix(in oklch, var(--accent) 16%, transparent);
+  /* Compare-table group headers (Parents, Family with …): a neutral fill set
+     apart by lightness from the warm difference tints; adapts via --text/--panel. */
+  --group-head-bg: color-mix(in oklch, var(--text) 11%, var(--panel));
 
   /* ---- diff status — the 5-state language ---- */
   --state-match:    #5ed99e;  /* records agree            */
@@ -68,6 +75,10 @@
      progression on this ground. */
   --fan-branch-l: 0.72;
   --fan-branch-c: 0.15;
+  /* ---- Statistics → Places: one hue per named place, the same place in the
+     same hue on every card; the theme sets the lightness and chroma. */
+  --stats-place-l: 0.74;
+  --stats-place-c: 0.13;
 
   /* ---- destructive / danger (delete, remove, irreversible actions) ---- */
   --danger:      #e74c3c;
@@ -100,6 +111,7 @@
   /* ---- Map chart: marker colour per event kind + offline-outline land ---- */
   --map-birth:     #6ec87f;
   --map-marriage:  #d9a441;
+  --timeline-history: #d9a441;  /* historical events on the Timeline */
   --map-death:     #d1685a;
   --map-burial:    #a08bc0;
   --map-residence: #5fa8d3;
@@ -140,6 +152,9 @@
   --faint:     #95928d;
   --accent:    #31715b;   /* deeper pine for light bg */
   --accent-ink:#ffffff;
+  /* The photo viewer is dark in either theme: the bright pine, not the deep. */
+  --photo-mark:     #60c09e;
+  --photo-mark-ink: #071a13;
 
   --state-match:    #158353;
   --state-minor:    #aa7323;
@@ -166,6 +181,8 @@
   /* Darker, fuller hues on paper: the tints are mixed into a light panel. */
   --fan-branch-l: 0.56;
   --fan-branch-c: 0.16;
+  --stats-place-l: 0.58;
+  --stats-place-c: 0.14;
 
   --danger:      #c0392b;   /* deeper red reads better on warm paper */
   /* --danger-soft inherits the dark-theme color-mix definition (uses var(--danger)) */
@@ -185,6 +202,7 @@
 
   --map-birth:     #2e7d43;
   --map-marriage:  #a9750e;
+  --timeline-history: #a9750e;
   --map-death:     #b04434;
   --map-burial:    #6d5a92;
   --map-residence: #2c6e99;

@@ -4,7 +4,7 @@ import type { Translate } from "../../locales/i18n";
 import { KEY, keyHint } from "../../keyboard/shortcuts";
 import { DropdownMenu, type DropdownItem } from "../DropdownMenu";
 import { RelativePickerCard } from "./RelativePickerCard";
-import { HomeIcon } from "../icons/HomeIcon";
+import { StartIcon } from "../icons/StartIcon";
 
 /**
  * The start person's control, living where its effect shows: the kinship
@@ -13,7 +13,8 @@ import { HomeIcon } from "../icons/HomeIcon";
  * none set, a faint "Set start person" chip takes the label's place, so the
  * kinship feature advertises itself on every person instead of in a header
  * field. When there is no label to show (kinship hidden in Settings, or no
- * relation), a bare ⌂ carries the same menu.
+ * relation), a bare target carries the same menu. The label wears the target
+ * too, so it reads as the control it is.
  */
 export function StartPersonChip({
   t,
@@ -73,15 +74,15 @@ export function StartPersonChip({
   let title: string;
   if (!startId) {
     className = "start-chip start-chip--unset";
-    trigger = <><HomeIcon size={12} /> {t("start.chip.set")}</>;
+    trigger = <><StartIcon size={12} /> {t("start.chip.set")}</>;
     title = t("start.tooltip");
   } else if (kinship) {
     className = `person-kinship start-chip ${kinshipLineage ?? ""}`;
-    trigger = kinship;
+    trigger = <><StartIcon size={12} />{kinship}</>;
     title = kinshipTooltip ?? kinship;
   } else {
     className = "start-chip start-chip--icon";
-    trigger = <HomeIcon size={13} />;
+    trigger = <StartIcon size={13} />;
     title = t("start.chip.heading", { name: startName });
   }
 

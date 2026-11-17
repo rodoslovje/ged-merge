@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { detectParishIndex, gedcomDate, parseAssociates, parseNotePerson, parseParishIndexCsv } from "./parishIndex";
 import type { Dataset, GedNode } from "../gedcom/types";
+import { buildDataset } from "../gedcom/builder";
+import { parseGedcom } from "../gedcom/parser";
+import { inferMainProfile } from "../normalize/profile";
+import { normalizeDataset } from "../normalize/normalize";
+import { validateConformance } from "../tools/conformance/conformance";
 
 // The published marriage indexes come in two widths: the later files give the
 // bride an address column of her own, the earlier ones carry one address for
@@ -250,7 +255,7 @@ describe("parseParishIndexCsv — marriage rows", () => {
   it("keeps the archival spelling as a name of its own", () => {
     const names = wedding(parse(text)).groom.children.filter((c) => c.tag === "NAME");
     expect(names.map((n) => n.value)).toEqual(["Matija /Jakofčič/", "Matija /Jakoftschitsch/"]);
-    expect(child(names[1], "TYPE")?.value).toBe("aka");
+    expect(child(names[1], "TYPE")?.value).toBe("AKA");
   });
 
   it("gives the one address of a narrow file to the groom", () => {
@@ -394,4 +399,29 @@ describe("parseParishIndexCsv — the file itself", () => {
     expect(parse(csv(P_NARROW_HEADER, `1;Dobrova;1836-01-31;Šmartno 9;Andrej;Čergan;;Mica;Hribernik;;;;x`))
       .sparseBirthDates).toBe(true);
   });
+});
+
+describe("parseParishIndexCsv — against a strict main", () => {
+  // A wedding with witnesses and an archival spelling, and a baptism with
+  // godparents: every structure the index writes beyond names and events.
+  const rows = [
+    csv(
+      P_HEADER,
+      `1;Podzemelj;1873-06-11;Griblje 13;Matija;Jakofčič;Jakoftschitsch;Griblje 62;Marija;Križan;;${MATRICULA};` +
+        `"Ženin: 42 let; starša Matija Jakofčič in Barbara Simec. Priči: Miha Križan, Jurij Klepec, kmeta.";x`,
+    ),
+    csv(K_HEADER, `1;Grahovo;1837-02-21;1837-02-21;Žerovnica 31;Matija;;Anton;Šega;;Elizabeta;Gornik;;;"Botra: Jera Lavrič, Miha Ileršič.";x`),
+  ];
+
+  for (const version of ["5.5.1", "7.0"] as const) {
+    it(`normalizes to valid ${version} lines`, () => {
+      const form = version === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : "";
+      const head = `0 HEAD\n1 GEDC\n2 VERS ${version}\n${form}1 SOUR test\n`;
+      const main = buildDataset(parseGedcom(new TextEncoder().encode(`${head}0 TRLR\n`).buffer));
+      for (const text of rows) {
+        const { dataset: out } = normalizeDataset(parse(text), inferMainProfile(main));
+        expect(validateConformance({ records: [main.records[0], ...out.records] })).toEqual([]);
+      }
+    });
+  }
 });

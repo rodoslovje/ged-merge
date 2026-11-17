@@ -306,8 +306,50 @@ const XLINK_NS = "http://www.w3.org/1999/xlink";
 // Band geometry/branding constants are exported: the map's PNG export draws
 // the same header/footer on canvas.
 export const SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif";
-export const SITE = "gedmerge.com";
+const SITE = "gedmerge.com";
 const SITE_URL = "https://gedmerge.com";
+
+/** The address an export's footer names and links to: gedmerge.com, or on a
+ *  family website the address its author hosts it at. */
+let exportSite = { label: SITE, url: SITE_URL };
+/** On a family website, the footer's credit ("Made with GED Merge"), in the
+ *  reader's language at the time of the export. */
+let exportCredit: (() => string) | undefined;
+
+/** Name another address in every export's footer (the family website's own),
+ *  or gedmerge.com again with none — and, on the website, credit GED Merge
+ *  first, as the site's own footer does. */
+export function setExportSite(url: string | undefined, credit?: () => string): void {
+  const clean = url?.trim();
+  exportSite = clean ? siteLinkOf(clean) : { label: SITE, url: SITE_URL };
+  exportCredit = credit;
+}
+
+/** An address as a link: its text without the scheme or a trailing slash, its
+ *  target with https:// where it names no scheme. */
+export function siteLinkOf(address: string): { label: string; url: string } {
+  const clean = address.trim();
+  return { label: clean.replace(/^https?:\/\//i, "").replace(/\/+$/, ""), url: /^https?:\/\//i.test(clean) ? clean : `https://${clean}` };
+}
+
+/** The footer's address: its text and its link. */
+export function exportSiteLink(): { label: string; url: string } {
+  return exportSite;
+}
+
+/** What an export's footer says on its left, after the badge, as links in
+ *  order: the site's address in the app; "Made with GED Merge" and then the
+ *  site's own address (where it has one) on a family website. */
+export function exportFooterLinks(): { text: string; url: string }[] {
+  if (!exportCredit) return [{ text: exportSite.label, url: exportSite.url }];
+  const out = [{ text: exportCredit(), url: SITE_URL }];
+  if (exportSite.url !== SITE_URL) out.push({ text: exportSite.label, url: exportSite.url });
+  return out;
+}
+
+/** The font of the footer links, and what stands between two of them. */
+export const FOOTER_LINK_FONT = `600 12px ${SANS}`;
+export const FOOTER_LINK_SEP = " · ";
 
 // Brand badge colours, fixed so the footer logo stays on-brand regardless of the
 // diagram's (theme-dependent) export colours. Mirrors public/app-icon.svg.
@@ -522,8 +564,10 @@ export function wrapWithBands(
     textWidth(opts.title, `600 18px ${SANS}`),
     opts.subtitle ? textWidth(opts.subtitle, `12px ${SANS}`) : 0,
   ) + 2 * MARGIN_X;
+  const footLinks = exportFooterLinks();
+  const linksW = footLinks.reduce((w, l, i) => w + textWidth(l.text, FOOTER_LINK_FONT) + (i ? textWidth(FOOTER_LINK_SEP, FOOTER_LINK_FONT) : 0), 0);
   const footerNeeds =
-    2 * MARGIN_X + BADGE_SIZE + 8 + textWidth(SITE, `600 12px ${SANS}`) +
+    2 * MARGIN_X + BADGE_SIZE + 8 + linksW +
     FOOTER_GAP + textWidth(timestamp, `12px ${SANS}`);
   const totalW = Math.ceil(Math.max(diagramW, titleNeeds, footerNeeds));
   const bandH = Math.max(diagramH, MIN_DIAGRAM_H);
@@ -592,10 +636,6 @@ export function wrapWithBands(
   // The colour key: a dot and a label per entry, in rows, under the diagram.
   if (legendH) {
     const keyY = HEADER_H + bandH;
-    const keyLine = headLine.cloneNode() as SVGLineElement;
-    keyLine.setAttribute("y1", String(keyY));
-    keyLine.setAttribute("y2", String(keyY));
-    frame.appendChild(keyLine);
     for (const chip of legend) {
       const cy = keyY + LEGEND_PAD_Y + chip.row * LEGEND_ROW_H + LEGEND_ROW_H / 2;
       const dot = document.createElementNS(SVG_NS, "circle");
@@ -624,22 +664,32 @@ export function wrapWithBands(
   frame.appendChild(footLine);
   const footTextY = footY + FOOTER_H / 2 + 4;
   // Small green brand badge, vertically centred in the footer band, with the
-  // site name as a clickable link beside it (works in browsers and print-to-PDF).
-  const link = document.createElementNS(SVG_NS, "a");
-  link.setAttributeNS(XLINK_NS, "xlink:href", SITE_URL);
-  link.setAttribute("href", SITE_URL);
-  link.setAttribute("target", "_blank");
-  link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - BADGE_SIZE) / 2, BADGE_SIZE));
-  link.appendChild(
-    svgText(SITE, MARGIN_X + BADGE_SIZE + 8, footTextY, {
-      "font-family": SANS,
-      "font-size": "12",
-      "font-weight": "600",
-      fill: foreground,
-      "text-decoration": "underline",
-    }),
-  );
-  frame.appendChild(link);
+  // footer's links beside it (they work in browsers and print-to-PDF): the
+  // badge belongs to the first.
+  let linkX = MARGIN_X + BADGE_SIZE + 8;
+  footLinks.forEach((l, i) => {
+    if (i) {
+      // The separator's dot, centred in its own width: SVG would drop the spaces.
+      frame.appendChild(svgText(FOOTER_LINK_SEP.trim(), linkX + textWidth(FOOTER_LINK_SEP, FOOTER_LINK_FONT) / 2, footTextY, { "text-anchor": "middle", "font-family": SANS, "font-size": "12", "font-weight": "600", fill: foreground }));
+      linkX += textWidth(FOOTER_LINK_SEP, FOOTER_LINK_FONT);
+    }
+    const link = document.createElementNS(SVG_NS, "a");
+    link.setAttributeNS(XLINK_NS, "xlink:href", l.url);
+    link.setAttribute("href", l.url);
+    link.setAttribute("target", "_blank");
+    if (!i) link.appendChild(svgLogoBadge(MARGIN_X, footY + (FOOTER_H - BADGE_SIZE) / 2, BADGE_SIZE));
+    link.appendChild(
+      svgText(l.text, linkX, footTextY, {
+        "font-family": SANS,
+        "font-size": "12",
+        "font-weight": "600",
+        fill: foreground,
+        "text-decoration": "underline",
+      }),
+    );
+    frame.appendChild(link);
+    linkX += textWidth(l.text, FOOTER_LINK_FONT);
+  });
   frame.appendChild(
     svgText(timestamp, totalW - MARGIN_X, footTextY, {
       "text-anchor": "end",
@@ -663,7 +713,42 @@ export function wrapWithBands(
  *  the one-page print both start here. */
 async function buildExportSvg(live: SVGSVGElement, opts: SvgExportOptions): Promise<BuiltSvg> {
   const { clone, foreground, width, height } = await prepareDiagram(live);
-  return wrapWithBands(clone, width, height, opts, foreground);
+  const box = drawnBox(live, width, height);
+  if (!box) return wrapWithBands(clone, width, height, opts, foreground);
+  // Shift the drawing so the cropped box starts at the origin.
+  const shifted = document.createElementNS(SVG_NS, "g");
+  shifted.setAttribute("transform", `translate(${-box.x},${-box.y})`);
+  while (clone.firstChild) shifted.appendChild(clone.firstChild);
+  clone.appendChild(shifted);
+  return wrapWithBands(clone, box.w, box.h, opts, foreground);
+}
+
+/** Breathing room kept around the drawing when an export is cropped to it. */
+const CROP_PAD = 12;
+
+/**
+ * The part of the canvas the diagram actually draws on, padded a little — or
+ * null when that is (nearly) the whole canvas, or can't be measured.
+ *
+ * A canvas can be far bigger than its drawing: the circle charts are a square
+ * around the full ancestor radius, while the descendant rings below the root
+ * are a few short ones, so a third of the square is blank. Fitted to paper,
+ * that blank still claims its share of the page and the chart prints small.
+ */
+function drawnBox(live: SVGSVGElement, width: number, height: number): { x: number; y: number; w: number; h: number } | null {
+  let b: DOMRect;
+  try {
+    b = live.getBBox();
+  } catch {
+    return null; // not rendered (or no layout engine, as in unit tests)
+  }
+  if (!(b.width > 0 && b.height > 0)) return null;
+  const x = Math.max(0, b.x - CROP_PAD);
+  const y = Math.max(0, b.y - CROP_PAD);
+  const w = Math.min(width, b.x + b.width + CROP_PAD) - x;
+  const h = Math.min(height, b.y + b.height + CROP_PAD) - y;
+  if (w >= width - 1 && h >= height - 1) return null;
+  return { x, y, w, h };
 }
 
 export function serialize(svg: SVGSVGElement): string {
@@ -782,6 +867,14 @@ export function printSheetSet(
  * document is dropped when the next print starts, so at most one lingers.
  */
 let printFrame: HTMLIFrameElement | null = null;
+/** The tab's own title while a print has lent it the document's. */
+let tabTitle: string | null = null;
+
+function restoreTabTitle(): void {
+  if (tabTitle === null) return;
+  document.title = tabTitle;
+  tabTitle = null;
+}
 
 export function printDocument(doc: string): void {
   printFrame?.remove();
@@ -794,10 +887,18 @@ export function printDocument(doc: string): void {
   const cleanup = () => {
     if (printFrame === iframe) printFrame = null;
     iframe.remove();
+    restoreTabTitle();
   };
   iframe.onload = () => {
     const win = iframe.contentWindow;
     if (!win) { cleanup(); return; }
+    // Browsers name a "Save as PDF" file after the tab's title, not the print
+    // frame's, so the tab carries the frame's title until the dialog closes.
+    const title = iframe.contentDocument?.title;
+    if (title) {
+      tabTitle ??= document.title;
+      document.title = title;
+    }
     // Give the data-URI images a frame to decode before printing.
     requestAnimationFrame(() => {
       win.focus();
@@ -842,13 +943,15 @@ export function printCanvasPdf(canvas: HTMLElement | null, opts: SvgExportOption
 /**
  * The diagram's own size in a `.tree-canvas`, ignoring the on-screen zoom — what
  * the print dialog needs to say how far a chart will be scaled, without building
- * the export first. `null` when the canvas holds no diagram.
+ * the export first. Cropped to what the diagram draws, as the print is.
+ * `null` when the canvas holds no diagram.
  */
 export function canvasDiagramSize(canvas: HTMLElement | null): { w: number; h: number } | null {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   const box = (svg?.getAttribute("viewBox") ?? "").split(/[\s,]+/).map(Number);
-  if (box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
-  return { w: box[2], h: box[3] };
+  if (!svg || box.length !== 4 || !(box[2] > 0) || !(box[3] > 0)) return null;
+  const drawn = drawnBox(svg, box[2], box[3]);
+  return drawn ? { w: drawn.w, h: drawn.h } : { w: box[2], h: box[3] };
 }
 
 /**

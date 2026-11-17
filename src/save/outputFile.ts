@@ -1,9 +1,12 @@
-import { submitterName } from "../gedcom/newFile";
+import { submitterFields, type Submitter } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
+import { conformingXref, xrefConforms } from "../gedcom/xrefShape";
+import { relevelRecords } from "../gedcom/mediaForm";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { migrateVersion, versionFamily, type VersionFamily } from "../normalize/migrate";
 import { walkNodes } from "../normalize/walk";
+import type { WriteTarget } from "../normalize/target";
 import { registryEntry } from "../gedcom/extensionRegistry";
 import { termsUri } from "../gedcom/extensionTerms";
 
@@ -28,6 +31,13 @@ export type StructuralFix = "head" | "trlr" | "gedc" | "char" | "subm" | "gedc7"
 /** The version a file is saved in unless the reader picks the other one. */
 export function ownVersion(ds: Pick<Dataset, "version">): OutputVersion {
   return versionFamily(ds.version);
+}
+
+/** The version a download of `ds` is written in under the main file's target
+ *  format: a strict target's own version (the download converts a file in the
+ *  other one), else the file's own — as Save does. */
+export function downloadVersion(ds: Pick<Dataset, "version">, target: Pick<WriteTarget, "strict" | "version">): OutputVersion {
+  return target.strict ? target.version : ownVersion(ds);
 }
 
 /** Serialize options for a download written in `version`. */
@@ -57,14 +67,14 @@ function gedcBlock(version: OutputVersion): GedNode {
  * them — the character set and a submitter. With `apply`, they are made
  * (the forest is mutated); without, they are only listed, which is what the
  * preview shows before anything is written. A submitter record made here is
- * named `authorName` (the reader's name from Settings), or the program's name
- * when it is empty; one the file already has is never touched.
+ * carries `author` (the reader's name, e-mail and website from Settings), or
+ * the program's name when the name is empty; one the file already has is never touched.
  */
 export function completeStructure(
   records: GedNode[],
   version: OutputVersion,
   apply = true,
-  authorName?: string,
+  author?: Submitter,
 ): StructuralFix[] {
   const fixes: StructuralFix[] = [];
   let head = records.find((r) => r.tag === "HEAD");
@@ -99,7 +109,7 @@ export function completeStructure(
       }
     }
   }
-  if (version !== "7.0" && ensureSubmitter(records, head, apply, authorName)) fixes.push("subm");
+  if (version !== "7.0" && ensureSubmitter(records, head, apply, author)) fixes.push("subm");
   if (!records.some((r) => r.tag === "TRLR")) {
     fixes.push("trlr");
     if (apply) records.push(line("TRLR"));
@@ -128,24 +138,29 @@ function declareVersion(head: GedNode, version: OutputVersion): void {
 /**
  * Point `HEAD.SUBM` at a submitter record that exists, making one when the
  * file has none (5.5.1 requires both). A header pointing at a record the file
- * lacks gets that record, under the xref it already names. Returns whether
+ * lacks gets that record, under the xref it already names unless another
+ * record already holds that xref. Returns whether
  * anything was (or, without `apply`, would be) added.
  */
-function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, authorName?: string): boolean {
+function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, author?: Submitter): boolean {
   const submitters = records.filter((r) => r.tag === "SUBM" && r.xref);
   const pointer = firstChild(head, "SUBM");
   const target = pointer?.value?.trim();
   if (target && submitters.some((r) => r.xref === target)) return false;
   if (!apply) return true;
-  let xref = target && /^@[^@]+@$/.test(target) ? target : submitters[0]?.xref;
+  const taken = new Set(records.map((r) => r.xref));
+  // Some programs point HEAD.SUBM at a person (`1 SUBM @I1@`); that id is the
+  // person's, so the new submitter never takes it — two records under one id
+  // would hand it to the submitter on the next import.
+  const usable = target && /^@[^@]+@$/.test(target) && !taken.has(target) ? target : undefined;
+  let xref = usable ?? submitters[0]?.xref;
   if (!xref) {
-    const taken = new Set(records.map((r) => r.xref));
     let n = 1;
     while (taken.has(`@U${n}@`)) n++;
     xref = `@U${n}@`;
   }
   if (!submitters.some((r) => r.xref === xref)) {
-    const record = line("SUBM", undefined, [line("NAME", submitterName(authorName))]);
+    const record = line("SUBM", undefined, submitterFields(author).map(([tag, value]) => line(tag, value)));
     record.xref = xref;
     const trlr = records.findIndex((r) => r.tag === "TRLR");
     records.splice(trlr >= 0 ? trlr : records.length, 0, record);
@@ -167,11 +182,37 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, auth
  * media), and the header, which migration leaves alone, here. Returns one
  * readable line per rewritten structure, for the preview and the report.
  */
+/**
+ * Give every record whose id 7.0 does not accept (`@f1_I1@`, `@I-12@`) one
+ * it does — upper case, any other character as `_`, a suffix when that is
+ * taken — and point every line at the new id. A download does this for every
+ * record; the health check offers it record by record (`fixConformance`).
+ */
+function renameXrefsFor70(records: GedNode[], note: (before: string, after: string) => void): void {
+  const taken = new Set(records.map((r) => r.xref).filter((x): x is string => !!x));
+  const renamed = new Map<string, string>();
+  for (const rec of records) {
+    const xref = rec.xref;
+    if (!xref || xrefConforms(xref, true)) continue;
+    const next = conformingXref(xref, true, taken);
+    taken.add(next);
+    renamed.set(xref, next);
+    rec.xref = next;
+    note(`${rec.tag} ${xref}`, `${rec.tag} ${next}`);
+  }
+  if (renamed.size === 0) return;
+  walkNodes(records, (node) => {
+    const target = node.value !== undefined ? renamed.get(node.value.trim()) : undefined;
+    if (target) node.value = target;
+  });
+}
+
 export function convertVersion(records: GedNode[], from: OutputVersion, to: OutputVersion): string[] {
   const changes: string[] = [];
   if (from === to) return changes;
   const note = (before: string, after: string) => changes.push(`${before} → ${after}`);
   migrateVersion(records, from, to, note);
+  if (to === "7.0") renameXrefsFor70(records, note);
   // A converted file is written by its new version's at-sign rule throughout.
   walkNodes(records, (node) => { delete node.atBare; });
 
@@ -253,9 +294,17 @@ export function writeSchema(records: GedNode[], headSour?: string): string[] {
   };
   visit(records, []);
   let schma = firstChild(head, "SCHMA");
-  const declared = new Set(
-    (schma?.children ?? []).filter((c) => c.tag === "TAG").map((c) => c.value?.trim().split(/\s+/)[0]),
-  );
+  // Tags compare uppercase, as the parser reads them and the download writes
+  // them: an entry `_mytag` already declares `_MYTAG`, and is written as such.
+  const declared = new Set<string>();
+  for (const entry of schma?.children ?? []) {
+    if (entry.tag !== "TAG" || !entry.value) continue;
+    const [tag, ...rest] = entry.value.trim().split(/\s+/);
+    if (!tag) continue;
+    const upper = tag.toUpperCase();
+    if (upper !== tag) entry.value = [upper, ...rest].join(" ");
+    declared.add(upper);
+  }
   const added = [...used.keys()].filter((tag) => !declared.has(tag)).sort();
   if (added.length === 0) return added;
   if (!schma) {
@@ -280,7 +329,7 @@ export interface PreparedDownload {
  * Make `records` (a clone about to be serialized) a valid file in `version`:
  * repair its structure, convert it when `version` is not the file's own,
  * declare UTF-8, stamp GED Merge as the writing system and, for 7.0, declare
- * its extension tags. `authorName` names a submitter record the file needs
+ * its extension tags. `author` fills a submitter record the file needs
  * and lacks (see {@link completeStructure}).
  */
 export function prepareDownload(
@@ -288,12 +337,15 @@ export function prepareDownload(
   ds: Pick<Dataset, "version" | "charset">,
   version: OutputVersion = ownVersion(ds),
   date: Date = new Date(),
-  authorName?: string,
+  author?: Submitter,
 ): PreparedDownload {
   const from = ownVersion(ds);
+  // Lines a merge or a normalize built may carry a stale `level`; the steps
+  // below read it.
+  relevelRecords(records);
   // The program that wrote the file, before the stamp below names GED Merge.
   const headSour = firstChild(records.find((r) => r.tag === "HEAD") ?? line("HEAD"), "SOUR")?.value;
-  const fixes = completeStructure(records, version, true, authorName);
+  const fixes = completeStructure(records, version, true, author);
   const conversion = from === version ? null : convertVersion(records, from, version);
   ensureUtf8Charset(records, { version, charset: ds.charset });
   stampHeadSource(records, { version }, date);

@@ -608,6 +608,33 @@ describe("movePlaceForAddresses", () => {
     });
   });
 
+  it("joins a house the target already places, at that house's own coordinate", () => {
+    // Klošter 12 is also written under Klošter itself, with the house's
+    // position — and Klošter as a settlement sits elsewhere. The moved events
+    // become that house, not the village centre beside it.
+    const ds = buildFromText(`${SPLIT.slice(0, SPLIT.indexOf("0 TRLR"))}0 @I3@ INDI
+1 BIRT
+2 PLAC Klošter, Metlika, Slovenia
+3 MAP
+4 LATI N45.7
+4 LONG E15.3
+0 @I4@ INDI
+1 BIRT
+2 PLAC Klošter, Metlika, Slovenia
+3 MAP
+4 LATI N45.7123
+4 LONG E15.3123
+2 ADDR Klošter 12
+0 TRLR
+`);
+    movePlaceForAddresses(ds, new Set([KLOSTER]), "Klošter, Metlika, Slovenia");
+    const house = { lat: 45.7123, lon: 15.3123 };
+    expect(ds.individuals.get("@I1@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toEqual(house);
+    expect(ds.individuals.get("@I2@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toEqual(house);
+    // Only the house's own address takes it: the settlement row keeps its own.
+    expect(ds.individuals.get("@I3@")!.events.find((e) => e.tag === "BIRT")!.place?.coord).toEqual({ lat: 45.7, lon: 15.3 });
+  });
+
   it("is a no-op without a target, without keys, or when already there", () => {
     const ds = buildFromText(SPLIT);
     expect(movePlaceForAddresses(ds, new Set([KLOSTER]), "  ")).toEqual([]);

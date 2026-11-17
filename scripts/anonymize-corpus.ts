@@ -25,7 +25,10 @@
  *
  * Deliberately KEPT even though arguably personal: place names (needed for
  * place-format tests; geography alone is not identifying) and bibliographic
- * SOUR TITL/AUTH/PUBL (needed for citation-format tests).
+ * SOUR TITL/AUTH/PUBL (needed for citation-format tests). A file that writes
+ * living people's home addresses into PLAC (Brother's Keeper) sets
+ * `scrubPlaces`: its places, addresses and house numbers become invented ones,
+ * and so do the capitalised words of its occupations and the text in its dates.
  *
  * Run:  node scripts/anonymize-corpus.ts
  * Node 24+ strips the TS types natively — no build step, no extra deps.
@@ -34,7 +37,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { GIVEN_NAMES, SURNAMES, STEM_SIZE } from "../src/__fixtures__/pseudonyms.ts";
+import { GIVEN_NAMES, KEPT_COUNTRIES, PLACE_WORDS, SURNAMES, STEM_SIZE } from "../src/__fixtures__/pseudonyms.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -53,6 +56,9 @@ interface Spec {
   /** Rough byte budget of kept INDI records before referenced records are added. */
   indiBudget?: number;
   note?: string;
+  /** Scrub places and addresses too, house numbers included: for a file that
+   *  writes living people's home addresses into PLAC (Brother's Keeper). */
+  scrubPlaces?: boolean;
 }
 
 // A curated slice of the corpus spanning exporters × charsets × GEDCOM versions.
@@ -71,6 +77,9 @@ const SPECS: Spec[] = [
   { src: "Senen.ged", out: "reunion-5.5.1-utf8.ged", charset: "utf-8", exporter: "Reunion", version: "5.5.1" },
   { src: "Renko.ged", out: "synium-7.0-utf8.ged", charset: "utf-8", exporter: "Synium MacFamilyTree", version: "7.0", note: "GEDCOM 7.0" },
   { src: "Bandelj.ged", out: "unknown-5.5.1-utf8.ged", charset: "utf-8", exporter: "(no HEAD.SOUR)", version: "5.5.1", note: "HEAD without a SOUR line" },
+  // Appended last: surname stem blocks are handed out in order, so the
+  // fixtures above keep their pseudonyms.
+  { src: "Fonda.ged", out: "brotherskeeper-ansel-w1250.ged", charset: "windows-1250", exporter: "Brother's Keeper", version: "5.5", note: "`CHAR ANSEL` over Windows-1250 bytes; places scrubbed", scrubPlaces: true },
 ];
 
 const INDI_BUDGET_DEFAULT = 55_000; // bytes of kept INDI records before 1-hop refs
@@ -174,6 +183,43 @@ function pointersIn(rec: Record): string[] {
 interface Pseudo {
   given: (s: string) => string;
   surname: (s: string) => string;
+  /** Set when the file's places are scrubbed (see `Spec.scrubPlaces`). */
+  place?: (s: string) => string;
+  /** With `place`: the place words inside free text and dates. */
+  placeWords?: (s: string, only: RegExp) => string;
+}
+
+/** Free-text lines that name a workplace, school or regiment beside the
+ *  occupation itself — their capitalised words are places or institutions. */
+const FREE_TEXT_TAGS = new Set(["OCCU", "EDUC", "_MILI", "DSCR", "RELI", "TITL", "PROP", "NATI", "FACT", "EVEN", "CAST", "GRAD"]);
+/** The words a GEDCOM date is made of; anything else in a DATE is text. */
+const DATE_WORDS = /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|ABT|BEF|AFT|BET|AND|EST|CAL|FROM|TO|INT|BC|BCE|GREGORIAN|JULIAN|HEBREW|FRENCH|D)$/i;
+
+const COUNTRY_WORDS = new Set<string>(KEPT_COUNTRIES.map((c) => c.toLowerCase()));
+
+/**
+ * A per-file place scrubber: each word maps to an invented place word and
+ * each number to another of the same length, both consistently, so places
+ * that were equal stay equal and the punctuation between parts is kept.
+ */
+function makePlaceScrubber(): { place: (value: string) => string; placeWords: (value: string, only: RegExp) => string } {
+  const word = makeMapper(PLACE_WORDS);
+  const numbers = new Map<string, string>();
+  const number = (n: string): string => {
+    let v = numbers.get(n);
+    if (!v) {
+      const low = n.length === 1 ? 1 : 10 ** (n.length - 1);
+      const span = 10 ** n.length - low;
+      v = String(low + ((numbers.size * 7919 + 13) % span));
+      numbers.set(n, v);
+    }
+    return v;
+  };
+  const one = (tok: string) => COUNTRY_WORDS.has(tok.toLowerCase()) ? tok : word(tok);
+  return {
+    place: (value) => value.replace(/\p{L}+|\d+/gu, (tok) => (/\d/.test(tok) ? number(tok) : one(tok))),
+    placeWords: (value, only) => value.replace(/\p{L}+/gu, (tok) => (only.test(tok) ? one(tok) : tok)),
+  };
 }
 
 /** Assign from a fixed pool, appending a numeric suffix only once exhausted. */
@@ -188,7 +234,7 @@ function makeMapper(pool: readonly string[]): (key: string) => string {
       const n = seen.size;
       v = n < pool.length ? pool[n] : `${pool[n % pool.length]}${Math.floor(n / pool.length) + 1}`;
       seen.set(lk, v);
-      surnameTotal += pool === GIVEN_NAMES ? 0 : 1;
+      surnameTotal += pool === GIVEN_NAMES || pool === PLACE_WORDS ? 0 : 1;
     }
     return v;
   };
@@ -204,12 +250,13 @@ let surnameTotal = 0;
  * Build a per-file pseudonymizer. Each file gets a *contiguous block of whole
  * surname stems* so its same-stem look-alikes never leak into another file.
  */
-function makeFilePseudonyms(distinctSurnames: number): Pseudo {
+function makeFilePseudonyms(distinctSurnames: number, scrubPlaces = false): Pseudo {
   const stems = Math.ceil(distinctSurnames / STEM_SIZE) + 1; // +1 stem of slack
   const block = SURNAMES.slice(stemCursor * STEM_SIZE, (stemCursor + stems) * STEM_SIZE);
   stemCursor += stems;
   if (!block.length) throw new Error("surname stem pool exhausted — add more stems");
-  return { given: mapGiven, surname: makeMapper(block) };
+  const places = scrubPlaces ? makePlaceScrubber() : undefined;
+  return { given: mapGiven, surname: makeMapper(block), place: places?.place, placeWords: places?.placeWords };
 }
 
 const SURNAME_VALUE_TAGS = new Set(["SURN", "_MARNM", "SPFX"]);
@@ -262,8 +309,11 @@ function anonymizeRecord(rec: Record, ps: Pseudo): void {
   const inSubmitterCtx = SUBMITTER_RECORD_TAGS.has(rec.tag);
   // Track NOTE/TEXT scrub context by the level a note opened at.
   let noteLevel = -1;
+  // The level an ADDR opened at, so its CONT lines are scrubbed with it.
+  let addrLevel = -1;
   for (const ln of rec.lines) {
     if (noteLevel >= 0 && ln.level <= noteLevel) noteLevel = -1;
+    if (addrLevel >= 0 && ln.level <= addrLevel) addrLevel = -1;
 
     // NOTE/TEXT with inline text (not a pointer) → scrub, and follow CONC/CONT.
     if (NOTEISH_TAGS.has(ln.tag)) {
@@ -302,6 +352,20 @@ function anonymizeRecord(rec: Record, ps: Pseudo): void {
       ln.value = `media/file${++fileSeq}.${ext}`;
       continue;
     }
+    // Places and every address, where the file asks for it.
+    if (ps.place && ln.value && (ln.tag === "PLAC" || ADDR_TAGS.has(ln.tag) || (ln.tag === "CONT" && addrLevel >= 0))) {
+      ln.value = ps.place(ln.value);
+      if (ln.tag === "ADDR") addrLevel = ln.level;
+      continue;
+    }
+    if (ps.placeWords && ln.value && ln.tag === "DATE" && !/^@/.test(ln.value)) {
+      ln.value = ps.placeWords(ln.value, { test: (w: string) => !DATE_WORDS.test(w) } as RegExp);
+      continue;
+    }
+    if (ps.placeWords && ln.value && FREE_TEXT_TAGS.has(ln.tag) && !/^@[^@]+@$/.test(ln.value)) {
+      ln.value = ps.placeWords(ln.value, /^\p{Lu}/u);
+      continue;
+    }
     // Submitter postal address is the file owner → scrub only in submitter ctx.
     if (inSubmitterCtx && ln.value && ADDR_TAGS.has(ln.tag)) {
       ln.value = ln.tag === "ADDR" || ln.tag === "ADR1" ? "Naslov 1" : ln.tag === "POST" ? "0000" : "—";
@@ -325,6 +389,7 @@ interface FixtureMeta {
   bytes: number;
   records: { INDI: number; FAM: number; other: number };
   note?: string;
+  placesScrubbed?: boolean;
 }
 
 function buildFixture(spec: Spec): FixtureMeta {
@@ -421,7 +486,7 @@ function buildFixture(spec: Spec): FixtureMeta {
 
   // 4. Anonymize. Allocate this file a contiguous surname-stem block so its
   //    look-alike surnames can't collide with any other file's.
-  const ps = makeFilePseudonyms(countDistinctSurnames(kept));
+  const ps = makeFilePseudonyms(countDistinctSurnames(kept), spec.scrubPlaces);
   for (const rec of kept) anonymizeRecord(rec, ps);
 
   // 5. Reassemble → text → original charset bytes.
@@ -453,6 +518,7 @@ function buildFixture(spec: Spec): FixtureMeta {
     bytes: bytes.length,
     records: counts,
     note: spec.note,
+    ...(spec.scrubPlaces ? { placesScrubbed: true } : {}),
   };
 }
 

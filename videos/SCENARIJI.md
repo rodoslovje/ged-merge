@@ -1,0 +1,698 @@
+# Video navodila GED Merge — scenariji
+
+Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezikih je v
+`videos/scripts/<id>.ts`, ki je recept za gradnjo (glej `videos/README.md`).
+
+## Stanje epizod
+
+| # | Epizoda | Recept | Stanje |
+|---|---------|--------|--------|
+| 1 | GED Merge — prvi koraki | `scripts/overview.ts` | SL z glasom ✓ |
+| 2 | Osnovno urejanje | `scripts/editing.ts` | SL z glasom ✓ |
+| 3 | Nastavitve prikaza | `scripts/settings.ts` | SL z glasom ✓ |
+| 4 | Viri | `scripts/sources.ts` | SL z glasom ✓ |
+| 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
+| 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
+| 7 | Zemljevidi | `scripts/maps.ts` | SL z glasom ✓ |
+| 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
+| 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
+| 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
+| 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
+| 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ |
+| 13 | Kraji in naslovi | `scripts/addresses.ts` | SL z glasom ✓ |
+| 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
+| 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ |
+| 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ |
+
+Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
+
+## Napotki za agente (vzporedno delo)
+
+- **Ena epizoda = en recept** v `videos/scripts/<id>.ts` z `episode: N`; izhod gre v
+  `videos/out/NN-<id>/` (ni v gitu). Vsak agent dela v svojem worktreeju in odda PR.
+- **Nastavitve serije:** epizode od 4 naprej imajo `settings: seriesSettings` (France
+  izhodiščna oseba, sorodstvo, starosti, slovenski zapis datumov) — kot v epizodi 3.
+  Od epizode 6 naprej so vklopljene tudi ploščice zemljevida: epizoda 6 jih vklopi pred
+  kamero, poznejše epizode imajo `settings: seriesSettingsWithMaps`.
+- **Podatki:** `demo/preseren-hawlina.ged` (glavna), `demo/preseren-odar.ged` (vhodna),
+  `demo/preseren-hawlina-porocni.ged` (s poročnimi priimki). Samo resnični, preverljivi
+  podatki in nikoli žive osebe; nov podatek preverite v Slovenskem rodoslovnem indeksu
+  ali Slovenski biografiji in vir zapišite v glavo recepta.
+- **Postopek:** najprej `--silent` (brez stroškov govora) in pregled kadrov, nato gradnja
+  z glasom. Spremenjeni stavki se sintetizirajo znova, ostali pridejo iz predpomnilnika.
+- **Čakanje** na spletna iskanja ali dolge preglede ovijte v `d.skippable(...)` — v
+  videu se skrajša.
+- **Selektorji** naj bodo razredi CSS ali `data-*`, ne besedila; kjer je besedilo nujno,
+  uporabite `d.t({ sl, en })`. Gumbi, ki se pokažejo šele pod miško, zahtevajo `hover`.
+- **Izgovorjava** (glas Soniox »Nina«): »GED Merge« → »Džed Merdž«, »GEDCOM« → »gedkom«,
+  »gedmerge.com« po delih (`lib/tts.ts`, `PRONOUNCE`). Ime »Franceta« beri kot
+  »pesnika Franceta Prešerna«; izogibaj se besedam, ki jih glas naglasi narobe
+  (»materi«, »Šumniki«, »Drevo« na začetku stavka).
+- **Slovenščina** v govoru sledi `docs/agents/slovenian-copy.md`; oznake gumbov
+  dobesedno iz `src/locales/sl.ts`, v »…«.
+- **Naslovna slika:** vse besedilo vodoravno; `d.snapshot()` v koraku, ki najbolje
+  pokaže funkcijo.
+- **Napake v aplikaciji**, ki jih najdete med snemanjem, popravite v ločenem PR-ju (kot
+  #124 za ime hrambe pri Matriculi).
+
+## Skupno vsem videom
+
+- **Dolžina:** 3–6 minut, en video = ena tema.
+- **Začetek:** naslovna kartica (»GED Merge · video navodila«, naslov videa, en stavek o
+  tem, kaj se boste naučili).
+- **Konec:** kartica »GED Merge — vaš rodoslovni program« z naslovom gedmerge.com in
+  stavkom, ki pove, kaj GED Merge je: rodoslovni program v brskalniku za urejanje,
+  dopolnjevanje in pregledovanje drevesa, brezplačen in brez računa.
+- **Na zaslonu:** viden kazalec miške, oranžen obroč okoli kontrole, o kateri teče
+  beseda, oštevilčen korak spodaj levo (postane poglavje na YouTubu).
+- **Naslovna slika:** skupna predloga (logotip, oranžna oznaka teme, velik naslov z
+  eno poudarjeno besedo, značka »Video navodila · N min«, oznaka SLO/ENG) in posnetek
+  funkcije, ki jo video prikazuje.
+- **Podatki:** resnične zgodovinske osebe (rodbina Prešeren, `videos/demo/`) ali vaše
+  anonimizirano drevo. Žive osebe nikoli.
+- **Razveljavitev** se ne omenja pri vsakem dejanju; razloži jo samo video 1.
+
+Oznaka v stolpcu »Kader« pove, kaj se dogaja na zaslonu; »Govor« je besedilo
+pripovedovalca (in podnapisov).
+
+---
+
+## 1. GED Merge — rodoslovni program v brskalniku
+
+**Cilj:** gledalec ve, kaj GED Merge je, kako odpre datoteko, kje so trije načini
+dela, kako išče, razveljavi in kje najde navodila in bližnjice.
+**Podatki:** `preseren-hawlina.ged` · **Trajanje:** ~4 min
+**Naslovna slika:** oznaka »Pregled« · »Vaš *rodoslovni* program v brskalniku« ·
+posnetek urejanja osebe s sorodniki.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | GED Merge je rodoslovni program, ki deluje v vašem brskalniku. V tem videu si ogledamo, kako je zgrajen in kako se v njem hitro znajdete. |
+| 2 | Začetna stran, obroč okoli okvirja za datoteko in okvirja z zagotovilom o zasebnosti | Na začetni strani odprete svojo datoteko GEDCOM. Datoteka ostane na vašem računalniku in se nikamor ne pošlje. |
+| 3 | Obroč na »Začni novo drevo« in na vzorčna drevesa | Če datoteke še nimate, začnete novo drevo ali si najprej ogledate eno od vzorčnih dreves. |
+| 4 | Spust datoteke, odpre se France Prešeren v Urejanju | Odprimo rodovnik Franceta Prešerna. Program pokaže osebo z vsemi sorodniki: starše zgoraj, partnerje in otroke spodaj. |
+| 5 | Obroč na zavihke »Urejanje / Združevanje / Orodja« | GED Merge ima tri načine dela. V Urejanju urejate svoje drevo, v Združevanju ga dopolnjujete iz druge datoteke, v Orodjih pa skrbite za datoteko kot celoto. |
+| 6 | Klik na starša, nato »Nazaj« | Po drevesu se premikate s klikom na sorodnika, z gumbom »Nazaj« pa se vrnete. |
+| 7 | Tipka `/`, vpis »šimen«, Enter | Osebo najhitreje najdete z iskanjem. Pritisnite poševnico in vpišite začetek imena — črk s strešico ni treba vpisovati. |
+| 8 | Sprememba polja, nato gumb ↩ in ↪ | Vsako spremembo lahko razveljavite in ponovite, z gumboma zgoraj ali s Ctrl+Z in Ctrl+Shift+Z. |
+| 9 | Gumb »Shrani GEDCOM«, predogled, »Prekliči« | Ko shranite, GED Merge pokaže predogled sprememb in prenese novo datoteko. Izvirnika nikoli ne prepiše. |
+| 10 | Tipka `?` — seznam bližnjic | Tipka vprašaj odpre seznam bližnjic na tipkovnici. Večino dela lahko opravite brez miške. |
+| 11 | Alt+puščica gor/dol v Urejanju | Z Alt in puščicami se premikate k očetu, otrokom in sorojencem. |
+| 12 | Gumb ⚙ → Nastavitve (Splošno: vrstni red imena, tema) | V Nastavitvah izberete jezik, temo in način prikaza imen in datumov. |
+| 13 | Povezava »Navodila za uporabo« v nogi | Podrobna navodila v slovenščini in angleščini najdete v nogi vsake strani. |
+| 14 | Zaključna kartica | |
+
+---
+
+## 2. Osnovno urejanje: osebe, sorodniki in dogodki
+
+**Cilj:** dodati dogodek z datumom in krajem, dodati starša, partnerja, družinski
+dogodek in otroka; pokazati razliko med odklopom in brisanjem.
+**Podatki:** `preseren-hawlina.ged` — dodamo Šimnov poklic (kmet), Prešernovi sestri
+Jero (3. 11. 1798, Vrba) in Mino (22. 1. 1808, Vrba 1) ter Minina moža Jožefa Vovka
+(4. 1. 1806) in poroko 28. 5. 1827 — iz Hawlinovega drevesa v Slovenskem rodoslovnem
+indeksu in Slovenske biografije (rodbina Prešeren). Izvedba: `scripts/editing.ts`.
+**Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Urejanje« · »Dopolnite *drevo* korak za korakom« ·
+posnetek osebe z dodanim dogodkom.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | V tem videu dopolnimo drevo Franceta Prešerna: dodamo dogodek, sorojence in družino. |
+| 2 | Šimen Prešeren, hitri gumb »Poklic« | Pod dogodki so gumbi za najpogostejše dogodke. Črtkan gumb doda nov dogodek, poln skoči na obstoječega. |
+| 3 | Vpis »kmet«, nato »Dodaj dogodek« → meni | Vse druge dogodke najdete pod »Dodaj dogodek«, urejene po življenjskih obdobjih. |
+| 4 | Vpis datuma »okoli 1800«, predogled pod poljem | Datum vpišete po svoje, na primer »okoli 1800« ali »5. 3. 1850«. Pod poljem vidite, kako ga je program razumel. |
+| 5 | Polje kraja: predlog obstoječega kraja | Kraj izberete med kraji, ki so že v datoteki, zato se isti kraj vedno zapiše enako. |
+| 6 | Šimen → »+ Dodaj otroka« → Jera Prešeren, 1798 | Otroka dodate kar pri starših. Novi osebi vpišete ime in rojstvo, povezava na družino se naredi sama. |
+| 7 | Ponovi za Jurija; Alt+Shift+X za spol | Spol nastavite z menijem ali z bližnjico Alt+Shift+X. |
+| 8 | Mina Prešeren (1808) → »+ Dodaj partnerja« → Jožef Vovk | Partnerja dodate pri osebi. Nastane nova družina, v katero vpišete poroko. |
+| 9 | »Dodaj družinski dogodek« → Poroka 28. 5. 1827 | Poroko vpišete z gumbom »Dodaj družinski dogodek«. |
+| 10 | Obroč na − pri kartici sorodnika | Znak minus osebo samo odklopi iz družine — oseba ostane v datoteki. |
+| 11 | Obroč na 🗑 | Koš osebo izbriše, a šele po potrditvi. |
+| 12 | Desni pas »Sorodniki« | Na desni vidite širše sorodstvo: strice, tete, bratrance in sestrične. |
+| 13 | Shrani GEDCOM, predogled sprememb | Predogled pred shranjevanjem pokaže vse, kar ste dodali. |
+| 14 | Zaključna kartica | |
+
+---
+
+## 3. Nastavitve prikaza
+
+**Cilj:** prilagoditi prikaz, da je še bolj uporaben: izhodiščna oseba (France),
+sorodstvo in poudarjeni predniki in potomci, starosti, datumi z besedami in nato
+slovenski zapis, poročni priimek (prikaz in samodejni zapis ob partnerju), avtor
+datoteke, jezik in temna tema. Izvedba in govor: `scripts/settings.ts`.
+**Podatki:** `preseren-hawlina-porocni.ged`; druga žena Janeza Prešerna, Marija Triplat,
+iz drevesa Odar.
+
+---
+
+## 4. Viri: Matricula, Geneanet in Slovenska biografija
+
+**Cilj:** dodati vir k dogodku s prilepljeno povezavo (Matricula krst, smrt, poroka),
+grob z Geneaneta, in vir na osebi (geslo v Slovenski biografiji).
+**Podatki:** `preseren-hawlina.ged` · povezave iz drevesa Odar (Slovenski rodoslovni
+indeks): krst Franceta Prešerna (Breznica 00164, str. 86), smrt (Kranj 00932, str. 40),
+krst Ane Jelovšek (Ljubljana – Sv. Jakob 01156, str. 177); grob Ernestine Jelovšek v
+Prešernovem gaju v Kranju (Geneanet, https://en.geneanet.org/cemetery/view/13262440). Vir na osebi: geslo
+Franceta Prešerna v Slovenski biografiji (https://www.slovenska-biografija.si/oseba/sbi463215/).
+**Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Viri« · »Matricula v *eni* potezi« · posnetek obrazca
+»Dodaj vir« z zelenim okvirjem »Prepoznana povezava«.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Podatek brez vira je samo trditev. Pokažimo, kako v GED Merge dogodku dodate vir — kar s povezavo na matično knjigo. |
+| 2 | ⚙ → Napredno → »Poišči podatke na spletu« vklopljeno | Da program sam prebere podatke o knjigi, v Nastavitvah vklopite spletna iskanja. Poslana je le povezava, nikoli vaše drevo. |
+| 3 | France Prešeren, dogodek Rojstvo → »Dodaj« → vir | Vir dodate dogodku: pri rojstvu kliknite »Dodaj« in izberite vir. |
+| 4 | Prilepi URL Matricule; okvir »Prepoznana povezava« porumeni, nato pozeleni | Prilepite povezavo na stran matične knjige. Program jo prepozna in sam izpolni naslov knjige, župnijo, arhiv in stran. |
+| 5 | Obroč na »Stran« in »Kakovost citata« (3 — primarni vir) | Stran se zapiše v navedbo, sken iz matične knjige pa dobi oceno primarnega vira. |
+| 6 | Ctrl+Enter | Potrdite s Ctrl+Enter. |
+| 7 | Smrt → isto s povezavo kranjske mrliške knjige | Enako dodate vir smrti. |
+| 8 | Ana Jelovšek, krst → povezava Sv. Jakob | Enako deluje za vsako župnijo na Matriculi, tu za krst Ane Jelovšek pri Sv. Jakobu v Ljubljani. |
+| 8a | Ernestina Jelovšek → hitri gumb »Pokop« → kraj Kranj → »Dodaj« → vir → prilepi povezavo Geneanet | Program prepozna tudi druge zbirke, na primer grobove na Geneanetu. Prešernova hči Ernestina je pokopana v Prešernovem gaju v Kranju. Pokopu dodamo povezavo na njen grob. |
+| 9 | Klik na ikono vira → »Uredi vir«; ↗ odpre Matriculo | Vir kadar koli odprete in uredite, puščica pa odpre stran v matični knjigi. |
+| 10 | France Prešeren → »Dodaj vir« pod osebo (ne pri dogodku) → prilepi povezavo Slovenske biografije | Vir lahko dodate tudi osebi kot celoti, kadar govori o več dogodkih hkrati. Za Prešerna je to njegovo geslo v Slovenski biografiji. |
+| 11 | Shrani GEDCOM → »Vrstice GEDCOM« | V predogledu shranjevanja vidite, kako se vir zapiše v datoteko GEDCOM. |
+| 12 | Zaključna kartica | |
+
+---
+
+## 5. Diagrami
+
+**Cilj:** pokazati vseh sedem vrst diagramov in kdaj kateri pride prav.
+**Podatki:** `preseren-hawlina.ged` za drevo in pahljačo; za sodobnike in časovnico
+večje drevo (vzorec »Tudorska kraljeva družina« ali vaše anonimizirano drevo).
+**Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Diagrami« · »Sedem *pogledov* na vaše drevo« · posnetek
+pahljače z barvami po kraju rojstva.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Diagram pove več kot seznam. Oglejmo si, katere diagrame nariše GED Merge. |
+| 2 | Tipka V → Drevo, predniki | Diagrame odprete s tipko V ali z gumbom zgoraj. Drevo pokaže prednike ali potomce izbrane osebe. |
+| 3 | Preklop Drevo / Mreža, Predniki / Potomci / Oboje | Drevo je lahko razvejano ali v mreži, prikaže pa prednike, potomce ali oboje. |
+| 4 | Pahljača → Krog | Pahljača na enem zaslonu pokaže osem rodov prednikov. |
+| 5 | Časovnica | Časovnica postavi življenja na skupno os let. Takoj vidite, kdo je živel hkrati. |
+| 6 | Sorodstvo (S) med Francetom in Jožefom Prešernom | Diagram sorodstva pokaže pot med dvema osebama in ime sorodstva. |
+| 7 | Sodobniki: Kolo, Priimki, Trakovi, drsnik »Živi v letu« | Sodobniki pokažejo, kdo od sorodnikov je bil živ v izbranem letu. |
+| 8 | Zemljevid (kratko — podrobno v videu 6) | Zemljevid postavi dogodke na kraje. |
+| 9 | Poročilo → Seznam prednikov, slog »Pripoved« | Poročilo zapiše prednike ali potomce kot besedilo, s številčenimi viri. |
+| 10 | Klik na osebo v diagramu → E odpre Urejanje | S klikom na osebo jo izberete, tipka E pa jo odpre v Urejanju. |
+| 11 | Zaključna kartica | |
+
+---
+
+## 6. Kraji in geokodiranje
+
+**Cilj:** prenesti imenik krajev (GURS za Slovenijo, OpenStreetMap za preostali svet),
+poiskati kraj pri urejanju in ga zapisati v obliki naselje, občina, država, hišno
+številko prestaviti iz kraja v naslov, stare zapise pretvoriti v Orodjih in krajem z
+geokodiranjem dodati koordinate. Naslovi (prenos GURS naslovov, geokodiranje hišnih
+številk) dobijo svoj video, epizodo 13.
+**Podatki:** `preseren-hawlina-kraji.ged` — večina krajev v polni obliki, golih ostane
+nekaj: Kranj, Radovljica, Žirovnica, Osoje na Koroškem ter hišne številke v kraju
+(Žirovnica 7, Vrba 1, Vrba 7). Izvedba in govor: `scripts/geocoding.ts`.
+**Trajanje:** ~4 min
+**Naslovna slika:** oznaka »Kraji« · »Vsak kraj na *pravem* mestu« · posnetek
+predlogov iz imenika GURS ob kraju »Kranj«.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Kraji brez koordinat ne pridejo na zemljevid. Pokažimo, kako v GED Merge kraje poiščete v imenikih, jih zapišete enotno in postavite na zemljevid. |
+| 2 | Odpre se France; obroč na kraj rojstva (polna oblika) in smrti (»Kranj«) | Večina krajev je zapisana kot naselje, občina in država, nekaj pa jih je še v stari obliki: samo ime naselja, včasih skupaj s hišno številko. |
+| 3 | ⚙ → Napredno → »Poišči podatke na spletu« | Podatki o krajih pridejo s spleta: prenos imenika GURS in iskanje na OpenStreetMap. Poslano je le ime kraja. |
+| 4 | ⚙ → Zemljevid → imeniki krajev → GURS »Kraji«, prenos | Za Slovenijo GURS, uradni register vseh naselij z občinami; imenik ostane v brskalniku. |
+| 5 | Obroč na »Naslovi«, nato na OpenStreetMap (napis se pokaže šele tu) | Naslovi v posebnem videu; OpenStreetMap za kraje zunaj Slovenije, poišče ga program sam iz polja kraja. |
+| 6 | »Nalagaj ploščice zemljevida« | Brez ploščic le obris sveta, z njimi ceste, reke in imena krajev. |
+| 7 | Smrt »Kranj« → »Poišči ta kraj v imenikih« | Predlogi v obliki datoteke, z oznako imenika; izberemo »Kranj, Kranj, Slovenija«. |
+| 8 | Zelen in siv žebljiček, zemljevid pod dogodki | Zelen žebljiček: kraj ima koordinato; siv: je še nima. |
+| 9 | Mina Svetina, rojstvo »Žirovnica 7« → GURS, predlogi s »· Žirovnica 7«; Žirovnica v občini Žirovnica | Program hišno številko prepozna; več Žirovnic — odloči občina. |
+| 10 | Obroč na kraj in na polje Naslov (»Žirovnica 7«) | Hišna številka se sama prestavi v Naslov — standardni zapis v GEDCOM: kraj pove naselje, občino in državo, naslov ulico in hišno številko. |
+| 11 | Smrt → »Osoje, Avstrija« → OpenStreetMap »Osoje, Koroška, Avstrija« | GURS kraja ne pozna; OpenStreetMap pozna slovenska imena, »na Koroškem« ni del imena, državo lahko napišete po slovensko ali angleško. |
+| 12 | Orodja → Kraji → »Neznana država«; ✎ Radovljica → imenik → »Preimenuj« | Sprememba velja za vse zapise kraja naenkrat. |
+| 13 | ✎ Žirovnica → »Združi« | Kraj že obstaja, zapisa se združita. |
+| 14 | »Geokodiranje« → »Izberi zanesljive« → »Zapiši koordinate« | Zanesljive izberete z enim klikom, koordinate se zapišejo šele ob potrditvi. |
+| 15 | Urejanje: France, oba žebljička zelena, zemljevid Vrba → Kranj | |
+| 16 | Zaključna kartica | |
+
+---
+
+## 7. Zemljevidi: poti, meje in zgodovinske karte
+
+**Cilj:** zemljevid krajev z gručami, iskanje kraja, izbira vrst dogodkov in obdobja,
+poti, meje v izbranem letu, zgodovinske karte iz Nastavitev (specialka, franciscejski
+kataster Bitenj 1826), prosojnost sloja, vzporedni pogled in izvoz slike PNG.
+**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa, kraji
+geokodirani (Gorenjska, Bela krajina, Gorski kotar). Izvedba in govor: `scripts/maps.ts`.
+**Trajanje:** ~3 min
+**Naslovna slika:** oznaka »Zemljevid« · »Prednik na *zgodovinski* karti« · posnetek
+vzporednega pogleda (današnji zemljevid | kataster Bitenj 1826).
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Kje so živeli vaši predniki? Postavimo jih na zemljevid, tudi na zgodovinskega. |
+| 2 | Odpre se rodbina Renko | Večje drevo, vsi kraji že imajo koordinate. |
+| 3 | V → »Zemljevid«, gruče po Evropi | Dogodki prednikov in potomcev, kraji z več dogodki v gručah. |
+| 4 | Iskanje »Zgornje Bitnje« | Iskalno polje premakne zemljevid na kraj ali osebo. |
+| 5 | »Poroka« izklop/vklop, »Do leta« 1870 | Izbira vrst dogodkov in obdobja. |
+| 6 | »Poti« | Življenjske poti s puščicami. |
+| 7 | Oddaljitev, »Meje« (1870) | Upravne meje iz OpenHistoricalMap v letu »Do leta«. |
+| 8 | ⚙ → Zemljevid → »Dodaj brezplačen sloj« → specialka, kataster Bitnje | Zgodovinske karte se dodajo v Nastavitvah. |
+| 9 | »Sloji« → kataster, približanje Bitnjam | Sloji z ustreznim obdobjem so označeni. |
+| 10 | Drsnik prosojnosti | Pod staro karto se vidi današnji zemljevid. |
+| 11 | »Vzporedni pogled« | Levo današnji zemljevid, desno kataster 1826, premikata se skupaj. |
+| 12 | »Izvoz« → »Slika PNG, vzporedni pogled« | Slika PNG z navedbo virov. |
+| 13 | Zaključna kartica | |
+
+---
+
+## 8. Možnosti diagramov, izvoz in zasebnost
+
+**Cilj:** prilagoditi diagram (usmeritev, rodovi, podatki ob osebi, barva), ga izvoziti
+(SVG, PDF na več listov, GEDCOM samo z narisanimi osebami) in pred deljenjem prikriti žive
+osebe — na diagramu in v celi datoteki.
+**Podatki:** `preseren-hawlina-geo.ged` za nastavitve in izvoz; za zasebnost
+`rodbina-renko.ged`, anonimiziran izsek iz avtorjevega drevesa (edina vzorčna datoteka z
+živimi osebami: avtor in starša s pravimi imeni, drugi živi sorodniki z izmišljenimi imeni,
+spolom in datumi). Izvedba: `scripts/export.ts`. · **Trajanje:** ~4 min
+**Naslovna slika:** oznaka »Izvoz« · »Natisnite *drevo* na več listov« · posnetek štirih
+listov A4.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Diagram lahko prilagodite, natisnete ali pošljete drugim. V tem videu pokažemo, kako — in kako pri tem zaščitite žive osebe. |
+| 2 | Prešernovo drevo prednikov | Odprimo rodovnik pesnika Franceta Prešerna in njegovo drevo prednikov. |
+| 3 | »Diagram« → Usmeritev | Vse možnosti so pod gumbom »Diagram«. Drevo lahko teče od leve proti desni ali od zgoraj navzdol. |
+| 4 | Rodovi − / + | Pri velikem drevesu omejite število rodov. |
+| 5 | Oseba → Kraj | Pod »Oseba« izberete, kaj se izpiše ob vsaki osebi. |
+| 6 | Barva: Rod → Stoletje → Kraj rojstva, legenda | Barva lahko nekaj pove: rod, stoletje, kraj rojstva. |
+| 7 | »Izvoz« → Slika SVG | Slika SVG ostane ostra pri vsaki velikosti. |
+| 8 | »Izvoz« → PDF: A3, A4 ležeče, »Velika« | Če je drevo za en list preširoko, se razreže na več listov. |
+| 9 | »Natisni« → štirje listi na zaslonu | Številka v krogcu pove, kje se diagram nadaljuje. |
+| 10 | »Izvoz« → GEDCOM (21 oseb) | Sorodniku pošljete le vejo, ki ga zanima. |
+| 11 | Zamenjava glavne datoteke z `rodbina-renko.ged` | V Prešernovi rodbini živih oseb ni, zato odpremo drugo drevo. |
+| 12 | Ded → pahljača potomcev, 2 rodova, barva »Živi« | Na diagramu so zdaj tudi živi. |
+| 13 | »Skrij žive osebe« | Namesto imena ostane samo sorodstvo; zaščiten je tudi izvoz. |
+| 14 | Orodja → Zasebnost: meja 100 let, število živih | Orodje poišče verjetno žive osebe. |
+| 15 | Prikrij / Odstrani; ime → Začetnice; kaj se odstrani | Žive osebe prikrijete ali odstranite. |
+| 16 | »Prenesi prikrito datoteko GEDCOM« | Delovna datoteka ostane nespremenjena. |
+| 17 | Zaključna kartica | |
+
+---
+
+## 9. Statistika: vaše drevo v številkah
+
+**Cilj:** strani statistike, razširitev števila v seznam oseb, popolnost podatkov, izbor
+oseb in filtri, imena po stoletjih, življenjska doba, poroke po mesecih, poroke med
+sorodniki, selitve, rodovi, ponovljeni predniki, najbližje slepe ulice, izvoz.
+**Podatki:** `rodbina-renko.ged` — anonimiziran izsek avtorjevega drevesa (1721 oseb:
+predniki z vsemi brati in sestrami, rojstva 1605–2010; umrli z viri, skeni in poklici). Izvedba in govor: `scripts/stats.ts`. **Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Statistika« · »Kaj vam *drevo* pove v številkah« ·
+posnetek strani »Rodovi« s kartico »Predniki po rodovih«.
+
+Zgodba, ki jo povedo številke te datoteke: poroke februarja (predpust) in novembra, skoraj
+nobene marca in decembra (post, advent); pred petim letom umre 36 % otrok v 18. stoletju in
+15 % v 20. — vidno le, ker so v
+drevesu tudi bratje in sestre prednikov; edina poroka med bratrancem in
+sestrično (Jožef ⚭ Marija Simonič, vnuka Matije Simoniča in Marije Plut) je vzrok, da sta
+ta dva in Matijeva starša v rodovniku dvakrat (ponovljeni predniki).
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Koliko prednikov ste že našli? Kje se vaša raziskava ustavi? … Statistika odgovori v nekaj sekundah. |
+| 2 | Spust datoteke → Orodja → Statistika | Anonimiziran izsek: predniki z vsemi brati in sestrami; Statistika vedno zajame celotno datoteko. |
+| 3 | Povzetek: ploščice, »Letnice rojstev«, »Najvišja starost« | Oseb, družin, priimkov, leta, najvišja starost; najpogostejši priimki in imena. |
+| 4 | Klik na »Simonič« → seznam → ime → Urejanje → nazaj | Za vsakim številom so osebe. |
+| 5 | »Popolnost podatkov« → »Datum smrti« → seznam | Datum smrti je znan le pri dveh petinah umrlih; seznam opravil. |
+| 6 | »Predniki«, nato »Filtri« → Hrvaška | Izbor oseb in filtri; del rodbine izvira s Hrvaške. |
+| 7 | Imena: imena po stoletjih, »Ime po sorodniku« | Matija, Janez, nato Anton in Franc; Marija; skoraj 20 % deklic po babici. |
+| 8 | Življenjska doba: starost ob smrti, »Umrli pred 5. letom starosti« | Dva vrhova; pred petim letom umre 36 % otrok v 18. stoletju, 15 % v 20. |
+| 9 | Družine: »Poroke po mesecih« | Februar in november; marec in december skoraj brez porok. |
+| 10 | »Sorodstvo med zakoncema« → bratranec in sestrična → diagram sorodstva | Jožef in Marija Simonič; skupna prednika Matija Simonič in Marija Plut. |
+| 11 | Poklic: poklici po stoletjih | Kmetje, polovični in četrtinski zemljaki; v 20. stoletju delavci. |
+| 12 | Selitve: povprečna razdalja, selitve med državami | 2 km v 18. stoletju; izseljevanje v Združene države. |
+| 13 | Rodovi: ploščice, predniki po rodovih, očetova in materina stran | 399 prednikov v 12 rodovih; do 6. rodu vsi znani. |
+| 14 | »Ponovljeni predniki«, »Predniki na več mestih« | Zaradi poroke bratranca in sestrične dvakrat v rodovniku. |
+| 15 | »Najbližje slepe ulice« | Naslednji korak raziskave. |
+| 16 | Raziskava: dogodki z navedbo vira | Krsti in poroke dobro podprti, smrt le vsaka peta. |
+| 17 | Ikona »i«, izvoz kartice | Tabela CSV ali slika. |
+| 18 | »Izvoz« zgoraj | Cela stran statistike kot ena slika, z naslovom in izborom oseb. |
+| 19 | Zaključna kartica | |
+
+---
+
+## 10. Združevanje: dopolnite drevo iz druge datoteke
+
+**Cilj:** združiti iste osebe iz dveh dreves in prevzeti manjkajoče podatke; sorodstvo do
+izhodiščne osebe na seznamu in v primerjalnem drevesu; kraji vhodne datoteke samodejno v
+obliki glavne.
+**Podatki:** glavna `preseren-hawlina-geo.ged` (rodovnik Petra Hawline, kot ga pusti
+epizoda 6: naselje, občina, država s koordinatami GURS, hišne številke v naslovu), vhodna
+`preseren-odar.ged` (drevo Odar iz Slovenskega rodoslovnega indeksa, hišne številke v kraju).
+Izvedba in govor: `scripts/merge.ts`. **Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Združevanje oseb« · »Dopolnite *drevo* iz druge datoteke« ·
+posnetek primerjave z izbiro G/V/O.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Dva raziskovalca sta raziskovala isto rodbino. Pokažimo, kako njune podatke združite v eno drevo. |
+| 2 | Glavna datoteka, obroč na geokodiran kraj | Glavna datoteka; kraji so že urejeni in geokodirani, kot v šestem videu. |
+| 3 | Združevanje → vhodna datoteka | Drugo drevo iz Slovenskega rodoslovnega indeksa je vhodna datoteka. |
+| 4 | Seznam ujemanj, obroč na stopnjo | Pari oseb in stopnja ujemanja. |
+| 5 | Obroč na »Dedek« (poudarjeno) in »Zakonec« | Sorodstvo s Prešernom pod imenom, neposredni predniki poudarjeni. |
+| 6 | Filter »Predniki«, nazaj »Vse osebe« | Seznam zožite na prednike. |
+| 7 | France: krst in pokop (zeleno) | Novi podatki so obarvani zeleno. |
+| 8 | Starosti ob datumih | Starost ob smrti, starost staršev ob rojstvu. |
+| 9 | »Vrba 2, (stara hš 1)« → kraj »Vrba, Žirovnica, Slovenija« + naslov; »Kranj 181« | Kraj se prepiše v obliko vaše datoteke, hišna številka gre v naslov. |
+| 10 | Gumbi zaklenjeni → »Potrdi« | Podatke izbirate šele pri potrjenem paru. |
+| 11 | G/V pri naslovu | G ohrani podatek iz glavne datoteke, V prevzame vhodnega; novi podatki so že izbrani. |
+| 12 | Šimen ↔ Simon: »Potrdi«, O | Obe obliki imena. |
+| 13 | Klik na »Marija Prešeren« v vrstici »Mati« → njen par, »Potrdi«, O | Mina je domača oblika imena Marija; s klikom na ime odprete njen par. |
+| 14 | Nazaj na Šimna: vrstica »Mati« = | Vrstica »Mati« se zdaj ujema. |
+| 15 | Ana Jelovšek: starša »✓ dodano« | Ob potrditvi se starša takoj dodata v drevo. |
+| 16 | Janez Prešeren: Marija Triplat | Nova družina. |
+| 17 | Primerjalno drevo, legenda barv, sorodstvo na vozliščih | Barva pove ujemanje; sorodstvo s Prešernom tudi tu. |
+| 18 | Shrani GEDCOM → predogled → Prenesi | Predogled pokaže vse spremembe. |
+| 19 | Zaključna kartica | |
+
+---
+
+## 11. Dvojniki: združevanje podvojenih oseb
+
+**Cilj:** najti osebe, ki so v datoteki dvakrat, in jih združiti, skupaj s podvojenim
+staršem; pokazati para, pri katerih je potrebna presoja; zavrniti skupino, ki ni dvojnik. Neposredno nadaljuje epizodo 10: ista primerjava,
+tokrat znotraj ene datoteke.
+**Podatki:** `rodbina-renko.ged` (anonimiziran izsek avtorjevega rodovnika, kot v epizodi 9),
+v katerem so resnični dvojniki — nič ni vneseno namenoma:
+- Janez Starašinič, r. 1752 v Krasincu (`@77637144@` in `@I412665969695@`, stopnja ujemanja ~100): isti
+  mož dvakrat pod istim očetom, vsak zapis s svojo kopijo matere Lucije Klepec (~96);
+- Luka Mubi (87) in Matija Simonič (86): para, pri katerih avtor sam ne ve, ali gre za isto
+  osebo — prikazana kot primer presoje, ostaneta na seznamu;
+- Pezdirci, Krasinec 2, 1892 (skupina treh zapisov, stopnji ujemanja 84 in 78): trije bratje — NN, rojen
+  in umrl 10. 1. 1892, ter dvojčka Jožef in Peter, rojena 8. 12. 1892.
+
+Izvedba in govor: `scripts/duplicates.ts`. **Trajanje:** ~3,5 min
+**Naslovna slika:** oznaka »Dvojniki« · »Ena *oseba*, en zapis« · posnetek primerjave
+dvojnikov drug ob drugem.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Ko drevo raste, se ista oseba hitro znajde v njem dvakrat. Pokažimo, kako dvojnike najdete in združite. |
+| 2 | Odpri `rodbina-renko.ged` → Orodja → Dvojniki | Orodje primerja vsako osebo z vsako drugo, z istim algoritmom kot Združevanje. |
+| 3 | Seznam parov, obroč na stopnjo in oznako zapisa | Pari so razvrščeni po stopnji ujemanja; ob imenu je oznaka zapisa. |
+| 4 | Janez Starašinič: primerjava, Ohranjeni/Kandidat | Primerjava drug ob drugem; levi zapis se ohrani. |
+| 5 | Vrstica »Mati« (dve Luciji) → namig, obkljukaj | Tudi mati je v drevesu dvakrat; program jo ponudi za združitev pred tem parom. |
+| 6 | »Združi« → potrditev z obema oznakama | Pred združitvijo pokaže oba zapisa in mater, ki se združi najprej. |
+| 7 | Seznam brez obeh parov → »Zaženi znova« | Iz seznama sta izginila oba para; ker so se osebe združile, izračun dvojnikov zaženemo znova. |
+| 8 | Luka Mubi (87): obroč na datum rojstva, starša, kraj | Odločitev ni očitna: ocenjeno rojstvo okoli 1665 v Tupaličah ali krst 1668 v Olševku. Najprej preverite vire, par ostane na seznamu. |
+| 9 | Matija Simonič (86): obroč na datum rojstva | Krst 1730 ali ocena okoli 1735, v isti vasi še en Matija iz leta 1726. Tudi ta par zaenkrat pustimo. |
+| 10 | Prag »≥ 85« → »≥ 75«, obroč na skupino Pezdirc | Nižji prag pokaže šibkejše pare in skupine s tremi ali več zapisi. |
+| 11 | Razpri skupino, odpri par NN ↔ Jožef: ime, rojstvo, smrt | Različni imeni, rojstvo 11 mesecev narazen, smrt na dan rojstva ali leto pozneje: dva brata. |
+| 12 | Peter (dvojček Jožefa) → »Zavrni vse« | V skupini ni dvojnikov, zato jo zavrnete. |
+| 13 | »Zavrnjeni« → nazaj na dvojnike | Zavrnjeni pari se ne vrnejo; zavrnitev lahko prekličete. |
+| 14 | Zaključna kartica | |
+
+---
+
+## 12. Fotografije: portreti, skupinske fotografije in označevanje oseb
+
+**Cilj:** podpora brskalnikov (preglednica v navodilih, najboljša v Chromu in Edgu), mapa z
+mediji in podmape (»portraits«, »family«, »weddings«), portret, pregledovalnik z opisom,
+označevanje oseb na skupinski fotografiji in fotografije na diagramih.
+**Podatki:** `rodbina-renko.ged` in avtorjeve družinske fotografije iz mape
+`~/Work/rod/renko-ged/media` (ni v gitu; drugo mesto z `VIDEO_MEDIA_DIR`). Recept prepiše
+izbrane fotografije v zasebni datotečni sistem brskalnika (OPFS) in nadomesti izbirnik mape,
+ker brezglavi brskalnik izbirnika ne more pokazati. Na zaslonu so samo umrli in avtorjeva
+starša, ki sta snemanje dovolila: portret deda Franca Renka (1901–1964) in poročna fotografija
+Edvarda in Cvetke s pričama, Edvardovim bratom Jožetom Renkom (1938–1975) in Cvetkinim bratom
+Petrom Jekovcem (1935–2023). Območja oseb so tista, ki jih ima avtorjeva datoteka.
+Izvedba in govor: `scripts/photos.ts`. **Trajanje:** ~4,5 min
+**Naslovna slika:** oznaka »Fotografije« · »Kdo je *kdo* na fotografiji« · posnetek poročne
+fotografije z imeni vseh štirih oseb.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Fotografije prednikov oživijo drevo. Pokažimo portret in skupinsko fotografijo, na kateri označite, kdo je kdo. |
+| 2 | Navodila → Fotografije in mediji → preglednica »Podpora brskalnikov« | GEDCOM se na fotografije le sklicuje, zato program potrebuje mapo; najboljša podpora v Chromu in Edgu. |
+| 3 | Spust datoteke, Luka → Edvard → Franc Renko | Avtorjev ded Franc Renko. |
+| 4 | »Dodaj medij« → »Izberi mapo« | Mapo izberete enkrat, Chrome si jo zapomni; bere se samo na računalniku. |
+| 5 | Izbirnik, obroč na podmape family, portraits, weddings | Podmape imajo v izbirniku vsaka svoj razdelek. |
+| 6 | Iskanje »franc« → portret → »Dodaj« | Iskalno polje najde fotografijo po imenu datoteke. |
+| 7 | Pregledovalnik se odpre sam → naslov; zapri, obroč na sličico | Opis takoj ob dodajanju; nato je fotografija ob osebi. |
+| 8 | Edvard → poročna fotografija | Skupinska fotografija s pričama, dodamo jo Edvardu. |
+| 9 | Miška nad fotografijo: najdeni obrazi z »?« | GED Merge sam najde obraze, kar na računalniku. |
+| 10 | Klik na Edvardov obraz → »Kdo je to?« → Edvard | Najprej oseba in bližnji sorodniki. |
+| 11 | Cvetka; Jože z vpisom »joze«; Peter z vpisom »peter« | Kogar ni med predlogi, poiščete z vpisom imena. |
+| 12 | Miška nad fotografijo, imena vseh štirih | Vsak je dobil fotografijo; kdo je kdo. |
+| 13 | Ročaj v vogalu: Jožetovo in Petrovo območje povečamo na celo glavo | Z vlečenjem vogala povečate območje katere koli osebe. |
+| 14 | Sličica Edvarda, Cvetkina kartica s fotografijo | Sličica pokaže obraz. |
+| 15 | Edvard → Drevo, predniki, 3 rodovi; »Diagram« → »Fotografija« | Fotografije in obrazi tudi na diagramih. |
+| 16 | Zaključna kartica | |
+
+---
+
+## 13. Kraji in naslovi: drevo krajev, poimenovanje in hišne številke
+
+**Cilj:** prenos registra naslovov GURS (v ozadju), drevo krajev, druga imena kraja,
+primerjava naslovov z uradnim registrom, geokodiranje naslovov in zapis hiše, ki je v
+zgodovini dobila več številk. Izvedba in govor: `scripts/addresses.ts`.
+**Zapis naslova:** najprej današnji naslov, nato starejši, ločeni s poševnico; na koncu
+je lahko pripis v oklepaju — `Krasinec 11 / 2 (pd Hren)`,
+`Zaloška cesta 2 (klinični center)`. Program vsako številko poišče posebej
+(`rnQueriesFrom`), pripis ostane.
+**Podatki:** `rodbina-renko.ged` — kraji imajo koordinate naselja, 255 hiš je že
+umeščenih, 227 še ne (90 z zadetkom v registru). Poimenovanje naslovov najde eno
+odstopanje: rojstva v kranjski porodnišnici so v datoteki zapisana kot »Kidričeva 38a
+(porodnišnica)« (trije dogodki, umrli), register piše »Kidričeva cesta 38a«; 89 starih
+številk je le preštetih. »bolnišnica /
+klinični center« (13 dogodkov v Ljubljani) je UKC, Zaloška cesta 2. »Krasinec 11 / 2
+(pd Hren)« je danes Krasinec 11, v datoteki postavljen na sredino vasi. Klošter 52
+je danes Klošter 11, stara hiša je stala nekoliko nižje in desno. »Zapisano dvakrat«: Krasinec 26 in
+Krasinec 26 (pd Jelin), oba brez lastne lege. GEDCOM 7.0, zato druga imena (TRAN).
+**Trajanje:** ~5 min (prenos naslovov ~10 min, v videu skrajšan)
+**Naslovna slika:** oznaka »Naslovi« · »Vsaka *hiša* na svojem mestu« · posnetek
+zemljevida z zadetkoma za Krasinec 11 / 2 (pd Hren).
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Kraj pove vas, naslov pove hišo. Pokažimo, kako v GED Merge uredite oboje — tudi hišne številke, ki so se skozi zgodovino spreminjale. |
+| 2 | Odpre se rodbina Renko | Kraji imajo že koordinate, mnoge hiše pa še ne. |
+| 3 | ⚙ → Zemljevid: SI-GURS je že naložen (pred snemanjem, `prepare`), klik »Naslovi«; Nastavitve se zaprejo | Imenik krajev iz videa o geokodiranju; register naslovov: 580 000 hiš s koordinatami, prenos nekaj minut, v brskalniku; Nastavitve lahko zaprete, register se nalaga v ozadju. |
+| 4 | Orodja → Kraji, drevo: Slovenia → Kranj → Kranj | Država, občina, naselje in hiša; ob vsakem število zapisov in koordinata. |
+| 5 | ✎ na naselju Kranj → »+ Dodaj ime« Krainburg → »Zapiši imena« → filter »Krainburg« | Stara ali tuja imena; iskanje najde kraj tudi po njih. |
+| 6 | »Poimenovanje« (takoj po prehodu) → kraji se ujemajo | Poimenovanje primerja kraje in naslove z uradnim registrom; kraji se ujemajo vsi. |
+| 6a | Počaka na register (skrajšano) → SI-ADR → »Naslovi« → »Drugo naselje« (Krasinec 1 pod Gradcem) in »Zapis« (Kidričeva 38a) | Register se je medtem naložil; register hišo vodi v Krasincu; ulico piše »Kidričeva cesta«. |
+| 6b | »Premakni dogodke«, »Prevzemi« → »Ni takega naslova 89« | Pravo naselje, naslov ostane; uradni zapis, pripis ostane; za staro številko poiščite današnji naslov in koordinato vzemite od tam. |
+| 7 | (tiho pred govorom) »Nazaj na kraje« → »Geokodiranje« → »Naslovi« → država »Slovenija« | Hišam dodamo koordinate; hiše po krajih; naložen je le slovenski register; hiša brez svoje lege podeduje koordinato naselja. |
+| 8 | »Prikaži že umeščene«, filter »klinični« → ✎ »Zaloška cesta 2 (klinični center)« → zadetek SI-ADR | Pravi naslov, opis v oklepaju; register hišo najde, zadetek potrdimo, da se zapiše koordinata. |
+| 9 | Filter »Krasinec 11 /« → vrstica »Krasinec 11 / 2 (pd Hren)« | Priporočeni zapis: najprej današnja številka 11, nato stara 2 za poševnico, hišno ime v oklepaju. |
+| 10 | Klik na koordinato → zemljevid z zadetkoma 1 in 2 → izbira Krasinec 11 | Vsaka številka posebej; hiša je bila doslej na sredini vasi; danes je to Krasinec 11, številka 2 je druga hiša. |
+| 11 | Filter »Klošter 52« → ✎ spredaj »Klošter 11 / « → zadetek SI-ADR | Stara številka; današnji naslov spredaj, stara za poševnico; register hišo najde. |
+| 11a | Klik na koordinato → zemljevid, kolesce nad žebljičkom do hiš → klik nižje in desno → »Nastavi« | Stara hiša je stala nekoliko nižje in desno od današnje številke 11; tako najdete tudi hišo, ki je register ne pozna. |
+| 12 | »Zapiši koordinate« | Te lege smo preverili sami, zato jih zapišemo takoj; standardni zapis v GEDCOM. |
+| 13 | »Zapisano dvakrat«, filter »Krasinec 26« → »Združi« | Ista hiša s hišnim imenom in brez njega. |
+| 14 | »Izberi zanesljive« → »Izbrani« | Nedvoumne z enim klikom — a zanesljiv pomeni le, da se zapis ujema z današnjim registrom: stara številka je register ne pozna ali najde drugo hišo, zato izbrane preglejte. |
+| 14a | »Počisti izbor« → »Vsi« | Nepregledanih zadetkov ne zapišemo, da se nobena hiša ne postavi na napačno mesto. |
+| 15 | Zaključna kartica | |
+
+---
+
+## 14. Uredi vire: od raztresenih povezav do pravih virov
+
+**Cilj:** pokazati, katere spletne zbirke GED Merge prepozna in opremi s podatki, in kaj
+naredi vsak zavihek orodja »Uredi vire« (Viri, Dvojniki, Strani; Hrambe le v govoru).
+Epizoda 4 pokaže, kako vir dodate na novo; ta pokaže, kako pospravite vire, ki jih
+datoteka že ima — kakor jih zapišejo drugi programi. Matricula in Geneanet gresta
+**vsaka posebej** (filter → »Razširi vse« → »Izberi vse« → »Pridobi podatke o virih«
+→ »Pretvori v vire«), ostale zbirke skupaj pod »Vsi«. Na vsakem seznamu najprej
+»Razširi vse«. Kakovost citata: »primarni vir« le za matične knjige, za grobove in
+ostalo »sekundarni vir«. Prepoznane zbirke našteje seznam na zaslonu (overlay
+`list`), obroč pa hodi po filtrih; govor jih ne našteva po imenih.
+**Podatki:** `demo/preseren-hawlina-viri.ged`. · **Trajanje:** ~6 min
+**Naslovna slika:** oznaka »Viri« · »Iz povezav *pravi* viri« · posnetek zavihka Viri
+s filtri zbirk.
+
+### Demo datoteka `preseren-hawlina-viri.ged`
+
+Kopija `preseren-hawlina.ged`, v kateri so viri namerno zapisani »neurejeno«, vsak v
+drugi obliki, ki jo orodje prepozna. Povezave so resnične; glava datoteke (NOTE) in
+recept povesta, da je razporeditev umetna.
+
+| Oseba, dogodek | Zbirka | Povezava | Oblika v datoteki |
+|---|---|---|---|
+| France Prešeren, rojstvo | Matricula (krstna knjiga Breznica) | `https://data.matricula-online.eu/sl/slovenia/ljubljana/breznica/00164/?pg=86` | povezava v opombi (`NOTE`) |
+| Ana Jelovšek, rojstvo | Matricula (krstna knjiga Ljubljana – Sv. Jakob) | `https://data.matricula-online.eu/sl/slovenia/ljubljana/ljubljana-sv-jakob/01156/?pg=177` | navedba v vrstici (`SOUR` z besedilom in naslovom URL) |
+| Ernestina Jelovšek | Geneanet Cemeteries (grob v Prešernovem gaju) | `https://en.geneanet.org/cemetery/view/13262440` | povezava v opombi; pokopa ni, ustvari ga orodje |
+| France Prešeren, pokop | Find a Grave (memorial 7609860, Prešernov gaj, Kranj) | `https://www.findagrave.com/memorial/7609860/france-preseren` | medijska povezava (`OBJE` › `FILE`) |
+| France Prešeren | Slovenska biografija | `https://www.slovenska-biografija.si/oseba/sbi463215/` | `_WEBTAG` z `URL` |
+| France Prešeren | Obrazi slovenskih pokrajin | `https://www.obrazislovenskihpokrajin.si/oseba/preseren-france/` | `WWW` na osebi |
+| France Prešeren | Wikipedija | `https://sl.wikipedia.org/wiki/France_Prešeren` | povezava v opombi |
+| France Prešeren | dLib.si — *Poezije Dóktorja Francéta Prešérna*, 1847 | `https://www.dlib.si/details/URN:NBN:SI:DOC-OVOKMGOI` | `WWW` na osebi |
+| Ernestina Jelovšek | dLib.si — njeni *Spomini na Prešerna*, 1903 | `https://www.dlib.si/details/URN:NBN:SI:DOC-EQUZU3H7` | naslov vira (`SOUR` › `TITL` je kar URL) |
+| France Prešeren | Google Knjige — *Poezije*, Mladinska knjiga, 1958 | `https://books.google.com/books/about/Poezije.html?id=0F9EAAAAIAAJ&redir_esc=y` (oblika `/books/about/`, prepoznana od PR #148) | medijska povezava na osebi |
+| France Prešeren | YouTube — »Dr. France Prešeren - življenje in delo« (Robert Lang) | `https://www.youtube.com/watch?v=0e4cZNi9nTs` | `_URL` na osebi |
+| Ernestina Jelovšek | stara povezava SIstory (žrtve vojn), ki ne deluje več (404) — SIstory je spremenil naslove | `https://www.sistory.si/zrtve/zrtev/?id=7757` | povezava v opombi |
+
+Za zavihek **Dvojniki** je isti vir, »Rodovnik Petra Hawline« (iz njega izvira
+datoteka), zapisan dvakrat: pri Francetu Prešernu z avtorjem, pri Ani Jelovšek brez
+njega. Hramba Nadškofijski arhiv Ljubljana je v datoteki enkrat (z naslovom); pretvorba
+Matricule jo od PR #154 uporabi, namesto da bi ustvarila novo.
+
+Za zavihek **Strani** ima vir »Kranj, mrliška knjiga« (00932) sliko strani 40, navedba
+smrti Franceta Prešerna (`PAGE 40`) pa nanjo ne kaže. Nastavitev »vir, povezave
+strani« je vklopljena vnaprej (`formatOverrides.pageMedia = "event"`), spletna
+iskanja tudi (`allowLinkFetch`).
+
+Zavihek **Hrambe** se pokaže le pri virih s FamilySearcha, razvrščenih po zbirkah;
+nobena demo datoteka (tudi `rodbina-renko` ne) nima takih vrstic, zato ga opišemo le v
+govoru.
+
+### Kadri
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Povezave v opombah → pravi viri. |
+| 2 | Odpri datoteko, France v Urejanju | Povezava ni vir; ko stran izgine s spleta, ne veste več, za kateri vir je šlo. |
+| 3 | Orodja → Viri, razprt Nadškofijski arhiv Ljubljana | Hrambe, viri, mediji; arhiv zaenkrat hrani eno knjigo; nepripete povezave posebej. |
+| 4 | »Uredi vire« → zavihki → »Viri« | Zavihek se pokaže le, kadar ima kaj za urediti. |
+| 5 | Seznam zbirk na zaslonu; obroč po filtrih | Matične knjige, grobovi, življenjepisi, knjige in časopisi, spletne strani; obdelujte eno za drugo. |
+| 6 | Matricula: »Razširi vse« | Razvrščeno po knjigi; vrstica pove, kje je povezava. |
+| 7 | »Izberi vse« → »Pridobi podatke o virih« | Pravi naslov, arhiv, leta; pošlje se le povezava. |
+| 8 | »Citate pripni na ustrezne dogodke« | Krst k rojstvu, smrt k smrti, grob k pokopu; manjkajoč dogodek se ustvari. |
+| 8a | »Kakovost citata« → primarni vir (razširjeno) | Velja za vse navedbe, vidi se v vsaki vrstici. |
+| 9 | ✎ → urejevalnik vira | Popravek pred pretvorbo. |
+| 10 | »Pretvori v vire« | En korak. |
+| 11 | Geneanet: »Razširi vse«, sekundarni vir, izberi, pridobi, pretvori | Grob ni primarni vir za smrt; Ernestina dobi pokop. |
+| 12 | »Vsi« → »Razširi vse« | Ostale skupaj; sekundarni vir. |
+| 13 | Stari SIstory → 🗑 »ODSTRANI« | Mrtva povezava izgine, opomba ostane. |
+| 14 | »Izberi vse« → pridobi → pretvori | Naslov dela, ime osebe, naslov videa in avtor. |
+| 15 | »Dvojniki« → »Razširi vse« → »Združi dvojnike« | Rodovnik Petra Hawline pri dveh osebah. |
+| 16 | »Strani« → »Razširi vse« → »Izberi vse« → »Pripni slike strani« | Hrambe le v govoru. |
+| 17 | Nazaj na vire: odprta hramba Nadškofijski arhiv Ljubljana | Knjige, strani, osebe. |
+| 18 | Urejanje: France (rojstvo), Ernestina (pokop) | Opombe so pravi viri. |
+| 19 | Shrani GEDCOM → »Vrstice GEDCOM« | |
+| 20 | Zaključna kartica | |
+
+Natančen govor v obeh jezikih je v `scripts/organize.ts`.
+
+---
+
+## 15. Pregled: čiščenje podatkov
+
+**Cilj:** pokazati, katere napake Pregled najde in kako jih popravite: večino z gumbom v
+samem Pregledu, nekatere v Urejanju, vse popravljive pa naenkrat. Ocena rojstva in poroke
+v Pregledu je ista kot pri paketnih opravilih »Dodaj ocenjeno leto rojstva (ABT, CAL)« in
+»Dodaj ocenjen datum poroke (BEF, ABT)«.
+**Podatki:** `demo/preseren-hawlina-pregled.ged`, kopija Prešernovega drevesa z namerno
+vnesenimi napakami; to povesta glava datoteke (NOTE) in govor. · **Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Pregled« · »Počistite *napake* v drevesu« · posnetek
+seznama težav s številkami.
+
+### Kaj Pregled preveri (seznam na zaslonu)
+
+Kot seznam podprtih povezav v epizodi 4 (Viri): overlay `list` na začetku, obroč pa hodi po filtrih.
+Govor seznama ne bere, le povzame skupine. Imena so oznake filtrov iz `sl.ts`.
+
+- **Povezave:** Pokvarjene povezave, Podvojeni kazalci, Isti par dvakrat, Krožni predniki,
+  Dve družini staršev, Nepovezane osebe, Nepovezane veje
+- **Datumi:** Smrt pred rojstvom, Dogodek zunaj življenjske dobe, Datumi v prihodnosti,
+  Neberljivi datumi, Neobstoječi datumi
+- **Starosti:** Starost ob poroki, Starost ob smrti, Starost starša, Starostna razlika
+  zakoncev, Navedena starost, Rojstvo po smrti starša, Rojstvo pred poroko
+- **Manjkajoči podatki:** Brez imena, Brez spola, Brez ključnih datumov, Poroka brez
+  datuma, Živi nad 99 let
+- **Zapis GEDCOM:** skladnost s standardom 5.5.1 ali 7.0 (drugi zavihek)
+
+### Demo datoteka `preseren-hawlina-pregled.ged`
+
+Kopija `preseren-hawlina.ged`. Napake 1–9 in 12 popravi gumb v Pregledu, 10–11 popravite v
+Urejanju. Dve vrsti napak sta v Prešernovem drevesu resnični in ostaneta, kakor sta.
+
+| # | Oseba, zapis | Vnesena napaka | Kaj pokaže Pregled | Popravek |
+|---|---|---|---|---|
+| — | Matija Prešeren, Jera Mulej, Marija Prešeren, Simon Muhovec | *(resnično)* rojstvo brez smrti | Živi nad 99 let | »Dodaj smrt« (DEAT Y) |
+| — | 14 datumov, npr. `~1665`, `<1687`, `>1835` | *(resnično)* | Nestandardni datumi (zavihek GEDCOM) | → `ABT 1665` … |
+| 1 | Jožef Prešeren, rojstvo | `01 MAR 1698` → `1. 3. 1698` | Neberljivi datumi | → `1 MAR 1698` |
+| 2 | Ana Jelovšek | brez `SEX` | Brez spola | → Ženska (iz vloge žene) |
+| 3 | Simon Muhovec in Marija Legat | HUSB in WIFE zamenjana | Spol proti vlogi (oba) | zamenja vlogi |
+| 4 | družina Franceta in Ane | `CHIL` Ernestine dvakrat | Podvojeni kazalci | »Odstrani podvojeno« |
+| 5 | Ernestina Jelovšek | `FAMS` na družino, ki je ni | Pokvarjene povezave | »Odstrani povezavo« |
+| 6 | Šimen Prešeren in Mina Svetina | poroka v drugi družini istega para | Isti par dvakrat | »Združi v eno« |
+| 7 | France Prešeren, rojstvo | navedba vira `@S1@`, ki ga ni | Neobstoječi sklici | »Odstrani sklic« |
+| 8 | Marija, žena Matije Prešerna | rojstvo (`~1670`) odstranjeno | Brez ključnih datumov | → `ABT 1670` |
+| 9 | Jernej Prešeren in Mina Prešeren | poroka `~1761` → `MARR Y` | Poroka brez datuma | → `BEF 23 OCT 1762` (rojstvo Šimna) |
+| 10 | Mina Prešeren, smrt | `1823` → `1723` (napačna števka) | Smrt pred rojstvom; posledično še Dogodek zunaj življenjske dobe in Rojstvo po smrti starša (Šimen) | v Urejanju popravite letnico, ob ponovnem pregledu izginejo vse tri |
+| 11 | Terezija Jelovšek (1839–1840) | brez povezave s starši | Nepovezane osebe | v Urejanju jo povežete kot otroka Franceta in Ane |
+| 12 | Jakob Svetina, Jera Muhovec in Mina Svetina | družina zapisana še enkrat, nepripeta (kot uvoz, ki ni bil pripet) | Nepovezane veje (3 osebe) | »Odstrani vejo« (gumb za prenos v GEDCOM le pokažemo) |
+
+### Kadri
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Tudi v skrbno vodenem drevesu se naberejo napake. Pregled jih najde v nekaj sekundah. |
+| 2 | Odpri datoteko; glava (NOTE) | V tej kopiji Prešernovega drevesa smo napake vnesli namerno. |
+| 3 | Orodja → Pregled → »Težave v podatkih«; seznam na zaslonu | Pregled preveri povezave, datume, starosti in manjkajoče podatke, drugi zavihek pa še zapis GEDCOM. |
+| 4 | »Smrt pred rojstvom« → Mina Prešeren → Urejanje, 1723 → 1823 | Klik na težavo odpre osebo v Urejanju. Ena napačna števka povzroči tri težave. |
+| 5 | »Zaženi znova« | Ob ponovnem pregledu izginejo vse tri. |
+| 6 | »Nepovezane osebe« → obroč na »Odstrani osebo« → Terezija → Urejanje: poveži s staršema | Odvečno osebo odstranite z gumbom; ta je le pozabljena povezava. |
+| 6a | »Nepovezane veje« → obroč na prenos in »Odstrani vejo« → potrditev s seznamom → odstrani | Ta oseba s staršema še enkrat, ostanek uvoza; vejo prenesete ali odstranite. |
+| 7 | »Pokvarjene povezave«, »Podvojeni kazalci«, »Isti par dvakrat« | Teh napak v Urejanju ne vidite, zato jih popravite kar tukaj. |
+| 8 | »Spol proti vlogi« → zamenja vlogi; »Brez spola« → Ženska | Spol ali vlogo program razbere iz družine. |
+| 9 | »Brez ključnih datumov« → ABT 1670; »Poroka brez datuma« → BEF 23 OCT 1762 | Manjkajoče datume oceni iz sorodnikov, enako kot paketno opravilo. |
+| 10 | »Živi nad 99 let«: Marija obroč → »Izberi vse popravljive« → »Popravi izbrane« | Kdor bi bil star več kot 99 let, je skoraj gotovo umrl. Med njimi je zdaj tudi Marija: popravek je odkril novo težavo. |
+| 11 | »Neberljivi datumi«, »Neobstoječi sklici« | Datum v nenavadni obliki se prepiše v obliko GEDCOM, sklic na manjkajoč vir se odstrani. |
+| 12 | »Popravljivo« → »Izberi vse popravljive« → »Popravi izbrane« | Vse popravljive težave popravite naenkrat; pred tem vidite seznam popravkov s številom. |
+| 13 | Zavihek »Skladnost z GEDCOM« → »Nestandardni datumi« → enako vse naenkrat | GEDCOM ima predpisan standard za zapis datuma; drugače zapisani datumi se prepišejo. |
+| 14 | Nazaj na »Težave v podatkih« → prazen seznam | Drevo je počiščeno. |
+| 15 | Zaključna kartica | |
+
+---
+
+## 16. Paketno urejanje: isti popravek na sto osebah naenkrat
+
+**Cilj:** s filtri izbrati osebe iz celotnega drevesa, preveriti zadetke in nad vsemi izvesti en
+ukrep; filtre shraniti, da jih pozneje zaženemo znova. Tudi filter brez ukrepa je uporaben —
+kot shranjeno iskanje za nadaljnje raziskovanje.
+**Podatki:** `rodbina-renko.ged` (izhodiščna oseba avtor, kot v epizodah 9 in 11). Številke
+(preverjeno 15. 11. 2026): poročene ženske brez poročnega priimka 497 (36 jih ostane neoznačenih,
+ker poroka ni zapisana); umrli pred 20. letom 185; osebe s partnerjem v zvezi s poroko brez datuma
+48 (24 parov, 21 dobi BEF, ostali ABT — avtorjevi predniki brez poroke so v demo datoteki dobili
+poroko brez datuma); ocenjeni datumi poroke po ukrepu 160 oseb; pari z otroki brez poroke 14; avtorjevi
+predniki 399, od tega 198 brez virov.
+**Slika died-young:** `icons/died-young.jpg` iz avtorjeve mape medijev (kot v epizodi 12). ·
+**Trajanje:** ~6 min
+**Naslovna slika:** oznaka »Paketno urejanje« · »En popravek, *sto* oseb« · posnetek seznama
+zadetkov s predogledom ocen.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Nekateri popravki so enaki za sto oseb. Namesto da jih urejate eno za drugo, jih izberete s filtri in popravite naenkrat. |
+| 2 | Orodja → »Poenoti in paketno uredi« → »Paketna opravila« | Filtri izberejo osebe iz celotne datoteke, seznam pokaže zadetke, ukrep pa se izvede nad vsemi označenimi. |
+| 3 | Filtri »Spol: ženski«, »Sorodniki: ima partnerja«, »Ime: nima poročnega priimka« → 497 zadetkov | Najprej poročni priimki. Poiščimo ženske s partnerjem, ki poročnega priimka še nimajo. |
+| 4 | Ukrep »Dodaj poročni priimek po partnerju« → predogled »→ Renko«, neoznačene vrstice »poroka ni zapisana« | Vsaka vrstica vnaprej pokaže priimek, ki se bo zapisal. Kjer poroka ni zapisana, je vrstica neoznačena — ta par morda ni bil poročen. |
+| 5 | »Izvedi« → potrditev → »Spremenjenih: 456« | En klik, in priimke dobi več kot štiristo žensk. |
+| 6 | Ime »Poročni priimki« → »Shrani filter« | Filter shranimo skupaj z ukrepom. Seznam shranjenih vedno pokaže, koliko oseb trenutno ustreza. |
+| 6a | Nastavitve → »Urejanje« → vklop »Poročni priimek po partnerju« | Da bo takih primerov manj: ko ženo dodate možu, se njen poročni priimek zapiše sam. |
+| 7 | Nov filter: »Živi: ne — umrli«, »Starost: manj kot 20 let« → 185 | Drugi primer: otroci, ki so umrli mladi. Starost se šteje ob smrti. |
+| 8 | Ukrep »Pripni medij« → v iskalno polje »died« → `icons/died-young.jpg` iz mape z mediji → izvedi | Vsem pripnemo isto sličico, da jih v drevesu in na diagramih takoj prepoznamo. |
+| 9 | Filter »Mediji: nima tega medija → died-young« → 0 → shrani »Umrli mladi« | Dodamo še pogoj, da slike nimajo. Zdaj filter ne najde nikogar, ko pa vnesete novega otroka, ga bo našel. |
+| 10 | Urejanje ali diagram družine z otroki, ki so umrli mladi | Sličica je pri vsakem otroku. |
+| 11 | Filtra »Sorodniki: ima partnerja«, »Zveza: nima datuma — Poroka« → 48 (24 parov) | Tretji primer: poroke brez datuma. |
+| 12 | Ukrep »Dodaj ocenjen datum poroke (BEF, ABT)« → predogled »→ BEF 1885«, »→ ABT 1880« | Kjer ima otrok natančen datum rojstva, je poroka pred njim: BEF. Sicer je ocena ABT, iz ocenjenega rojstva otroka ali iz let rojstva zakoncev. |
+| 13 | Izvedi → shrani »Poroke brez datuma« | |
+| 14 | »Zveza: ima ocenjen datum — Poroka«, brez ukrepa → shrani »Ocenjene poroke« | Filter brez ukrepa je shranjeno iskanje. Ocene je dobro preveriti v matičnih knjigah — in če pozneje dodate starejšega otroka, ukrep oceno BEF popravi. |
+| 14a | »ima partnerja«, »ima otroke«, »Zveza: nima — Poroka« → 14, brez ukrepa → shrani »Pari brez poroke« | Tudi tem parom bi lahko dodali oceno poroke, a par morda ni bil poročen — odločitev je vaša. |
+| 15 | »Sorodstvo: neposredni prednik«, »Viri: nima virov« → 198 → shrani »Predniki brez virov« | Še en seznam nalog: od 399 prednikov jih 198 nima nobenega vira. |
+| 16 | Seznam shranjenih filtrov s številkami → »Naloži ta filter« | Shranjeni filtri ostanejo v brskalniku, ne v datoteki GEDCOM — na drugem računalniku jih ni. |
+| 17 | Zaključna kartica | |
+
+---
+
+## Odprta vprašanja
+
+1. **Epizoda 14 (Uredi vire):** BillionGraves, Legacy.com, Newspapers.com in Geneanet
+   Trees v Prešernovem drevesu nimajo preverjenega primera, zato jih le naštejemo.
+   Zavihka Hrambe ne pokažemo (ni podatkov FamilySearch). Za aplikacijo preverite: po
+   pretvorbi dLib »Poezije« (1847) se je povezava Google Knjig »Poezije« (1958) občasno
+   znašla med »Drugimi povezavami« (v sedanji demo datoteki se ne ponovi). Podvojeno
+   hrambo pri pretvorbi Matricule popravi PR #154.

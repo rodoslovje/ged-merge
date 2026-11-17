@@ -76,7 +76,7 @@ test("fixes picked together run as one step, and one Undo brings them all back",
   await expect(chip(page, "Duplicate pointers")).toBeVisible();
 });
 
-test("health-check fixes repair the file and undo brings a defect back", async ({ page }) => {
+test("health-check fixes repair the file and undo brings a defect back", { tag: "@smoke" }, async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 
@@ -97,11 +97,11 @@ test("health-check fixes repair the file and undo brings a defect back", async (
   await expect(page.locator(".tools-issue", { hasText: "Range ends before it starts" })).toContainText("FROM 1890 TO 1880");
 
   await applyFix(page, "Broken links");
-  await expect(page.locator(".tools-clean--ok")).toContainText("Removed broken links from 1 record");
+  await expect(page.locator(".tools-clean--ok")).toContainText("Repaired broken links in 1 record");
   await expect(chip(page, "Broken links")).toHaveCount(0);
 
   await applyFix(page, "Dangling references");
-  await expect(page.locator(".tools-clean--ok")).toContainText("Removed dangling references from 1 record");
+  await expect(page.locator(".tools-clean--ok")).toContainText("Fixed dangling references in 1 record");
   await expect(chip(page, "Dangling references")).toHaveCount(0);
 
   await applyFix(page, "Duplicate pointers");

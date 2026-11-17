@@ -5,9 +5,18 @@
  * cycle. Re-exported from `source.ts` for the rest of the app.
  */
 
+import type { GedNode } from "./types";
+
 /** A GEDCOM pointer value, e.g. `@I1@`. */
 export function isPointer(v: string): boolean {
   return /^@[^@]+@$/.test(v);
+}
+
+/** Whether a line's value is a pointer — not text the file escaped to look like
+ *  one (`1 NOTE @@I1@`, see `GedNode.atText`). */
+export function isPointerNode(node: GedNode): boolean {
+  const v = node.value;
+  return v !== undefined && v !== node.atText && isPointer(v.trim());
 }
 
 /** GEDCOM 7's null pointer `@VOID@` — "a record this file does not have". It

@@ -233,7 +233,7 @@ CSV, SVG and PNG export of every card and of the whole page.
 
 ## Custom-tag support plan (2026-07-13 corpus analysis)
 
-Prioritized plan for premium support of the major genealogy programs' GEDCOM output, derived from scanning all 271 files (586 MB, ~2.46 M individuals) in `~/rodoslovje/srd-data/index/input`.
+Prioritized plan for premium support of the major genealogy programs' GEDCOM output, derived from scanning all 271 files (586 MB, ~2.46 M individuals) in `~/Work/srd/srd-indeks/input`.
 
 ### Corpus facts that shape the plan
 - **Producers by share of individuals:** Brother's Keeper 211 files / 1.96 M INDI (**80%**); Family Historian 13 / 180k; MyHeritage FTB 17 / 135k; Gramps 3 / 43k; GeneWeb 6 / 38k; Family Tree Maker 5 / 36k; Legacy 5 / 23k; the rest (RootsMagic, PAF, MacFamilyTree, webtrees, Ancestry, Geni, …) ≤ 10k each.

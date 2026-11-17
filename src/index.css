@@ -58,7 +58,11 @@ button:focus-visible {
   height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* sections manage their own scrolling */
+  /* Sections manage their own scrolling. »clip« rather than »hidden«: a hidden
+     box can still be scrolled by script, and focusing a field or a click's
+     scroll-into-view did exactly that, sliding the whole app — header and all —
+     up out of the window. */
+  overflow: clip;
 }
 .app-head {
   flex: 0 0 auto;
@@ -199,6 +203,50 @@ button:focus-visible {
 }
 .app-head-actions .export-btn {
   font-size: 0.85rem;
+}
+/* Background downloads, beside Undo: a spinner and how many are running. */
+.activity-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 4px 10px;
+}
+.activity-spinner {
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+}
+/* Lingering a moment after the last request: the ring stops, all accent. */
+.activity-spinner--idle {
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+}
+/* An entry's value in the list (42 %, 12.3 MB, 8 s), set apart from its words. */
+/* Words left, value right, both on one baseline. */
+.activity-entry {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+.activity-label {
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.activity-value {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.activity-count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 /* The Save button shows "Save GEDCOM" by default and the short "Save" on
    narrower screens (toggled in the 1100px header media query below). */
@@ -361,7 +409,11 @@ button:focus-visible {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  /* At least the button's width, wider for the longest item: a short current
+     value ("Kraji") used to clip "Poenoti in paketno uredi" mid-word. */
+  min-width: 100%;
+  width: max-content;
+  max-width: calc(100vw - 32px);
   z-index: 70;
   padding: 6px;
   max-height: calc(100dvh - 160px);
@@ -382,6 +434,7 @@ button:focus-visible {
   font: inherit;
   font-size: 0.92rem;
   text-align: left;
+  white-space: nowrap;
   cursor: pointer;
 }
 .picker-menu-item:hover {
@@ -2235,12 +2288,19 @@ button:focus-visible {
 .person-kinship.lineage-both,
 .tree-title-kinship.lineage-both { color: var(--accent); }
 /* Edit's name row: the kinship label is the start person's control
-   (StartPersonChip). It reads as the label until hovered; with no start
-   person a faint dashed chip offers to set one. */
+   (StartPersonChip), the target before it saying so; hovered it becomes a
+   pill. With no start person a faint dashed chip offers to set one. */
+.person-kinship.start-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+}
+.person-kinship.start-chip svg { flex: none; opacity: 0.75; }
 .person-kinship.start-chip:hover,
 .person-kinship.start-chip[aria-expanded="true"] {
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
+  background: color-mix(in oklch, currentColor 12%, transparent);
 }
 .start-chip--unset,
 .start-chip--icon {
@@ -2584,6 +2644,10 @@ button:focus-visible {
   grid-template-columns: repeat(auto-fill, var(--sibling-w));
   gap: 8px;
 }
+/* A phone: two even columns, so a long name never leaves one box per row. */
+@media (max-width: 560px) {
+  .edit-sibling-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .edit-sibling {
   display: flex;
   flex-direction: column;
@@ -2697,6 +2761,10 @@ button:focus-visible {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* The couple's note beside the partner, as wide as its text; an empty one takes
+   no room. */
+.edit-family-notes { flex: 0 1 auto; min-width: 0; }
+.edit-family-notes:empty { display: none; }
 /* Separate multiple spouse families with a divider above each subsequent one. */
 .edit-family + .edit-family {
   border-top: 1px solid var(--border);
@@ -3067,6 +3135,71 @@ button:focus-visible {
 }
 .media-crop-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
 .media-crop-hint { color: var(--muted); font-size: 0.78rem; }
+/* A face found on the photo that nobody is marked on yet: an accent dashed box
+   with a »?« under it; a click opens the name panel. */
+.photo-crop-box.photo-face-box {
+  border: 2px dashed var(--accent);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.photo-crop-box.photo-face-box:hover { background: var(--accent-soft); }
+/* Corner handles on a marked person's region: drag one to resize it. */
+.photo-crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border: 2px solid var(--panel);
+  border-radius: var(--radius-sm);
+  pointer-events: auto;
+  touch-action: none;
+}
+.photo-crop-handle-nw { left: -7px; top: -7px; cursor: nwse-resize; }
+.photo-crop-handle-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.photo-crop-handle-ne { right: -7px; top: -7px; cursor: nesw-resize; }
+.photo-crop-handle-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+/* The region being resized tracks the pointer exactly, in the accent colour. */
+.photo-crop-box.photo-crop-resizing { border: 2px solid var(--accent); transition: none; }
+/* The name panel, under the face being named. */
+.photo-face-panel {
+  position: absolute;
+  margin-top: 6px;
+  z-index: 2;
+}
+.photo-face-namer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 240px;
+  padding: 10px;
+  /* The image wrapper sets line-height 0 against the inline-image gap. */
+  line-height: 1.35;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  align-items: flex-start;
+}
+.photo-face-title { font-weight: 600; font-size: 0.85rem; }
+.photo-face-search { width: 100%; flex: none; }
+.photo-face-list { list-style: none; margin: 0; padding: 0; width: 100%; max-height: 220px; overflow-y: auto; flex-shrink: 0; }
+.photo-face-list button {
+  width: 100%;
+  text-align: left;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+/* The person rows are PersonLinks: their own name colours, no link underline. */
+.photo-face-list .person-ref:hover { text-decoration: none; }
+.photo-face-list button:hover { background: var(--accent-soft); }
+.photo-face-none { color: var(--muted); font-size: 0.8rem; padding: 4px 6px; }
 .photo-crop-name {
   position: absolute;
   top: 100%;
@@ -3332,6 +3465,9 @@ button:focus-visible {
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
+/* The couple's own "+ Add note" / "+ Add link" beside the partner: shown, as
+   "+ Add family event" is — hidden, nothing said a family could hold a note. */
+.edit-family-card-row .edit-name-chip-add { opacity: 1; }
 /* The row that adds an event, under the list it adds to. Always visible (it is
    the way to add an event, not an incidental extra on another row), led by the
    "+ Add event" menu. Sized like the person's own chip row above —
@@ -3347,9 +3483,11 @@ button:focus-visible {
   color: var(--muted);
 }
 .edit-event-add-row .edit-name-chip-add { opacity: 1; }
-/* Events the record states did not happen (GEDCOM 7 NO): solid chips, since
-   they are statements the file makes, each with its own ×. */
+/* Events the record states did not happen (GEDCOM 7 NO): event rows ahead of
+   the events, the event's name in the label column and the statement beside
+   it where a date would stand. */
 .edit-no-events-label { color: var(--muted); }
+.edit-no-event-text { align-self: baseline; font-style: italic; color: var(--text); }
 .edit-no-event {
   display: inline-flex;
   align-items: center;
@@ -3357,16 +3495,7 @@ button:focus-visible {
   border-style: solid;
   color: var(--text);
 }
-.edit-no-event-date { color: var(--muted); }
-.edit-no-event-remove {
-  border: none;
-  background: none;
-  padding: 0 2px;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-}
-.edit-no-event-remove:hover { color: var(--danger); }
+.edit-no-event-date { color: var(--muted); font-style: normal; }
 /* An event the person can only have one of and already has: its button leads to
    the row holding it rather than writing a second one, so it reads as a
    destination — solid-bordered, where an offer to add is dashed. That border is
@@ -4598,6 +4727,11 @@ button:focus-visible {
   filter: none;
 }
 .clearable-wrap--leading .edit-input { padding-left: 22px; }
+/* A lock the target version cannot carry (a note or media item in a strict
+ * mode): it says why on hover and never lights up. */
+.note-chip-lock[aria-disabled="true"],
+.private-toggle[aria-disabled="true"] { cursor: not-allowed; }
+.clearable-wrap .note-chip-lock[aria-disabled="true"]:hover { opacity: 0.7; background: transparent; }
 /* Person/family private chip: quiet outline at rest, accented when set. */
 .private-toggle {
   cursor: pointer;
@@ -4613,6 +4747,7 @@ button:focus-visible {
 
 /* Delete person — trash icon button in the sex row */
 .edit-delete-btn {
+  display: inline-flex; align-items: center;
   margin-left: auto;
   border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
@@ -5039,7 +5174,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .choice:disabled { opacity: 0.45; cursor: default; }
 
 .group-header-row {
-  background: var(--panel-2);
+  background: var(--group-head-bg);
 }
 .group-header-cell {
   font-weight: 600;
@@ -5084,6 +5219,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   padding: 3px 10px;
   font-size: 0.8rem;
 }
+/* What the save brings across (by person / whole file), above the match list,
+   with a whole-file merge's review progress beside it. */
+.merge-scope-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  margin-bottom: 10px;
+}
+.merge-scope-progress { font-size: 0.85rem; }
 
 /* --- compare tree --- */
 .compare-nav-actions {
@@ -5878,7 +6020,84 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-dasharray: 4 4;
   opacity: 0.6;
 }
+/* Historical events: spans shade the years with one flat tint (solid fills
+   under a group opacity, so overlaps never darken), a single year is a dotted
+   rule, and a span's label carries a bracket over its exact years. */
+.timeline-history-bands {
+  fill: var(--timeline-history);
+  opacity: 0.08;
+}
+.timeline-history-span {
+  fill: none;
+  stroke: var(--timeline-history);
+  stroke-width: 1.5;
+}
+.timeline-history-line {
+  stroke: var(--timeline-history);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.7;
+}
+.timeline-history-label {
+  fill: var(--timeline-history);
+  font-size: 11px;
+}
+/* The Lines layout: event labels sit over the drawing, on a halo. */
+.timeline-lines-history {
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.timeline-lines-link {
+  fill: none;
+  stroke-width: 1.4;
+  opacity: 0.7;
+}
+/* A life hanging from its birth dot: a broad faint stroke, dashed when the
+   birth year is only estimated, fainter still while the life is ongoing. */
+.timeline-lines-life {
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.35;
+}
+.timeline-lines-life.estimated { stroke-dasharray: 3 5; }
+.timeline-lines-life.open { opacity: 0.18; }
+.timeline-lines-person { cursor: pointer; }
+.timeline-lines-dot { stroke-width: 1.5; }
+.timeline-lines-dot.root { stroke: var(--text); stroke-width: 2; }
+.timeline-lines-person:hover .timeline-lines-dot,
+.timeline-lines-person.selected .timeline-lines-dot {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.timeline-lines-person.find-hit .timeline-lines-dot {
+  stroke: var(--status-diff);
+  stroke-width: 2.5;
+}
+.timeline-lines-name {
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.timeline-lines-name.hidden { fill: var(--muted); font-style: italic; }
+.timeline-lines-undated { fill: var(--muted); font-size: 11px; }
+/* The year scale, repeated at the left edge once the chart scrolls sideways
+   (an absolute child of the canvas wrap, so it stays put while the canvas
+   scrolls; it follows the vertical scroll through its transform). */
+.timeline-lines-sticky {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.timeline-lines-sticky svg { display: block; }
+.timeline-lines-sticky-bg { fill: var(--panel); }
 .timeline-row { cursor: pointer; }
+.tree-canvas.panning .timeline-lines-person { cursor: grabbing; }
 /* Full-width hit/selection strip behind each row. */
 .timeline-row-bg { fill: transparent; }
 .timeline-row:hover .timeline-row-bg { fill: color-mix(in srgb, var(--accent) 7%, transparent); }
@@ -5886,6 +6105,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .timeline-row:hover .timeline-bar { filter: brightness(1.12); }
 /* Open bar ends (unknown birth / death, still living) taper off, half-faded. */
 .timeline-bar-open { opacity: 0.45; }
+/* A hidden person's bar on a blurred span: a faint fill in a dashed outline. */
+.timeline-bar.estimated {
+  fill-opacity: 0.18;
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
 /* Name coloured by sex via an inline style; this fill is the unknown-sex default. */
 .timeline-row-name {
   fill: var(--text);
@@ -5965,6 +6190,13 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   font-weight: 600;
   color: var(--accent);
   min-width: 3.4em;
+}
+/* Contemporaries: the find box at the top right, as on every chart, and the
+   count under it. */
+.tree-controls-right.kin-controls-right {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 .kin-count {
   font-size: 13px;
@@ -6157,9 +6389,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 /* A band along the bottom of the canvas wrap (see ChartLegend): laid over
    the wrap so its size never changes, while the scrolling canvas above ends
-   at the band's top edge, so no part of the chart is ever under it. One line
-   that scrolls sideways when long; the zoom controls keep the corner to its
-   right. */
+   at the band's top edge, so no part of the chart is ever under it. It wraps
+   onto as many lines as its chips need, every key on view; the zoom controls
+   keep the corner to its right. */
 .tree-canvas-wrap > .chart-legend {
   position: absolute;
   left: 10px;
@@ -6167,15 +6399,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   bottom: 8px;
   z-index: 3;
   margin: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  padding-bottom: 2px;
 }
 .tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
-/* While a key shows, the canvas ends above the band; the frame is the wrap's
+/* While a key shows, the canvas ends above the band — at its measured height
+   (ChartLegend sets --chart-legend-h on the wrap); the frame is the wrap's
    (see .tree-canvas-wrap), so the band sits inside it. */
-.tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: 44px; }
+.tree-canvas-wrap:has(> .chart-legend) > .tree-canvas { bottom: calc(var(--chart-legend-h, 28px) + 16px); }
 .kin-legend-count {
   color: var(--faint);
   font-variant-numeric: tabular-nums;
@@ -6201,6 +6430,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .kin-sticky svg {
   display: block;
   margin: auto;
+  /* A chart wider than the pane must keep its width, or the flex row shrinks
+     it to fit and the scroll offset slides the whole ruler out of view. */
+  flex: none;
 }
 
 /* ── Contemporaries on a map ─────────────────────────────────────────────────
@@ -6831,7 +7063,7 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .tree-compare-table .field.conflict.major td { background: color-mix(in oklch, var(--state-major) 10%, transparent); }
 .tree-compare-table .field.incoming-only td { background: rgba(62, 207, 142, 0.07); }
 /* Group headers paint on the cell too (same reason as the field highlights). */
-.tree-compare-table .group-header-cell { background: var(--panel-2); }
+.tree-compare-table .group-header-cell { background: var(--group-head-bg); }
 .tree-compare-table .event-header-cell { background: transparent; }
 /* Main | Incoming headers: source-coloured uppercase mono, like the compare
    panel. Scoped to beat the muted `.tree-compare-table th` base colour. */
@@ -6934,6 +7166,10 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   left: 50%;
   bottom: 32px;
   transform: translateX(-50%);
+  /* Centred on `left: 50%` alone, a toast may only grow to half the screen
+     before it wraps; size it to its content, within the screen's gutters. */
+  width: max-content;
+  max-width: calc(100vw - 32px);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -6953,11 +7189,14 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .pwa-toast {
   position: fixed;
   left: 50%;
-  bottom: 32px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px 16px;
+  font-size: 0.9rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -6966,10 +7205,18 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   box-shadow: inset 3px 0 0 var(--accent), 0 8px 32px rgba(0, 0, 0, 0.35);
   animation: save-toast-in 0.2s ease-out;
 }
-.pwa-toast-actions { display: flex; gap: 8px; }
-.pwa-toast-reload {
-  background: var(--accent); border: 1px solid var(--accent); color: var(--bg);
-  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+.pwa-toast-actions { display: flex; gap: 8px; flex: none; }
+/* Both answers one size, each on one line. */
+.pwa-toast-actions button {
+  border-radius: var(--radius); padding: 6px 14px; font-size: 0.85rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.pwa-toast-reload { background: var(--accent); border: 1px solid var(--accent); color: var(--bg); }
+/* A phone: the message across the toast, the answers under it at the right. */
+@media (max-width: 560px) {
+  .pwa-toast { flex-wrap: wrap; width: calc(100vw - 32px); }
+  .pwa-toast > span { flex: 1 1 100%; }
+  .pwa-toast-actions { margin-left: auto; }
 }
 .pwa-toast-reload:hover { filter: brightness(1.08); }
 /* Notices (Notice.tsx): open questions about the loaded file, as strips under
@@ -7301,9 +7548,15 @@ body:has(.modal-overlay) {
 
 /* General / Advanced tab bar — same segmented look as .chart-settings-segmented,
  * sized to span the modal width just under the header. */
+/* Five tabs don't fit a phone: the bar scrolls sideways rather than widening
+ * the dialog past the screen (its min-content width used to push the whole
+ * modal, body text included, off the right edge). */
 .settings-tabs {
   display: flex;
   gap: 2px;
+  flex: none;
+  overflow-x: auto;
+  scrollbar-width: none;
   margin: 12px 32px;
   padding: 3px;
   background: var(--panel-2);
@@ -7311,7 +7564,8 @@ body:has(.modal-overlay) {
   border-radius: 9px;
 }
 .settings-tabs button {
-  flex: 1 1 0;
+  flex: 1 0 auto;
+  white-space: nowrap;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
@@ -7358,6 +7612,7 @@ body:has(.modal-overlay) {
 }
 .settings-preview-person {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 8px;
   font-size: 1.05rem;
@@ -7444,6 +7699,15 @@ p.settings-note { margin: 0 0 12px; font-size: 0.82rem; color: var(--muted); lin
 /* ── Keyboard shortcut cheat sheet (ShortcutsModal) ───────────────────────── */
 .shortcuts-modal { max-width: 1120px; height: auto; max-height: 88dvh; }
 .shortcuts-print-btn { margin-left: auto; margin-right: 8px; }
+/* The family website's short sheet: two columns of a narrower dialog, smaller
+   type and tighter lines (one column on a phone, see below). */
+.shortcuts-modal.shortcuts-compact { max-width: 820px; }
+.shortcuts-compact .shortcuts-grid { column-count: 2; column-gap: 24px; }
+.shortcuts-compact .shortcuts-group h3 { font-size: 0.95rem; }
+.shortcuts-compact .shortcuts-row dd { font-size: 0.88rem; line-height: 1.35; }
+.shortcuts-compact .shortcuts-row dt { padding: 1px 8px 1px 0; }
+.shortcuts-compact kbd { padding: 1px 6px; font-size: 0.78rem; }
+.shortcuts-compact .shortcuts-legend { gap: 4px; margin-bottom: 10px; padding-bottom: 8px; font-size: 0.85rem; }
 
 /* Heads the first column: two short lines, not a row across all three. */
 .shortcuts-legend {
@@ -7514,7 +7778,8 @@ kbd {
   .shortcuts-grid { column-count: 2; }
 }
 @media (max-width: 720px) {
-  .shortcuts-grid { column-count: 1; }
+  .shortcuts-grid,
+  .shortcuts-compact .shortcuts-grid { column-count: 1; }
   /* Narrow: the coordinate popover stacks map over candidates again. */
   .edit-coord-pop { width: min(420px, 92vw); }
   .edit-coord-body { flex-direction: column; }
@@ -7598,6 +7863,12 @@ kbd {
   order: -1;
   margin-right: auto;
 }
+/* Two equal answers, one above the other at full width, Cancel last. */
+.confirm-dialog-actions.stacked { flex-direction: column; align-items: stretch; }
+.confirm-dialog-actions.stacked > .confirm-dialog-confirm { order: -2; }
+.confirm-dialog-actions.stacked > .confirm-dialog-alt { order: -1; margin-right: 0; }
+.confirm-dialog-actions.stacked > button { text-align: center; }
+.confirm-dialog-actions.stacked > .btn-secondary:not(.confirm-dialog-alt) { align-self: flex-end; margin-top: 4px; }
 .confirm-dialog-confirm {
   background: var(--accent);
   border: 1px solid var(--accent);
@@ -8659,6 +8930,38 @@ kbd {
 .map-panel-pathbtn:hover .map-paths-icon {
   opacity: 1;
 }
+/* The row's buttons (life path, re-root) sit apart from the name, at the
+   row's right edge, side by side and no taller than the name's line, so the
+   row keeps its height. Each is framed like the toolbar's icon buttons so it
+   reads as a control rather than part of the text. */
+.map-panel-person-actions {
+  float: right;
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+.map-panel-person-actions .map-panel-pathbtn {
+  justify-content: center;
+  /* Square and the same size, whichever icon it holds. */
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.map-panel-person-actions .map-panel-pathbtn .map-paths-icon {
+  width: 14px;
+  height: 11px;
+}
+.map-panel-person-actions .map-panel-pathbtn svg {
+  opacity: 0.75;
+}
+.map-panel-person-actions .map-panel-pathbtn:hover {
+  border-color: var(--accent);
+}
+.map-panel-person-actions .map-panel-pathbtn:hover svg {
+  opacity: 1;
+}
 .map-undated {
   display: inline-flex;
   align-items: center;
@@ -8846,6 +9149,7 @@ kbd {
     border-radius: 0;
     padding: 0 20px 24px;
   }
+  .settings-tabs { margin: 12px 20px; }
   .app {
     padding: 0;
     overflow-y: auto;
@@ -9229,6 +9533,11 @@ kbd {
 .tools-tab-label { font-weight: 600; color: var(--text); }
 .tools-tab-desc { font-size: 0.8rem; color: var(--muted); }
 .tools-intro, .tools-summary { color: var(--muted); margin: 0 0 14px; font-size: 0.9rem; }
+/* ⓘ How it works — the list's explanation, closed until asked for. */
+.tools-intro-wrap { margin: 0 0 10px; }
+.tools-intro-wrap .tools-intro { margin: 6px 0 14px; }
+.tools-intro-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: none; background: none; color: var(--muted); font: inherit; font-size: 0.85rem; cursor: pointer; }
+.tools-intro-toggle:hover, .tools-intro-toggle:focus-visible, .tools-intro-toggle[aria-expanded="true"] { color: var(--accent); }
 /* What the last run did, and whether the re-scan behind it is still going —
    sits above the lists, which empty out while it runs. */
 .tools-cleanup-status { margin: 0 0 12px; display: flex; align-items: center; gap: 6px; }
@@ -9394,15 +9703,19 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 /* One header row: the page, the line, the line's person — then, pushed to the
    end, the head count and the filters' fold toggle. */
 .stats-head { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
-.stats-head .tree-mode { flex-wrap: wrap; }
+/* The page and line rows shrink with the screen and scroll sideways, rather
+   than running past its right edge on a phone. */
+.stats-head .tree-mode { flex-shrink: 1; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.stats-head .tree-mode button { flex: none; white-space: nowrap; }
 /* The card's corner tools — show all, the tip — pinned there, so a title that
    wraps never pushes them onto a line of their own. */
 .stats-card-tools { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
 .stats-info[aria-pressed="true"] { color: var(--accent); }
 .stats-info { display: inline-flex; padding: 2px; border: none; border-radius: var(--radius-pill); background: none; color: var(--muted); cursor: help; }
-.stats-info:hover, .stats-info:focus-visible { color: var(--accent); }
-.stats-line { display: flex; gap: 10px; align-items: center; flex: 1 1 auto; min-width: 0; }
+.stats-info:hover, .stats-info:focus-visible { color: var(--accent); }.stats-line { display: flex; gap: 10px; align-items: center; flex: 1 1 auto; min-width: 0; }
 .stats-start { flex: 0 1 280px; min-width: 180px; }
+/* Generations: the fixed line, said in words where the line's choice would stand. */
+.stats-line-fixed { color: var(--muted); white-space: nowrap; }
 /* A person of the statistics' own, not the app's start person: the house is the way back. */
 .stats-start.own .start-icon-btn { color: var(--accent); }
 .stats-head-end { margin-left: auto; display: flex; gap: 12px; align-items: center; }
@@ -9480,6 +9793,12 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
 .stats-pick .stats-couple { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; flex: 1 1 auto; }
 .stats-relate { margin-left: auto; padding: 4px; }
 .stats-tiles .stats-pick { flex: 1 0 100%; }
+/* A phone: two even columns of tiles, filling the card's width. */
+@media (max-width: 560px) {
+  .stats-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-tiles .stats-pick { grid-column: 1 / -1; }
+  .stats-tile { min-width: 0; }
+}
 
 /* Columns: the plot is a fixed-height box; each bar grows from its floor. */
 .stats-columns { display: flex; gap: 2px; align-items: stretch; }
@@ -9579,6 +9898,86 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-pair-legend { display: flex; gap: 16px; justify-content: flex-end; }
 .stats-pair-legend { color: var(--muted); font-size: 0.8rem; padding: 6px 6px 0; }
 .stats-pair-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--stats-bar); }
+/* Places: a legend of many places wraps from the start, as a reading list. */
+.stats-place-legend { flex-wrap: wrap; justify-content: flex-start; gap: 4px 16px; }
+.stats-col-bar.stats-place-part { border-radius: 0; }
+.stats-col-bar.stats-place-part:first-child { border-radius: 4px 4px 0 0; }
+/* The flow: labels, a bar per place, the ribbons, and the same mirrored. */
+.stats-flow-heads { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.stats-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 10px minmax(48px, 1.3fr) 10px minmax(0, 1fr);
+  column-gap: 0;
+}
+.stats-flow-labels, .stats-flow-nodes { position: relative; }
+.stats-flow-label {
+  position: absolute;
+  left: 0;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+.stats-flow-labels.to .stats-flow-label { left: 8px; right: 0; text-align: left; }
+.stats-flow-node { position: absolute; left: 0; right: 0; background: var(--stats-bar); border-radius: 2px; }
+.stats-flow-links { width: 100%; display: block; overflow: visible; }
+.stats-card .stats-flow-level { align-self: flex-start; margin-bottom: 8px; }
+.stats-flow-links path { fill: var(--stats-bar); fill-opacity: 0.4; cursor: pointer; transition: fill-opacity 0.12s; }
+.stats-flow-links path:hover, .stats-flow-links path.picked { fill-opacity: 0.8; }
+/* The Names page's marriage network: surnames as circles, their marriages as
+   lines. Pointing at a surname dims everything but it and its partners. */
+.stats-network { display: block; width: 100%; height: auto; overflow: visible; }
+.stats-network-link { cursor: pointer; }
+.stats-network-link line { stroke: var(--accent); stroke-opacity: 0.35; stroke-linecap: round; transition: stroke-opacity 0.12s; }
+.stats-network-link line.hit { stroke: transparent; stroke-width: 10px; }
+.stats-network.focused .stats-network-link line:not(.hit) { stroke-opacity: 0.08; }
+.stats-network .stats-network-link.lit line:not(.hit) { stroke-opacity: 0.9; }
+.stats-network .stats-network-link:hover line:not(.hit),
+.stats-network .stats-network-link.picked line:not(.hit) { stroke-opacity: 1; }
+.stats-network-node { cursor: pointer; transition: opacity 0.12s; }
+.stats-network-node:focus { outline: none; }
+.stats-network-node circle { fill: var(--panel-2); stroke: var(--accent); stroke-width: 1.5px; }
+.stats-network-node text {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.stats-network-node.dim { opacity: 0.25; }
+/* The surname pointed at, and the picked one, fill with the accent — opaque,
+   so the lines under the circle stay hidden. */
+.stats-network-node.focus circle, .stats-network-node:focus-visible circle { fill: color-mix(in oklch, var(--accent) 25%, var(--panel)); stroke-width: 2.5px; }
+.stats-network-node.picked circle { fill: color-mix(in oklch, var(--accent) 55%, var(--panel)); stroke-width: 2.5px; }
+/* Places by decade: a grid that scrolls sideways when the decades run long. */
+.stats-grid-scroll { overflow-x: auto; }
+.stats-decades { display: grid; gap: 3px; align-items: stretch; min-width: min-content; }
+.stats-decade-row { display: contents; }
+.stats-decade-head { font-size: 0.7rem; color: var(--muted); white-space: nowrap; overflow: visible; }
+.stats-decade-label { font-size: 0.8rem; padding-right: 8px; text-align: right; white-space: nowrap; align-self: stretch; display: flex; align-items: center; justify-content: flex-end; }
+/* The places and their corner stay put while the decades scroll under them. */
+.stats-decade-label, .stats-decade-corner { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 3px 0 0 var(--panel); }
+.stats-decade-cell {
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklch, var(--accent) var(--stats-share, 0%), var(--panel-2));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.stats-decade-cell.strong { color: var(--accent-ink); }
+.stats-decade-cell.empty { cursor: default; opacity: 0.6; }
+button.stats-decade-cell:hover, .stats-decade-cell.picked { border-color: var(--text); }
 .stats-pair-a { --stats-bar: var(--lineage-paternal); }
 .stats-pair-b { --stats-bar: var(--lineage-maternal); }
 .stats-pair-row { padding: 2px 6px; border-radius: var(--radius-sm); }
@@ -9633,6 +10032,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-pick-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 8px; min-height: 2rem; }
 .tools-pick-bar .tools-run { margin: 0; }
 .tools-pick { flex: none; margin: 0; align-self: center; cursor: pointer; }
+.tools-pick--blank { visibility: hidden; cursor: default; }
 .tools-tran-list .tools-tran-parts { flex: 0 1 auto; }
 .tools-tran-part .picker-menu-btn {
   width: auto;
@@ -9667,6 +10067,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 }
 /* A family-scoped structural issue reads as its couple (husband & wife links). */
 .tools-couple-ref { display: inline-flex; align-items: baseline; flex-wrap: wrap; }
+.tools-couple-ref > .tools-struct-rec-tag { margin-right: 0.5em; }
 .tools-issue-link {
   border: none; background: none; padding: 0;
   color: var(--accent); cursor: pointer; font-weight: 600;
@@ -9702,6 +10103,22 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    the batch button above would touch. */
 .tools-issue-fix.sets { color: var(--status-diff); }
 .tools-issue-fix.sets:hover { border-color: var(--status-diff); background: none; }
+/* A detached branch's own actions (download, remove), at the row's end. */
+.tools-issue-actions {
+  flex: none; margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.tools-issue-icon {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-2); border-radius: var(--radius-pill);
+  background: none; color: var(--accent);
+  font: inherit; font-size: 0.82rem; line-height: 1.5;
+  cursor: pointer; white-space: nowrap;
+}
+.tools-issue-icon:hover { border-color: var(--accent); }
+.tools-issue-iconfix { display: inline-flex; align-items: center; gap: 4px; margin-left: 0; }
+.tools-issue-iconfix.tools-issue-end { margin-left: auto; align-self: center; }
 /* Its aftermath, while the re-run health check is still in flight. */
 .tools-issue-fixed {
   flex: none; margin-left: auto;
@@ -9805,6 +10222,37 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    or colour of its own and lets .tools-tree-meta / .gm-data dress it. */
 .tools-place-coord { background: none; border: 0; padding: 0; cursor: pointer; }
 .tools-place-coord:hover { color: var(--accent); }
+/* A phone: the pin alone says the place is placed; the numbers take the
+   name's room. A tap opens the panel with them. */
+@media (max-width: 560px) {
+  .tools-place-coord-text { display: none; }
+  /* A long place name used to share its line with the count, the verdict and
+     Hide, and was squeezed into a column a word wide. The row wraps instead:
+     the name keeps the line beside its ▶ (and the place list's checkbox), the
+     rest carries on underneath. A short name still keeps all on one line. */
+  .tools-tree-row { flex-wrap: wrap; row-gap: 2px; }
+  .tools-tree-row > .tools-tree-label { max-width: calc(100% - 26px); }
+  .tools-tree-row:has(> .tools-pick) > .tools-tree-label { max-width: calc(100% - 52px); }
+  /* Where the ▶ (18px + the 8px gap) leads the row, the wrapped line lines up
+     under the name rather than under the ▶: the row is inset by the ▶'s room
+     and the ▶ pulled back into it. */
+  .tools-tree-row:has(> .tools-pair-toggle:first-child, > .tools-pair-toggle-spacer:first-child) { padding-left: 26px; }
+  .tools-tree-row > .tools-pair-toggle:first-child,
+  .tools-tree-row > .tools-pair-toggle-spacer:first-child { margin-left: -26px; }
+  .tools-tree-row > :is(.tools-pair-toggle, .tools-pair-toggle-spacer):first-child + .tools-tree-label { max-width: 100%; }
+  .tools-tree-row > .tools-tree-meta,
+  .tools-tree-row > .tools-reshape-badge,
+  .tools-tree-row > .tools-issue-link { white-space: nowrap; }
+  .tools-tree-row > .tools-tree-meta { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* The filter box takes the width it is given rather than stopping at 340px. */
+  .tools-search { max-width: none; }
+  /* Action bars: each action on one line; the bar wraps between them. */
+  .tools-pick-bar > *, .tools-merge-bar > *, .tools-dup-bulk > * { white-space: nowrap; }
+  .tools-dup-bulk { flex-wrap: wrap; row-gap: 8px; }
+  /* Find duplicates: an xref like I412665969140 cut the names to "Matija M…".
+     On a phone the name and the years are what tell the pair apart. */
+  .tools-pairs .person-ref .person-xref { display: none; }
+}
 /* The file puts this place in two spots — one of them is wrong. */
 .tools-place-coord-warn { color: var(--danger); margin-left: 6px; }
 /* The coordinate and the panel it opens are one control, so the panel is
@@ -9968,6 +10416,51 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-privacy-text { width: 9rem; padding: 3px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .tools-privacy .tools-norm-summary { margin: 0; }
 
+/* Family website (Tools → Family website) */
+.tools-publish-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.tools-publish-field:last-child { margin-bottom: 0; }
+/* A name (a field's, a group's, a choice's) with its ⓘ: the explanation in a
+   tooltip, not in a paragraph on the page. */
+.tools-publish-label { display: inline-flex; align-items: center; gap: 4px; }
+/* The legend's own bottom margin would lift its text above the ⓘ's centre:
+   the row carries the margin instead. */
+.tools-publish-label > .tools-privacy-legend { margin-bottom: 0; }
+span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
+/* An ⓘ at the end of a line of text: centred on the text, not on its top. */
+.tools-publish .tools-summary .stats-info { vertical-align: -1.5px; }
+.tools-publish-folders-head { display: flex; margin-top: 10px; font-size: 0.9rem; font-weight: 600; }
+.tools-publish-input { width: 100%; max-width: 40rem; padding: 5px 8px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); font: inherit; }
+.tools-publish .tools-privacy-group > .tools-norm-check { display: flex; width: fit-content; margin-top: 10px; }
+/* A choice with its ⓘ, on a row of its own. */
+.tools-publish-check-row { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+.tools-publish .tools-fix-hint { margin: 8px 0 0; }
+.tools-publish .tools-error { color: var(--danger); }
+.tools-publish .tools-publish-recent { margin: 10px 0 0; }
+.tools-publish-subhead { font-size: 0.85rem; color: var(--muted); margin: 10px 0 6px; }
+.tools-publish-run { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 16px; }
+.tools-publish-run .tools-run { margin: 0; }
+.tools-publish-run .tools-loading { padding: 0; }
+.tools-publish .tools-publish-dates { flex-direction: row; align-items: center; gap: 10px; margin: 10px 0; font-size: 0.9rem; }
+.tools-publish .tools-privacy-group > .tools-norm-summary { margin: 0; }
+/* The display toggles under the name order, a step apart from it. */
+.tools-publish .tools-privacy-group > .tools-publish-toggles { margin-top: 8px; }
+.tools-publish-intro { display: flex; align-items: flex-start; gap: 8px; max-width: 42rem; }
+/* Photos by folder: a row per folder (indented under the one above), its
+   photo count, and where its photos go. */
+.tools-publish-folder-list { display: flex; flex-direction: column; gap: 2px; max-width: 34rem; max-height: 320px; overflow-y: auto; margin-top: 8px; padding-right: 4px; }
+.tools-publish-folder { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 0.9rem; }
+.tools-publish-folder-toggle { flex: none; width: 18px; padding: 0; background: none; border: none; color: var(--muted); font: inherit; cursor: pointer; text-align: center; }
+.tools-publish-folder-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tools-publish-folder-count { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tools-publish-folder-use { flex: none; width: 15rem; }
+/* The cover photo: its thumbnail and file name, and the choices. */
+.tools-publish-cover { margin-top: 14px; }
+.tools-publish-cover-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: 0.9rem; }
+.tools-publish-cover-thumb { width: 48px; height: 48px; object-fit: cover; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.tools-publish-cover-name { color: var(--muted); max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tools-publish-intro + .tools-publish-intro { margin-top: 6px; }
+.tools-publish-intro-lang { flex: none; font-size: 1.1rem; line-height: 2; }
+
 /* Batch actions (Normalize & batch) */
 .batch-section-toggle { display: flex; gap: 6px; margin: 0 0 14px; }
 .batch-section-tab {
@@ -9977,7 +10470,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 }
 .batch-section-tab.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
 .batch-block-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 8px; color: var(--text); }
-.batch-saved, .batch-builder, .batch-results, .batch-action {
+.batch-saved, .batch-builder, .batch-results, .batch-action, .batch-save {
   margin: 0 0 16px; padding: 12px 14px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
 }
@@ -9994,14 +10487,15 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   color: var(--text); font-size: 0.88rem;
 }
 .batch-saved-load:hover .batch-saved-name { color: var(--accent); }
-.batch-saved-row.active .batch-saved-name { color: var(--accent); }
-.batch-saved-name { font-weight: 600; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.batch-saved-row.active .batch-saved-name { color: var(--accent); font-weight: 600; }
+.batch-saved-name { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .batch-saved-count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .batch-saved-warn { cursor: help; }
-.batch-count-live { color: var(--accent); font-weight: 600; }
+.batch-count-live { color: var(--accent); }
+.batch-saved-row.active .batch-count-live { font-weight: 600; }
 .batch-crit-list { list-style: none; margin: 0 0 10px; padding: 0; }
 .batch-crit { display: flex; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
-.batch-crit-label { font-size: 0.88rem; color: var(--text); min-width: 8.5rem; }
+.batch-crit-label { font-size: 0.88rem; color: var(--text); min-width: 7rem; }
 .batch-input, .batch-select {
   padding: 3px 6px; font-size: 0.88rem;
   background: var(--bg); color: var(--text);
@@ -10015,6 +10509,23 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .batch-input { width: 12rem; }
 .batch-input.batch-year { width: 4.5rem; font-variant-numeric: tabular-nums; }
 .batch-media-select { max-width: min(24rem, 100%); }
+/* A select you type into (SearchSelect): the field shows the choice, typing
+   lists the matching options below it. */
+.search-select { position: relative; display: inline-block; width: min(24rem, 100%); }
+/* In a filter or action row it takes what the row has left, so mode and image
+   fit on one line beside the label on a desktop-wide column. */
+.batch-crit .search-select, .batch-action-editor .search-select { flex: 1 1 9rem; width: auto; min-width: 9rem; max-width: 24rem; }
+.search-select-input {
+  width: 100%; padding: 3px 6px; font-size: 0.88rem;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.search-select-input::placeholder { color: var(--muted); }
+.search-select-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--accent) 35%, transparent);
+}
 .batch-sep { color: var(--muted); font-size: 0.88rem; }
 .batch-remove {
   background: none; border: none; cursor: pointer; padding: 2px 6px;
@@ -10031,6 +10542,23 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   color: var(--accent); font-size: 0.85rem; text-decoration: underline;
 }
 .batch-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+/* Saved filters, filters, action and save in the left column; the matches
+   beside them, their box as tall as the left column (never under 360px) with
+   the list scrolling inside it. `contain: size` keeps the list's own length
+   out of the row height, so the left column sets it. One column, matches
+   last, below 880px. */
+.batch-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.batch-grid .batch-results { display: flex; flex-direction: column; min-height: 360px; }
+.batch-grid .batch-list { flex: 1 1 0; max-height: none; contain: size; }
+.batch-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* "+ Add filter": the Edit view's dashed add chip, always shown — it is how
+   this panel is used, not an extra revealed on hover. */
+.batch-add-filter { border-style: dashed; border-color: var(--border-2); color: var(--accent); font-size: 0.88rem; }
+@media (max-width: 880px) {
+  .batch-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .batch-grid .batch-results { display: block; min-height: 0; }
+  .batch-grid .batch-list { max-height: 320px; contain: none; }
+}
 .batch-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .batch-row input { cursor: pointer; flex: none; }
 .batch-row .tools-issue-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -10039,7 +10567,6 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .batch-preview-note { color: var(--muted); margin-left: 6px; }
 .batch-action-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .batch-done { margin: 0 0 10px; color: var(--accent); font-size: 0.88rem; }
-.batch-confirm { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; color: var(--text); }
 .batch-save { display: flex; align-items: center; gap: 8px; }
 .batch-save-name {
   flex: 0 1 16rem; padding: 4px 8px; font-size: 0.88rem;
@@ -10187,8 +10714,6 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
  * plus the add picker. Styled on their own, not with the Edit card's chip
  * classes — those stay invisible until an Edit container is hovered, which
  * nothing in this modal ever is. */
-/* The quick-events block follows the toggle rows — give its heading room. */
-.settings-quick-head { margin-top: 14px; }
 /* The buttons this list configures, shown as they will appear under the event
    list in Edit: same chips, same size, so what is being set up looks like what
    it produces. Only the leading key number and the × belong to Settings. */
@@ -10373,8 +10898,9 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .tools-geo-country { font-weight: 600; }
 .tools-geo-count { color: var(--muted); font-size: 0.85rem; }
 .tools-geo-delete {
+  display: inline-flex; align-items: center;
   background: none; border: none; cursor: pointer; font-size: 0.9rem;
-  opacity: 0.7; padding: 2px 4px;
+  color: var(--danger); opacity: 0.7; padding: 2px 4px;
 }
 .tools-geo-delete:hover { opacity: 1; }
 /* The one line saying you have to do something before any of this works — the
@@ -10417,6 +10943,33 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
    label rather than words inside both buttons — repeated it would say the same
    thing twice, and what tells the buttons apart is places against addresses. */
 .tools-geo-source { display: grid; justify-items: center; gap: 4px; }
+/* A download in progress, in its own button: spinner, label, number. */
+.tools-geo-running {
+  display: inline-flex;
+  /* Label, value and ✕ share one baseline; only the spinner is centred. */
+  align-items: baseline;
+  gap: 5px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-color: var(--accent);
+}
+.tools-geo-running-spinner { width: 12px; height: 12px; box-sizing: border-box; align-self: center; }
+.tools-geo-running-pct {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+.tools-geo-running-cancel { font-size: 0.8em; color: var(--muted); }
+.tools-geo-running:hover .tools-geo-running-cancel { color: var(--danger); }
+/* A source's failure, under its own buttons, in the source's own grid cell. */
+.tools-geo-source-error {
+  max-width: 18em;
+  font-size: 0.78rem;
+  color: var(--danger);
+  text-align: center;
+}
 .tools-geo-source-name {
   font-size: 0.78rem;
   font-weight: 600;

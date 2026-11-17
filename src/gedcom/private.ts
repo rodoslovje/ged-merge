@@ -66,22 +66,29 @@ export function detectPrivacyStyle(records: GedNode[]): PrivacyTagStyle {
   return detectPrivacyStyleIfAny(records) ?? "RESN";
 }
 
-/** Whether the file is GEDCOM 7 (RESN's enum casing, a note's MIME line). */
-export function isV7(records: GedNode[]): boolean {
-  const head = records.find((r) => r.tag === "HEAD");
-  const vers = head?.children.find((c) => c.tag === "GEDC")?.children.find((c) => c.tag === "VERS")?.value;
-  return !!vers?.trim().startsWith("7");
-}
-
 /**
  * Whether the standard lets `node` carry `RESN`: a person or a family record
  * and their events (and, in 7.0, a media record) — never a note, a shared
  * note, a media link or a source. A line below an event is not asked about:
  * nothing there takes it.
  */
-function takesResn(node: GedNode, version: "5.5.1" | "7.0"): boolean {
+function takesResn(node: Pick<GedNode, "level" | "tag">, version: "5.5.1" | "7.0"): boolean {
   if (node.level === 0) return allowsChild(version, [node.tag], "RESN");
   return node.level === 1 && (allowsChild(version, ["INDI", node.tag], "RESN") || allowsChild(version, ["FAM", node.tag], "RESN"));
+}
+
+/**
+ * Whether a private toggle may set the flag on a line like `node` (its level
+ * and tag) for `target`. A strict target writes only the standard's `RESN`,
+ * so where the version has none (see {@link takesResn}) the toggle is
+ * unavailable rather than writing the `_PRIV` extension the health check
+ * would then report. The file's own format keeps the `_PRIV` fallback.
+ */
+export function privateFlagWritable(
+  target: { strict: boolean; version: "5.5.1" | "7.0" },
+  node: Pick<GedNode, "level" | "tag">,
+): boolean {
+  return !target.strict || takesResn(node, target.version);
 }
 
 /** The marker node for `style`, at child level of `parent`. Where the
@@ -99,16 +106,14 @@ function markerNode(parent: GedNode, style: PrivacyTagStyle, version: "5.5.1" | 
  * Set or clear the private flag on `node`, following the file's dialect when
  * setting. Clearing removes every recognized marker — but a RESN list keeps
  * its non-privacy entries (`CONFIDENTIAL, LOCKED` → `LOCKED`). The marker is
- * written in the version of the file `records` belongs to, or in `version`
- * where that is given — the main's, when the node is an incoming file's
- * being reshaped to it.
+ * written in `version`, the target's — the main's, when the node is an
+ * incoming file's being reshaped to it.
  */
 export function setPrivateFlag(
   node: GedNode,
   on: boolean,
   style: PrivacyTagStyle,
-  records: GedNode[],
-  version: "5.5.1" | "7.0" = isV7(records) ? "7.0" : "5.5.1",
+  version: "5.5.1" | "7.0",
 ): void {
   const kept: GedNode[] = [];
   for (const child of node.children) {

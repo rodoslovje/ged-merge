@@ -1,6 +1,9 @@
 import type { Translate } from "../../locales/i18n";
 import { DropdownMenu, type DropdownGroup } from "../DropdownMenu";
-import { eventMenuLabel } from "../EventGlyph";
+import { deniedEventLabel, eventMenuLabel } from "../EventGlyph";
+
+/** Marks a menu value as a "did not happen" pick rather than an event tag. */
+const DENY = "\0no:";
 
 /** Dropdown chip that adds an event tag from a list of available tags. */
 export function AddEventSelect({
@@ -13,7 +16,13 @@ export function AddEventSelect({
   className = "add-chip",
   openNonce,
   labelOf,
+  denyTags,
+  onDeny,
 }: {
+  /** Events the record can be said never to have had: a last group, »Did
+   *  not happen:«, after the events themselves (then headed »Event:«). */
+  denyTags?: string[];
+  onDeny?: (tag: string) => void;
   tags?: string[];
   groups?: { labelKey: string; tags: string[] }[];
   label: string;
@@ -35,12 +44,18 @@ export function AddEventSelect({
           label: t(g.labelKey),
           items: g.tags.map(item),
         }))
-    : [{ items: (tags ?? []).map(item) }];
+    : [{ label: denyTags?.length ? t("edit.addEvent.happened") : undefined, items: (tags ?? []).map(item) }];
+  if (denyTags?.length) {
+    menuGroups.push({
+      label: t("edit.noEvent.label"),
+      items: denyTags.map((tag) => ({ value: `${DENY}${tag}`, label: deniedEventLabel(tag, t) })),
+    });
+  }
   if (!menuGroups.some((g) => g.items.length)) return null;
   return (
     <DropdownMenu
-      groups={menuGroups}
-      onSelect={onAdd}
+      groups={menuGroups.filter((g) => g.items.length)}
+      onSelect={(value) => (value.startsWith(DENY) ? onDeny?.(value.slice(DENY.length)) : onAdd(value))}
       trigger={<>+ {label}</>}
       className={className}
       title={tooltip}

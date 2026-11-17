@@ -430,3 +430,15 @@ export function defaultChoice(row: FieldRow): FieldChoice {
   if (row.key.endsWith(".date") && dateRefines(row.main, row.incoming)) return "incoming";
   return "main";
 }
+
+/** Row key → the choice of every row a confirmed decision will write: the
+ *  sides differ and the reviewer did not keep the main's value. */
+export function pendingFieldChoices(rows: readonly FieldRow[], decision: CandidateDecision): Map<string, FieldChoice> {
+  const out = new Map<string, FieldChoice>();
+  for (const row of rows) {
+    if (row.isGroupHeader || row.state === "agree" || row.state === "main-only") continue;
+    const choice = decision.fields[row.key] ?? defaultChoice(row);
+    if (choice !== "main") out.set(row.key, choice);
+  }
+  return out;
+}

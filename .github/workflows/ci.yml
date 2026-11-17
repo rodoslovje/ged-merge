@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Run main again by hand — to put the test site back on the newest main.
+  workflow_dispatch:
 
 jobs:
   check:
@@ -66,7 +68,7 @@ jobs:
   # "Deploy production" workflow.
   deploy-test:
     name: Deploy test site
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     needs: [check, e2e]
     runs-on: ubuntu-latest
     permissions:
@@ -82,27 +84,51 @@ jobs:
       group: pages
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v7
+      # Two merges close together run side by side, and the older one's
+      # tests can finish last: its deploy then ran after the newer one and put
+      # the site back on a main without the newer merge. Deploys run one at a
+      # time (the group above), so a run whose commit main has already moved
+      # past leaves the site to the newer run.
+      - id: latest
+        name: Deploy only the newest main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          head=$(gh api "repos/${{ github.repository }}/commits/main" --jq .sha)
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::main has moved on to $head; that commit's own run deploys it."
+          fi
 
-      - uses: actions/setup-node@v7
+      - if: steps.latest.outputs.ok == 'true'
+        uses: actions/checkout@v7
+
+      - if: steps.latest.outputs.ok == 'true'
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
 
-      - run: npm ci
+      - if: steps.latest.outputs.ok == 'true'
+        run: npm ci
 
-      - run: npm run build
+      - if: steps.latest.outputs.ok == 'true'
+        run: npm run build
 
       # The pages keep their canonical links to gedmerge.com; this keeps the
       # test copy out of the search index altogether.
       - name: Keep the test site out of search engines
+        if: steps.latest.outputs.ok == 'true'
         run: |
           printf 'User-agent: *\nDisallow: /\n' > dist/robots.txt
           rm -f dist/sitemap.xml
 
-      - uses: actions/upload-pages-artifact@v5
+      - if: steps.latest.outputs.ok == 'true'
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
       - id: deployment
+        if: steps.latest.outputs.ok == 'true'
         uses: actions/deploy-pages@v5

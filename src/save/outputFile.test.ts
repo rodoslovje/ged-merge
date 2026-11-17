@@ -3,7 +3,8 @@ import { SUBMITTER_NAME } from "../gedcom/newFile";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedNode } from "../gedcom/types";
-import { completeStructure, convertVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
+import { validateConformance } from "../tools/conformance/conformance";
+import { completeStructure, convertVersion, downloadVersion, outputOptions, prepareDownload, schemaUri, writeSchema } from "./outputFile";
 
 const TERMS = "https://gedmerge.com/terms/";
 
@@ -91,9 +92,39 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
     expect(to551).toContain("1 NOTE a@@@@b\n");
   });
 
+  it("5.5.1 → 7.0: record ids 7.0 does not accept get ones it does, pointers with them", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "2 FORM LINEAGE-LINKED", "1 CHAR UTF-8", "1 SUBM @f1_SUB1@",
+      "0 @f1_SUB1@ SUBM", "1 NAME Ana",
+      "0 @f1_I1@ INDI", "1 NAME Ana /Novak/", "1 FAMS @F-1@",
+      "0 @F_1@ FAM", "0 @F-1@ FAM", "1 WIFE @f1_I1@",
+      "0 @void@ INDI",
+      "0 TRLR", "",
+    ].join("\n"), "7.0");
+    expect(lines).toContain("1 SUBM @F1_SUB1@");
+    expect(lines).toContain("0 @F1_SUB1@ SUBM");
+    expect(lines).toContain("0 @F1_I1@ INDI");
+    // @F-1@ would become @F_1@, which another family already holds.
+    expect(lines).toContain("1 FAMS @F_1_2@");
+    expect(lines).toContain("0 @F_1_2@ FAM");
+    expect(lines).toContain("1 WIFE @F1_I1@");
+    expect(lines).toContain("0 @VOID_2@ INDI");
+  });
+
   it("converts nothing when saved in the file's own version", () => {
     expect(download(v551).conversion).toBeNull();
     expect(convertVersion(parse(v551).records, "5.5.1", "5.5.1")).toEqual([]);
+  });
+});
+
+describe("downloadVersion — the version every download is written in", () => {
+  it("follows a strict target, else the file's own version", () => {
+    const v551 = { version: "5.5.1" as const };
+    const v70 = { version: "7.0" as const };
+    expect(downloadVersion(v551, { strict: true, version: "7.0" })).toBe("7.0");
+    expect(downloadVersion(v70, { strict: true, version: "5.5.1" })).toBe("5.5.1");
+    expect(downloadVersion(v551, { strict: false, version: "5.5.1" })).toBe("5.5.1");
+    expect(downloadVersion(v70, { strict: false, version: "7.0" })).toBe("7.0");
   });
 });
 
@@ -172,6 +203,16 @@ describe("writeSchema — GEDCOM 7 extension tags", () => {
       `2 TAG _FSFTID ${TERMS}rootsmagic/_FSFTID`,
     ]);
     expect(lines.filter((l) => l === "1 SCHMA")).toHaveLength(1);
+  });
+
+  it("reads an entry spelled in lowercase as the uppercase tag the file writes", () => {
+    const { lines } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "1 SCHMA", "2 TAG _mytag https://example.org/mytag",
+      "0 @I1@ INDI", "1 _mytag x",
+      "0 TRLR", "",
+    ].join("\n"));
+    expect(lines.filter((l) => l.startsWith("2 TAG"))).toEqual(["2 TAG _MYTAG https://example.org/mytag"]);
+    expect(lines).toContain("1 _MYTAG x");
   });
 
   it("writes no schema for a 7.0 file without extensions, nor for 5.5.1", () => {
@@ -264,29 +305,54 @@ describe("completeStructure — header and trailer", () => {
     expect(dangling.lines).toContain("0 @X1@ SUBM");
   });
 
+  it("never makes the submitter under a person's id the header points at", () => {
+    const { fixes, lines } = download("0 HEAD\n1 SUBM @I1@\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME Ana /Novak/\n0 TRLR\n");
+    expect(fixes).toContain("subm");
+    expect(lines).not.toContain("0 @I1@ SUBM");
+    expect(lines).toContain("1 SUBM @U1@");
+    expect(lines).toContain("0 @U1@ SUBM");
+    expect(lines.filter((l) => l.startsWith("0 @I1@ "))).toEqual(["0 @I1@ INDI"]);
+  });
+
   it("names a submitter it has to make after the reader, when Settings give a name", () => {
     const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR\n";
     const ds = parse(text);
-    const { fixes } = prepareDownload(ds.records, ds, "5.5.1", when, "  Ana   Novak ");
+    const { fixes } = prepareDownload(ds.records, ds, "5.5.1", when, { name: "  Ana   Novak " });
     expect(fixes).toEqual(["subm"]);
     const lines = serializeGedcom(ds.records, outputOptions(ds, "5.5.1")).trimEnd().split("\n");
     expect(lines.slice(-3)).toEqual(["0 @U1@ SUBM", "1 NAME Ana Novak", "0 TRLR"]);
     // An empty or blank setting falls back to the program's name.
     const blank = parse(text);
-    prepareDownload(blank.records, blank, "5.5.1", when, "   ");
+    prepareDownload(blank.records, blank, "5.5.1", when, { name: "   " });
     expect(blank.records.find((r) => r.tag === "SUBM")?.children[0].value).toBe(SUBMITTER_NAME);
+  });
+
+  it("gives a submitter it makes the reader's e-mail and website, valid in both versions", () => {
+    const author = { name: "Ana Novak", email: "ana@example.si", www: "https://example.si" };
+    const ds = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 TRLR\n");
+    prepareDownload(ds.records, ds, "5.5.1", when, author);
+    const subm = ds.records.find((r) => r.tag === "SUBM")!;
+    expect(subm.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["NAME Ana Novak", "EMAIL ana@example.si", "WWW https://example.si"]);
+    const onSubmitter = (records: GedNode[]) => validateConformance({ records }).filter((f) => f.recordTag === "SUBM");
+    expect(onSubmitter(ds.records)).toEqual([]);
+    // 7.0 adds no submitter of its own; one written into a new file and then
+    // saved as 7.0 is still valid there.
+    const v7 = parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 TRLR\n");
+    v7.records.splice(1, 0, subm);
+    expect(onSubmitter(v7.records)).toEqual([]);
   });
 
   it("never renames the file's own submitter, whatever the setting says", () => {
     const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n0 @S9@ SUBM\n1 NAME Ana\n0 TRLR\n";
     const ds = parse(text);
-    prepareDownload(ds.records, ds, "5.5.1", when, "Janez Kranjec");
+    prepareDownload(ds.records, ds, "5.5.1", when, { name: "Janez Kranjec", email: "janez@example.si" });
     const subms = ds.records.filter((r) => r.tag === "SUBM");
     expect(subms).toHaveLength(1);
+    expect(subms[0].children.map((c) => c.tag)).toEqual(["NAME"]);
     expect(subms[0].children.find((c) => c.tag === "NAME")?.value).toBe("Ana");
     // A 7.0 save adds none, named or not.
     const v7 = parse("0 HEAD\n1 GEDC\n2 VERS 7.0\n0 TRLR\n");
-    prepareDownload(v7.records, v7, "7.0", when, "Janez Kranjec");
+    prepareDownload(v7.records, v7, "7.0", when, { name: "Janez Kranjec" });
     expect(v7.records.some((r) => r.tag === "SUBM")).toBe(false);
   });
 

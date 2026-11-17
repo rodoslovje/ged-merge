@@ -1,6 +1,7 @@
 import type { GedNode, GedPlace, GeoCoord } from "./types";
 import { firstChild } from "./node";
 import { isUnknownNameToken } from "./name";
+import { formatCoordValue } from "./edit/geo";
 
 /**
  * A bracketed aside in a place value. Round and square brackets are read alike:
@@ -99,6 +100,28 @@ export function parseCoordInput(raw: string): GeoCoord | undefined {
   const decimalComma = /^\s*(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)\s*$/.exec(raw);
   if (!decimalComma) return undefined;
   return parseCoordPair(decimalComma[1].replace(",", "."), decimalComma[2].replace(",", "."));
+}
+
+/**
+ * A `LATI`/`LONG` value the standard does not spell (`46.05`, `-14.5`,
+ * `n46.05`, webtrees' `N46::3::19"`) in the form it does: the hemisphere
+ * letter and decimal degrees (`N46.05`, `W14.5`). A plain decimal keeps its
+ * digits; a degrees-minutes-seconds value becomes five decimals. Undefined
+ * when the value is no coordinate on this axis, or out of its range.
+ */
+export function standardCoordValue(raw: string, axis: "lat" | "lon"): string | undefined {
+  const s = raw.trim();
+  const [pos, neg] = axis === "lat" ? (["N", "S"] as const) : (["E", "W"] as const);
+  const max = axis === "lat" ? 90 : 180;
+  const letter = /^[NSEW]/i.exec(s)?.[0].toUpperCase();
+  if (letter && letter !== pos && letter !== neg) return undefined;
+  const plain = /^([NSEW])?\s*(-)?(\d+(?:\.\d+)?)$/i.exec(s);
+  if (plain) {
+    if ((letter && plain[2]) || Number(plain[3]) > max) return undefined;
+    return (letter ?? (plain[2] ? neg : pos)) + plain[3];
+  }
+  const value = parseCoordValue(s, neg);
+  return value === undefined || Math.abs(value) > max ? undefined : formatCoordValue(value, axis);
 }
 
 /** One LATI/LONG value to signed decimal degrees; `negative` names the

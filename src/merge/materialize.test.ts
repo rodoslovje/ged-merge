@@ -203,14 +203,15 @@ describe("materializeAdds", () => {
   });
 
   it("names the people a marked branch would join to existing records, dry", () => {
-    const main = dataset(MAIN);
+    const main = dataset(MAIN.replace("0 TRLR", `${LONE_MARKO}0 TRLR`));
     const compare = dataset(COMPARE);
     const original = serializeGedcom(main.records);
     const decisions = new Map([[FATHER, { status: "confirmed", fields: { father: "main" } } as CandidateDecision]]);
-    const joins = previewBranchJoins(main, compare, MATCHES, decisions, [{ incomingId: "@P1@", direction: "descendants" }], tr);
-    expect(joins.map((j) => [j.compareId, j.mainId])).toEqual(expect.arrayContaining([["@P2@", "@I2@"], ["@P3@", "@I3@"]]));
-    // The confirmed anchor is yours, not the matcher's.
-    expect(joins.some((j) => j.compareId === "@P1@")).toBe(false);
+    const joins = previewBranchJoins(main, compare, MARKO_MATCHED, decisions, [{ incomingId: "@P1@", direction: "descendants" }], tr);
+    // The confirmed anchor is yours, not the matcher's; Ana and Peter hold the
+    // places your file already gives them beside him. Marko is nobody's child
+    // in your file, so his join is the one to check.
+    expect(joins.map((j) => [j.compareId, j.mainId])).toEqual([["@P4@", "@I9@"]]);
     expect(serializeGedcom(main.records)).toBe(original);
   });
 

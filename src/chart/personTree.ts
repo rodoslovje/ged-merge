@@ -15,8 +15,10 @@ import {
 } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { lifespanAge } from "../gedcom/age";
+import { isApproximate } from "../gedcom/lifespan";
 import { localityParts } from "../gedcom/place";
-import { placeLabel } from "./nodeDisplay";
+import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
+import { unionMark } from "../gedcom/union";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
@@ -109,6 +111,13 @@ export interface MarriageInfo {
    *  the living partner's data as their own birth, and printing "⚭ 1962
    *  Ljubljana" between two blanked-out boxes gives away both. */
   living?: boolean;
+  /** The year stands on a date that is not stated exactly (ABT/CAL/BEF…) —
+   *  drawn in italics, as a lifespan's approximate years are. */
+  approx?: boolean;
+  /** What else the file says of the union (see `unionMark`): ⚯ a couple it
+   *  records as never married, ⚮ a marriage it records as dissolved, ⚬⚬ a
+   *  couple living apart — with the year that happened, when dated. */
+  status?: { glyph: string; year?: string };
 }
 
 export interface MatchMaps {
@@ -178,7 +187,10 @@ export function buildPersonTree(
   const expandedFams = new Map<string, string | undefined>();
   const placeFmt = inferPlaceExportFormat(mainDs);
 
-  const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
+  /** A node for this person; when they were already expanded elsewhere it is
+   *  a repeat that stops there and points at that position, else it claims
+   *  the expansion. Undefined when neither side records anyone. */
+  const place = (main?: Individual, incoming?: Individual): { node: TreeNode; main?: Individual; incoming?: Individual } | undefined => {
     if (!main && !incoming) return undefined;
     // A rejected pairing means the two records are different people: keep the
     // main and drop the incoming side here, so neither it nor its relatives
@@ -191,23 +203,47 @@ export function buildPersonTree(
     const node = makeNode(t, key, main, incoming, mainDs, compareDs, placeFmt, nameOf);
     const expandedAt = expanded.get(base);
     if (expandedAt !== undefined) {
-      // Already expanded elsewhere: stop here and point at that position.
       node.repeat = true;
       node.repeatOf = expandedAt;
-      return node;
+    } else {
+      expanded.set(base, key);
     }
-    expanded.set(base, key);
-    if (mode === "ancestors") {
-      node.children = parents(main, incoming, mainDs, compareDs, build);
+    return { node, main, incoming };
+  };
+
+  if (mode === "ancestors") {
+    // Generation by generation, so a person reached twice (pedigree collapse)
+    // is drawn in full where they stand nearest the root — a parent's parents
+    // carry the line, and the deeper copy up the other side is the repeat.
+    // Walking depth-first instead let the father's whole line claim every
+    // shared ancestor first, however far out it reached them.
+    const root = place(rootMain, rootIncoming);
+    const queue = root ? [root] : [];
+    for (let i = 0; i < queue.length; i++) {
+      const { node, main, incoming } = queue[i];
+      if (node.repeat) continue;
+      for (const role of ["husband", "wife"] as const) {
+        const mp = main ? firstParent(main, mainDs, role) : undefined;
+        const ip = incoming ? firstParent(incoming, compareDs, role) : undefined;
+        const parent = place(mp, ip);
+        if (!parent) continue;
+        node.children.push(parent.node);
+        queue.push(parent);
+      }
       // The marriage of this person's parents — drawn as the fan collar between
       // their two segments. Prefer the main side, else the incoming side.
-      node.marriage =
-        parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
-    } else {
-      const { partners, directChildren } = descend(t, main, incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt, nameOf);
-      node.partners = partners;
-      node.children = directChildren;
+      node.marriage = parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
     }
+    return root?.node;
+  }
+
+  const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
+    const placed = place(main, incoming);
+    if (!placed || placed.node.repeat) return placed?.node;
+    const { node } = placed;
+    const { partners, directChildren } = descend(t, placed.main, placed.incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt, nameOf);
+    node.partners = partners;
+    node.children = directChildren;
     return node;
   };
 
@@ -217,22 +253,6 @@ export function buildPersonTree(
 type Build = (main?: Individual, incoming?: Individual) => TreeNode | undefined;
 type ClaimKey = (baseKey: string) => string;
 
-function parents(
-  main: Individual | undefined,
-  incoming: Individual | undefined,
-  mainDs: Dataset,
-  compareDs: Dataset,
-  build: Build,
-): TreeNode[] {
-  const out: TreeNode[] = [];
-  for (const role of ["husband", "wife"] as const) {
-    const mp = main ? firstParent(main, mainDs, role) : undefined;
-    const ip = incoming ? firstParent(incoming, compareDs, role) : undefined;
-    const node = build(mp, ip);
-    if (node) out.push(node);
-  }
-  return out;
-}
 
 /** One marriage/family of a person: the spouse (if any), that union's children,
  *  and the family record (carrying the MARR event). */
@@ -258,14 +278,31 @@ function unionsOf(indi: Individual | undefined, ds: Dataset): Union[] {
 
 /** The marriage display fields (year + most-specific locality) of a family's MARR
  *  event, or undefined when the family has neither recorded. */
-function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo | undefined {
+export function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo | undefined {
   if (!fam) return undefined;
   const marr = fam.events.find((e) => e.tag === "MARR");
-  if (!marr) return undefined;
-  const year = marr.date?.year !== undefined ? String(marr.date.year) : undefined;
-  const place = marr.place ? localityParts(marr.place)[0] : undefined;
-  if (!year && !place) return undefined;
-  return { year, place, ...(coupleLiving(fam, ds) ? { living: true } : null) };
+  const year = marr?.date?.year !== undefined ? String(marr.date.year) : undefined;
+  const place = marr?.place ? localityParts(marr.place)[0] : undefined;
+  const status = unionStatus(fam);
+  if (!year && !place && !status) return undefined;
+  return {
+    year,
+    place,
+    ...(coupleLiving(fam, ds) ? { living: true } : null),
+    ...(year && isApproximate(marr?.date) ? { approx: true } : null),
+    ...(status ? { status } : null),
+  };
+}
+
+/** The family events that end a union, the first one found giving the year. */
+const ENDING_TAGS: Record<string, readonly string[]> = { divorced: ["DIV", "ANUL", "DIVF"], separated: ["SEPA"] };
+
+/** The union's mark when it is not a plain marriage (see {@link MarriageInfo.status}). */
+function unionStatus(fam: Family): MarriageInfo["status"] {
+  const mark = unionMark(fam);
+  if (mark.glyph === MARRIAGE_SYMBOL) return undefined;
+  const ending = mark.ended ? fam.events.find((e) => ENDING_TAGS[mark.ended!].includes(e.tag) && e.date?.year !== undefined) : undefined;
+  return { glyph: mark.glyph, ...(ending ? { year: String(ending.date!.year) } : null) };
 }
 
 /** Is either spouse presumed living (or declared private)? See

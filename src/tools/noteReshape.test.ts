@@ -32,7 +32,7 @@ const MIXED = [
 
 describe("reshapeNotes — inline to shared", () => {
   it("lifts an inline note into a record and leaves a pointer", () => {
-    const { text, changed } = out(MIXED, "shared");
+    const { text, changed } = out(MIXED, "shared", "5.5.1");
     expect(changed).toBe(2); // the record note and the event note
     expect(text).toMatch(/1 NOTE @N\d+@\n1 BIRT/);
     expect(text).toContain("0 @N2@ NOTE a record note");
@@ -42,19 +42,19 @@ describe("reshapeNotes — inline to shared", () => {
   it("takes the note's privacy marker with it", () => {
     // The flag belongs to the note, and on a pointer note the note is the
     // record — so it has to move to the record or it is lost.
-    const { text } = out(MIXED, "shared");
+    const { text } = out(MIXED, "shared", "5.5.1");
     expect(text).toMatch(/0 @N2@ NOTE a record note\n1 PRIV/);
     expect(text).not.toMatch(/1 NOTE @N2@\n2 PRIV/);
   });
 
   it("leaves notes already shared alone", () => {
-    const { text } = out(MIXED, "shared");
+    const { text } = out(MIXED, "shared", "5.5.1");
     expect(text).toContain("0 @N1@ NOTE a shared note");
     expect(text).toContain("1 NOTE @N1@");
   });
 
   it("honours the scope, so one level can be converted without the other", () => {
-    const { text, changed } = out(MIXED, "shared", { record: true, event: false });
+    const { text, changed } = out(MIXED, "shared", "5.5.1", { record: true, event: false });
     expect(changed).toBe(1);
     expect(text).toContain("2 NOTE an event note"); // the event's note untouched
     expect(text).toContain("0 @N2@ NOTE a record note");
@@ -63,14 +63,14 @@ describe("reshapeNotes — inline to shared", () => {
 
 describe("reshapeNotes — shared to inline", () => {
   it("copies the text back and deletes the record nothing points at", () => {
-    const { text, changed } = out(MIXED, "inline");
+    const { text, changed } = out(MIXED, "inline", "5.5.1");
     expect(changed).toBe(1);
     expect(text).toContain("1 NOTE a shared note");
     expect(text).not.toContain("0 @N1@ NOTE");
   });
 
   it("carries the record's privacy flag onto the note it becomes", () => {
-    const { text } = out(MIXED, "inline");
+    const { text } = out(MIXED, "inline", "5.5.1");
     expect(text).toMatch(/1 NOTE a shared note\n2 PRIV/);
   });
 
@@ -87,7 +87,7 @@ describe("reshapeNotes — shared to inline", () => {
       "2 DATE 20 DEC 2025",
       "0 TRLR",
       "",
-    ], "inline");
+    ], "inline", "5.5.1");
     expect(text).toContain("1 NOTE a shared note");
     expect(text).not.toContain("CHAN");
   });
@@ -103,7 +103,7 @@ describe("reshapeNotes — shared to inline", () => {
       "0 TRLR",
       "",
     ]);
-    reshapeNotes(records, "shared");
+    reshapeNotes(records, "shared", "5.5.1");
     expect(serializeGedcom(records)).toContain("0 @N1@ NOTE an event note\n1 SOUR @S1@\n2 PAGE p. 12\n");
     const rec = records.find((r) => r.xref === "@N1@")!;
     expect(rec.children[0].level).toBe(1);
@@ -129,7 +129,7 @@ describe("reshapeNotes — shared to inline", () => {
       "0 TRLR",
       "",
     ]);
-    reshapeNotes(records, "inline");
+    reshapeNotes(records, "inline", "5.5.1");
     const text = serializeGedcom(records);
     expect(text).toContain("2 NOTE a shared note\n3 SOUR @S1@\n4 PAGE p. 12\n3 LANG Slovenian\n");
     expect(text).not.toMatch(/RIN|_UID|CHAN/);
@@ -151,7 +151,7 @@ describe("reshapeNotes — shared to inline", () => {
       "1 CONT https://example.com/x",
       "0 TRLR",
       "",
-    ], "inline");
+    ], "inline", "5.5.1");
     expect(text).toContain("1 NOTE https://example.com/x");
     expect(text).not.toMatch(/^1 NOTE$/m);
   });
@@ -169,7 +169,7 @@ describe("reshapeNotes — shared to inline", () => {
       "0 TRLR",
       "",
     ]);
-    const { changed } = reshapeNotes(records, "inline");
+    const { changed } = reshapeNotes(records, "inline", "5.5.1");
     const text = serializeGedcom(records);
     expect(changed).toBe(2);
     // Both referrers flattened, so the record really is orphaned and goes.
@@ -184,7 +184,7 @@ describe("reshapeNotes — shared to inline", () => {
       "1 NOTE @NOPE@",
       "0 TRLR",
       "",
-    ], "inline");
+    ], "inline", "5.5.1");
     expect(changed).toBe(0);
     expect(text).toContain("1 NOTE @NOPE@");
   });
@@ -271,14 +271,14 @@ describe("reshapeNotes — GEDCOM 7 SNOTE", () => {
   });
 
   it("flattens an SNOTE pointer into an inline NOTE and drops the record", () => {
-    const { text, changed } = out(V7, "inline");
+    const { text, changed } = out(V7, "inline", "7.0");
     expect(changed).toBe(2);
     expect(text).toContain("1 NOTE a shared note\n1 BIRT\n2 NOTE a shared note");
     expect(text).not.toContain("SNOTE");
   });
 
   it("lifts an inline note into an SNOTE record and pointer", () => {
-    const { text } = out(V7, "shared");
+    const { text } = out(V7, "shared", "7.0");
     expect(text).toContain("1 SNOTE @N2@");
     expect(text).toContain("0 @N2@ SNOTE an inline note");
     expect(text).not.toMatch(/^\d NOTE /m);

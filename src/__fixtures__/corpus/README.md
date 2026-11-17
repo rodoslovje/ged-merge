@@ -33,6 +33,7 @@ the tests iterate.
 | reunion-5.5.1-utf8.ged | Reunion | 5.5.1 | UTF-8 | **CR** | classic-Mac CR-only endings |
 | synium-7.0-utf8.ged | Synium MacFamilyTree | **7.0** | UTF-8 | LF | GEDCOM 7.0 |
 | unknown-5.5.1-utf8.ged | (none) | 5.5.1 | UTF-8 | LF | `HEAD` with no `SOUR` line |
+| brotherskeeper-ansel-w1250.ged | Brother's Keeper | **5.5** | Windows-1250 (`CHAR ANSEL`) | CRLF | mislabelled charset; places scrubbed |
 
 ## What is preserved vs. scrubbed
 
@@ -60,7 +61,11 @@ bytes, so `decode.ts` charset detection is genuinely tested).
 
 Deliberately **kept** although arguably personal: place names (needed for
 place-format tests; geography alone is not identifying) and bibliographic
-`SOUR` `TITL`/`AUTH`/`PUBL` (needed for citation-format tests).
+`SOUR` `TITL`/`AUTH`/`PUBL` (needed for citation-format tests) — except in a
+fixture marked `placesScrubbed` in the manifest (a source that writes living
+people's home addresses into `PLAC`): there places, addresses and house numbers
+are invented too (`PLACE_WORDS` in `../pseudonyms.ts`, countries kept), as are
+the capitalised words of occupations and any text in a `DATE`.
 
 Each fixture is sliced to the first ~12–300 individuals plus a capped set of the
 records they reference (families, a few sources/media/notes), with dangling

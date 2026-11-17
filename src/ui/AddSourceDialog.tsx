@@ -6,7 +6,7 @@ import { findExistingSource, type FsSourceHint } from "../gedcom/source";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
-import { makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, sourceRegisterOf, splitFsRegisters, type RecognizedSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
+import { fetchedSiteRepo, makePlaceResolver, narrowFsRegister, proposedSiteRepo, recognizeSourceUrl, siteQuay, siteSourceTitle, SITE_ICON, sourceRegisterOf, splitFsRegisters, type RecognizedSourceUrl, type ReshapeMeta, type ReshapeSite } from "../tools/sourceReshape";
 import { detectSourceCoverage, repoLinkWanted } from "../gedcom/source";
 import { childText } from "../gedcom/node";
 import { useSettings } from "./SettingsContext";
@@ -159,12 +159,8 @@ function fetchedRepoProposal(
   url: string | undefined,
   meta: ReshapeMeta | undefined,
 ) {
-  if (!recognized || !url || !(meta?.collection || meta?.collectionId || meta?.place)) return undefined;
-  return proposedSiteRepo(records, recognized.site, url, recognized.proposed.agency, {
-    title: meta.collection,
-    id: meta.collectionId,
-    place: meta.place ?? recognized.proposed.place,
-  });
+  if (!recognized || !url) return undefined;
+  return fetchedSiteRepo(records, recognized.site, url, recognized.proposed, meta);
 }
 
 function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
@@ -402,11 +398,14 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   }, [editing, text, parsed, normalizedUrl, match, recognized, resolvePlace, repoDefault, layoutPrefersRepos, dataset, coverage, formatOverrides.standard]);
 
   // A collection the lookup named can point at the file's own repository for
-  // it, which the URL alone could not find.
+  // it, which the URL alone could not find; and the archive it named is the
+  // better name for a repository still to be created ("Nadškofijski arhiv
+  // Ljubljana", not the link's "Ljubljana") — unless the user has edited it.
   useEffect(() => {
-    if (!repoFetched?.xref || repoTouched.current) return;
-    setRepoSel(repoFetched.xref);
-  }, [repoFetched]);
+    if (!repoFetched || repoTouched.current) return;
+    if (repoFetched.xref) setRepoSel(repoFetched.xref);
+    else if (repoSel === "@create@" && repoFetched.createName) setRepoName(repoFetched.createName);
+  }, [repoFetched, repoSel]);
 
   // Editing an existing citation: seed directly from its current fields.
   useEffect(() => {
@@ -677,7 +676,9 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       const id = lookupCallNumber(meta, site, onCaln);
       const fetchedRepo = fetchedRepoProposal(asked.records, site, url, meta);
       const sel = !touched && fetchedRepo?.xref ? fetchedRepo.xref : repo.sel;
-      return addResult(upgraded, { sel, name: repo.name, caln: repo.caln.trim() || !id ? repo.caln : id }, meta, meta);
+      // The archive the lookup named, for a proposed repository not yet renamed.
+      const name = !touched && sel === "@create@" && fetchedRepo?.createName ? fetchedRepo.createName : repo.name;
+      return addResult(upgraded, { sel, name, caln: repo.caln.trim() || !id ? repo.caln : id }, meta, meta);
     });
     onAdd(answered);
     // After `onAdd`, so the caller's write is chained first: Save, waiting on

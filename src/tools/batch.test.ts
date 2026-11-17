@@ -5,6 +5,7 @@ import type { Dataset } from "../gedcom/types";
 import { isDeceased } from "../gedcom/lifespan";
 import { marriedSurnamesOf } from "../match/relatives";
 import { fullTextLookup } from "../ui/globalSearch";
+import { validateConformance } from "./conformance/conformance";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -14,6 +15,7 @@ import {
   computeLineSides,
   matchesBatch,
   previewBirthEstimates,
+  previewMarriageEstimates,
   previewMarriedNames,
   readMarriedNames,
   unionMarriage,
@@ -92,6 +94,7 @@ describe("batch criteria", () => {
 2 DATE 12 MAY 1900
 1 DEAT
 2 DATE 3 MAY 1919
+2 CAUS Typhus fever
 1 OBJE @O1@
 0 @I2@ INDI
 1 NAME Bo /Kovač/
@@ -213,6 +216,21 @@ describe("batch criteria", () => {
     expect(match([{ kind: "event", tag: "DEAT", mode: "lacks" }])).toEqual(["@I3@", "@I4@"]);
     expect(match([{ kind: "event", tag: "OCCU", mode: "has" }])).toEqual(["@I2@"]);
     expect(match([{ kind: "event", tag: "OCCU", mode: "lacks" }])).toEqual(["@I1@", "@I3@", "@I4@"]);
+  });
+
+  it("narrows an event by its name or value", () => {
+    expect(match([{ kind: "event", tag: "OCCU", mode: "has", text: "farm" }])).toEqual(["@I2@"]);
+    expect(match([{ kind: "event", tag: "OCCU", mode: "has", text: "miller" }])).toEqual([]);
+    expect(match([{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "has", text: "ARMY" }])).toEqual(["@I4@"]);
+    expect(match([{ kind: "event", tag: ANY_VENDOR_EVENT, mode: "lacks", text: "army" }])).toEqual(["@I1@", "@I2@", "@I3@"]);
+  });
+
+  it("filters by the cause of death", () => {
+    expect(match([{ kind: "deathCause", mode: "has" }])).toEqual(["@I1@"]);
+    expect(match([{ kind: "deathCause", mode: "has", text: "tyfus" }])).toEqual([]);
+    expect(match([{ kind: "deathCause", mode: "has", text: "typhus" }])).toEqual(["@I1@"]);
+    expect(match([{ kind: "deathCause", mode: "lacks", text: "typhus" }])).toEqual(["@I2@", "@I3@", "@I4@"]);
+    expect(match([{ kind: "deathCause", mode: "lacks" }])).toEqual(["@I2@", "@I3@", "@I4@"]);
   });
 
   it("matches any non-standard event via the sentinel tag", () => {
@@ -457,7 +475,7 @@ describe("addMarriedName action", () => {
 
   it("writes the file's own record form and skips the rest", () => {
     const ds = dataset(FILE);
-    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     expect(res.changed).toBe(2);
     expect(res.skipped).toBe(4);
     const ana = ds.individuals.get("@I1@")!;
@@ -465,14 +483,14 @@ describe("addMarriedName action", () => {
     expect(ana.raw.children.filter((c) => c.tag === "NAME").map((c) => c.value)).toEqual(["Ana /Novak/", "/Kovač/"]);
     expect(marriedSurnamesOf(ana)).toEqual(["Kovač"]);
     // Re-running is a no-op — everyone now has a married name or no source for one.
-    expect(applyBatchAction(ds, ids, { kind: "addMarriedName" })).toMatchObject({ changed: 0, patches: [] });
+    expect(applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1")).toMatchObject({ changed: 0, patches: [] });
   });
 
   it("follows a file that carries married names inline as _MARNM", () => {
     const ds = dataset(
       FILE.replace("1 NAME Cilka /Zupan/\n1 SEX F\n1 NAME /Rakar/\n2 TYPE married", "1 NAME Cilka /Zupan/\n2 _MARNM /Rakar/\n1 SEX F"),
     );
-    applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     const ana = ds.individuals.get("@I1@")!;
     expect(ana.names).toHaveLength(1);
     expect(ana.names[0].married).toBe("Kovač");
@@ -480,7 +498,7 @@ describe("addMarriedName action", () => {
 
   it("falls back to the standard record form when the file has no married name at all", () => {
     const ds = dataset(FILE.replace("1 NAME /Rakar/\n2 TYPE married\n", ""));
-    applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     expect(ds.individuals.get("@I1@")!.names[1]).toMatchObject({ full: "Kovač", type: "married" });
   });
 });
@@ -550,7 +568,7 @@ describe("addMarriedName across unions", () => {
   it("takes a surname from every union, ordered by marriage date", () => {
     const ds = dataset(FILE);
     expect(surnamesOf(ds, "@W1@")).toEqual(["Kovač", "Novak"]);
-    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" });
+    const res = applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
     expect(res.changed).toBe(3);
     const w1 = ds.individuals.get("@W1@")!;
     expect(w1.names.map((n) => [n.full, n.type])).toEqual([
@@ -561,7 +579,7 @@ describe("addMarriedName across unions", () => {
 
   it("comma-joins several unions into the single _MARNM the tag convention has", () => {
     const ds = dataset(FILE.replace("0 @W3@ INDI\n1 NAME Ema /Sever/", "0 @W3@ INDI\n1 NAME Ema /Sever/\n2 _MARNM Turk"));
-    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" });
+    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" }, "5.5.1");
     const w1 = ds.individuals.get("@W1@")!;
     expect(w1.names).toHaveLength(1);
     expect(w1.names[0].married).toBe("Kovač, Novak");
@@ -573,7 +591,7 @@ describe("addMarriedName across unions", () => {
       { surname: "Kovač", marriage: "married", byChildren: false, recorded: true },
       { surname: "Novak", marriage: "married", byChildren: false, recorded: false },
     ]);
-    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" });
+    applyBatchAction(ds, ["@W1@"], { kind: "addMarriedName" }, "5.5.1");
     expect(marriedSurnamesOf(ds.individuals.get("@W1@")!, ds)).toEqual(["Kovač", "Novak"]);
   });
 
@@ -623,6 +641,26 @@ describe("addMarriedName across unions", () => {
     expect(match([{ kind: "familyEvent", tag: "MARR", mode: "has" }])).toEqual(["@M1@", "@M2@", "@W1@"]);
   });
 
+  it("narrows a union's custom event by its name", () => {
+    const ds = dataset(FILE.replace("1 _MSTAT Partners", "1 EVEN\n2 TYPE Separation"));
+    const rows = buildBatchRows(ds, nameOf);
+    const match = (c: BatchCriterion[]) =>
+      rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null, fullText: () => "" })).map((r) => r.id).sort();
+    expect(match([{ kind: "familyEvent", tag: "EVEN", mode: "has", text: "separ" }])).toEqual(["@M4@", "@W3@"]);
+    expect(match([{ kind: "familyEvent", tag: "EVEN", mode: "has", text: "Partners" }])).toEqual([]);
+    expect(match([
+      { kind: "relation", rel: "spouse", mode: "has" },
+      { kind: "familyEvent", tag: "EVEN", mode: "lacks", text: "Separation" },
+    ])).not.toContain("@W3@");
+    // Any event: the name also reads a vendor tag's value (`_MSTAT Partners`).
+    const any = buildBatchRows(dataset(FILE), nameOf).filter((r) =>
+      matchesBatch(r, [{ kind: "familyEvent", tag: ANY_EVENT, mode: "has", text: "partners" }], {
+        lineSides: null, kinship: null, fullText: () => "",
+      }),
+    ).map((r) => r.id).sort();
+    expect(any).toEqual(["@M4@", "@W3@"]);
+  });
+
   it("counts a divorce and Brother's Keeper's flags as evidence either way", () => {
     const divorced = dataset(FILE.replace("1 _MSTAT Partners", "1 DIV\n2 DATE 1899"));
     expect(unionMarriage(divorced.families.get("@FD@")!)).toBe("married");
@@ -649,7 +687,7 @@ describe("applyBatchAction", () => {
 1 NAME C //
 1 BURI
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(2);
     expect(res.patches.map((p) => p.id)).toEqual(["@I2@"]);
@@ -662,7 +700,7 @@ describe("applyBatchAction", () => {
     const tags = raw.children.map((c) => c.tag);
     expect(tags.indexOf("BIRT")).toBeLessThan(tags.indexOf("DEAT")); // canonical order
     // Re-running is a no-op: everyone now carries death evidence.
-    const again = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" });
+    const again = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "markDeceased" }, "5.5.1");
     expect(again.changed).toBe(0);
     expect(again.patches).toEqual([]);
   });
@@ -709,31 +747,32 @@ describe("applyBatchAction", () => {
 1 WIFE @I5@
 0 TRLR`);
     const ids = ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@"];
-    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" }, "5.5.1");
     // @I1@ from father 1850, @I4@ from spouse 1880; @I2@/@I5@ dated, @I3@ unestimable.
     expect(res.changed).toBe(2);
     expect(res.skipped).toBe(3);
     expect(res.patches.map((p) => p.id).sort()).toEqual(["@I1@", "@I4@"]);
     const birtOf = (id: string) => ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!;
-    // Father 1850 + a generation = 1878, rounded to the nearest 5.
+    // Father 1850 + a father's age (30) = 1880.
     expect(birtOf("@I1@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1880"]]);
-    // The undated BIRT node gained a DATE and kept its place.
+    // The undated BIRT node gained a DATE and kept its place: a husband five
+    // years older than his 1880 wife.
     expect(birtOf("@I4@").children.map((c) => [c.tag, c.value])).toEqual([
-      ["DATE", "ABT 1880"],
+      ["DATE", "ABT 1875"],
       ["PLAC", "Kranj"],
     ]);
     // @I5@'s recorded date is untouched.
     expect(birtOf("@I5@").children).toEqual([{ level: 2, tag: "DATE", value: "12 MAY 1880", children: [] }]);
     // Re-running reaches @I3@ through @I1@'s now-written estimate; the rest skip.
-    const again = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    const again = applyBatchAction(ds, ids, { kind: "estimateBirth" }, "5.5.1");
     expect(again.changed).toBe(1);
     expect(again.skipped).toBe(4);
     expect(birtOf("@I3@").children.map((c) => [c.tag, c.value])).toEqual([["DATE", "ABT 1910"]]);
   });
 
-  it("keeps sibling estimates distinct: spread around the parent guess, or anchored on a dated sibling", () => {
+  it("rounds every ABT estimate, anchoring siblings on a dated sibling where one exists", () => {
     // Family A: dated mother, three undated children — all would share
-    // 1850+28≈1880; instead they spread a step apart in listed order.
+    // 1850+25=1875; instead they spread a step apart in listed order.
     // Family B: parents undated, first child dated 1882 — the other two anchor
     // on that sibling, and the father estimates from his child as before.
     const ds = dataset(`0 HEAD
@@ -784,21 +823,21 @@ describe("applyBatchAction", () => {
     // then writes, and dated @D1@ (queried too) gets no entry.
     const preview = previewBirthEstimates(ds, [...ids, "@D1@"]);
     expect(Object.fromEntries(preview)).toEqual({
-      "@C1@": 1879, "@C2@": 1880, "@C3@": 1881, "@C4@": 1883, "@C5@": 1884, "@P1@": 1855,
+      "@C1@": 1875, "@C2@": 1875, "@C3@": 1875, "@C4@": 1885, "@C5@": 1885, "@P1@": 1850,
     });
     expect(ds.individuals.get("@C1@")!.raw.children.some((c) => c.tag === "BIRT")).toBe(false);
-    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" });
+    const res = applyBatchAction(ds, ids, { kind: "estimateBirth" }, "5.5.1");
     expect(res.changed).toBe(6);
     expect(res.skipped).toBe(0);
     const abtOf = (id: string) =>
       ds.individuals.get(id)!.raw.children.find((c) => c.tag === "BIRT")!.children[0].value;
-    // Spread a year apart around the shared 1880 guess, in the family's child order.
-    expect([abtOf("@C1@"), abtOf("@C2@"), abtOf("@C3@")]).toEqual(["ABT 1879", "ABT 1880", "ABT 1881"]);
-    // Anchored one and two years after the dated 1882 sibling (unrounded) —
+    // Every ABT estimate lands on a year ending in 0 or 5, so siblings share the 1875 guess.
+    expect([abtOf("@C1@"), abtOf("@C2@"), abtOf("@C3@")]).toEqual(["ABT 1875", "ABT 1875", "ABT 1875"]);
+    // Anchored after the dated 1882 sibling (1883, 1884), then rounded —
     // even though no parent is dated and estimateBirthYear finds nothing.
-    expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1883", "ABT 1884"]);
-    // The father's estimate comes from his own child — no sibling adjustment.
-    expect(abtOf("@P1@")).toBe("ABT 1855");
+    expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1885", "ABT 1885"]);
+    // The father's estimate comes from his own child (1882 − 30) — no sibling adjustment.
+    expect(abtOf("@P1@")).toBe("ABT 1850");
   });
 
   it("converts vendor events to a named EVEN, keeping the substructure", () => {
@@ -816,7 +855,7 @@ describe("applyBatchAction", () => {
 0 TRLR`);
     const res = applyBatchAction(ds, ["@I1@", "@I2@"], {
       kind: "convertEvent", fromTag: "_FNRL", toTag: "EVEN", type: "Funeral",
-    });
+    }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(1); // @I2@ has no _FNRL
     const even = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "EVEN")!;
@@ -828,16 +867,50 @@ describe("applyBatchAction", () => {
     // Re-running finds nothing left to convert.
     const again = applyBatchAction(ds, ["@I1@", "@I2@"], {
       kind: "convertEvent", fromTag: "_FNRL", toTag: "EVEN", type: "Funeral",
-    });
+    }, "5.5.1");
     expect(again.changed).toBe(0);
 
     // Standard targets take no TYPE — the tag itself is the name.
-    applyBatchAction(ds, ["@I2@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI", type: "x" });
+    applyBatchAction(ds, ["@I2@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI", type: "x" }, "5.5.1");
     const buri = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "BURI")!;
     expect(buri.children.map((c) => c.tag)).toEqual(["DATE"]);
     // The typed records follow the raw tree, so the panel's own event filters see the new tags.
     expect(ds.individuals.get("@I1@")!.events.map((e) => e.tag)).toEqual(["EVEN"]);
     expect(ds.individuals.get("@I2@")!.events.map((e) => e.tag)).toEqual(["BURI"]);
+  });
+
+  it("converts a family event in every union of a picked partner, each union once", () => {
+    for (const vers of ["5.5.1", "7.0"] as const) {
+      const head = vers === "7.0"
+        ? "0 HEAD\n1 GEDC\n2 VERS 7.0\n"
+        : "0 HEAD\n1 SOUR TEST\n1 SUBM @U1@\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @U1@ SUBM\n1 NAME Test\n";
+      const ds = dataset(`${head}0 @I1@ INDI
+1 NAME Erik //
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Dunja //
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Ana //
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 SEPA
+2 DATE 2010
+0 TRLR`);
+      const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], {
+        kind: "convertEvent", fromTag: "SEPA", toTag: "EVEN", type: "Ločeno življenje",
+      }, vers);
+      expect(res.changed).toBe(2);
+      expect(res.skipped).toBe(1);
+      const fam = ds.families.get("@F1@")!;
+      expect(fam.raw.children.filter((c) => c.tag === "EVEN").map((e) => e.children.map((c) => [c.tag, c.value])))
+        .toEqual([[["TYPE", "Ločeno življenje"], ["DATE", "2010"]]]);
+      expect(fam.events.map((e) => e.tag)).toEqual(["EVEN"]);
+      expect(validateConformance(ds).filter((i) => i.sample === "SEPA" || i.sample === "EVEN")).toEqual([]);
+      // Undo puts the family back.
+      expect(res.patches.some((p) => p.type === "family" && p.id === "@F1@")).toBe(true);
+    }
   });
 
   it("keeps the line value where the target holds one, and makes it a note where it does not", () => {
@@ -852,9 +925,9 @@ describe("applyBatchAction", () => {
 1 _FNRL Y
 2 DATE 1950
 0 TRLR`);
-    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "NOBI", toTag: "EVEN", type: "Priznanje" });
-    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI" });
-    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_FNRL", toTag: "BURI" });
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "NOBI", toTag: "EVEN", type: "Priznanje" }, "5.5.1");
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_INTE", toTag: "BURI" }, "5.5.1");
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_FNRL", toTag: "BURI" }, "5.5.1");
     const raw = ds.individuals.get("@I1@")!.raw.children;
     const even = raw.find((c) => c.tag === "EVEN")!;
     expect(even.value).toBe("Velika plaketa Občine Preddvor");
@@ -893,7 +966,7 @@ describe("applyBatchAction", () => {
 0 @O1@ OBJE
 1 FILE maternal.png
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(1);
     expect(res.patches).toHaveLength(1);
@@ -901,7 +974,7 @@ describe("applyBatchAction", () => {
     const objes = ds.individuals.get("@I2@")!.raw.children.filter((c) => c.tag === "OBJE");
     expect(objes.map((o) => o.value)).toEqual(["@O1@"]);
     // Re-running is a no-op: everyone already carries the image.
-    const again = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" });
+    const again = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addMedia", xref: "@O1@", file: "maternal.png" }, "5.5.1");
     expect(again.changed).toBe(0);
     expect(again.patches).toEqual([]);
   });
@@ -912,7 +985,7 @@ describe("applyBatchAction", () => {
 0 @I1@ INDI
 1 NAME A //
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@"], { kind: "addMedia", file: "paternal.png", title: "Paternal line" });
+    const res = applyBatchAction(ds, ["@I1@"], { kind: "addMedia", file: "paternal.png", title: "Paternal line" }, "5.5.1");
     expect(res.changed).toBe(1);
     const created = res.patches.find((p) => p.type === "record");
     expect(created).toBeDefined();
@@ -931,11 +1004,35 @@ describe("applyBatchAction", () => {
 0 @I2@ INDI
 1 NAME B //
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I2@"], { kind: "addMedia", file: "maternal.png" });
+    const res = applyBatchAction(ds, ["@I2@"], { kind: "addMedia", file: "maternal.png" }, "5.5.1");
     expect(res.changed).toBe(1);
     const obje = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "OBJE")!;
     expect(obje.value).toBeUndefined();
     expect(obje.children.find((c) => c.tag === "FILE")?.value).toBe("maternal.png");
+  });
+
+  it.each(["5.5.1", "7.0"] as const)("leaves an inline-style file nothing strict %s can find", (version) => {
+    // A file of inline media set to a strict target: 7.0 has no inline block,
+    // so the new image is a media record there, and an inline one in 5.5.1.
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS ${version}
+0 @I1@ INDI
+1 NAME A //
+0 @I2@ INDI
+1 NAME B //
+0 TRLR`);
+    const before = validateConformance(ds);
+    // The inline habit, added after the baseline: 7.0 reports it on its own.
+    const habit = { level: 1, tag: "OBJE", children: [{ level: 2, tag: "FILE", value: "existing.jpg", children: [{ level: 3, tag: "FORM", value: "jpg", children: [] }] }] };
+    ds.individuals.get("@I1@")!.raw.children.push(habit);
+    const res = applyBatchAction(ds, ["@I2@"], { kind: "addMedia", file: "maternal.png" }, version);
+    expect(res.changed).toBe(1);
+    const obje = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "OBJE")!;
+    if (version === "7.0") expect(obje.value).toMatch(/^@O\d+@$/);
+    else expect(obje.value).toBeUndefined();
+    ds.individuals.get("@I1@")!.raw.children.pop();
+    expect(validateConformance(ds)).toEqual(before);
   });
 
   it("adds a source citation with a page, skipping existing citers", () => {
@@ -949,7 +1046,7 @@ describe("applyBatchAction", () => {
 0 @S1@ SOUR
 1 TITL Book
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", xref: "@S1@", page: "fol. 12" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", xref: "@S1@", page: "fol. 12" }, "5.5.1");
     expect(res.changed).toBe(1);
     expect(res.skipped).toBe(1);
     const cite = ds.individuals.get("@I2@")!.raw.children.find((c) => c.tag === "SOUR")!;
@@ -965,7 +1062,7 @@ describe("applyBatchAction", () => {
 0 @I2@ INDI
 1 NAME B //
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", title: "Status animarum" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "addSource", title: "Status animarum" }, "5.5.1");
     expect(res.changed).toBe(2);
     const sours = ds.records.filter((r) => r.tag === "SOUR" && r.xref);
     expect(sours).toHaveLength(1);
@@ -993,7 +1090,7 @@ describe("applyBatchAction", () => {
 0 @O2@ OBJE
 1 FILE other.png
 0 TRLR`);
-    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "removeMedia", xref: "@O1@", file: "died-young.png" });
+    const res = applyBatchAction(ds, ["@I1@", "@I2@", "@I3@"], { kind: "removeMedia", xref: "@O1@", file: "died-young.png" }, "5.5.1");
     expect(res.changed).toBe(2);
     expect(res.skipped).toBe(1);
     const hasObje = (id: string) =>
@@ -1071,5 +1168,281 @@ describe("anyField criterion", () => {
   it("does not match pointers or the cited source's own record", () => {
     expect(match("@S1@")).toEqual([]);
     expect(match("matricula")).toEqual([]);
+  });
+});
+
+describe("marriage dates: undated/estimated filter and the marriage estimate", () => {
+  /** @FA@ no marriage, children born 1885 and ABT 1880; @FB@ married BEF
+   *  1900 though a child came in 1890; @FC@ married exactly; @FD@ MARR
+   *  without a date and nothing dated; @FE@ married ABT 1870 with a child;
+   *  @FG@ childless, wife born 1852; @FH@ one child born ABT 1883; @FS@ a
+   *  mother alone with a child born 1890; @FN@ a couple with a child born
+   *  1880 and no marriage recorded. @FA@, @FG@, @FH@ record an undated
+   *  marriage. Each @Fx@ but @FS@ names a partner @x0@. */
+  const file = (vers: string) => `0 HEAD
+1 SOUR TEST
+1 GEDC
+2 VERS ${vers}
+${vers === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : ""}0 @A1@ INDI
+1 NAME Ana /A/
+1 SEX F
+1 FAMS @FA@
+0 @A2@ INDI
+1 NAME Jože /A/
+1 SEX M
+1 FAMS @FA@
+0 @A3@ INDI
+1 NAME Mici /A/
+1 BIRT
+2 DATE 12 MAR 1885
+1 FAMC @FA@
+0 @A4@ INDI
+1 NAME Tone /A/
+1 BIRT
+2 DATE ABT 1880
+1 FAMC @FA@
+0 @B1@ INDI
+1 NAME Neža /B/
+1 SEX F
+1 FAMS @FB@
+0 @B2@ INDI
+1 NAME Jaka /B/
+1 BIRT
+2 DATE 1890
+1 FAMC @FB@
+0 @C1@ INDI
+1 NAME Rozi /C/
+1 SEX F
+1 FAMS @FC@
+0 @C2@ INDI
+1 NAME Lojze /C/
+1 BIRT
+2 DATE 1881
+1 FAMC @FC@
+0 @D1@ INDI
+1 NAME Pepca /D/
+1 SEX F
+1 FAMS @FD@
+0 @E1@ INDI
+1 NAME Mina /E/
+1 SEX F
+1 FAMS @FE@
+0 @E2@ INDI
+1 NAME Franc /E/
+1 BIRT
+2 DATE 1875
+1 FAMC @FE@
+0 @G1@ INDI
+1 NAME Urša /G/
+1 SEX F
+1 BIRT
+2 DATE 3 JUN 1852
+1 FAMS @FG@
+0 @H1@ INDI
+1 NAME Matija /H/
+1 SEX M
+1 FAMS @FH@
+0 @H2@ INDI
+1 NAME Jera /H/
+1 BIRT
+2 DATE ABT 1883
+1 FAMC @FH@
+0 @B0@ INDI
+1 NAME Partner /B/
+1 SEX M
+1 FAMS @FB@
+0 @C0@ INDI
+1 NAME Partner /C/
+1 SEX M
+1 FAMS @FC@
+0 @D0@ INDI
+1 NAME Partner /D/
+1 SEX M
+1 FAMS @FD@
+0 @E0@ INDI
+1 NAME Partner /E/
+1 SEX M
+1 FAMS @FE@
+0 @G0@ INDI
+1 NAME Partner /G/
+1 SEX M
+1 FAMS @FG@
+0 @H0@ INDI
+1 NAME Partner /H/
+1 SEX F
+1 FAMS @FH@
+0 @S1@ INDI
+1 NAME Samec /S/
+0 @S2@ INDI
+1 NAME Marjeta /S/
+1 SEX F
+1 FAMS @FS@
+0 @S3@ INDI
+1 NAME Janez /S/
+1 BIRT
+2 DATE 1 JAN 1890
+1 FAMC @FS@
+0 @N0@ INDI
+1 NAME Nace /N/
+1 SEX M
+1 FAMS @FN@
+0 @N1@ INDI
+1 NAME Neža /N/
+1 SEX F
+1 FAMS @FN@
+0 @N2@ INDI
+1 NAME Nik /N/
+1 BIRT
+2 DATE 1880
+1 FAMC @FN@
+0 @FN@ FAM
+1 HUSB @N0@
+1 WIFE @N1@
+1 CHIL @N2@
+0 @FS@ FAM
+1 WIFE @S2@
+1 CHIL @S3@
+0 @FG@ FAM
+1 HUSB @G0@
+1 WIFE @G1@
+1 MARR
+0 @FH@ FAM
+1 HUSB @H1@
+1 WIFE @H0@
+1 CHIL @H2@
+1 MARR Y
+0 @FA@ FAM
+1 HUSB @A2@
+1 WIFE @A1@
+1 CHIL @A4@
+1 CHIL @A3@
+1 MARR Y
+0 @FB@ FAM
+1 HUSB @B0@
+1 WIFE @B1@
+1 CHIL @B2@
+1 MARR
+2 DATE BEF 1900
+0 @FC@ FAM
+1 HUSB @C0@
+1 WIFE @C1@
+1 CHIL @C2@
+1 MARR
+2 DATE 4 FEB 1880
+0 @FD@ FAM
+1 HUSB @D0@
+1 WIFE @D1@
+1 MARR Y
+0 @FE@ FAM
+1 HUSB @E0@
+1 WIFE @E1@
+1 CHIL @E2@
+1 MARR
+2 DATE ABT 1870
+0 TRLR
+`;
+  const ctx = { lineSides: null, kinship: null, fullText: () => "" };
+  const match = (ds: Dataset, c: BatchCriterion[]) =>
+    buildBatchRows(ds, nameOf).filter((r) => matchesBatch(r, c, ctx)).map((r) => r.id).sort();
+
+  it("finds unions whose marriage is recorded undated, or only estimated", () => {
+    const ds = dataset(file("5.5.1"));
+    // A union with no marriage at all (@FN@, @FS@) is not "undated".
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual([
+      "@A1@", "@A2@", "@D0@", "@D1@", "@G0@", "@G1@", "@H0@", "@H1@",
+    ]);
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "estimated" }])).toEqual([
+      "@B0@", "@B1@", "@E0@", "@E1@",
+    ]);
+  });
+
+  it("previews the strongest estimate per family, once per family", () => {
+    const ds = dataset(file("5.5.1"));
+    const all = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@E1@", "@G1@", "@H1@", "@S1@", "@S2@", "@N1@"];
+    expect([...previewMarriageEstimates(ds, all)]).toEqual([
+      // ABT 1880 is a guess, so the exact 12 MAR 1885 bounds the marriage; the late BEF is corrected.
+      ["@FA@", "BEF 12 MAR 1885"],
+      ["@FB@", "BEF 1890"],
+      // Wife 1852 + 25 = 1877; child ABT 1883 − 2 = 1881 — both rounded to 0 or 5.
+      ["@FG@", "ABT 1875"],
+      ["@FH@", "ABT 1880"],
+      // @FS@ names one parent; @FN@ records no marriage: neither gets one.
+    ]);
+  });
+
+  it("corrects an estimate the eldest child was born before, counting born children only", () => {
+    const ds = dataset(`0 HEAD\n1 SOUR TEST\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n` +
+      "0 @H@ INDI\n1 NAME Mož /Novak/\n1 SEX M\n1 FAMS @F1@\n" +
+      "0 @W@ INDI\n1 NAME Žena /Novak/\n1 SEX F\n1 FAMS @F1@\n" +
+      "0 @K@ INDI\n1 NAME Otrok /Novak/\n1 SEX M\n1 BIRT\n2 DATE 3 MAY 1770\n1 FAMC @F1@\n" +
+      "0 @A@ INDI\n1 NAME Posvojenec /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1760\n1 FAMC @F1@\n2 PEDI adopted\n" +
+      "0 @F1@ FAM\n1 HUSB @H@\n1 WIFE @W@\n1 MARR\n2 DATE ABT 1775\n1 CHIL @A@\n1 CHIL @K@\n0 TRLR\n");
+    expect([...previewMarriageEstimates(ds, ["@H@"])]).toEqual([["@F1@", "BEF 3 MAY 1770"]]);
+    applyBatchAction(ds, ["@H@"], { kind: "estimateMarriage" }, "5.5.1");
+    expect([...previewMarriageEstimates(ds, ["@H@"])]).toEqual([]);
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
+  it.each(["5.5.1", "7.0"])("writes the estimates as conformant %s", (vers) => {
+    const ds = dataset(file(vers));
+    const ids = ["@A1@", "@A2@", "@B1@", "@C1@", "@D1@", "@G1@", "@H1@", "@S1@", "@S2@", "@N1@"];
+    const res = applyBatchAction(ds, ids, { kind: "estimateMarriage" }, "5.5.1");
+    expect(res).toMatchObject({ changed: 5, skipped: 5 });
+    expect(res.patches).toHaveLength(4);
+    const marr = (id: string) => ds.families.get(id)!.events.find((e) => e.tag === "MARR")?.date?.raw;
+    expect(marr("@FA@")).toBe("BEF 12 MAR 1885");
+    expect(marr("@FB@")).toBe("BEF 1890");
+    expect(marr("@FC@")).toBe("4 FEB 1880");
+    expect(match(ds, [{ kind: "familyEvent", tag: "MARR", mode: "undated" }])).toEqual(["@D0@", "@D1@"]);
+    expect(ds.families.get("@FN@")!.events.some((e) => e.tag === "MARR")).toBe(false);
+    expect(validateConformance(ds)).toEqual([]);
+    // Running again finds nothing left to do.
+    expect(applyBatchAction(ds, ["@A1@", "@B1@"], { kind: "estimateMarriage" }, "5.5.1").changed).toBe(0);
+  });
+});
+
+describe("sources on one event", () => {
+  /** @I1@ birth with a source; @I2@ birth without; @I3@ no birth, married
+   *  with a cited marriage to @I4@; @I5@ a source on the record only. */
+  const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /A/
+1 BIRT
+2 DATE 1850
+2 SOUR @S1@
+0 @I2@ INDI
+1 NAME Jože /B/
+1 BIRT
+2 DATE 1851
+0 @I3@ INDI
+1 NAME Mici /C/
+1 FAMS @F1@
+0 @I4@ INDI
+1 NAME Tone /C/
+1 FAMS @F1@
+0 @I5@ INDI
+1 NAME Lojze /D/
+1 SOUR @S1@
+0 @F1@ FAM
+1 HUSB @I4@
+1 WIFE @I3@
+1 MARR
+2 SOUR @S1@
+0 @S1@ SOUR
+1 TITL Krstna knjiga
+0 TRLR`);
+  const rows = buildBatchRows(ds, nameOf);
+  const match = (c: BatchCriterion[]) =>
+    rows.filter((r) => matchesBatch(r, c, { lineSides: null, kinship: null, fullText: () => "" })).map((r) => r.id).sort();
+
+  it("finds the births with and without a cited source", () => {
+    expect(match([{ kind: "sources", mode: "eventHas", tag: "BIRT" }])).toEqual(["@I1@"]);
+    // Without a source on the birth — an undocumented birth or none recorded at all.
+    expect(match([{ kind: "sources", mode: "eventLacks", tag: "BIRT" }])).toEqual(["@I2@", "@I3@", "@I4@", "@I5@"]);
+  });
+
+  it("reads a union's events for the partners", () => {
+    expect(match([{ kind: "sources", mode: "eventHas", tag: "MARR" }])).toEqual(["@I3@", "@I4@"]);
   });
 });

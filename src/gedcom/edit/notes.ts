@@ -1,6 +1,6 @@
 import { cloneNode } from "../node";
 import { isPointer } from "../uri";
-import { detectPrivacyStyle, isPrivateNode, isV7, setPrivateFlag, type PrivacyTagStyle } from "../private";
+import { detectPrivacyStyle, isPrivateNode, setPrivateFlag, type PrivacyTagStyle } from "../private";
 import { isHtmlNote } from "../noteHtml";
 import type { Dataset, GedNode, NoteRef } from "../types";
 import { bumpSourceCacheVersion, rebuildReferrers } from "./cache";
@@ -46,16 +46,20 @@ export type NoteStyle = "shared" | "inline";
 export interface SharedNoteCtx {
   records: GedNode[];
   changes: SharedNoteChange[];
+  /** The version lines are written in — the target's: a shared note is an
+   *  `SNOTE` in 7.0, and only 7.0 has a note's `MIME` line. */
+  version: "5.5.1" | "7.0";
   /** Lazily detected privacy-marker dialect (see {@link detectPrivacyStyle}). */
   privacyStyle?: PrivacyTagStyle;
   /** Lazily detected note shape (see {@link detectNoteStyle}). */
   noteStyle?: NoteStyle;
 }
 
-/** `privacyStyle` presets the marker dialect (e.g. the Settings override);
+/** `version` is the target's (see {@link SharedNoteCtx.version});
+ *  `privacyStyle` presets the marker dialect (e.g. the Settings override) —
  *  left out, it's detected from the file on first use. */
-export function noteCtx(records: GedNode[], privacyStyle?: PrivacyTagStyle): SharedNoteCtx {
-  return { records, changes: [], ...(privacyStyle ? { privacyStyle } : {}) };
+export function noteCtx(records: GedNode[], version: "5.5.1" | "7.0", privacyStyle?: PrivacyTagStyle): SharedNoteCtx {
+  return { records, changes: [], version, ...(privacyStyle ? { privacyStyle } : {}) };
 }
 
 /** The file's privacy dialect, detected once per ctx (i.e. per commit). */
@@ -103,8 +107,8 @@ function noteStyleOf(ctx: SharedNoteCtx): NoteStyle {
  */
 function createNoteRecord(ctx: SharedNoteCtx, text: string): string {
   const xref = nextXref(ctx.records, "N");
-  const rec: GedNode = { level: 0, xref, tag: isV7(ctx.records) ? "SNOTE" : "NOTE", value: text, children: [] };
-  syncNoteMime(rec, ctx.records);
+  const rec: GedNode = { level: 0, xref, tag: ctx.version === "7.0" ? "SNOTE" : "NOTE", value: text, children: [] };
+  syncNoteMime(rec, ctx.version);
   insertRecord(ctx.records, rec);
   bumpSourceCacheVersion(ctx.records);
   ctx.changes.push({ xref, before: null, after: cloneNode(rec) });
@@ -115,9 +119,9 @@ function createNoteRecord(ctx: SharedNoteCtx, text: string): string {
  *  such line and the markup is recognized from the text. Kept in step with
  *  the text this app writes: a rich-text note gets the line, a note edited
  *  back to plain text loses it. */
-function syncNoteMime(node: GedNode, records: GedNode[]): void {
+function syncNoteMime(node: GedNode, version: "5.5.1" | "7.0"): void {
   const idx = node.children.findIndex((c) => c.tag === "MIME");
-  const html = isV7(records) && isHtmlNote(node.value ?? "");
+  const html = version === "7.0" && isHtmlNote(node.value ?? "");
   if (html && idx === -1) node.children.unshift({ level: node.level + 1, tag: "MIME", value: "text/html", children: [] });
   else if (!html && idx !== -1 && node.children[idx].value?.trim().toLowerCase() === "text/html") node.children.splice(idx, 1);
 }
@@ -150,7 +154,7 @@ export function setSharedNoteText(ctx: SharedNoteCtx, xref: string, text: string
   if (!rec || (rec.value ?? "").trim() === text.trim()) return;
   const before = cloneNode(rec);
   rec.value = text;
-  syncNoteMime(rec, ctx.records);
+  syncNoteMime(rec, ctx.version);
   // The note index caches record *values*, so an in-place text edit goes stale.
   bumpSourceCacheVersion(ctx.records);
   ctx.changes.push({ xref, before, after: cloneNode(rec) });
@@ -162,7 +166,7 @@ export function setSharedNotePrivate(ctx: SharedNoteCtx, xref: string, on: boole
   const rec = findNoteRecord(ctx.records, xref);
   if (!rec || isPrivateNode(rec) === on) return;
   const before = cloneNode(rec);
-  setPrivateFlag(rec, on, privacyStyleOf(ctx), ctx.records);
+  setPrivateFlag(rec, on, privacyStyleOf(ctx), ctx.version);
   bumpSourceCacheVersion(ctx.records);
   ctx.changes.push({ xref, before, after: cloneNode(rec) });
 }
@@ -296,9 +300,9 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
         // its marker only when the flag flipped.
         if (node.value!.trim() !== ref.text.trim()) {
           node.value = ref.text.trim();
-          syncNoteMime(node, ctx.records);
+          syncNoteMime(node, ctx.version);
         }
-        if (isPrivateNode(node) !== !!ref.private) setPrivateFlag(node, !!ref.private, privacyStyleOf(ctx), ctx.records);
+        if (isPrivateNode(node) !== !!ref.private) setPrivateFlag(node, !!ref.private, privacyStyleOf(ctx), ctx.version);
       }
       prev = node;
       return;
@@ -317,10 +321,10 @@ export function applyNoteRefs(ctx: SharedNoteCtx, ownerRaw: GedNode, refs: NoteR
     // A pointer to a 7.0 `SNOTE` record is written as one.
     const tag = xref && (prevSnote.has(xref) || findNoteRecord(ctx.records, xref)?.tag === "SNOTE") ? "SNOTE" : "NOTE";
     const added: GedNode = { level: ownerRaw.level + 1, tag, value: xref ?? ref.text.trim(), children: [] };
-    if (!xref) syncNoteMime(added, ctx.records);
+    if (!xref) syncNoteMime(added, ctx.version);
     // An inline note carries its own private marker; a pointer's lives in the
     // shared record (set above).
-    if (!xref && ref.private) setPrivateFlag(added, true, privacyStyleOf(ctx), ctx.records);
+    if (!xref && ref.private) setPrivateFlag(added, true, privacyStyleOf(ctx), ctx.version);
     // Right after the note before it, so a new note lands where the list has it.
     const at = prev ? ownerRaw.children.indexOf(prev) : -1;
     if (at !== -1) ownerRaw.children.splice(at + 1, 0, added);

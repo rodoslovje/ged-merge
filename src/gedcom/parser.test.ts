@@ -122,6 +122,23 @@ describe("parseGedcom", () => {
       expect(parsed.records[0].verbatim).toBe("garbage before header");
     });
 
+    it("decodes the at-signs of a line folded into a note, as a CONT line's", () => {
+      const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NOTE Naslov:\nana@@example.si\n0 TRLR\n";
+      const indi = parseGedcom(toBuffer(text)).records.find((r) => r.xref === "@I1@")!;
+      expect(indi.children[0].value).toBe("Naslov:\nana@example.si");
+    });
+
+    it("keeps a bare level line's own lines beneath it (MyHeritage event without a tag)", () => {
+      const text = "0 HEAD\n0 @I1@ INDI\n1 BIRT\n2 PLAC Kranj\n1 \n2 _UID 57AE\n2 RIN MH:IF2\n1 FAMS @F1@\n0 TRLR\n";
+      const parsed = parseGedcom(toBuffer(text));
+      const indi = parsed.records.find((r) => r.xref === "@I1@")!;
+      expect(indi.children.find((c) => c.tag === "BIRT")!.children.map((c) => c.tag)).toEqual(["PLAC"]);
+      const bare = indi.children.find((c) => c.verbatim !== undefined)!;
+      expect(bare.children.map((c) => `${c.tag} ${c.value}`)).toEqual(["_UID 57AE", "RIN MH:IF2"]);
+      expect(indi.children.at(-1)!.tag).toBe("FAMS");
+      expect(serializeGedcom(parsed.records)).toBe(text);
+    });
+
     it("does not disturb the surrounding structure", () => {
       const ds = buildDataset(parseGedcom(toBuffer(BAD)));
       const indi = ds.individuals.get("@I1@")!;
@@ -250,6 +267,35 @@ describe("parseGedcom", () => {
     expect(ds.records.filter((r) => r.xref === "@I1@")).toHaveLength(1);
     const out = serializeGedcom(ds.records);
     expect(out).toContain("0 @I3@ INDI\n1 NAME Ana /Novak/\n0 @I1@ INDI\n1 NAME Bo /Kos/");
+  });
+
+  it("a later submitter sharing a person's xref never takes the id from the person", () => {
+    const text = [
+      "0 HEAD",
+      "1 SUBM @I1@",
+      "0 @I1@ INDI",
+      "1 NAME Ana /Novak/",
+      "1 FAMC @F1@",
+      "0 @I2@ INDI",
+      "1 NAME Bo /Novak/",
+      "1 FAMS @F1@",
+      "0 @F1@ FAM",
+      "1 HUSB @I2@",
+      "1 CHIL @I1@",
+      "0 @I1@ SUBM",
+      "1 NAME GED Merge",
+      "0 TRLR",
+      "",
+    ].join("\n");
+    const ds = buildDataset(parseGedcom(toBuffer(text)));
+    expect(ds.individuals.get("@I1@")?.names[0].full).toContain("Ana");
+    expect(ds.families.get("@F1@")?.children).toEqual(["@I1@"]);
+    const subm = ds.records.find((r) => r.tag === "SUBM");
+    expect(subm?.xref).toBe("@U1@");
+    // The header follows its submitter to the new id.
+    const head = ds.records.find((r) => r.tag === "HEAD");
+    expect(head?.children.find((c) => c.tag === "SUBM")?.value).toBe("@U1@");
+    expect(ds.warnings.some((w) => w.message.startsWith("Duplicate xref @I1@") && w.message.includes("@U1@"))).toBe(true);
   });
 
   it("folds a doubled leading at-sign (@@) back to a literal @", () => {
@@ -423,8 +469,10 @@ describe("parseGedcom on a file split in pieces", () => {
   const big = (eol: string, finalNewline: boolean) => {
     const lines = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8"];
     for (let i = 1; i <= 60000; i++) {
-      lines.push(`0 @I${i}@ INDI`, `1 NAME Oseba${i} /Novak/`);
+      // After the INDI line, which holds no text to continue: kept verbatim.
+      lines.push(`0 @I${i}@ INDI`);
       if (i % 9999 === 0) lines.push("prosta vrstica brez oznake");
+      lines.push(`1 NAME Oseba${i} /Novak/`);
       lines.push(`1 NOTE Prva vrstica ${i}`, "2 CONT druga vrstica", "2 CONC  in konec");
     }
     lines.push("0 TRLR");

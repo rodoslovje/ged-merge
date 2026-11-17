@@ -1,6 +1,7 @@
 import type { Dataset, Sex } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import { bloodLineage, makeBloodLineageResolver, type Lineage } from "./relationshipPath";
+import { unionMarriage } from "../gedcom/union";
 
 export type { Lineage };
 
@@ -93,8 +94,11 @@ function kinshipLabelFrom(
   const targetIndi = ds.individuals.get(targetId);
   if (!startIndi || !targetIndi) return undefined;
 
-  // Direct spouse
-  if (spouseIds(ds, startId).includes(targetId)) return t("kinship.spouse");
+  // Direct spouse — or partner, where the file records no marriage.
+  if (spouseIds(ds, startId).includes(targetId)) {
+    if (married(ds, startId, targetId)) return t("kinship.spouse");
+    return t(targetIndi.sex === "F" ? "kinship.partnerF" : "kinship.partner");
+  }
 
   // The target-side ancestor-generation map (the start side is precomputed).
   const targetAncs = ancestorGens(ds, targetId);
@@ -160,34 +164,46 @@ function inLawLabel(
   for (const s of spouseIds(ds, targetId)) {
     const pos = closestCommon(start.ancs, ancestorGens(ds, s));
     const relSex = ds.individuals.get(s)?.sex ?? "U";
-    if (pos) offer(pos.up + pos.down, () => spouseOfRelative(pos.up, pos.down, sex, relSex, () => lineageOf(s), t));
+    if (pos) offer(pos.up + pos.down, () => spouseOfRelative(pos.up, pos.down, sex, relSex, () => lineageOf(s), married(ds, s, targetId), t));
   }
   for (const [sp, spAncs] of start.spouseAncs()) {
     const pos = closestCommon(spAncs, targetAncs);
-    if (pos) offer(pos.up + pos.down, () => relativeOfSpouse(pos.up, pos.down, sex, () => bloodLineage(ds, sp, targetId), t));
+    if (pos) {
+      const wed = married(ds, start.id, sp);
+      const spSex = ds.individuals.get(sp)?.sex ?? "U";
+      offer(pos.up + pos.down, () => relativeOfSpouse(pos.up, pos.down, sex, () => bloodLineage(ds, sp, targetId), wed, spSex, t));
+    }
   }
   return best?.label();
 }
 
-/** The spouse (of `sex`) of a blood relative standing at `up`/`down` from the start person. */
+/** The spouse (of `sex`) of a blood relative standing at `up`/`down` from the
+ *  start person. The in-law words (son-in-law, aunt by marriage …) and "wife of"
+ *  presuppose a marriage: where the file records none (`wed` false), the
+ *  partner is named as such — "Partner of the son". */
 function spouseOfRelative(
   up: number,
   down: number,
   sex: string,
   relSex: string,
   relLineage: () => Lineage | undefined,
+  wed: boolean,
   t: Translate,
 ): string | undefined {
   const f = sex === "F", m = sex === "M";
-  if (up === 0 && down === 1 && (f || m)) return t(f ? "kinship.daughterInLaw" : "kinship.sonInLaw");
-  if (up === 1 && down === 1 && (f || m)) return t(f ? "kinship.sisterInLaw" : "kinship.brotherInLaw");
-  if (up === 2 && down === 1) {
-    if (f && relSex === "M") return t(relLineage() === "maternal" ? "kinship.auntByMarriageMaternal" : "kinship.auntByMarriage");
-    if (m && relSex === "F") return t("kinship.uncleByMarriage");
+  if (wed) {
+    if (up === 0 && down === 1 && (f || m)) return t(f ? "kinship.daughterInLaw" : "kinship.sonInLaw");
+    if (up === 1 && down === 1 && (f || m)) return t(f ? "kinship.sisterInLaw" : "kinship.brotherInLaw");
+    if (up === 2 && down === 1) {
+      if (f && relSex === "M") return t(relLineage() === "maternal" ? "kinship.auntByMarriageMaternal" : "kinship.auntByMarriage");
+      if (m && relSex === "F") return t("kinship.uncleByMarriage");
+    }
   }
   const rel = relLabel(up, down, relSex, t, { lineage: relLineage, genitive: true });
   if (!rel) return undefined;
-  const key = f ? "kinship.wifeOf" : m ? "kinship.husbandOf" : "kinship.spouseOf";
+  const key = !wed
+    ? (f ? "kinship.partnerOfF" : "kinship.partnerOf")
+    : f ? "kinship.wifeOf" : m ? "kinship.husbandOf" : "kinship.spouseOf";
   return t(key, { kinship: lowerFirst(rel) });
 }
 
@@ -197,13 +213,34 @@ function relativeOfSpouse(
   down: number,
   sex: string,
   lineage: () => Lineage | undefined,
+  /** The start person and that spouse are recorded as married. */
+  wed: boolean,
+  /** The spouse's own sex, which "of the partner" declines by. */
+  spouseSex: string,
   t: Translate,
 ): string | undefined {
   const f = sex === "F";
-  if (up === 1 && down === 0) return t(f ? "kinship.motherInLaw" : "kinship.fatherInLaw");
-  if (up === 1 && down === 1) return t(f ? "kinship.sisterInLaw" : "kinship.brotherInLaw");
+  if (wed) {
+    if (up === 1 && down === 0) return t(f ? "kinship.motherInLaw" : "kinship.fatherInLaw");
+    if (up === 1 && down === 1) return t(f ? "kinship.sisterInLaw" : "kinship.brotherInLaw");
+  }
   const rel = relLabel(up, down, sex, t, { lineage });
-  return rel ? t("kinship.ofSpouse", { kinship: rel }) : undefined;
+  if (!rel) return undefined;
+  const key = wed ? "kinship.ofSpouse" : spouseSex === "F" ? "kinship.ofPartnerF" : "kinship.ofPartner";
+  return t(key, { kinship: rel });
+}
+
+/** Whether a couple is recorded as married: a family of the two whose own
+ *  records say so (see `unionMarriage`). A couple the file says nothing about
+ *  is partners, not husband and wife. */
+function married(ds: Dataset, a: string, b: string): boolean {
+  for (const famId of ds.individuals.get(a)?.spouseOf ?? []) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    const pair = (fam.husband === a && fam.wife === b) || (fam.husband === b && fam.wife === a);
+    if (pair && unionMarriage(fam) === "married") return true;
+  }
+  return false;
 }
 
 function lowerFirst(s: string): string {

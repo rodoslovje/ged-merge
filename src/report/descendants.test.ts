@@ -117,15 +117,32 @@ describe("buildDescendants", () => {
     });
   });
 
-  it("emits the ⚭ line for an undated union when the partner is known", () => {
-    // Strip the second union's MARR entirely: the partner alone earns the line.
+  it("marks a union the file records as unmarried with ⚯, a divorced one with ⚮", () => {
+    const d = dataset(
+      DESCENDANTS
+        .replace("1 CHIL @I6@\n1 MARR\n2 DATE 1920\n", "1 CHIL @I6@\n1 _MSTAT Partners\n")
+        .replace("1 CHIL @I11@\n1 MARR\n2 DATE 1930\n", "1 CHIL @I11@\n1 MARR\n2 DATE 1930\n1 DIV\n"),
+    );
+    const text = reportToText(tr, buildDescendants(d, "@I1@", nameOf, NOW)!, "descendants", "Register");
+    expect(text).toContain("⚭ 1895, Kranj — Marija Oblak");
+    expect(text).toContain("⚯ — Neza Kovac");
+    expect(text).toContain("⚮ 1930 — Franc Kos");
+  });
+
+  it("emits a union line for an unrecorded union when the partner is known, marked ⚯", () => {
+    // Strip the second union's MARR entirely: the partner alone earns the line,
+    // and with no marriage on record it is a partnership, not a ⚭.
     const noMarr = dataset(DESCENDANTS.replace("1 MARR\n2 DATE 1920\n", ""));
     const d = buildDescendants(noMarr, "@I1@", nameOf, NOW)!;
     const root = d.generations[0].entries[0];
     const marrs = root.facts.filter((f) => f.tag === "MARR");
-    expect(marrs.map((f) => `${f.spouse}:${f.date ?? "-"}`)).toEqual([
-      "Marija Oblak:1895", "Neza Kovac:-",
+    expect(marrs.map((f) => `${f.glyph} ${f.spouse}:${f.date ?? "-"}`)).toEqual([
+      "⚭ Marija Oblak:1895", "⚯ Neza Kovac:-",
     ]);
+    // A marriage recorded without a date (MARR Y) keeps its ⚭.
+    const bare = dataset(DESCENDANTS.replace("1 MARR\n2 DATE 1920\n", "1 MARR Y\n"));
+    const bareRoot = buildDescendants(bare, "@I1@", nameOf, NOW)!.generations[0].entries[0];
+    expect(bareRoot.facts.filter((f) => f.tag === "MARR").map((f) => f.glyph)).toEqual(["⚭", "⚭"]);
   });
 
   it("keeps the original number for a child reached through both parents", () => {
@@ -196,10 +213,20 @@ describe("factText (⚭ partner tail)", () => {
     expect(factText(tr, fact)).toBe("⚭ 1950 — Eva Zajc (1928–), register.spouseOriginBoth_F");
   });
 
-  it("privacy drops a living partner's years and a living parent's name", () => {
+  it("privacy redacts a living partner like an entry: label, no years, no origin", () => {
+    const livingNameOf = (p: { id: string; sex: string }) => `Living ${p.id} ${p.sex}`;
+    expect(factText(tr, { ...fact, spouseId: "@I9@" }, { privacyLiving: true, livingNameOf })).toBe(
+      "⚭ 1950 — Living @I9@ F",
+    );
+  });
+
+  it("privacy keeps a deceased partner but drops a living parent's name", () => {
     // Only the deceased father survives the privacy filter, so the clause
     // falls back to its father-only form; the living mother stays out.
-    expect(factText(tr, fact, { privacyLiving: true })).toBe("⚭ 1950 — Eva Zajc, register.spouseOriginFather_F");
+    const dead = { ...fact, spouseYears: "1928–1990", spouseLiving: false };
+    expect(factText(tr, dead, { privacyLiving: true, livingNameOf: () => "Living" })).toBe(
+      "⚭ 1950 — Eva Zajc (1928–1990), register.spouseOriginFather_F",
+    );
   });
 
   it("leads with the partner alone on a dateless line", () => {

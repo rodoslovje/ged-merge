@@ -708,6 +708,10 @@ export interface SourceLookup {
   byFilm: Map<string, GedNode>;
   byLooseTitle: Map<string, GedNode>;
   objeIndex: ObjeIndex;
+  /** xref → the first top-level `SOUR` / `OBJE` record carrying it — what a
+   *  `records.find` by tag and xref answers, without the scan. */
+  sourceNodes: Map<string, GedNode>;
+  objeNodes: Map<string, GedNode>;
 }
 
 export function buildSourceLookup(records: GedNode[]): SourceLookup {
@@ -716,8 +720,12 @@ export function buildSourceLookup(records: GedNode[]): SourceLookup {
   const byBookKey = new Map<string, string>();
   const byFilm = new Map<string, GedNode>();
   const byLooseTitle = new Map<string, GedNode>();
+  const sourceNodes = new Map<string, GedNode>();
+  const objeNodes = new Map<string, GedNode>();
   for (const rec of records) {
+    if (rec.tag === "OBJE" && rec.xref && !objeNodes.has(rec.xref)) objeNodes.set(rec.xref, rec);
     if (rec.tag !== "SOUR" || !rec.xref) continue;
+    if (!sourceNodes.has(rec.xref)) sourceNodes.set(rec.xref, rec);
     for (const child of rec.children) {
       if (child.tag !== "OBJE" || !child.value) continue;
       const objeXref = child.value.trim();
@@ -746,7 +754,7 @@ export function buildSourceLookup(records: GedNode[]): SourceLookup {
     const bookKey = bookKeyOf(url);
     if (!byBookKey.has(bookKey)) byBookKey.set(bookKey, value);
   });
-  return { byLinkKey, byBookKey, byFilm, byLooseTitle, objeIndex };
+  return { byLinkKey, byBookKey, byFilm, byLooseTitle, objeIndex, sourceNodes, objeNodes };
 }
 
 /** Tags that point to another top-level record rather than describing this

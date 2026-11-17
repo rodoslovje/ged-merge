@@ -1,8 +1,10 @@
+import { applyWholeFile } from "./wholeFile";
 import type { Dataset, GedNode, SourceCitation } from "../gedcom/types";
 import type { MatchResult } from "../match/types";
 import { insertGrouped, memoOnContent } from "../gedcom/edit";
 import { childrenByTag, firstChild } from "../gedcom/node";
 import { buildObjeIndex } from "../gedcom/source";
+import { relevelRecords } from "../gedcom/mediaForm";
 import { remapMergedAssociations } from "../gedcom/assoc";
 import { sharedRecordTitle } from "../gedcom/editReport";
 import { setPlaceCoord } from "../gedcom/edit/geo";
@@ -24,6 +26,7 @@ import {
   foldMatchedSourcePages,
   importSourRecords,
   remapSealingFamilies,
+  fillSealingFamilies,
   sortEventsByDate,
 } from "./applyFields";
 import {
@@ -372,6 +375,24 @@ export function confirmedFamilySnapshots(
 }
 
 /**
+ * A whole-file merge: every incoming person and family comes across, joined to
+ * the main record a confirmed pair names, and added as a new record otherwise;
+ * every incoming source, repository, shared note and media record comes too,
+ * used by anyone or not, unless the main file already holds the same one.
+ */
+export interface WholeFileImport {
+  /**
+   * What a matcher candidate nobody confirmed or rejected stands for:
+   * - `"new"` — a different person: the incoming record is added;
+   * - `"join"` — the same person, when the pair passes the identity checks a
+   *   branch import makes (`graftJoinHolds`): the incoming record's relatives
+   *   are linked to the main record, its own facts are not merged.
+   * See `applyWholeFile` for how people and families are placed.
+   */
+  pending: "new" | "join";
+}
+
+/**
  * Apply confirmed match decisions to a clone of the main tree, taking each
  * field the user chose from the incoming side (or "both"). Untouched records are
  * left as identical clones, so serializing the result yields a minimal diff
@@ -398,6 +419,9 @@ export function mergeDecisions(
   /** The reader's Settings → GEDCOM choices, so a place written into the main
    *  by this merge follows them rather than only the main's own habit. */
   overrides?: FormatOverrides,
+  /** Bring the whole incoming file across, not only what the decisions and
+   *  branches name — see {@link WholeFileImport}. */
+  wholeFile?: WholeFileImport,
 ): MergeResult {
   const records = main.records.map(cloneNode);
   // Every PLAC the main file already holds, by node identity. Each write below
@@ -438,6 +462,15 @@ export function mergeDecisions(
   // beside the citation or only under its source).
   const placement = linkPlacementFor(main, overrides, compare);
   const { rejectedPairs, confirmedPairs } = decisionPairs(decisions);
+  // A whole-file merge told to take unreviewed candidates as different people
+  // treats every pair not confirmed as rejected: nobody is joined on the
+  // matcher's word alone.
+  if (wholeFile?.pending === "new") {
+    for (const c of matches.individuals) {
+      const pair = `${c.mainId}|${c.compareId}`;
+      if (!confirmedPairs.has(pair)) rejectedPairs.add(pair);
+    }
+  }
   const ctx = makeContext(main, compare, matches, records, indiNodes, famNodes, report, touched, t, sourXrefMap, rejectedPairs, confirmedPairs, placement, { pinned: pinnedAdds(decisions) });
 
   // A family with both spouses confirmed is stitched only once — on the first
@@ -484,6 +517,7 @@ export function mergeDecisions(
     const fields = currentFieldChoices(decision.fields, decision.fieldAnchors, rows);
     applyRows(target, incoming.raw, mainId, rows, fields, report, touched, INDI_HANDLED, t, placement, records, sourXrefMap, decision.mainFields);
     applyIndividualRelations(mainId, mainIndi, incoming, rows, fields, main, compare, ctx);
+    fillSealingFamilies(target);
     // A family row stands down like a person's row when the main family was
     // edited after the choice was made (see `CandidateDecision.mainFields`).
     const editedSinceConfirm = (rowKey: string, liveMain: string): boolean => {
@@ -498,7 +532,7 @@ export function mergeDecisions(
       // Carry the incoming record's unique ids (`_UID`/`UID`) onto the merged
       // main record: the next import of the same compare lineage then
       // auto-matches this person by identity instead of by name/date score.
-      carryUids(target, incoming.raw);
+      carryUids(target, incoming.raw, overrides?.standard);
       sortEventsByDate(target);
     }
   }
@@ -508,6 +542,7 @@ export function mergeDecisions(
   // here on are reported as imported (preview flags them "Incoming").
   ctx.beginGraftPhase();
   applyImportBranches(importBranches, main, compare, ctx);
+  if (wholeFile) ctx.batchInserts(() => applyWholeFile(compare, ctx));
 
   // Every family pointer written onto a person, now that the families it names
   // are whole. Deliberately after the decision loop: `touched` gates the
@@ -548,12 +583,12 @@ export function mergeDecisions(
   // records from compare that are now referenced in the merged output but
   // absent from it (e.g. citations on newly-added people).
   foldMatchedSourcePages(records, compare, sourXrefMap);
-  importSourRecords(records, compare, sourXrefMap, report.customTags);
+  importSourRecords(records, compare, sourXrefMap, report.customTags, wholeFile ? sourXrefMap.values() : undefined);
 
   // Every family is placed too, so an imported sealing to parents can name its
   // main-side family — or, where that family did not come across, lose the
   // pointer, which is said here.
-  for (const recordId of remapSealingFamilies(records, records, compare, (incomingId) => ctx.resolved(incomingId))) {
+  for (const recordId of remapSealingFamilies(records, records, compare, (incomingId) => ctx.resolved(incomingId), main.version)) {
     report.deferred.push({ recordId, field: t("event.SLGC"), reason: t("merge.reason.sealingFamilyMissing") });
   }
 
@@ -583,6 +618,9 @@ export function mergeDecisions(
   reportAddedSourcePages(records, main, report, t);
 
   report.recordsChanged = touched.size;
+  // The lines built above carry `level: 0` wherever they sit; make them true
+  // before anything (privacy, the 7.0 conversion) reads them.
+  relevelRecords(records);
   return { records, report, pendingSourceLookups: placement.pendingLookups ?? [] };
 }
 
@@ -713,7 +751,10 @@ const UID_BEFORE_TAGS = ["CHAN", "CREA"] as const;
  * CHAN/CREA. This keeps a second UID next to the first and both ahead of the
  * audit stamps, matching how the rest of the edit layer writes.
  */
-function carryUids(target: GedNode, incoming: GedNode): void {
+function carryUids(target: GedNode, incoming: GedNode, standard?: FormatOverrides["standard"]): void {
+  // A strict target writes its version's form — 7.0's standard UID, 5.5.1's
+  // _UID extension — whatever tag the incoming record used.
+  const tagFor = (tag: string) => (standard === "7.0" ? "UID" : standard ? "_UID" : tag);
   const canon = (v: string) => v.replace(/[{}\s-]/g, "").toUpperCase();
   const existing = new Set(
     target.children.filter((c) => UID_TAGS.has(c.tag) && c.value?.trim()).map((c) => canon(c.value!)),
@@ -722,7 +763,7 @@ function carryUids(target: GedNode, incoming: GedNode): void {
     if (!UID_TAGS.has(child.tag) || !child.value?.trim()) continue;
     if (existing.has(canon(child.value))) continue;
     existing.add(canon(child.value));
-    insertGrouped(target, { level: 0, tag: child.tag, value: child.value.trim(), children: [] }, UID_BEFORE_TAGS);
+    insertGrouped(target, { level: 0, tag: tagFor(child.tag), value: child.value.trim(), children: [] }, UID_BEFORE_TAGS);
   }
 }
 

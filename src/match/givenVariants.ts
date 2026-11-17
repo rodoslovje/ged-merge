@@ -95,7 +95,7 @@ const VARIANT_GROUPS: readonly (readonly string[])[] = [
   ["lucija", "lucia", "luzia"],
   ["magdalena", "magdalene"],
   ["marija", "maria", "mica", "micka", "mici"],
-  ["marjana", "mariana", "marianna"],
+  ["marjana", "marijana", "mariana", "marianna"],
   ["marjeta", "margaretha", "margareta", "margaret", "margarita", "meta"],
   ["neza", "agnes", "agnetha", "agneza", "agnesa", "agata", "agatha"],
   ["rozalija", "rosalia", "rozalia"],
@@ -119,10 +119,21 @@ export function givenVariantKey(token: string): number | undefined {
 }
 
 /**
+ * The most two names from *different* rows of {@link VARIANT_GROUPS} may score:
+ * just under `SAME_PERSON_GIVEN` (0.85), so they never read as one person's
+ * name. Separate rows are the table saying "two names", yet spelling alone puts
+ * many such pairs above that line — Marija/Marijana 0.95, Marija/Marjana 0.89,
+ * Matej/Matija 0.88, Karolina/Katarina 0.87 — and twins christened with them
+ * were offered as one person entered twice.
+ */
+const DISTINCT_NAME_CEILING = 0.8;
+
+/**
  * Similarity of two *given-name tokens*: spelling distance, except that two
  * forms of one name (see {@link VARIANT_GROUPS}) count as the same name
- * whatever their spelling. Inputs are folded here, so callers may pass raw or
- * already-folded tokens.
+ * whatever their spelling, and two names from different rows never score as
+ * one ({@link DISTINCT_NAME_CEILING}). Inputs are folded here, so callers may
+ * pass raw or already-folded tokens.
  */
 export function givenTokenSimilarity(a: string, b: string): number {
   return foldedGivenTokenSimilarity(foldToken(a), foldToken(b));
@@ -133,5 +144,8 @@ export function givenTokenSimilarity(a: string, b: string): number {
 export function foldedGivenTokenSimilarity(fa: string, fb: string): number {
   if (fa === fb) return 1;
   const ka = givenVariantKey(fa);
-  return ka !== undefined && ka === givenVariantKey(fb) ? 1 : jaroWinkler(fa, fb);
+  const kb = givenVariantKey(fb);
+  if (ka !== undefined && ka === kb) return 1;
+  const spelling = jaroWinkler(fa, fb);
+  return ka !== undefined && kb !== undefined ? Math.min(spelling, DISTINCT_NAME_CEILING) : spelling;
 }

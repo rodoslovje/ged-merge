@@ -12,6 +12,7 @@ async function openQuickEvents(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
   await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "Editing" }).click();
   await page.locator(".settings-quick-events").waitFor();
 }
 
@@ -37,6 +38,7 @@ test("the settings chips match the ones they configure", async ({ page }) => {
   const inEdit = await page.locator(".edit-event-add-row .edit-name-chip-add").nth(1).evaluate(look);
 
   await page.locator('button[title*="etting"]').first().click();
+  await page.getByRole("tab", { name: "Editing" }).click();
   await page.locator(".settings-quick-events").waitFor();
   const inSettings = await page.locator(".settings-quick-add").evaluate(look);
 

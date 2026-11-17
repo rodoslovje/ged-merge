@@ -147,6 +147,23 @@ describe("gedcom.worker pipeline", () => {
     expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I7@", compareId: "@P1@" }]);
   });
 
+  it("rematch scores the patched main against the kept compare, re-announcing nothing", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I1@", compareId: "@P1@" }]);
+    // Edited in the app: @I1@ became someone else, @I7@ is the compare's twin.
+    const live = buildDataset(parseGedcom(enc(MAIN)));
+    const twin = parseGedcom(enc(wrap("0 @I7@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2 FEB 1850\n"))).records[1];
+    live.records.find((r) => r.xref === "@I1@")!.children[0].value = "Marija /Kos/";
+    live.records.splice(live.records.length - 1, 0, twin);
+    send({ type: "patchMain", patch: recordsPatch(live, new Set(["@I1@", "@I7@"]))! });
+    posted = [];
+    send({ type: "rematch" });
+    expect(types()).toEqual(["matching", "matched"]);
+    expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I7@", compareId: "@P1@" }]);
+  });
+
   it("a patch the main does not take asks for the whole main and holds what follows", async () => {
     const send = await freshWorker();
     send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });

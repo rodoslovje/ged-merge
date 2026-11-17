@@ -1,0 +1,22 @@
+0 HEAD
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SOUR MYHERITAGE
+2 VERS 8.0.0.8645
+0 @I1@ INDI
+1 NAME Terezija /Kobalič/
+2 _MARNM �nidarnik
+1 SEX F
+1 BIRT
+2 DATE 30 APR 1890
+2 PLAC Škofja Loka, Slovenija
+1 NOTE Izvor: Popis 1900 � župnija Šentjošt, stran 12.
+1 OCCU šivilja in kuharica pri družini Kre�
+2 CONC �ar
+0 @I2@ INDI
+1 NAME Andrej /Žnidarnik/
+1 SEX M
+1 OCCU čevljar
+0 TRLR

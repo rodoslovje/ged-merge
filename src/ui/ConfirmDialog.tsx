@@ -30,9 +30,12 @@ interface Props {
    *  decides something, e.g. "Later" vs "Don't ask again". */
   altLabel?: string;
   onAlt?: () => void;
+  /** Two equal answers rather than one plus a lasting one: the confirm and the
+   *  alt stack full-width, one above the other, with Cancel below them. */
+  stacked?: boolean;
 }
 
-export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, defaultConfirm, busy, checkboxLabel, checked, onCheckedChange, altLabel, onAlt }: Props) {
+export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, cancelLabel, danger, defaultConfirm, busy, checkboxLabel, checked, onCheckedChange, altLabel, onAlt, stacked }: Props) {
   const { t } = useTranslation();
   // A key press has no pointerdown to paint the cursor in, so a busy confirm
   // taken from the keyboard starts a paint later instead.
@@ -63,7 +66,7 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
             {checkboxLabel}
           </label>
         )}
-        <div className="confirm-dialog-actions">
+        <div className={`confirm-dialog-actions${stacked ? " stacked" : ""}`}>
           {cancelLabel !== null && (
             <button type="button" className="btn-secondary" ref={focusConfirm ? undefined : defaultBtn} onClick={onCancel}>
               {cancelLabel ?? t("confirm.cancel")}

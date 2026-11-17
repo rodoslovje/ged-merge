@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { MarriageDateFix } from "../tools/validate";
 import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord, Translation } from "../gedcom/types";
@@ -11,6 +12,7 @@ import { DuplicatesPanel, type RelatedMerge } from "./tools/DuplicatesPanel";
 import type { ClusterRelativeGroup } from "../tools/mergeCluster";
 import { NormalizePanel } from "./tools/NormalizePanel";
 import { PrivacyPanel } from "./tools/PrivacyPanel";
+import { PublishPanel } from "./tools/PublishPanel";
 import { StatsPanel } from "./tools/StatsPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
 import type { AddSourceResult } from "./AddSourceDialog";
@@ -28,7 +30,7 @@ import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
-export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "sources" | "places" | "stats";
+export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "publish" | "sources" | "places" | "stats";
 
 /**
  * The page open inside a tool that has more than one — every one of them a
@@ -45,7 +47,7 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "source
  */
 export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations" | "migration" | "generations" | "research";
 
-const TOOLS: Tool[] = ["stats", "places", "sources", "validate", "duplicates", "normalize", "privacy"];
+const TOOLS: Tool[] = ["stats", "places", "sources", "duplicates", "validate", "normalize", "privacy", "publish"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
@@ -112,6 +114,9 @@ interface Props {
    *  so the panel can re-validate. */
   onFixSwappedRoles: (only?: string) => number;
   onMarkDeceased: (ids: string[]) => number;
+  onEstimateBirths: (ids: string[]) => number;
+  /** Write the marriage dates "Born before the marriage" findings prove. */
+  onFixMarriageDates: (fixes: MarriageDateFix[]) => number;
   /** Repair safely-fixable unparseable dates (stray whitespace) and push to the
    *  undo stack. Returns the number of records changed, so the panel can re-validate. */
   onFixDates: (only?: BadDateRef) => number;
@@ -130,6 +135,7 @@ interface Props {
   onFixConformance: (kind?: ConformanceFixKind, only?: ConformanceRef) => number;
   /** Run several health-check fixes as one undo step. */
   onFixBatch: (run: () => void) => void;
+  onRemoveBranch: (personIds: string[]) => number;
   onSetPlaceTranslations: (values: ReadonlySet<string>, list: Translation[]) => number;
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Apply a batch action's patches (Normalize & batch → Batch actions) as one
@@ -172,7 +178,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onMarkDeceased, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange, onOpenRelationship }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onMarkDeceased, onEstimateBirths, onFixMarriageDates, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onRemoveBranch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange, onOpenRelationship }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Statistics leads the tabs: its overview says what the
@@ -184,7 +190,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
   // One shared worker runs the heavy whole-file scans off the main thread;
   // the results live here (not in the panels) so switching sub-tabs or modes
   // neither restarts a scan nor loses a finished one.
-  const scans = useToolsScans(dataset, editVersionRef, changeJournal);
+  const scans = useToolsScans(dataset, editVersionRef, changeJournal, startId);
 
   // Who the file puts at a place+address pair, for the coordinate panel the
   // place pages open. Walked on the panel's first ask and kept until an edit
@@ -232,7 +238,7 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
       <ToolSummarySlotProvider value={phone ? summarySlot : null}>
       <div className="tools-panel">
         {tool === "validate" && (
-          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onMarkDeceased={onMarkDeceased} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFixBatch={onFixBatch} onTagTranslations={onTagTranslations} onEditSource={onEditSource} onEditMediaFile={onEditMediaFile} view={view} onViewChange={onViewChange} />
+          <ValidatePanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onFixBrokenLinks={onFixBrokenLinks} onFixSexFromRole={onFixSexFromRole} onFixSwappedRoles={onFixSwappedRoles} onMarkDeceased={onMarkDeceased} onEstimateBirths={onEstimateBirths} onFixMarriageDates={onFixMarriageDates} onFixDates={onFixDates} onFixNonStandardDates={onFixNonStandardDates} onFixDuplicatePointers={onFixDuplicatePointers} onFixDuplicateFamilies={onFixDuplicateFamilies} onFixDanglingRefs={onFixDanglingRefs} onFixConformance={onFixConformance} onFixBatch={onFixBatch} onRemoveBranch={onRemoveBranch} onTagTranslations={onTagTranslations} onEditSource={onEditSource} onEditMediaFile={onEditMediaFile} view={view} onViewChange={onViewChange} />
         )}
         {tool === "duplicates" && (
           <DuplicatesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} active={active} onMergeDuplicate={onMergeDuplicate} onMergeCluster={onMergeCluster} rejectedDuplicates={rejectedDuplicates} onRejectDuplicate={onRejectDuplicate} onRejectDuplicatesBulk={onRejectDuplicatesBulk} onUnrejectDuplicate={onUnrejectDuplicate} startId={startId} />
@@ -242,6 +248,9 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
         )}
         {tool === "privacy" && (
           <PrivacyPanel dataset={dataset} fileName={fileName} onNavigate={onNavigate} active={active} />
+        )}
+        {tool === "publish" && (
+          <PublishPanel key={fileName} dataset={dataset} fileName={fileName} startId={startId} editVersion={editVersion} active={active} />
         )}
         {tool === "stats" && (
           <StatsPanel dataset={dataset} fileName={fileName} editVersion={editVersion} onNavigate={onNavigate} onOpenRelationship={onOpenRelationship} active={active} startId={startId} view={view} onViewChange={onViewChange} />

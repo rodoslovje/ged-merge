@@ -12,7 +12,7 @@ import { useGedcomWorker } from "./ui/useGedcomWorker";
 import { useAutoDismissToast } from "./ui/useAutoDismissToast";
 import { withBusyCursor } from "./ui/busyCursor";
 import { citationShownKey } from "./gedcom/source";
-import { initialWorkspace, workspaceReducer, type SlotState } from "./state/workspace";
+import { initialWorkspace, workspaceReducer, type MergeScope, type SlotState } from "./state/workspace";
 import { loadedFileFromParsed } from "./state/loadedFile";
 import { useDirtyTracking } from "./edit-state/useDirtyTracking";
 import { useTranslation } from "react-i18next";
@@ -24,8 +24,9 @@ import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/priv
 import { hasPendingAdds, pendingAddsSettled } from "./ui/source/pendingAdds";
 import { atEscapeFor, serializeGedcom } from "./gedcom/serialize";
 import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
-import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest } from "./merge/merge";
+import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest, type WholeFileImport } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
+import { wholeFileSummary } from "./merge/wholeFile";
 import { materializeAdds, refreshJoins } from "./merge/materialize";
 import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, stampConfirmedDecision } from "./merge/applyFields";
@@ -34,7 +35,8 @@ import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
 import { savedBaseline } from "./save/savedBaseline";
 import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./ui/edit/removeFromSave";
 import { defaultStartId, lifespanLabel } from "./match/relatives";
-import type { MatchResult } from "./match/types";
+import type { MatchCandidate, MatchResult } from "./match/types";
+import { rematchedCandidates } from "./state/rematch";
 import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui/scoreDetail";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
@@ -57,10 +59,12 @@ import { applyGeocode, clearPlaceCoords, movePlaceForAddresses, renamePlaceValue
 import { applyAddressCoords, removeAddress, renameAddress } from "./tools/addresses";
 import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
+import { fixMarriageDates } from "./tools/fixMarriageDate";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
 import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
+import { removeBranch } from "./tools/removeBranch";
 import { fixDanglingRefs } from "./tools/fixDanglingRefs";
 import { fixConformance } from "./tools/fixConformance";
 import { nodeAtPath } from "./tools/conformance/conformance";
@@ -92,12 +96,14 @@ import { ChangeJournal, recordsPatch, type SyncMark } from "./state/mainSync";
 import { hashFile } from "./persist/fingerprint";
 import { useWorkspacePersistence } from "./persist/useWorkspacePersistence";
 import { ChartSettingsProvider, useChartSettings } from "./ui/ChartSettingsContext";
-import { DatasetProvider, SettingsProvider, useSetSettings, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
+import { AUTHOR_KEYS, DatasetProvider, SettingsProvider, submitterOf, useSetSettings, useSettingsSlice, useNameOf } from "./ui/SettingsContext";
 import { TargetFormatContext, type TargetFormatValue } from "./ui/TargetFormatContext";
 import { noticeSnoozed, snoozeNotice } from "./ui/noticeSnooze";
 import { MAX_REMEMBERED_TARGETS, proposeTarget, rememberTarget, targetFileKey, targetFormatOverrides, writeTarget, type TargetMode } from "./normalize/target";
+import { writeVersionOf } from "./normalize/formatOverrides";
 import { DatasetDerivationsProvider } from "./ui/DatasetDerivations";
 import { onSettingsRequest, type SettingsTab } from "./ui/settingsBus";
+import { ActivityIndicator } from "./ui/ActivityIndicator";
 import { GlobalSearchModal, type OpenHow, type SearchRowMeta } from "./ui/GlobalSearchModal";
 import { homePlaceOf } from "./chart/nodeDisplay";
 import { applyBatchAction, computeKinship } from "./tools/batch";
@@ -153,7 +159,7 @@ const modeLayerHiddenClass = "mode-layer mode-layer--hidden";
 
 /** The preferences AppContent reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */
-const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "showKinship", "emphasizeDirect", "showXref", "saveReport", "allowLinkFetch", "authorName"] as const;
+const APP_SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats", "targetNoticeHidden", "startPersons", "showKinship", "emphasizeDirect", "showXref", "saveReport", "allowLinkFetch", ...AUTHOR_KEYS] as const;
 
 // MediaFolderProvider is mounted by the `App` wrapper below, *above* the
 // full-page tree early-returns — so navigating into the Compare/Edit tree and
@@ -185,6 +191,9 @@ function AppContent() {
   // The match list as the worker last sent it, in score order: a start-person
   // change arrives as a ranking of this list (see MatchSuccess).
   const matchListRef = useRef<MatchResult | null>(null);
+  /** Set by "Recompute matches": the list it replaces, whose decided pairs
+   *  stay listed, and whether its own result has yet to arrive. */
+  const rematchRef = useRef<{ carried: readonly MatchCandidate[]; pending: boolean } | null>(null);
   // The shared workspace store (reducer) — the whole data pipeline: file slots,
   // match result, merge decisions, import branches, rejected duplicates, start
   // person. Purely-UI-local state (selection, modals, sort/filters, navigation)
@@ -196,7 +205,7 @@ function AppContent() {
   const [workspace, dispatch] = useReducer(workspaceReducer, initialWorkspace);
   // decisions/importBranches live in the workspace store too; the destructured
   // values keep every read site (and the sync refs below) unchanged.
-  const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, rejectedDuplicates, startId } = workspace;
+  const { main, compare, lastMainFile, mainLoadGen, matches, matching, decisions, importBranches, mergeScope, rejectedDuplicates, startId } = workspace;
   const mainDataset = lastMainFile?.dataset;
   // The main file's target format (Settings → GEDCOM): the choice remembered
   // for it, or — opened for the first time — the one its own habits propose.
@@ -432,11 +441,32 @@ function AppContent() {
         }
         const list = matchListRef.current;
         if (!list) return;
-        const result: MatchResult = msg.ranking ? { individuals: rankedCandidates(list.individuals, msg.ranking) } : list;
+        let result: MatchResult = msg.ranking ? { individuals: rankedCandidates(list.individuals, msg.ranking) } : list;
+        // After a re-match the decided pairs stay listed (see rematchedCandidates)
+        // — on every later re-rank too, which ranks the worker's own list.
+        const rematch = rematchRef.current;
+        if (rematch && mainDatasetRef.current && compareDatasetRef.current) {
+          result = { individuals: rematchedCandidates(result.individuals, rematch.carried, decisionsRef.current, mainDatasetRef.current, compareDatasetRef.current) };
+        }
         const applyMatched = () => {
           matchingStartRef.current = null;
           matchedTimerRef.current = null;
           dispatch({ type: "matched", result });
+          if (rematch?.pending) {
+            // The reader asked for this list while working through it: their
+            // place in it and their decisions stay. Joins left to the save
+            // follow the new matches.
+            rematch.pending = false;
+            const mainDs = mainDatasetRef.current;
+            const compareDs = compareDatasetRef.current;
+            if (mainDs && compareDs && decisionsRef.current.size) {
+              dispatch({
+                type: "decisionsSet",
+                decisions: refreshJoins(mainDs, compareDs, result, new Map(decisionsRef.current), tRef.current, formatOverridesRef.current),
+              });
+            }
+            return;
+          }
           setSelectedId(null);
           setOpenMatches(true);
           setShowInfoPanel(false);
@@ -461,6 +491,7 @@ function AppContent() {
               });
             }
             if (restored.importBranches.length) dispatch({ type: "importBranchesSet", branches: new Set(restored.importBranches) });
+            if (restored.mergeScope === "file") dispatch({ type: "mergeScopeSet", scope: "file" });
           }
           persistence.hydratedRef.current = true; // restore settled — persistence may resume
         };
@@ -640,7 +671,7 @@ function AppContent() {
    *  ordinary load path, so nothing downstream has to know it wasn't imported.
    *  Edit mode then offers its empty-state "add the first person" button. */
   function startNewFile() {
-    const file = new File([newGedcomText(new Date(), settings.authorName)], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
+    const file = new File([newGedcomText(new Date(), submitterOf(settings))], `${NEW_FILE_BASENAME}.ged`, { type: "text/plain" });
     void loadFile("main", file);
     setMode("edit");
   }
@@ -805,6 +836,21 @@ function AppContent() {
     workerMainVersionRef.current = changeJournal.mark(version);
   }
 
+  /**
+   * Match the loaded files again, after you have edited the main file: the
+   * worker's copy is brought up to date and scored against the incoming file
+   * exactly as loaded, so its ids — and every decision keyed by them — stay.
+   */
+  async function recomputeMatches(): Promise<void> {
+    if (matching || compare.status !== "loaded" || !lastMainFile || !matches) return;
+    rematchRef.current = { carried: matches.individuals, pending: true };
+    const workerMain = workerMainVersionRef.current;
+    if (workerMain?.version !== editVersionRef.current || !changeJournal.since(workerMain)) {
+      await syncWorkerMain(lastMainFile.dataset, lastMainFile.fileName);
+    }
+    post({ type: "rematch" });
+  }
+
   /** Silently rebuild the worker's main from `text` (the main thread's current
    *  main file, serialized) without touching this side's main file or the edit
    *  tracking bound to it, and restore the kinship ranking's start person.
@@ -864,6 +910,7 @@ function AppContent() {
    * can forget a step the other remembered.
    */
   function clearMatchState() {
+    rematchRef.current = null;
     if (matchedTimerRef.current != null) {
       window.clearTimeout(matchedTimerRef.current);
       matchedTimerRef.current = null;
@@ -880,7 +927,27 @@ function AppContent() {
   function changeStart(id: string | undefined) {
     dispatch({ type: "setStart", id });
     post({ type: "setStart", id: id ?? "" });
+    // Cleared by the reader: the file forgets its start person, so the next
+    // opening offers the default again. (A set one is remembered below.)
+    if (!id && targetKey && startPersonsRef.current[targetKey]) {
+      setSettings({ startPersons: rememberTarget<string>(startPersonsRef.current, targetKey, undefined) });
+    }
   }
+
+  // The start person this file was last opened with, while it still exists.
+  const startPersonsRef = useRef(settings.startPersons);
+  startPersonsRef.current = settings.startPersons;
+  function rememberedStart(ds: Dataset, fileName: string): string | undefined {
+    const id = startPersonsRef.current[targetFileKey(fileName)];
+    return id && ds.individuals.has(id) ? id : undefined;
+  }
+
+  // Each start person the file gets is remembered for it, by file name.
+  useEffect(() => {
+    if (main.status !== "loaded" || !targetKey || !startId) return;
+    if (startPersonsRef.current[targetKey] === startId) return;
+    setSettings({ startPersons: rememberTarget(startPersonsRef.current, targetKey, startId) });
+  }, [main.status, targetKey, startId, setSettings]);
 
   // Capture the set of IDs that exist at load time so we can later distinguish
   // "modified existing" from "newly added" when reverting via Remove from save.
@@ -944,7 +1011,7 @@ function AppContent() {
     autoStartRef.current = true;
     if (startId) return;
     // A file of one is that one person — no point asking.
-    const start = defaultStartId(ds) ?? (ds.individuals.size === 1 ? ds.individuals.keys().next().value : undefined);
+    const start = rememberedStart(ds, main.file.fileName) ?? defaultStartId(ds) ?? (ds.individuals.size === 1 ? ds.individuals.keys().next().value : undefined);
     // With no evident root the start person stays unset: Edit's kinship chip
     // offers "Set start person" on every person until one is chosen.
     if (start) changeStart(start);
@@ -957,8 +1024,9 @@ function AppContent() {
     if (!matches || autoStartRef.current) return;
     autoStartRef.current = true;
     if (startId) return;
-    const ds = main.status === "loaded" ? main.file.dataset : undefined;
-    const start = ds ? defaultStartId(ds) : undefined;
+    const start = main.status === "loaded"
+      ? rememberedStart(main.file.dataset, main.file.fileName) ?? defaultStartId(main.file.dataset)
+      : undefined;
     if (start) changeStart(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
@@ -1393,11 +1461,16 @@ function AppContent() {
     goToPage({ mode: "tools" });
   }
 
+  // S: Tools → Statistics, from any mode or chart page.
+  function openStats() {
+    (overlayOpen ? goToPageFromOverlay : goToPage)({ mode: "tools", tool: "stats" });
+  }
+
   // Mode-switch shortcuts: fixed bare keys E / M / T (see KEY in keyboard/shortcuts).
   // Kept locale-independent — label-derived first letters collided across
   // translations (e.g. Slovenian "Urejanje"/"Združi") and weren't discoverable.
-  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader });
-  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, leaveOverlayFor, openCharts: openChartsFromHeader };
+  const modeSwitchRef = useRef({ mode, switchToEdit, switchToMerge, switchToTools, openStats, leaveOverlayFor, openCharts: openChartsFromHeader });
+  modeSwitchRef.current = { mode, switchToEdit, switchToMerge, switchToTools, openStats, leaveOverlayFor, openCharts: openChartsFromHeader };
 
   // A mode letter on a full-page chart leaves it for that mode, the person the
   // chart stands on carried along as a mode switch carries Merge's selection.
@@ -1417,6 +1490,11 @@ function AppContent() {
       if (isEditableTarget(e.target) || isModalOpen()) return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       const key = e.key.toLowerCase();
+      if (key === KEY.stats && !e.defaultPrevented && mainDatasetRef.current) {
+        e.preventDefault();
+        modeSwitchRef.current.openStats();
+        return;
+      }
       if (overlayOpenRef.current) {
         // A chart that took the key (E on a selected node) has the say.
         if (e.defaultPrevented) return;
@@ -1650,7 +1728,7 @@ function AppContent() {
     if (!mainDataset) return;
     const isShared = (r: GedNode) => (r.tag === "SOUR" || r.tag === "OBJE" || r.tag === "NOTE" || r.tag === "REPO") && !!r.xref;
     const before = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, cloneNode(r)]));
-    const notes = noteCtx(mainDataset.records, detectPrivacyStyle(mainDataset.records));
+    const notes = noteCtx(mainDataset.records, writeVersionOf(formatOverrides), detectPrivacyStyle(mainDataset.records));
     mutate(mainDataset.records, notes);
     if (notes.changes.length) rebuildNoteReferrers(mainDataset, notes.changes);
     const after = new Map(mainDataset.records.filter(isShared).map((r) => [r.xref!, r] as const));
@@ -1830,6 +1908,8 @@ function AppContent() {
   // (what the merge engine will apply, and so what the Save badge reports),
   // `mainIds` the distinct people they touch. These differ only when a main id
   // carries more than one confirmed entry — see `findConfirmedDecision`.
+  // `mainIds` also holds the people those decisions added (a ticked child, a
+  // taken parent or partner), so each new person counts once on the badge.
   const { count: confirmedCount, mainIds: confirmedMainIds } = useMemo(() => {
     let count = 0;
     const mainIds = new Set<string>();
@@ -1839,12 +1919,38 @@ function AppContent() {
       if (!parsed || !mainDataset?.individuals.has(parsed.mainId)) continue;
       count++;
       mainIds.add(parsed.mainId);
+      for (const addedId of Object.values(d.added ?? {})) {
+        if (mainDataset.individuals.has(addedId)) mainIds.add(addedId);
+      }
     }
     return { count, mainIds };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decisions, mainDataset, editVersion]);
 
-  const importCount = importBranches.size;
+  // A whole-file merge counts as one more import: it is a reason to save, and
+  // to ask before the incoming file is replaced.
+  const wholeFile = mergeScope === "file" && !!compareDataset;
+  const importCount = importBranches.size + (wholeFile ? 1 : 0);
+  // What unreviewed candidates stand for in this save, as asked when it began.
+  const wholeFilePendingRef = useRef<WholeFileImport["pending"]>("new");
+  const wholeFileState = useMemo(
+    () => (wholeFile ? wholeFileSummary(compareDataset!, decisions, matches) : undefined),
+    [wholeFile, compareDataset, decisions, matches],
+  );
+  /** Switch what the save brings across. Choosing the whole file first says
+   *  how many people it adds beyond the ones on the match list — those with no
+   *  candidate never show up there to be reviewed. */
+  async function chooseMergeScope(scope: MergeScope) {
+    if (scope === "file" && compareDataset) {
+      const { candidates } = wholeFileSummary(compareDataset, decisions, matches);
+      const ok = await confirmDialog(
+        t("merge.scope.fileConfirm", { matched: candidates, count: compareDataset.individuals.size - candidates }),
+        t("merge.scope.fileConfirmOk"),
+      );
+      if (!ok) return;
+    }
+    dispatch({ type: "mergeScopeSet", scope });
+  }
 
   // Decode the import-branch key set into engine requests for the merge.
   const importRequests = useMemo<ImportBranchRequest[]>(() => {
@@ -1865,11 +1971,11 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [importRequests, mainDataset, compareDataset, decisions, matches, editVersion],
   );
-  const importRecordCount = importRecords.size;
+  const importRecordCount = wholeFileState ? new Set([...importRecords, ...wholeFileState.records]).size : importRecords.size;
   // The incoming people those branches add — Merge marks them as added.
   const branchAddIds = useMemo(
-    () => new Set([...importRecords].filter((k) => k.startsWith("I:")).map((k) => k.slice(2))),
-    [importRecords],
+    () => new Set([...importRecords, ...(wholeFileState?.records ?? [])].filter((k) => k.startsWith("I:")).map((k) => k.slice(2))),
+    [importRecords, wholeFileState],
   );
 
   hasUnsavedChangesRef.current = changedCount > 0 || confirmedCount > 0 || importCount > 0;
@@ -1920,6 +2026,7 @@ function AppContent() {
       decisions,
       matches,
       importRequests,
+      wholeFile: wholeFile ? { pending: wholeFilePendingRef.current } : undefined,
       confirmedCount,
       importCount,
       changedPersonIds,
@@ -1996,6 +2103,19 @@ function AppContent() {
       setReadingSources(false);
       setSaveAfterAdds({ convertTo });
       return;
+    }
+    // A whole-file merge with candidates nobody settled asks what they are
+    // before anything is built: other people, or the same ones.
+    wholeFilePendingRef.current = "new";
+    if (wholeFileState && wholeFileState.reviewed < wholeFileState.candidates) {
+      const choice = await choiceDialog(
+        t("merge.wholeFile.pendingConfirm", { count: wholeFileState.candidates - wholeFileState.reviewed }),
+        t("merge.wholeFile.pendingNew"),
+        t("merge.wholeFile.pendingJoin"),
+        { stacked: true },
+      );
+      if (choice === "cancel") return;
+      wholeFilePendingRef.current = choice === "alt" ? "join" : "new";
     }
     // A strict target format saves in its own version, converting a file
     // that is in the other one.
@@ -2109,8 +2229,9 @@ function AppContent() {
     // Saved in the other GEDCOM version, the records are converted first (see
     // convertVersion) and the report lists what the conversion rewrote.
     const from = ownVersion(mainDataset);
-    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, settings.authorName);
-    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(settings.authorName) }));
+    const author = submitterOf(settings);
+    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, author);
+    for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(author) }));
     if (conversion) {
       fileNotes.push(t("changeReport.note.converted", { from, to: version, count: conversion.length }));
       for (const change of conversion) fileNotes.push(`  ${change}`);
@@ -2378,6 +2499,7 @@ function AppContent() {
   // one of them has something to do.
   const fileActions = (persistent: boolean) => (
     <div className="app-head-actions">
+      <ActivityIndicator />
       {(persistent || hasHistoryAction) && (
         <>
           <button className={persistent ? "nav-btn icon-only undo-btn" : "tree-open-btn undo-btn"} onClick={() => undoStep("undo")} disabled={!canUndo} title={keyHint(t("undo.tooltip"), modLabel("Z"))} aria-label={t("undo")}>
@@ -2789,6 +2911,9 @@ function AppContent() {
               decisions={decisions}
               changedPersonIds={changedPersonIds}
               branchAddIds={branchAddIds}
+              mergeScope={mergeScope}
+              onMergeScope={chooseMergeScope}
+              wholeFileProgress={wholeFileState}
               showFilters={showFilters}
               setShowFilters={setShowFilters}
               startId={startId}
@@ -2799,6 +2924,7 @@ function AppContent() {
               compareDataset={compareDataset}
               onUpdateDecision={updateDecision}
               onOpenTree={openTree}
+              onRecompute={matching ? undefined : () => void recomputeMatches()}
               onShowCharts={openCharts}
               canNavigatePerson={canNavigatePerson}
               onNavigatePerson={navigatePerson}
@@ -2905,7 +3031,7 @@ function AppContent() {
                   const node = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
                   if (!node) return;
                   setMediaInfo(node, fields, records, formatOverrides);
-                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, formatOverrides.privacy ?? detectPrivacyStyle(records), records);
+                  if (isPrivateNode(node) !== fields.private) setPrivateFlag(node, fields.private, formatOverrides.privacy ?? detectPrivacyStyle(records), writeVersionOf(formatOverrides));
                   bumpSourceCacheVersion(records);
                 })
               }
@@ -2970,7 +3096,9 @@ function AppContent() {
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only), true)}
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
-              onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }).patches, true)}
+              onFixMarriageDates={(fixes) => applyToolPatches(fixMarriageDates(mainDataset, fixes), true)}
+              onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }, writeVersionOf(formatOverrides)).patches, true)}
+              onEstimateBirths={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "estimateBirth" }, writeVersionOf(formatOverrides)).patches, true)}
               onFixDates={(only) => applyToolPatches(fixDates(mainDataset, only), true)}
               onFixNonStandardDates={(only) => applyToolPatches(fixNonStandardDates(mainDataset, formatOverrides, only), true)}
               onFixDuplicatePointers={(only) => applyToolPatches(fixDuplicatePointers(mainDataset, only), true)}
@@ -2978,6 +3106,14 @@ function AppContent() {
               onFixDanglingRefs={(only) => applyToolPatches(fixDanglingRefs(mainDataset, only), true)}
               onFixConformance={(kind, only) => applyToolPatches(fixConformance(mainDataset, kind, only, formatOverrides), true)}
               onFixBatch={runToolBatch}
+              onRemoveBranch={(ids) => {
+                const count = applyToolPatches(removeBranch(mainDataset, ids));
+                // Edit would otherwise show the "no person" empty state for
+                // someone the branch took along; the start person is never in
+                // a detached branch.
+                if (count && editPersonId && ids.includes(editPersonId)) setNavigateToId(startId ?? mainDataset.individuals.keys().next().value);
+                return count;
+              }}
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}

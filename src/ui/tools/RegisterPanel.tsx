@@ -190,11 +190,13 @@ export function RegisterPanel({
    *  not yet done. */
   const [addrFindings, setAddrFindings] = useState<number | null>(null);
   // Subscribed so the addresses tab appears the moment a register lands and
-  // goes when one is dropped.
-  useLocalRegisters();
+  // goes when one is dropped. The set is handed to isOfflineQuery so the memo
+  // depends on it: keyed on the rows alone, it kept the tab away until the page
+  // was opened again.
+  const registers = useLocalRegisters();
   const addrCheckable = useMemo(
-    () => addrRows.filter((r) => r.queries.length > 0 && isOfflineQuery(r.queries)).length,
-    [addrRows],
+    () => addrRows.filter((r) => r.queries.length > 0 && isOfflineQuery(r.queries, registers)).length,
+    [addrRows, registers],
   );
   /** The tab pinned by a click, unless it has stopped existing. */
   const shown = tab === "addresses" && !addrCheckable ? "places" : tab;

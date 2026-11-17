@@ -396,15 +396,28 @@ export interface NamesStats {
   byCentury: { century: number; male: Bucket[]; female: Bucket[] }[];
   /** How many given names people carry: one, two, three or more. */
   givenCount: Bucket[];
-  /** People per kind of additional name, and those whose primary name lacks
-   *  a given name or a surname (blank or a stand-in such as NN). */
-  nameKinds: { noGiven: string[]; noSurname: string[]; types: Bucket[] };
   /** Children whose first given name repeats a parent's or a grandparent's. */
   namesakes: {
     sonFather: Share;
     sonGrandfather: Share;
     daughterMother: Share;
     daughterGrandmother: Share;
+  };
+}
+
+/** People per kind of additional name, and those whose primary name lacks
+ *  a given name or a surname (blank or a stand-in such as NN) — a Research card. */
+export interface NameKinds {
+  noGiven: string[];
+  noSurname: string[];
+  types: Bucket[];
+}
+
+export function nameKindsStats(s: ScopedFacts): NameKinds {
+  return {
+    noGiven: s.people.filter((p) => !p.given).map((p) => p.id),
+    noSurname: s.people.filter((p) => !p.surname).map((p) => p.id),
+    types: rankText(s.people, (p) => p.nameTypes, (p) => p.id),
   };
 }
 
@@ -457,11 +470,6 @@ export function namesStats(s: ScopedFacts): NamesStats {
         female: rankNames(list.filter((p) => p.sex === "F"), "given").slice(0, 5),
       })),
     givenCount: histogram(withGiven, (p) => p.givenCount, (p) => p.id, { start: 1, width: 1, end: 3 }),
-    nameKinds: {
-      noGiven: s.people.filter((p) => !p.given).map((p) => p.id),
-      noSurname: s.people.filter((p) => !p.surname).map((p) => p.id),
-      types: rankText(s.people, (p) => p.nameTypes, (p) => p.id),
-    },
     namesakes,
   };
 }

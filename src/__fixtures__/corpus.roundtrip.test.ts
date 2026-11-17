@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import type { GedcomCharset, GedNode } from "../gedcom/types";
-import { ALLOWED_NAME_WORDS } from "./pseudonyms";
+import { ALLOWED_NAME_WORDS, ALLOWED_PLACE_WORDS } from "./pseudonyms";
 
 const DIR = resolve(dirname(fileURLToPath(import.meta.url)), "corpus");
 
@@ -35,6 +35,8 @@ interface FixtureMeta {
   bytes: number;
   records: { INDI: number; FAM: number; other: number };
   note?: string;
+  /** Places and addresses were scrubbed too (`scrubPlaces` in the generator). */
+  placesScrubbed?: boolean;
 }
 
 const manifest: FixtureMeta[] = JSON.parse(
@@ -120,6 +122,16 @@ describe.each(manifest)("$file", (m) => {
     for (const n of collect(parsed.records, new Set(["GIVN", "SURN", "NICK", "_MARNM", "_AKA", "SPFX"]))) {
       for (const w of words(n.value ?? "")) {
         if (!ALLOWED_NAME_WORDS.has(w.toLowerCase())) leaks.add(w);
+      }
+    }
+    expect([...leaks]).toEqual([]);
+  });
+
+  it.runIf(m.placesScrubbed)("contains no un-anonymized places or addresses", () => {
+    const leaks = new Set<string>();
+    for (const n of collect(parsed.records, new Set(["PLAC", "ADDR", "ADR1", "ADR2", "CITY", "STAE", "POST", "CTRY"]))) {
+      for (const w of words(n.value ?? "")) {
+        if (!ALLOWED_PLACE_WORDS.has(w.toLowerCase())) leaks.add(w);
       }
     }
     expect([...leaks]).toEqual([]);

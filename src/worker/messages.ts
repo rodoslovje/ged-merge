@@ -79,7 +79,14 @@ export interface PatchMainRequest {
   formatOverrides?: FormatOverrides;
 }
 
-export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | PatchMainRequest | ScoreDetailRequest;
+/** Score the loaded files again — the main as the last `patchMain` left it,
+ *  the incoming exactly as it is now, so its ids (and the decisions keyed by
+ *  them) stay valid. Answers `matching`, then `matched` or `matchFailed`. */
+export interface RematchRequest {
+  type: "rematch";
+}
+
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | PatchMainRequest | ScoreDetailRequest | RematchRequest;
 
 export interface ParseSuccess {
   type: "parsed";

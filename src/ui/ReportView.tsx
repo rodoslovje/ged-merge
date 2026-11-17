@@ -189,9 +189,9 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
       if (!settings.reportNarrative || !data) return undefined;
       const lang = narrativeLangFor(i18n.language);
       const groups = childGroups(data, (e) => reportName(e, { privacyLiving: privacy, livingNameOf }));
-      // Privacy reaches the planner: it decides whether a living partner's
-      // years and a living parent's name enter the sentences at all.
-      return (e: ReportEntry) => narrativeEntry(t, lang, e, planEntry(e, groups.get(e.num), { privacyLiving: privacy }));
+      // Privacy reaches the planner: it redacts a living partner (name, years,
+      // origin) and keeps a living parent's name out of the sentences.
+      return (e: ReportEntry) => narrativeEntry(t, lang, e, planEntry(e, groups.get(e.num), { privacyLiving: privacy, livingNameOf }));
     },
     [settings.reportNarrative, t, i18n.language, privacy, livingNameOf],
   );
@@ -574,6 +574,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
         {selectedEntry && selectedIndi && (
           <TreeNodePanel
             node={selectedEntry}
+            personId={selectedEntry.id}
             swatch={selectedEntry.num === 1 ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
             mainPerson={mainNav}

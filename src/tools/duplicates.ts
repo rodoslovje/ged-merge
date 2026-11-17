@@ -7,7 +7,14 @@ import {
 } from "../match/scoreIndividual";
 import { nameFrequenciesFor } from "../match/nameFrequency";
 import { cachedFindEvent } from "../match/profileCache";
-import { conflictingBirthYears, differentGiven, fatherGivenVerdict, parentsVerdict } from "../match/similarity";
+import {
+  conflictingBirthYears,
+  differentGiven,
+  fatherGivenVerdict,
+  parentsVerdict,
+  SAME_FAMILY_GIVEN,
+  SAME_PERSON_GIVEN,
+} from "../match/similarity";
 import { soundex } from "../match/text";
 import { DEFAULT_CONFIG, type MatchCategory, type MatchConfig } from "../match/types";
 import { label } from "../match/relatives";
@@ -364,7 +371,10 @@ export function relationshipCount(indi: Individual, ds: Dataset): number {
  * different family.
  */
 function distinctRelatives(a: Individual, b: Individual, ds: Dataset): boolean {
-  if (differentGiven(a, b)) return true; // different first name → different person
+  // Different first name → different person; within one birth family the
+  // names must agree more closely (siblings Anka/Alenka spell alike).
+  const sameFamily = a.childOf.some((f) => b.childOf.includes(f));
+  if (differentGiven(a, b, sameFamily ? SAME_FAMILY_GIVEN : SAME_PERSON_GIVEN)) return true;
   if (conflictingBirthYears(a, b)) return true; // namesake child
   if (sameExactBirthDay(a, b)) return false; // same christening entry → parent variants can't outvote it
   if (fatherGivenVerdict(a, ds, b, ds) === "conflict") return true; // different father → different family

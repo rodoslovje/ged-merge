@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { computeKinship } from "../tools/batch";
 import { buildStatsFacts } from "./facts";
 import { applyCountry, DEFAULT_SCOPE, scopeFacts, type StatsScope } from "./scope";
-import { familyStats, histogram, lifespanStats, namesStats, overview, rankNames } from "./aggregate";
+import { familyStats, histogram, lifespanStats, nameKindsStats, namesStats, overview, rankNames } from "./aggregate";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -113,6 +113,12 @@ describe("buildStatsFacts", () => {
     expect(facts.byId.get("@I2@")).toMatchObject({ birthApprox: true, cause: "jetika" });
     expect(facts.byId.get("@I8@")!.country).toBe("hr");
     expect(facts.byId.get("@I5@")!.living).toBe(false); // born 1855, no death: past the living window
+  });
+
+  it("ranks no name that is only initials", () => {
+    const initials = buildStatsFacts(dataset("0 HEAD\n0 @I1@ INDI\n1 NAME A. /N./\n1 SEX F\n0 @I2@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n0 TRLR\n"), "", 2026);
+    expect(initials.byId.get("@I1@")).toMatchObject({ given: undefined, surname: undefined });
+    expect(rankNames(initials.people, "surname").map((b) => b.label)).toEqual(["Novak"]);
   });
 
   it("marks each spouse's earliest-dated union as their first", () => {
@@ -260,7 +266,7 @@ describe("aggregates", () => {
       "0 @I3@ INDI", "1 NAME Janez //",
       "0 TRLR"].join("\n"));
     const facts = buildStatsFacts(ds);
-    const k = namesStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE)).nameKinds;
+    const k = nameKindsStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
     expect(k.noGiven).toEqual(["@I2@"]);
     expect(k.noSurname).toEqual(["@I3@"]);
     expect(k.types.map((b) => [b.label, b.ids])).toEqual([["aka", ["@I1@"]], ["married", ["@I1@"]], ["nick", ["@I2@"]]]);

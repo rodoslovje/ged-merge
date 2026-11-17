@@ -720,6 +720,15 @@ function findSiteRepo(
   return strictFallback ? genericMatch : anyMatch;
 }
 
+/** The REPO record named `name` (compared loosely: case, punctuation, spacing). */
+function repoNamed(records: GedNode[], name: string): string | undefined {
+  const key = looseKey(name);
+  for (const rec of records) {
+    if (rec.tag === "REPO" && rec.xref && looseKey(childText(rec, "NAME") ?? "") === key) return rec.xref;
+  }
+  return undefined;
+}
+
 /** The site's REPO for a new source: an existing one matched by WWW host
  *  (preferring the Matricula archive's), else — only when the file's
  *  convention hangs sources off repositories — a newly created record. */
@@ -784,9 +793,39 @@ export function proposedSiteRepo(
     country?.facet,
   );
   if (existing) return { xref: existing };
+  // A Matricula repository is the holding archive: a record the file already
+  // keeps under that archive's name is the one, WWW or not — creating a second
+  // "Nadškofijski arhiv Ljubljana" beside it would only make a duplicate.
+  if (site === "matricula" && agency) {
+    const named = repoNamed(records, agency);
+    if (named) return { xref: named };
+  }
   // Matricula repositories are the holding archive; FamilySearch keeps one per
   // country of records; the other sites are their own repository.
   return { createName: siteRepoName(site, repoDef.name, agency, country?.name) };
+}
+
+/**
+ * The site repository proposal once the page lookup has answered. The lookup
+ * names the collection and the place the records cover — what picks a
+ * FamilySearch country's repository — and the holding archive: for Matricula
+ * the repository's own name ("Nadškofijski arhiv Ljubljana"), where the link
+ * alone gives only its path segment ("Ljubljana"). `link` is what the link
+ * alone proposed; the lookup's answer wins wherever it has one.
+ */
+export function fetchedSiteRepo(
+  records: GedNode[],
+  site: ReshapeSite,
+  url: string,
+  link: { agency?: string; place?: string },
+  meta: { agency?: string; collection?: string; collectionId?: string; place?: string } | undefined,
+): { xref?: string; createName?: string } | undefined {
+  if (!meta || !(meta.agency || meta.collection || meta.collectionId || meta.place)) return undefined;
+  return proposedSiteRepo(records, site, url, meta.agency ?? link.agency, {
+    title: meta.collection,
+    id: meta.collectionId,
+    place: meta.place ?? link.place,
+  });
 }
 
 /** What a FamilySearch link covers, as the repository logic needs it: the
@@ -1312,7 +1351,7 @@ export function reshapeSources(
         // Written stripped of viewer state but keeping what selects the page,
         // so a page linked twice by two readers lands as one media record and
         // still reopens where it was copied (see `familySearchPageUrl`).
-        const obje = addObjeToSource(clone, sourceXref, storedLink(hitUrl, hit), objeTitle);
+        const obje = addObjeToSource(clone, sourceXref, storedLink(hitUrl, hit), sourceWriteVersion(opts), objeTitle);
         if (obje.xref) {
           createdObjeUrls.set(obje.xref, hitUrl);
           minted.set(obje.xref, obje);

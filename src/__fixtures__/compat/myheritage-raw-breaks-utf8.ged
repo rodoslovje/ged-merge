@@ -1,0 +1,33 @@
+﻿0 HEAD
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 SOUR MYHERITAGE
+2 NAME MyHeritage Family Tree Builder
+1 SUBM @SUB1@
+0 @SUB1@ SUBM
+1 NAME Ana Golobič
+0 @I1@ INDI
+1 NAME Jožef /Golobič/
+1 SEX M
+1 DSCR Izvor priimka Golobič: domače ime po kmetiji.&#13;
+&#13;
+Druga vrstica brez oznake.
+1 BIRT
+2 DATE 12 MAR 1850
+2 PLAC Kranj, Slovenija
+0 @I2@ INDI
+1 NAME Marija /Kobalek/
+2 _MARNM Golobič/Golobek/Golobar
+1 SEX F
+1 NOTE Hči kmeta, rojena na Golobovi kmetiji, poročena v Ma�
+2 CONC �ovi hiši.
+2 CONC  Prepis iz spletne strani: stran 4.
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 MARR
+2 DATE 3 FEB 1875
+0 TRLR

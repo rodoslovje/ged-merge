@@ -1,3 +1,5 @@
+import { trackActivity, type ActivityKind } from "../state/activity";
+
 /**
  * A signal that aborts after `ms`, combined with the caller's own signal when
  * there is one. Every geo client (GURS RN, Nominatim, GOV) sends its requests
@@ -59,7 +61,15 @@ export function createThrottledQueue(
   intervalMs: number,
   /** Measure the gap from the previous task's *end* rather than its start —
    *  for a service that blocks bursts even of strictly sequential requests. */
-  { fromEnd = false }: { fromEnd?: boolean } = {},
+  {
+    fromEnd = false,
+    activity,
+  }: {
+    fromEnd?: boolean;
+    /** Count every queued or running task as background work of this kind,
+     *  for the header's activity indicator. */
+    activity?: ActivityKind;
+  } = {},
 ): <T>(task: () => Promise<T>, signal?: AbortSignal) => Promise<T> {
   let tail: Promise<unknown> = Promise.resolve();
   let lastStart = 0;
@@ -78,7 +88,7 @@ export function createThrottledQueue(
     };
     const p = tail.then(run, run);
     tail = p.catch(() => undefined);
-    return p;
+    return activity ? trackActivity(activity, p) : p;
   };
 }
 

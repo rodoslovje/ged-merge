@@ -168,6 +168,53 @@ export function bloodPaths(
   return paths.sort((a, b) => a.hops - b.hops);
 }
 
+/**
+ * The routes the relationship label names: every bloodline to the target, or —
+ * for an in-law with no bloodline of their own — every bloodline to one of the
+ * target's spouses plus that marriage, or the start person's marriage plus every
+ * bloodline from that spouse (the spouse of a cousin, a wife's cousin). Matches
+ * `kinship.ts`, which names an in-law by exactly one marriage off a blood line.
+ * Sorted shortest-first; empty when no such route exists.
+ */
+export function labelPaths(
+  ds: Dataset,
+  startId: string,
+  targetId: string,
+): RelationshipPath[] {
+  const direct = bloodPaths(ds, startId, targetId);
+  if (direct.length > 0) return direct;
+  const paths: RelationshipPath[] = [];
+  for (const s of spouseIdsOf(ds, targetId)) {
+    if (s === startId) continue;
+    for (const p of bloodPaths(ds, startId, s)) {
+      paths.push({ ...p, steps: [...p.steps, { id: targetId, edge: "spouse" }], hops: p.hops + 1 });
+    }
+  }
+  for (const s of spouseIdsOf(ds, startId)) {
+    if (s === targetId) continue;
+    for (const p of bloodPaths(ds, s, targetId)) {
+      const [first, ...rest] = p.steps;
+      paths.push({
+        ...p,
+        steps: [{ id: startId }, { id: first.id, edge: "spouse" }, ...rest],
+        hops: p.hops + 1,
+        lcaIndex: p.lcaIndex! + 1,
+      });
+    }
+  }
+  return paths.sort((a, b) => a.hops - b.hops);
+}
+
+function spouseIdsOf(ds: Dataset, id: string): string[] {
+  const out: string[] = [];
+  for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
+    const fam = ds.families.get(famId);
+    const s = fam && (fam.husband === id ? fam.wife : fam.husband);
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out;
+}
+
 /** Which of start's two parental lines a blood relationship runs through. */
 export type Lineage = "paternal" | "maternal" | "both";
 

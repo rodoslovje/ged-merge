@@ -1,8 +1,9 @@
 import { useFormatOverrides, useTargetFormat } from "./TargetFormatContext";
+import { writeVersionOf } from "../normalize/formatOverrides";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedDate, GedNode, GeoCoord, Individual } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedNode, Individual } from "../gedcom/types";
 import { lastChangedText } from "../gedcom/chanCrea";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
@@ -84,6 +85,7 @@ import { nodeId } from "./edit/nodeId";
 import { editFieldKeys } from "./edit/fieldKeys";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useMergeOverlay } from "./edit/useMergeOverlay";
+import { CardMergePreviewContext, useCardMergePreview } from "./edit/cardMergePreview";
 import { buildFieldSuggestions } from "./edit/fieldSuggestions";
 import { useDatasetDerivations } from "./DatasetDerivations";
 import { CoordShareProvider, type CoordShare } from "./edit/CoordShareContext";
@@ -108,7 +110,7 @@ import { NameEditor } from "./edit/NameEditor";
 import { StartPersonChip } from "./edit/StartPersonChip";
 import { SexToggle } from "./edit/SexToggle";
 import { PrivateToggle } from "./edit/PrivateToggle";
-import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
+import { detectPrivacyStyle, isPrivateNode, privateFlagWritable, setPrivateFlag } from "../gedcom/private";
 import { OtherNamesEditor } from "./edit/OtherNamesEditor";
 import { EventAddRow } from "./edit/EventAddRow";
 import { AddNoEventSelect, NoEventsRow } from "./edit/NoEventsRow";
@@ -118,9 +120,7 @@ import { TranslationChips } from "./edit/TranslationChips";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
 import { NotesEditor } from "./edit/NotesEditor";
-import { MAP_EVENT_KINDS, personPoints } from "../geo/points";
-import { buildPersonPaths } from "../geo/paths";
-import { kindsColorVar } from "./map/markerStyle";
+import { personMapOf } from "./map/personMap";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
@@ -130,8 +130,9 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
 import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
-import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
+import { SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { leftTarget, useDropHighlight } from "./useDropHighlight";
+import { TrashIcon } from "./icons/TrashIcon";
 
 
 interface Props {
@@ -246,7 +247,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatOverrides = useFormatOverrides();
   // The event menus offer what the target format allows (see offersEventTag).
-  const { eventOffer } = useTargetFormat();
+  const { eventOffer, target: formatTarget } = useTargetFormat();
   const setSettings = useSetSettings();
   // Last-used chart kind — the V shortcut reopens it (falling back to the tree
   // when the relationship diagram was last, since V means a pedigree chart).
@@ -513,6 +514,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         if (id) { e.preventDefault(); showCharts(id, "relationship"); }
         return;
       }
+      // P / L / G: the fan, the timeline, the map.
+      const lettered = key === KEY.fan ? "fan" : key === KEY.timeline ? "timeline" : key === KEY.map ? "map" : undefined;
+      if (lettered) {
+        if (id) { e.preventDefault(); showCharts(id, lettered); }
+        return;
+      }
       if (key === KEY.home) {
         if (hId) { e.preventDefault(); nav(hId); }
         return;
@@ -539,7 +546,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         const el = editBodyRef.current;
         if (!el || el.scrollHeight <= el.clientHeight) return;
         e.preventDefault();
-        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: "smooth" });
+        // A held key repeats faster than a smooth scroll runs, and each new one
+        // restarts the animation from its slow start — so repeats jump.
+        el.scrollBy({ top: e.key === "ArrowDown" ? 96 : -96, behavior: e.repeat ? "auto" : "smooth" });
       }
     }
     window.addEventListener("keydown", onKey);
@@ -608,9 +617,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const { folderName, canReferenceFiles, resolveDroppedHandle, openFolder, importFile } = useMediaFolder();
   const { openPerson } = useMediaViewer();
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  // The version new lines are written in: the strict target's, else the file's.
+  const writeVersion = writeVersionOf(formatOverrides);
   // Follow the main's photo house-style (inline OBJE/FILE vs. shared top-level
-  // OBJE + pointer); ties / no photos fall back to shared.
-  const mediaMode = useMemo(() => detectMediaMode(dataset.records), [dataset.records]);
+  // OBJE + pointer); ties / no photos fall back to shared, and 7.0 has only
+  // shared records.
+  const mediaMode = useMemo(() => detectMediaMode(dataset.records, writeVersion), [dataset.records, writeVersion]);
   // The file's privacy-marker dialect (PRIV / _PRIV / RESN) — the person and
   // family lock toggles write markers in the file's own style, unless the
   // Settings → GEDCOM override picks one explicitly.
@@ -636,7 +648,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
    *  asynchronous action (a dropped photo's import) was started on. */
   const commitTo = useStableHandler((target: Individual, mutate: (indi: Individual, noteCtx: SharedNoteCtx) => void, extraPatches?: RecordPatch[]) => {
     const before = cloneNode(target.raw);
-    const notes = noteCtx(dataset.records, privacyStyle);
+    const notes = noteCtx(dataset.records, writeVersion, privacyStyle);
     mutate(target, notes);
     const after = cloneNode(target.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "individual", id: target.id })];
@@ -740,7 +752,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // to Mother and Partner, which are named far more often than either.
     KeyI: () => handleAddMedia({ kind: "individual" }),
     KeyL: () =>
-      commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records)),
+      commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, writeVersion)),
     // X cycles ♂ → ♀ → ?, so the sex of a child just added is set without the
     // picker: three values put the one wanted at most two presses away, and no
     // letter has to stand for a sex name (M and F are Mother and Father here).
@@ -761,7 +773,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // for its page lookup) may hold one an undo or a save has since replaced.
     const fam = dataset.families.get(given.id) ?? given;
     const before = cloneNode(fam.raw);
-    const notes = noteCtx(dataset.records, privacyStyle);
+    const notes = noteCtx(dataset.records, writeVersion, privacyStyle);
     mutate(fam, notes);
     const after = cloneNode(fam.raw);
     const extra = [...(extraPatches ?? []), ...noteChangePatches(notes.changes, { kind: "family", id: fam.id })];
@@ -852,7 +864,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       return;
     }
     const extraPatches: RecordPatch[] = [];
-    ownerCommit(owner, sharedMediaMutation(dataset.records, file, existingXref, extraPatches), extraPatches, indi);
+    ownerCommit(owner, sharedMediaMutation(dataset.records, file, writeVersion, existingXref, extraPatches), extraPatches, indi);
   }
 
   /** Edit a photo's metadata (title/date/place/description). An inline OBJE is
@@ -871,7 +883,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       if (!rec) return;
       const before = cloneNode(rec);
       setMediaInfo(rec, fields, dataset.records, formatOverrides);
-      if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, dataset.records);
+      if (isPrivateNode(rec) !== fields.private) setPrivateFlag(rec, fields.private, privacyStyle, writeVersion);
       const after = cloneNode(rec);
       if (JSON.stringify(before) === JSON.stringify(after)) return;
       bumpSourceCacheVersion(dataset.records);
@@ -895,7 +907,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         const child = mediaNodeAt(r, addr);
         if (child) {
           setMediaInfo(child, fields, dataset.records, formatOverrides);
-          if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, dataset.records);
+          if (isPrivateNode(child) !== fields.private) setPrivateFlag(child, fields.private, privacyStyle, writeVersion);
         }
       });
     }
@@ -911,13 +923,45 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     });
   }
 
+  /** Name a face on a shared photo as a person, or resize their region: their
+   *  link to the photo gets the region — added first, in the same commit, when
+   *  they have no link to it yet. */
+  function tagPersonOnMedia(personId: string, file: string, mediaXref: string, crop: CropRegion) {
+    const indi = dataset.individuals.get(personId);
+    if (!indi) return;
+    const own = { kind: "individual" } as const;
+    // The link that already carries a region for this photo (it is the one
+    // shown, even on an event), else the person's own link to it.
+    const links = collectMediaRefs(indi.raw, dataset.records).filter((r) => r.xref === mediaXref);
+    const existing = links.find((r) => r.crop) ?? links.find((r) => !r.eventTag);
+    if (existing) {
+      ownerCommit(own, (raw) => {
+        const child = mediaNodeAt(raw, existing);
+        if (child) setCropRegion(child, crop);
+      }, undefined, indi);
+    } else {
+      const extraPatches: RecordPatch[] = [];
+      const attach = sharedMediaMutation(dataset.records, file, writeVersion, mediaXref, extraPatches);
+      ownerCommit(own, (raw) => {
+        attach(raw);
+        const links = childrenByTag(raw, "OBJE");
+        if (links.length) setCropRegion(links[links.length - 1], crop);
+      }, extraPatches, indi);
+    }
+    mediaGenRef.current += 1; // the person's tray (if on screen) shows the new link
+  }
+
   /** Referenced-by + edit context handed to the photo viewer/tray in Edit mode. */
   const mediaCtxFor = useStableHandler((owner: MediaOwner): MediaRefContext => ({
     dataset,
     onNavigate: navigate,
     onEditMedia: (addr, fields) => editMediaOn(owner, addr, fields),
     onEditMediaCrop: (addr, crop) => editMediaCropOn(owner, addr, crop),
+    onTagPerson: tagPersonOnMedia,
     mediaFields: mediaInfoOffered(dataset.records, formatOverrides),
+    privateUnavailable: (ref) => (privateFlagWritable(formatTarget, { level: ref.xref ? 0 : 1, tag: "OBJE" })
+      ? undefined
+      : t("edit.mediaPrivateUnavailable", { version: formatTarget.version })),
   }));
   const mediaRefCtx = mediaCtxFor({ kind: "individual" });
 
@@ -1069,7 +1113,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           const sourceNode = dataset.records.find((r) => r.tag === "SOUR" && r.xref === match.sourceXref)!;
           const before = cloneNode(sourceNode);
           const page = fields.page ?? match.page;
-          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, pageObjeTitle(fields.site, sourceTitle(sourceNode), page, fields.fsImage, fields.collection));
+          const obje = addObjeToSource(dataset.records, match.sourceXref, fields.url, writeVersionOf(formatOverrides), pageObjeTitle(fields.site, sourceTitle(sourceNode), page, fields.fsImage, fields.collection));
           extraPatches.push({ type: "record", id: match.sourceXref, before, after: cloneNode(sourceNode) });
           extraPatches.push({ type: "record", id: obje.xref!, before: null, after: cloneNode(obje) });
           pageObjeXref = obje.xref ?? undefined;
@@ -1323,7 +1367,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function commitEditSource(node: GedNode, index: number, owner: RemoveSourceOwner, fields: EditSourceFields) {
     commitWithSourceDiff(owner, () => {
       const ownerId = owner.kind === "individual" ? owner.indi.id : owner.fam.id;
-      const notes = noteCtx(dataset.records, privacyStyle);
+      const notes = noteCtx(dataset.records, writeVersion, privacyStyle);
       updateSourceCitation(dataset.records, node, index, fields, notes, formatOverrides);
       const notePatches = noteChangePatches(notes.changes, { kind: owner.kind, id: ownerId });
       afterNoteChanges(notes.changes, ownerId);
@@ -1734,6 +1778,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // never written, in the layout this file writes places in.
   const placeLookup = usePlaceLookupValue(dataset, placeSuggestions);
   const decisionStatusById = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
+  const cardMergePreview = useCardMergePreview(dataset, compareDataset, decisions, decisionStatusById, t);
 
   // What the file writes at each place+address pair: how many events carry it —
   // what the coordinate picker needs to offer "copy this pick to the file's
@@ -1787,47 +1832,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // small map under the events list. Null when nothing is geocoded.
   const personMap = useMemo(() => {
     if (!person) return null;
-    const points = personPoints(dataset, person.id);
-    if (!points.length) return null;
-    const byCoord = new Map<
-      string,
-      { coord: GeoCoord; place: string; addrs: Set<string>; labels: string[]; kinds: Set<string> }
-    >();
-    for (const p of points) {
-      const k = `${p.coord.lat}:${p.coord.lon}`;
-      const label = `${eventDisplayLabel(p.tag, t)}${p.year !== undefined ? ` ${p.year}` : ""}`;
-      const hit = byCoord.get(k);
-      if (hit) {
-        hit.labels.push(label);
-        hit.kinds.add(p.kind);
-        if (p.address) hit.addrs.add(p.address);
-      } else {
-        byCoord.set(k, {
-          coord: p.coord,
-          place: p.place,
-          addrs: new Set(p.address ? [p.address] : []),
-          labels: [label],
-          kinds: new Set([p.kind]),
-        });
-      }
-    }
-    const pins = [...byCoord.values()].map((g) => ({
-      coord: g.coord,
-      label: g.place,
-      // One address means this pin is that house; several events with
-      // different addresses landed on one coordinate, so name none.
-      ...(g.addrs.size === 1 ? { sub: [...g.addrs][0] } : {}),
-      lines: g.labels,
-      kind: "candidate" as const,
-      colorVar: kindsColorVar(g.kinds),
-    }));
-    const path = buildPersonPaths(points)
-      .find((pp) => pp.personId === person.id)
-      ?.stops.map((s) => s.coord);
-    // Event kinds present, in the canonical order — the legend row.
-    const present = new Set(points.map((p) => p.kind));
-    const kinds = MAP_EVENT_KINDS.filter((k) => present.has(k));
-    return { pins, path, kinds };
+    return personMapOf(dataset, person.id, t);
     // person is rebuilt (fresh identity) on each own edit; undoVersion covers
     // undo/redo; tick covers family-event edits, which replace the Family
     // object but not this person (same reason birthParentAges depends on it).
@@ -1841,14 +1846,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const famsOf = person.childOf.map((famId) => dataset.families.get(famId));
     const fatherId = famsOf.find((f) => f?.husband)?.husband;
     const motherId = famsOf.find((f) => f?.wife)?.wife;
-    const father = fatherId ? dataset.individuals.get(fatherId) : undefined;
-    const mother = motherId ? dataset.individuals.get(motherId) : undefined;
+    // As the save will leave them: a confirmed parent's merged birth.
+    const shown = (id: string | undefined) => {
+      const indi = id ? dataset.individuals.get(id) : undefined;
+      return indi && cardMergePreview ? cardMergePreview.person(indi) : indi;
+    };
+    const father = shown(fatherId);
+    const mother = shown(motherId);
     const labels = isSameSexCouple(father, mother)
       ? { husband: t("event.age.parent"), wife: t("event.age.parent") }
       : { husband: t("event.age.father"), wife: t("event.age.mother") };
     return (birthDate: GedDate) => coupleAgesDisplay(father, mother, birthDate, labels, t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.showAge, person, dataset, t, tick]); // tick: parents' own dates can change without replacing `person`
+  }, [settings.showAge, person, dataset, cardMergePreview, t, tick]); // tick: parents' own dates can change without replacing `person`
 
   // Shared card context for relative PersonCards — one stable object, not a
   // per-card literal (which would defeat the memoized sections' prop equality).
@@ -1899,6 +1909,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     <PlacePeopleProvider value={placePeople}>
     <PlaceLookupProvider value={placeLookup}>
     <AssocProvider value={assocApi}>
+    <CardMergePreviewContext.Provider value={cardMergePreview}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
         {/* The person's page beside the Wider family rail (under it when narrow).
@@ -2005,7 +2016,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                   title={t("edit.deletePersonTooltip")}
                   onClick={handleDeletePerson}
                 >
-                  🗑
+                  <TrashIcon />
                 </button>
               }
             />
@@ -2063,7 +2074,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                   target={t("edit.privateTarget.individual")}
                   onToggle={() => mergePreview.private
                     ? skipMergeField("private")
-                    : commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, dataset.records))}
+                    : commit((indi) => setPrivateFlag(indi.raw, !indi.private, privacyStyle, writeVersion))}
                 />
               </>
             }
@@ -2144,6 +2155,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               </div>
             );
           })()}
+          {/* What the person never had leads their events. */}
+          <NoEventsRow
+            assertions={person.noEvents ?? []}
+            t={t}
+            onRemove={(tag) => commit((indi) => removeNegativeAssertion(indi.raw, tag))}
+            merge={mergePreview.noEvents && { assertions: mergePreview.noEvents, ...mergeActions("noEvents") }}
+          />
           <EventList
             key={person.id}
             person={person}
@@ -2215,12 +2233,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
                 onAdd={(tag) => commit((indi) => addNegativeAssertion(indi.raw, tag, dataset.version))}
               />
             }
-          />
-          <NoEventsRow
-            assertions={person.noEvents ?? []}
-            t={t}
-            onRemove={(tag) => commit((indi) => removeNegativeAssertion(indi.raw, tag))}
-            merge={mergePreview.noEvents && { assertions: mergePreview.noEvents, ...mergeActions("noEvents") }}
           />
           {/* The association index is deferred like the suggestion bundle: it
               is a walk over every record, and no commit should pay for it in
@@ -2422,6 +2434,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         />
       )}
     </div>
+    </CardMergePreviewContext.Provider>
     </AssocProvider>
     </PlaceLookupProvider>
     </PlacePeopleProvider>

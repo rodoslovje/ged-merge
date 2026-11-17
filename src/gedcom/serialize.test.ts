@@ -70,6 +70,16 @@ describe("serializeGedcom", () => {
     expect(roundTrip(text)).toBe(text);
   });
 
+  it("a 5.5.1 download of a bare-@ value that starts with @ doubles every @, so it saves the same again", () => {
+    // Brother's Keeper wrote Ž as @: the leading @ must be doubled, and a line
+    // with one @ doubled and one bare re-reads as doubled throughout.
+    const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NOTE @andar, pozneje @elezničar\n2 CONT @N2@.com\n0 TRLR\n";
+    const first = serializeGedcom(parseGedcom(new TextEncoder().encode(text).buffer).records, { atEscape: "all" });
+    expect(first).toContain("1 NOTE @@andar, pozneje @@elezničar\n2 CONT @@N2@@.com\n");
+    const second = serializeGedcom(parseGedcom(new TextEncoder().encode(first).buffer).records, { atEscape: "all" });
+    expect(second).toBe(first);
+  });
+
   it("does not add a trailing space when the value starts on a CONT line", () => {
     // A NOTE record with no inline value, text beginning on the next CONT line.
     const text = ["0 @N1@ NOTE", "1 CONT vzgojiteljica v vrtcu", "0 TRLR", ""].join("\n");
@@ -467,11 +477,16 @@ describe("serializeGedcom", () => {
     const BARE = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @I1@ INDI", "1 EMAIL ana@example.si", "1 NOTE see a@b", "2 CONC  and c@d", "2 CONT @home", "0 TRLR", ""].join("\n");
 
     it("an untouched 5.5.1 line written with bare at-signs saves as it was read", () => {
-      // Only the leading @ of the CONT line is doubled: unescaped, it would
-      // read as a pointer.
-      expect(download(BARE)).toBe(BARE.replace("2 CONT @home", "2 CONT @@home"));
+      expect(download(BARE)).toContain("1 EMAIL ana@example.si\n");
+    });
+
+    it("a bare-@ 5.5.1 value with a line starting with @ is doubled throughout, and saves the same again", () => {
+      // The leading @ must be doubled (bare, it reads as a pointer); a value
+      // with one @ doubled and others bare re-reads as doubled throughout.
+      expect(download(BARE)).toContain("1 NOTE see a@@b\n2 CONC  and c@@d\n2 CONT @@home\n");
       const back = parseGedcom(new TextEncoder().encode(download(BARE)).buffer);
       expect(back.records[1].children[1].value).toBe("see a@b and c@d\n@home");
+      expect(download(download(BARE))).toBe(download(BARE));
     });
 
     it("an edited 5.5.1 value is escaped by the version's rule, and a clone stays untouched", () => {
@@ -505,6 +520,49 @@ describe("serializeGedcom", () => {
     it("keeps a 5.5.1 file's own CONC breaks around an escaped @", () => {
       const text = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "0 @N1@ NOTE mail ana@@exa", "1 CONC mple.si, or @@b", "0 TRLR", ""].join("\n");
       expect(download(text)).toBe(text);
+    });
+
+    describe("text that reads like a pointer or an escape", () => {
+      const file = (version: string, ...lines: string[]): string =>
+        ["0 HEAD", "1 GEDC", `2 VERS ${version}`, "0 @I1@ INDI", ...lines, "0 TRLR", ""].join("\n");
+      const load = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+
+      it.each([
+        ["7.0", "1 NOTE @@I1@"],
+        ["5.5.1", "1 NOTE @@I1@@"],
+      ])("an escaped @I1@ note stays text in %s, saved and re-read", (version, line) => {
+        const text = file(version, line);
+        expect(download(text)).toBe(text);
+        for (const ds of [load(text), load(download(text))]) {
+          const indi = ds.individuals.get("@I1@")!;
+          expect(indi.notes).toEqual(["@I1@"]);
+          expect(indi.noteRefs?.[0]?.xref).toBeUndefined();
+        }
+      });
+
+      it.each(["7.0", "5.5.1"])("escapes a pointer-shaped CONT line in %s", (version) => {
+        const cont = version === "7.0" ? "2 CONT @@I2@" : "2 CONT @@I2@@";
+        const text = file(version, "1 NOTE see", cont);
+        expect(download(text)).toBe(text);
+        expect(load(download(text)).individuals.get("@I1@")!.notes).toEqual(["see\n@I2@"]);
+      });
+
+      it("doubles a leading @# in 7.0 text, but not in a date", () => {
+        const text = file("7.0", "1 NOTE @@#DJULIAN@ foo", "1 BIRT", "2 DATE @#DJULIAN@ 1 JAN 1700");
+        expect(download(text)).toBe(text);
+        expect(load(download(text)).individuals.get("@I1@")!.notes).toEqual(["@#DJULIAN@ foo"]);
+      });
+
+      it("an edited value is read afresh, and a real pointer stays single", () => {
+        const parsed = parseGedcom(new TextEncoder().encode(file("7.0", "1 NOTE @@I1@", "1 FAMS @F1@")).buffer);
+        const indi = parsed.records[1];
+        const [note, fams] = indi.children;
+        expect(cloneNode(note).atText).toBe("@I1@");
+        note.value = "@N2@";
+        const out = serializeGedcom(parsed.records, downloadOptions(parsed));
+        expect(out).toContain("1 NOTE @N2@\n1 FAMS @F1@\n");
+        expect(serializeGedcom([fams], { atEscape: "all" })).toBe("0 FAMS @F1@\n");
+      });
     });
   });
 

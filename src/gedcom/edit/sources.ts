@@ -1,6 +1,6 @@
 import { filingNumberOf, isPointer, looksLikeUrl, periodicalOf, resolveSourceCitation, writesCallNumbers } from "../source";
 import { VOID_XREF } from "../assoc";
-import type { FormatOverrides } from "../../normalize/formatOverrides";
+import { writeVersionOf, type FormatOverrides } from "../../normalize/formatOverrides";
 import { linkKey } from "../../normalize/links";
 import { childrenByTag, firstChild, removeChildren } from "../node";
 import type { Dataset, GedNode } from "../types";
@@ -12,7 +12,7 @@ export const SOUR_TRAILING_TAGS = ["REPO", "CHAN", "CREA"] as const;
  *  links, the repository link and the bookkeeping timestamps. */
 export const SOUR_FIELD_TRAILING = ["OBJE", "REPO", "CHAN", "CREA"] as const;
 import { bumpSourceCacheVersion, getMediaAndSourceCtx, memoOnContent } from "./cache";
-import { createMediaRecord, prefersMimeForm, referencedObjeXrefs } from "./media";
+import { createMediaRecord, referencedObjeXrefs } from "./media";
 import { fileFormOf, relevel } from "../mediaForm";
 import { removeNoteRecordIfOrphaned, setSharedNoteText, type SharedNoteCtx } from "./notes";
 
@@ -42,8 +42,9 @@ export function createSourceRecord(
    *  the fresh ids must skip — see `nextXref`. */
   reserved?: ReadonlySet<string>,
   /** The format choices with the target format applied: a strict target
-   *  writes the standard forms (see {@link keepsSourceTag}). */
-  overrides?: Pick<FormatOverrides, "standard">,
+   *  writes the standard forms (see {@link keepsSourceTag}); the media record
+   *  is written in its version (see {@link sourceWriteVersion}). */
+  overrides?: Pick<FormatOverrides, "standard" | "writeVersion">,
 ): GedNode {
   const raw: GedNode = { level: 0, xref: nextXref(records, "S", reserved), tag: "SOUR", children: [] };
   const push = (tag: string, value: string | undefined) => {
@@ -69,23 +70,25 @@ export function createSourceRecord(
   insertRecord(records, raw);
   bumpSourceCacheVersion(records);
   if (fields.url) {
-    const obje = createMediaRecord(records, fields.url, undefined, reserved);
+    const obje = createMediaRecord(records, fields.url, sourceWriteVersion(overrides), undefined, reserved);
     raw.children.push({ level: 1, tag: "OBJE", value: obje.xref, children: [] });
   }
   return raw;
 }
 
 /** Add a new `OBJE` (linking `url`, optionally titled) to an already-existing
- * `SOUR` record — a new page of a paginated source that's already cited elsewhere. */
+ * `SOUR` record — a new page of a paginated source that's already cited elsewhere.
+ * The media record is written in `version`, the target's. */
 export function addObjeToSource(
   records: GedNode[],
   sourceXref: string,
   url: string,
+  version: "5.5.1" | "7.0",
   title?: string,
   /** Xrefs promised elsewhere that the new media record must skip — see `nextXref`. */
   reserved?: ReadonlySet<string>,
 ): GedNode {
-  const obje = createMediaRecord(records, url, title, reserved);
+  const obje = createMediaRecord(records, url, version, title, reserved);
   const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
   if (sourceNode) {
     insertGrouped(
@@ -290,7 +293,7 @@ export function writesIdAsCallNumber(
 /** The version a source's standard forms are written in: the strict target's,
  *  else the file's own. */
 export function sourceWriteVersion(overrides?: Pick<FormatOverrides, "standard" | "writeVersion">): "5.5.1" | "7.0" {
-  return overrides?.standard ?? overrides?.writeVersion ?? "5.5.1";
+  return writeVersionOf(overrides);
 }
 
 /** A title with the periodical or collection it belongs to: `Title, Periodical`
@@ -558,7 +561,7 @@ export function setSourceRecordFields(
         bumpSourceCacheVersion(records);
       }
     } else if (url && files.length === 0) {
-      const form = fileFormOf(url, prefersMimeForm(records));
+      const form = fileFormOf(url, sourceWriteVersion(overrides) === "7.0");
       objeNode.children.unshift({
         level: objeNode.level + 1,
         tag: "FILE",
@@ -569,7 +572,7 @@ export function setSourceRecordFields(
     } else if (url) {
       // The linked OBJE holds only local files — the typed URL becomes its own
       // page OBJE beside it rather than clobbering a scan's filename.
-      const obje = createMediaRecord(records, url);
+      const obje = createMediaRecord(records, url, sourceWriteVersion(overrides));
       insertGrouped(
         sourceNode,
         { level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] },
@@ -590,7 +593,7 @@ export function setSourceRecordFields(
       bumpSourceCacheVersion(records);
     }
   } else if (!objeXref && url) {
-    const obje = createMediaRecord(records, url);
+    const obje = createMediaRecord(records, url, sourceWriteVersion(overrides));
     insertGrouped(
       sourceNode,
       { level: sourceNode.level + 1, tag: "OBJE", value: obje.xref, children: [] },

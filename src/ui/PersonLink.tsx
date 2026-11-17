@@ -20,6 +20,8 @@ interface Props {
    * duplicate finder), where the id is the disambiguator, not decoration.
    */
   forceXref?: boolean;
+  /** Leave the lifespan out — the family website's KinLink prints its own. */
+  noYears?: boolean;
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -31,7 +33,7 @@ const SETTINGS_KEYS = ["showAge", "showXref"] as const;
  * in its sex colour followed by a muted lifespan. Falls back to a plain label
  * for non-individual (family) or unresolved records.
  */
-export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = false }: Props) {
+export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = false, noYears }: Props) {
   const indi = dataset.individuals.get(id);
   if (!indi) {
     return (
@@ -46,7 +48,7 @@ export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = fals
       onClick={() => onNavigate(id)}
       title={datesTooltipOf(indi)}
     >
-      <PersonRefLabel dataset={dataset} id={id} fallback={fallback} forceXref={forceXref} />
+      <PersonRefLabel dataset={dataset} id={id} fallback={fallback} forceXref={forceXref} noYears={noYears} />
     </button>
   );
 }
@@ -56,7 +58,7 @@ export function PersonLink({ dataset, id, fallback, onNavigate, forceXref = fals
  * is named but navigating away would be wrong — inside a modal that is asking
  * about those very records (see `ClusterMergeDialog`).
  */
-export function PersonRefLabel({ dataset, id, fallback, forceXref = false }: Omit<Props, "onNavigate">) {
+export function PersonRefLabel({ dataset, id, fallback, forceXref = false, noYears = false }: Omit<Props, "onNavigate">) {
   const nameOf = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const indi = dataset.individuals.get(id);
@@ -71,7 +73,7 @@ export function PersonRefLabel({ dataset, id, fallback, forceXref = false }: Omi
     <>
       <span className={`person-name ${sexClass(indi.sex)}`}>{nameOf(indi)}</span>
       {(settings.showXref || forceXref) && <span className="person-xref gm-data">{xrefLabel(indi.id)}</span>}
-      {lifespan && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(indi)} /></span>}
+      {lifespan && !noYears && <span className="person-years gm-data"><YearsText text={lifespan} approx={lifespanApproxOf(indi)} /></span>}
     </>
   );
 }

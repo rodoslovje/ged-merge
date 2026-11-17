@@ -33,14 +33,14 @@ const pick = (page: Page, name: string) =>
 
 async function relationshipAndBack(page: Page) {
   await page.locator("body").click({ position: { x: 1, y: 1 } });
-  await page.keyboard.press("s");
+  await page.keyboard.press("k");
   const chartBack = page.locator(".tree-toolbar .tree-back-btn");
   await expect(chartBack).toBeVisible();
   await page.keyboard.press("Backspace");
   await expect(chartBack).toBeHidden();
 }
 
-test("S then Backspace returns to Merge on the same pair", async ({ page }) => {
+test("K then Backspace returns to Merge on the same pair", async ({ page }) => {
   await openMerge(page);
   const selected = page.locator(".candidate.selected");
   await pick(page, "Peter");
@@ -49,6 +49,20 @@ test("S then Backspace returns to Merge on the same pair", async ({ page }) => {
   await relationshipAndBack(page);
   await expect(page.locator(".compare-panel").first()).toBeVisible();
   await expect(page.locator(".edit-person")).toBeHidden();
+  await expect(selected).toContainText("Peter");
+
+  // L opens the main person's timeline from Merge too, as it does in Edit.
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("l");
+  await expect(page.getByRole("tab", { name: "Timeline", selected: true })).toBeVisible();
+  await page.keyboard.press("Backspace");
+  await expect(selected).toContainText("Peter");
+
+  // S: Tools → Statistics from any mode; Back returns to the pair.
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("s");
+  await expect(page.locator(".tools-tab.active", { hasText: "Statistics" })).toBeVisible();
+  await page.goBack();
   await expect(selected).toContainText("Peter");
 });
 

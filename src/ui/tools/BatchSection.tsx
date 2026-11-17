@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { firstChild } from "../../gedcom/node";
 import { collectLocalMediaFiles } from "../../tools/mediaFiles";
 import { applyPassSafely } from "../../tools/passSafety";
-import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
+import { EDITABLE_FAM_EVENT_TAGS, FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, carriesLineValue, isNonStandardTag, standardConversionTarget } from "../../gedcom/eventTags";
 import { eventMenuLabel } from "../EventGlyph";
-import { offeredEventGroups } from "../edit/editConstants";
-import { useTargetFormat } from "../TargetFormatContext";
+import { offeredEventGroups, offersEventTag } from "../edit/editConstants";
+import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
+import { writeVersionOf } from "../../normalize/formatOverrides";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -17,6 +18,7 @@ import {
   computeLineSides,
   matchesBatch,
   previewBirthEstimateDates,
+  previewMarriageEstimates,
   previewMarriedNames,
   readMarriedNames,
   BATCH_ACTION_KINDS,
@@ -24,17 +26,23 @@ import {
   type BatchActionSpec,
   type BatchContext,
   type BatchCriterion,
+  type FamilyEventMode,
   type SavedBatchFilter,
 } from "../../tools/batch";
 import { fullTextLookup } from "../globalSearch";
 import type { RecordPatch } from "../historyTypes";
 import { useNameOf, useSettings } from "../SettingsContext";
+import { displayDateText } from "../../gedcom/dateDisplay";
 import { createKinshipResolver, lineageClass } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
 import { PersonLink } from "../PersonLink";
 import { useVirtualList } from "../useVirtualList";
-import { PickerMenu } from "../PickerMenu";
-import { SelectMenu } from "../DropdownMenu";
+import { DropdownMenu, SelectMenu, type DropdownGroup } from "../DropdownMenu";
+import { useConfirmDialog } from "../useConfirmDialog";
+import { SearchSelect } from "../SearchSelect";
+import { useMediaFolder } from "../MediaFolderContext";
+import { basename, sameMediaFile } from "../mediaPath";
+import { ToolsIntro } from "./shared";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -44,6 +52,20 @@ import { SelectMenu } from "../DropdownMenu";
  * match each one, so a recurring chore ("new people still missing the
  * placeholder image?") is answered at a glance.
  */
+
+/** The "Add filter" menu's sections. Keyed by kind, so a new filter kind
+ *  fails to compile until it is given a group. */
+const CRITERION_GROUP: Record<BatchCriterion["kind"], "person" | "family" | "text" | "records"> = {
+  name: "person", nameField: "person", sex: "person", birthYear: "person", age: "person", living: "person",
+  event: "person", deathCause: "person",
+  familyEvent: "family", relation: "family", kinship: "family", line: "family",
+  place: "text", note: "text", anyField: "text",
+  media: "records", sources: "records", private: "records", privateNote: "records",
+};
+const CRITERION_GROUPS = (["person", "family", "text", "records"] as const).map((id) => ({
+  id,
+  kinds: BATCH_CRITERION_KINDS.filter((k) => CRITERION_GROUP[k] === id),
+}));
 
 interface Props {
   dataset: Dataset;
@@ -83,9 +105,12 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
 
 export function BatchSection({ dataset, editVersionRef, active, onNavigate, onApplyPatches, startId }: Props) {
   const { t } = useTranslation();
+  const formatOverrides = useFormatOverrides();
   const derivations = useDatasetDerivations();
   const nameOf = useNameOf();
   const { settings } = useSettings();
+  // The estimate previews quote dates as the screen shows them.
+  const dateDisplay = settings.dateDisplay;
 
   // Rows rebuild when the file content moves: any render while visible (tab
   // return, an undo/redo elsewhere, this panel's own apply) re-reads the
@@ -130,12 +155,23 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     for (const r of rows) for (const tag of r.eventTags) present.add(tag);
     return INDI_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
-  /** Non-standard tags the file actually uses — the convert action's sources. */
-  const vendorEventOptions = useMemo(() => eventOptions.filter(isNonStandardTag), [eventOptions]);
+  /** Non-standard family-event tags the unions use (`SEPA`). */
+  const familyVendorOptions = useMemo(() => {
+    const present = new Set<string>();
+    for (const r of rows) for (const tag of r.familyEventTags) if (isNonStandardTag(tag)) present.add(tag);
+    return [...present].filter((tag) => !eventOptions.includes(tag));
+  }, [rows, eventOptions]);
+  /** Non-standard tags the file actually uses, a person's and then a
+   *  family's — the convert action's sources. */
+  const vendorEventOptions = useMemo(
+    () => [...eventOptions.filter(isNonStandardTag), ...familyVendorOptions],
+    [eventOptions, familyVendorOptions],
+  );
   /** Tags offered by the family-event filter: marriage always (the point of the
-   *  filter is finding unions without it) plus whatever the file's unions use. */
+   *  filter is finding unions without it), the custom event (narrowed by its
+   *  name in a text field) plus whatever the file's unions use. */
   const familyEventOptions = useMemo(() => {
-    const present = new Set<string>(["MARR"]);
+    const present = new Set<string>(["MARR", "EVEN"]);
     for (const r of rows) for (const tag of r.familyEventTags) present.add(tag);
     return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
@@ -144,7 +180,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const [action, setAction] = useState<BatchActionSpec | null>(null);
   /** Unchecked match ids — everyone matching is selected by default. */
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
-  const [confirming, setConfirming] = useState(false);
+  const { confirmDialog, confirmDialogElement } = useConfirmDialog();
   const [done, setDone] = useState<{ changed: number; skipped: number } | null>(null);
   const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
   const [saveName, setSaveName] = useState("");
@@ -175,6 +211,37 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [dataset, ver]);
 
+  /** Images in the connected media folder that the file does not use yet —
+   *  offered by the attach action beside the file's own, so a picture already
+   *  in the folder is picked rather than its path typed. Re-read when the
+   *  panel shows, so files copied in meanwhile appear. */
+  const { listMediaFiles } = useMediaFolder();
+  const [folderPaths, setFolderPaths] = useState<string[]>([]);
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    listMediaFiles().then((paths) => {
+      if (!cancelled) setFolderPaths(paths);
+    }, () => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [active, listMediaFiles]);
+  const folderMediaOptions = useMemo<MediaOption[]>(() => {
+    const byName = new Map<string, MediaOption[]>();
+    for (const o of mediaOptions) {
+      const name = basename(o.file).toLowerCase();
+      byName.set(name, [...(byName.get(name) ?? []), o]);
+    }
+    return folderPaths
+      .filter((p) => !(byName.get(basename(p).toLowerCase()) ?? []).some((o) => sameMediaFile(o.file, p)))
+      .map((file) => ({ key: mediaOptionKey({ file }), file }));
+  }, [folderPaths, mediaOptions]);
+
+  /** What the media filter offers: the file's own images and the media
+   *  folder's — the same list the attach action picks from. */
+  const pickableMedia = useMemo(() => [...mediaOptions, ...folderMediaOptions], [mediaOptions, folderMediaOptions]);
+
   const sourceOptions = useMemo(() => {
     const list: Array<{ xref: string; title: string }> = [];
     for (const rec of dataset.records) {
@@ -191,10 +258,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const birthPreview = useMemo(() => {
     if (action?.kind !== "estimateBirth") return null;
     return new Map(
-      [...previewBirthEstimateDates(dataset, targets.map((r) => r.id))].map(([id, date]) => [id, { text: `→ ${date}` }]),
+      [...previewBirthEstimateDates(dataset, targets.map((r) => r.id))].map(([id, date]) => [id, { text: `→ ${displayDateText(date)}` }]),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  }, [action?.kind, dataset, targets, ver]);
+  }, [action?.kind, dataset, targets, ver, dateDisplay]);
 
   /** Per-row preview of the married-name action: the surnames the person would
    *  end up carrying, plus the doubt that left the row unchecked. Computed over
@@ -211,7 +278,30 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
   }, [action?.kind, dataset, results, t, ver]);
 
-  const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview;
+  /** Per-row preview of the marriage estimate: the date each of the person's
+   *  unions would get — one per marriage, so a person married twice shows two,
+   *  each named by the partner. A family shared by two checked partners shows
+   *  on both. */
+  const marriagePreview = useMemo(() => {
+    if (action?.kind !== "estimateMarriage") return null;
+    const byFamily = previewMarriageEstimates(dataset, targets.map((r) => r.id));
+    const out = new Map<string, { text: string }>();
+    for (const r of targets) {
+      const fams = (dataset.individuals.get(r.id)?.spouseOf ?? []).filter((f) => byFamily.has(f));
+      const dates = fams.map((f) => {
+        const date = displayDateText(byFamily.get(f)!);
+        if (fams.length === 1) return date;
+        const fam = dataset.families.get(f)!;
+        const partner = dataset.individuals.get((fam.husband === r.id ? fam.wife : fam.husband) ?? "");
+        return partner ? `${date} (${nameOf(partner)})` : date;
+      });
+      if (dates.length) out.set(r.id, { text: `→ ${dates.join(", ")}` });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
+  }, [action?.kind, dataset, targets, nameOf, ver, dateDisplay]);
+
+  const rowPreview: Map<string, { text: string; note?: string }> | null = birthPreview ?? marriedPreview ?? marriagePreview;
   /** The married-name preview speaks for unchecked rows too (see above). */
   const previewUnchecked = action?.kind === "addMarriedName";
 
@@ -237,7 +327,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   function resetReview(nextCriteria = criteria, nextAction = action) {
     setExcluded(seedExclusions(nextCriteria, nextAction));
     setDone(null);
-    setConfirming(false);
   }
   function changeCriteria(next: BatchCriterion[]) {
     setCriteria(next);
@@ -251,8 +340,24 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // this one's, and a hand-picked selection belongs to the action it was made for.
     setExcluded(seedExclusions(criteria, next));
     setDone(null);
-    setConfirming(false);
   }
+
+  /** Start over: no filters, no action, no saved filter selected. */
+  function clearAll() {
+    setCriteria([]);
+    setAction(null);
+    setSelectedSavedId(null);
+    resetReview([], null);
+  }
+
+  const filterGroups = useMemo<DropdownGroup[]>(
+    () =>
+      CRITERION_GROUPS.map((g) => ({
+        label: t(`tools.batch.group.${g.id}`),
+        items: g.kinds.map((k) => ({ value: k, label: t(`tools.batch.crit.${k}`) })),
+      })),
+    [t],
+  );
 
   function addCriterion(kind: BatchCriterion["kind"]) {
     const fresh: Record<BatchCriterion["kind"], BatchCriterion> = {
@@ -263,6 +368,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       age: { kind: "age", op: "lt", years: 20 },
       living: { kind: "living", value: true },
       event: { kind: "event", tag: "BIRT", mode: "lacks" },
+      deathCause: { kind: "deathCause", mode: "has" },
       familyEvent: { kind: "familyEvent", tag: "MARR", mode: "lacks" },
       relation: { kind: "relation", rel: "spouse", mode: "has" },
       kinship: { kind: "kinship", rel: "blood" },
@@ -284,7 +390,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       ? !!(action.xref || action.file.trim())
       : action.kind === "addSource"
         ? !!(action.xref || action.title?.trim())
-        : action.kind === "markDeceased" || action.kind === "estimateBirth" || action.kind === "addMarriedName"
+        : action.kind === "markDeceased" || action.kind === "estimateBirth" || action.kind === "estimateMarriage" ||
+            action.kind === "addMarriedName"
           ? true
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
@@ -296,11 +403,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // A throw partway puts the targets back as they were (see applyPassSafely).
     const res = applyPassSafely(dataset, (journal) => {
       for (const id of ids) journal.touch(id);
-      return applyBatchAction(dataset, ids, action);
+      return applyBatchAction(dataset, ids, action, writeVersionOf(formatOverrides));
     });
     if (res.patches.length > 0) onApplyPatches(res.patches);
     setDone({ changed: res.changed, skipped: res.skipped });
-    setConfirming(false);
     // Re-seeded, not cleared: whoever the action still doubts stays unchecked.
     setExcluded(seedExclusions(criteria, action));
     setVer(editVersionRef.current);
@@ -353,8 +459,13 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
 
   return (
     <div className="batch-section">
-      <p className="tools-intro">{t("tools.batch.intro")}</p>
+      {confirmDialogElement}
+      <ToolsIntro>{t("tools.batch.intro")}</ToolsIntro>
 
+      {/* Saved filters, filters, action and save in the left column, the
+          matches beside them on the right (below them on a narrow screen). */}
+      <div className="batch-grid">
+      <div className="batch-controls">
       {saved.length > 0 && (
         <div className="batch-saved">
           <div className="batch-block-title">{t("tools.batch.saved")}</div>
@@ -364,7 +475,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                 <button className="batch-saved-load" onClick={() => loadFilter(f)} title={t("tools.batch.load")}>
                   <span className="batch-saved-name">{f.name}</span>
                   <span className={`batch-saved-count ${savedCounts[i] > 0 ? "batch-count-live" : ""}`}>
-                    ({savedCounts[i]})
+                    {savedCounts[i]}
                   </span>
                 </button>
                 {!refsResolve(f) && (
@@ -387,14 +498,21 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       )}
 
       <div className="batch-builder">
-        <div className="batch-block-title">{t("tools.batch.filters")}</div>
+        <div className="batch-block-title batch-title-row">
+          {t("tools.batch.filters")}
+          {(criteria.length > 0 || action) && (
+            <button className="batch-bar-btn" onClick={clearAll}>
+              {t("tools.batch.clearAll")}
+            </button>
+          )}
+        </div>
         {criteria.length === 0 && <p className="batch-hint">{t("tools.batch.noFilters")}</p>}
         <ul className="batch-crit-list">
           {criteria.map((c, i) => (
             <CriterionRow
               key={i}
               c={c}
-              mediaOptions={mediaOptions}
+              mediaOptions={pickableMedia}
               eventOptions={eventOptions}
               familyEventOptions={familyEventOptions}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}
@@ -402,19 +520,52 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
             />
           ))}
         </ul>
-        <PickerMenu
-          className="batch-add-filter"
-          label={t("tools.batch.addFilter")}
-          value={"" as string}
-          onChange={(k) => {
-            if (k) addCriterion(k as BatchCriterion["kind"]);
-          }}
-          items={[
-            { key: "", label: `＋ ${t("tools.batch.addFilter")}` },
-            ...BATCH_CRITERION_KINDS.map((k) => ({ key: k as string, label: t(`tools.batch.crit.${k}`) })),
-          ]}
+        <DropdownMenu
+          className="edit-name-chip batch-add-filter"
+          groups={filterGroups}
+          onSelect={(k) => addCriterion(k as BatchCriterion["kind"])}
+          trigger={<>+ {t("tools.batch.addFilter")}</>}
         />
         {needsStart && <p className="batch-hint batch-warn">{t("tools.batch.needStart")}</p>}
+      </div>
+
+      <div className="batch-action">
+        <div className="batch-block-title">{t("tools.batch.actionTitle")}</div>
+        <ActionEditor
+          action={action}
+          mediaOptions={mediaOptions}
+          folderMediaOptions={folderMediaOptions}
+          sourceOptions={sourceOptions}
+          vendorEventOptions={vendorEventOptions}
+          familyVendorOptions={familyVendorOptions}
+          onChange={changeAction}
+        />
+        {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
+        <button
+          className="nav-btn primary tools-run"
+          disabled={!actionReady || targets.length === 0}
+          onClick={async () => {
+            if (await confirmDialog(t("tools.batch.confirm", { count: targets.length }), t("confirm.continue"))) apply();
+          }}
+        >
+          {t("tools.batch.apply", { count: targets.length })}
+        </button>
+      </div>
+
+      <div className="batch-save">
+        <input
+          className="batch-save-name"
+          placeholder={t("tools.batch.savePlaceholder")}
+          value={saveName}
+          onChange={(e) => setSaveName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") saveCurrent();
+          }}
+        />
+        <button className="nav-btn" disabled={!saveName.trim() || criteria.length === 0} onClick={saveCurrent}>
+          {t("tools.batch.save")}
+        </button>
+      </div>
       </div>
 
       <div className="batch-results">
@@ -465,7 +616,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
                     }
                     title={rowPreview.get(r.id)?.note}
                   >
-                    {rowPreview.get(r.id)?.text ?? t("tools.batch.previewSkip")}
+                    {rowPreview.get(r.id)?.text ??
+                      t(action?.kind === "addMarriedName" ? "tools.batch.previewSkip" : "tools.batch.previewSkipEstimate")}
                     {rowPreview.get(r.id)?.note && (
                       <span className="batch-preview-note">{rowPreview.get(r.id)!.note}</span>
                     )}
@@ -480,51 +632,6 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           <li className="v-spacer" style={{ height: virtual.padBottom }} ref={virtual.bottomRef} aria-hidden />
         </ul>
       </div>
-
-      <div className="batch-action">
-        <div className="batch-block-title">{t("tools.batch.actionTitle")}</div>
-        <ActionEditor
-          action={action}
-          mediaOptions={mediaOptions}
-          sourceOptions={sourceOptions}
-          vendorEventOptions={vendorEventOptions}
-          onChange={changeAction}
-        />
-        {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
-        {confirming ? (
-          <div className="batch-confirm">
-            <span>{t("tools.batch.confirm", { count: targets.length })}</span>
-            <button data-busy-cursor className="nav-btn primary" onClick={apply}>
-              {t("confirm.continue")}
-            </button>
-            <button className="nav-btn" onClick={() => setConfirming(false)}>
-              {t("confirm.cancel")}
-            </button>
-          </div>
-        ) : (
-          <button
-            className="nav-btn primary tools-run"
-            disabled={!actionReady || targets.length === 0}
-            onClick={() => setConfirming(true)}
-          >
-            {t("tools.batch.apply", { count: targets.length })}
-          </button>
-        )}
-      </div>
-
-      <div className="batch-save">
-        <input
-          className="batch-save-name"
-          placeholder={t("tools.batch.savePlaceholder")}
-          value={saveName}
-          onChange={(e) => setSaveName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") saveCurrent();
-          }}
-        />
-        <button className="nav-btn" disabled={!saveName.trim() || criteria.length === 0} onClick={saveCurrent}>
-          {t("tools.batch.save")}
-        </button>
       </div>
     </div>
   );
@@ -640,6 +747,33 @@ function CriterionRow({
               { value: ANY_VENDOR_EVENT, label: t("tools.batch.event.anyVendor") },
             ]}
           />
+          {(carriesLineValue(c.tag) || c.tag === ANY_VENDOR_EVENT) && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.eventTextPlaceholder")}
+              value={c.text ?? ""}
+              onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+            />
+          )}
+        </>
+      )}
+      {c.kind === "deathCause" && (
+        <>
+          <SelectMenu
+            className="batch-select"
+            value={c.mode}
+            onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+            options={[
+              { value: "has", label: t("tools.batch.event.has") },
+              { value: "lacks", label: t("tools.batch.event.lacks") },
+            ]}
+          />
+          <input
+            className="batch-input"
+            placeholder={t("tools.batch.causePlaceholder")}
+            value={c.text ?? ""}
+            onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+          />
         </>
       )}
       {c.kind === "familyEvent" && (
@@ -647,10 +781,12 @@ function CriterionRow({
           <SelectMenu
             className="batch-select"
             value={c.mode}
-            onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+            onChange={(v) => onChange({ ...c, mode: v as FamilyEventMode })}
             options={[
               { value: "lacks", label: t("tools.batch.event.lacks") },
               { value: "has", label: t("tools.batch.event.has") },
+              { value: "undated", label: t("tools.batch.event.undated") },
+              { value: "estimated", label: t("tools.batch.event.estimated") },
             ]}
           />
           <SelectMenu
@@ -665,6 +801,14 @@ function CriterionRow({
               { value: ANY_EVENT, label: t("tools.batch.event.any") },
             ]}
           />
+          {(carriesLineValue(c.tag) || c.tag === ANY_EVENT) && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.eventTextPlaceholder")}
+              value={c.text ?? ""}
+              onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+            />
+          )}
         </>
       )}
       {c.kind === "kinship" && (
@@ -753,15 +897,31 @@ function CriterionRow({
         </>
       )}
       {c.kind === "sources" && (
-        <SelectMenu
-          className="batch-select"
-          value={c.mode}
-          onChange={(v) => onChange({ ...c, mode: v as "none" | "any" })}
-          options={[
-            { value: "none", label: t("tools.batch.sourcesFilter.none") },
-            { value: "any", label: t("tools.batch.sourcesFilter.any") },
-          ]}
-        />
+        <>
+          <SelectMenu
+            className="batch-select"
+            value={c.mode}
+            onChange={(v) => {
+              const mode = v as typeof c.mode;
+              const onEvent = mode === "eventHas" || mode === "eventLacks";
+              onChange({ ...c, mode, tag: onEvent ? (c.tag ?? "BIRT") : undefined });
+            }}
+            options={(["none", "any", "eventHas", "eventLacks"] as const).map((m) => ({
+              value: m,
+              label: t(`tools.batch.sourcesFilter.${m}`),
+            }))}
+          />
+          {(c.mode === "eventHas" || c.mode === "eventLacks") && (
+            <SelectMenu
+              className="batch-select"
+              value={c.tag ?? "BIRT"}
+              onChange={(v) => onChange({ ...c, tag: v })}
+              options={[...eventOptions, ...familyEventOptions.filter((tag) => !eventOptions.includes(tag))].map(
+                (tag) => ({ value: tag, label: eventMenuLabel(tag, t) }),
+              )}
+            />
+          )}
+        </>
       )}
       {c.kind === "line" && (
         <SelectMenu
@@ -833,19 +993,18 @@ function MediaSelect({
 }) {
   const { t } = useTranslation();
   return (
-    <SelectMenu
-      className="batch-select batch-media-select"
+    <SearchSelect
+      className="batch-media-select"
       value={value}
       placeholder={t("tools.batch.pickMedia")}
+      emptyLabel={t("start.noMatches")}
       onChange={(key) => {
         if (key === NEW_KEY) onPick({ file: "" });
         const opt = options.find((o) => o.key === key);
         if (opt) onPick({ xref: opt.xref, file: opt.file });
       }}
-      options={[
-        ...options.map((o) => ({ value: o.key, label: o.title ? `${o.title} — ${o.file}` : o.file })),
-        ...(allowNew ? [{ value: NEW_KEY, label: t("tools.batch.newMedia") }] : []),
-      ]}
+      options={options.map((o) => ({ value: o.key, label: o.title ? `${o.title} — ${o.file}` : o.file }))}
+      pinned={allowNew ? [{ value: NEW_KEY, label: t("tools.batch.newMedia") }] : []}
     />
   );
 }
@@ -855,15 +1014,21 @@ function MediaSelect({
 function ActionEditor({
   action,
   mediaOptions,
+  folderMediaOptions,
   sourceOptions,
   vendorEventOptions,
+  familyVendorOptions,
   onChange,
 }: {
   action: BatchActionSpec | null;
   mediaOptions: MediaOption[];
+  /** Folder images the file does not use yet — attachable, never removable. */
+  folderMediaOptions: MediaOption[];
   sourceOptions: Array<{ xref: string; title: string }>;
   /** Non-standard event tags present in the file — the convert action's sources. */
   vendorEventOptions: string[];
+  /** Those of them only families hold: converted into a family event. */
+  familyVendorOptions: string[];
   onChange: (next: BatchActionSpec | null) => void;
 }) {
   const { t } = useTranslation();
@@ -884,15 +1049,17 @@ function ActionEditor({
     removeMedia: { kind: "removeMedia" },
     markDeceased: { kind: "markDeceased" },
     estimateBirth: { kind: "estimateBirth" },
+    estimateMarriage: { kind: "estimateMarriage" },
     addMarriedName: { kind: "addMarriedName" },
     convertEvent: { kind: "convertEvent", ...conversionFor(firstVendor) },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
   // "new image" choice — picking an existing option clears the title again.
+  const attachable = [...mediaOptions, ...folderMediaOptions];
   const mediaPick =
     action && (action.kind === "addMedia" || action.kind === "removeMedia")
       ? action.xref || action.file
-        ? mediaPickValue(action, mediaOptions)
+        ? mediaPickValue(action, action.kind === "addMedia" ? attachable : mediaOptions)
         : action.kind === "addMedia" && action.title !== undefined
           ? NEW_KEY
           : ""
@@ -918,7 +1085,7 @@ function ActionEditor({
         <>
           <MediaSelect
             value={mediaPick}
-            options={mediaOptions}
+            options={attachable}
             allowNew
             onPick={(o) =>
               o.file === "" && o.xref === undefined
@@ -947,18 +1114,17 @@ function ActionEditor({
 
       {action?.kind === "addSource" && (
         <>
-          <SelectMenu
-            className="batch-select batch-media-select"
+          <SearchSelect
+            className="batch-media-select"
             value={sourcePick}
             placeholder={t("tools.batch.pickSource")}
+            emptyLabel={t("start.noMatches")}
             onChange={(v) => {
               if (v === NEW_KEY) onChange({ kind: "addSource", title: "", page: action.page });
               else onChange({ kind: "addSource", xref: v, page: action.page });
             }}
-            options={[
-              ...sourceOptions.map((s) => ({ value: s.xref, label: s.title })),
-              { value: NEW_KEY, label: t("tools.batch.newSource") },
-            ]}
+            options={sourceOptions.map((s) => ({ value: s.xref, label: s.title }))}
+            pinned={[{ value: NEW_KEY, label: t("tools.batch.newSource") }]}
           />
           {sourcePick === NEW_KEY && (
             <input
@@ -979,6 +1145,10 @@ function ActionEditor({
 
       {action?.kind === "estimateBirth" && (
         <span className="batch-hint">{t("tools.batch.estimateBirthHint")}</span>
+      )}
+
+      {action?.kind === "estimateMarriage" && (
+        <span className="batch-hint">{t("tools.batch.estimateMarriageHint")}</span>
       )}
 
       {action?.kind === "addMarriedName" && (
@@ -1009,7 +1179,10 @@ function ActionEditor({
               const named = v === "EVEN" || v === "FACT";
               onChange({ ...action, toTag: v, type: named ? action.type?.trim() || typeFor(action.fromTag) : undefined });
             }}
-            groups={offeredEventGroups(eventOffer).map((g) => ({
+            groups={(familyVendorOptions.includes(action.fromTag)
+              ? [{ labelKey: "eventGroup.family", tags: EDITABLE_FAM_EVENT_TAGS.filter((tag) => tag !== action.fromTag && offersEventTag(tag, "FAM", eventOffer)) }]
+              : offeredEventGroups(eventOffer)
+            ).map((g) => ({
               label: t(g.labelKey),
               items: g.tags.map((tag) => ({ value: tag, label: eventMenuLabel(tag, t) })),
             }))}

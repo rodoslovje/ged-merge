@@ -187,6 +187,16 @@ describe("workspaceReducer — decisions & branches", () => {
     expect(workspaceReducer(s2, { type: "decisionsCleared" })).toBe(s2);
     expect(workspaceReducer(s2, { type: "importBranchesCleared" })).toBe(s2);
   });
+
+  it("a whole-file merge goes back to by-person when the branch requests are cleared", () => {
+    // A save and a new incoming file both clear them: the same file must not
+    // be brought in again by the next save.
+    const s1 = workspaceReducer(initialWorkspace, { type: "mergeScopeSet", scope: "file" });
+    expect(s1.mergeScope).toBe("file");
+    expect(workspaceReducer(s1, { type: "mergeScopeSet", scope: "file" })).toBe(s1);
+    expect(workspaceReducer(s1, { type: "importBranchesCleared" }).mergeScope).toBe("people");
+    expect(workspaceReducer(s1, { type: "reset" }).mergeScope).toBe("people");
+  });
 });
 
 describe("workspaceReducer — start & reset", () => {

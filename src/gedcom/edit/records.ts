@@ -25,10 +25,19 @@ export const RECORD_LINK_EXTENSION = "_URL";
 export function recordLinkTag(records: GedNode[], record: GedNode, overrides?: FormatOverrides): string {
   if (overrides?.standard) return RECORD_LINK_EXTENSION;
   const own = record.children.find((c) => LINE_LINK_TAGS.has(c.tag))?.tag;
-  return own ?? memoOnContent(records, "recordLinkTag", () => fileRecordLinkTag(records));
+  return own ?? memoOnContent(records, "recordLinkTag", () => recordLinkHabit(records).tag);
 }
 
-function fileRecordLinkTag(records: GedNode[]): string {
+/** Is `node` a link written as one value line on a person or family record? */
+export function isRecordLinkLine(node: GedNode): boolean {
+  return LINE_LINK_TAGS.has(node.tag);
+}
+
+/**
+ * How a file writes links on its person and family records: the tag it writes
+ * most (else {@link RECORD_LINK_EXTENSION}), and every line tag it uses there.
+ */
+export function recordLinkHabit(records: GedNode[]): { tag: string; tags: string[] } {
   const counts = new Map<string, number>();
   for (const rec of records) {
     if (rec.tag !== "INDI" && rec.tag !== "FAM") continue;
@@ -37,7 +46,7 @@ function fileRecordLinkTag(records: GedNode[]): string {
   let best = RECORD_LINK_EXTENSION;
   let max = 0;
   for (const [tag, n] of counts) if (n > max) [best, max] = [tag, n];
-  return best;
+  return { tag: best, tags: [...counts.keys()] };
 }
 
 /** Tags carrying a FamilySearch person id (MacFamilyTree / RootsMagic dialects),
@@ -74,7 +83,11 @@ export function preferredFsIdTag(ds: Dataset, overrides?: FormatOverrides): FsId
 export function setFsIds(indi: Individual, ids: string[], preferredTag: FsIdTag): void {
   const clean = ids.map((s) => s.trim().toUpperCase()).filter(Boolean);
   const existing = indi.raw.children.filter(isFsIdNode);
-  const tag = existing.length ? existing[existing.length - 1].tag : preferredTag;
+  // The record's own tag, unless it and the preferred tag disagree on EXID: a
+  // strict 7.0 target prefers the standard EXID over `_FID`/`_FSFTID`, and a
+  // strict 5.5.1 one — which has no EXID — the file's extension.
+  const own = existing[existing.length - 1]?.tag;
+  const tag = own && (own === "EXID") === (preferredTag === "EXID") ? own : preferredTag;
   existing.slice(0, clean.length).forEach((node, i) => { node.value = clean[i]; });
   if (clean.length < existing.length) {
     const drop = new Set(existing.slice(clean.length));

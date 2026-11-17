@@ -135,8 +135,9 @@ export function incomingCitationPage(
   placement: LinkPlacement,
 ): { url: string; source?: GedNode } | undefined {
   const value = citation.value?.trim();
-  const source =
-    value && isPointer(value) ? placement.incoming?.records.find((r) => r.tag === "SOUR" && r.xref === value) : undefined;
+  // The incoming file does not change during a merge: its source index is
+  // built once with the placement, so a citation is a lookup, not a scan.
+  const source = value && isPointer(value) ? placement.incoming?.sourceCtx.sourceIndex.get(value) : undefined;
   const own = pageTextUrl(childText(citation, "PAGE"));
   if (own) return { url: own, source };
   if (!placement.incoming) return undefined;
@@ -265,7 +266,7 @@ export function placeRecordLink(
   const recognized = recognizeSourceUrl(url);
   const source = resolveSource(records, url, recognized, placement, reserved);
   if (!source) {
-    insertOrdered(record, buildLinkNode(placement.linkFormat, url, records, reserved), childOrderOf(record));
+    insertOrdered(record, buildLinkNode(placement.linkFormat, url, records, sourceWriteVersion(placement.overrides), reserved), childOrderOf(record));
     return { url };
   }
   const target = citationTarget(record, records, recognized, source.sourceXref, placement);
@@ -423,7 +424,7 @@ function resolveSource(
     const pageObje =
       existing.objeXref ??
       (incomingObje && linkObjeToSource(records, existing.sourceXref, incomingObje)) ??
-      addObjeToSource(records, existing.sourceXref, url, pageTitleFor(records, existing.sourceXref, recognized), reserved)
+      addObjeToSource(records, existing.sourceXref, url, sourceWriteVersion(placement.overrides), pageTitleFor(records, existing.sourceXref, recognized), reserved)
         .xref ??
       undefined;
     return { sourceXref: existing.sourceXref, page: existing.page, pageObje, quay };
@@ -482,7 +483,7 @@ export function pendingBookLookups(
 export function previewLinkCitation(records: GedNode[], url: string): SourceCitation | undefined {
   const existing = findExistingSource(records, url, undefined, getSourceLookup(records));
   if (existing) {
-    const node = records.find((r) => r.tag === "SOUR" && r.xref === existing.sourceXref);
+    const node = topRecord(records, "SOUR", existing.sourceXref);
     return {
       sourceId: existing.sourceXref,
       title: node && sourceTitle(node),
@@ -544,6 +545,20 @@ export function previewLinkPlacement(
   };
 }
 
+/**
+ * The first top-level `SOUR` / `OBJE` record with this xref — `records.find`
+ * answered from the cached source lookup, which every helper that adds such a
+ * record refreshes through the source-cache version bump. A hit is checked
+ * against the node itself and a miss falls back to the scan, so a record
+ * added without a bump is still found.
+ */
+function topRecord(records: GedNode[], tag: "SOUR" | "OBJE", xref: string): GedNode | undefined {
+  const lookup = getSourceLookup(records);
+  const hit = (tag === "SOUR" ? lookup.sourceNodes : lookup.objeNodes).get(xref);
+  if (hit && hit.tag === tag && hit.xref === xref) return hit;
+  return records.find((r) => r.tag === tag && r.xref === xref);
+}
+
 /** The file of the page image that would be linked beside the citation: the
  *  one the source already holds for this page, else the link itself — which is
  *  what a page `OBJE` minted for it would carry. */
@@ -558,7 +573,7 @@ function pageImageUrl(records: GedNode[], citation: SourceCitation, url: string)
  * imports. Returns the xref, or undefined when the source is not there.
  */
 function linkObjeToSource(records: GedNode[], sourceXref: string, objeXref: string): string | undefined {
-  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  const sourceNode = topRecord(records, "SOUR", sourceXref);
   if (!sourceNode) return undefined;
   if (!sourceNode.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref)) {
     insertGrouped(sourceNode, { level: sourceNode.level + 1, tag: "OBJE", value: objeXref, children: [] }, SOUR_TRAILING_TAGS);
@@ -574,7 +589,7 @@ function pageTitleFor(
   sourceXref: string,
   recognized: RecognizedSourceUrl | undefined,
 ): string | undefined {
-  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  const sourceNode = topRecord(records, "SOUR", sourceXref);
   if (!sourceNode) return undefined;
   return pageObjeTitle(recognized?.site, sourceTitle(sourceNode), recognized?.page, undefined, recognized?.collection);
 }
@@ -620,7 +635,7 @@ function citationTarget(
   sourceXref: string,
   placement: LinkPlacement,
 ): GedNode {
-  const sourceNode = records.find((r) => r.tag === "SOUR" && r.xref === sourceXref);
+  const sourceNode = topRecord(records, "SOUR", sourceXref);
   const title = (sourceNode && sourceTitle(sourceNode)) || recognized?.proposed.title;
   const tag = citationEventTag(record, records, recognized?.site, title, placement.overrides);
   return (tag && firstChild(record, tag)) || record;
@@ -717,7 +732,7 @@ function mintSource(
   if (!keepFiln) settleSourceFields(source, sourceWriteVersion(placement.overrides), { PERI: true });
   const objeXref = firstChild(source, "OBJE")?.value;
   if (objeXref) {
-    const objeNode = records.find((r) => r.tag === "OBJE" && r.xref === objeXref);
+    const objeNode = topRecord(records, "OBJE", objeXref);
     const objeTitle = pageObjeTitle(recognized.site, title, recognized.page, undefined, recognized.collection);
     if (objeNode && objeTitle && !mediaTitleLine(objeNode)) writeMediaTitle(objeNode, objeTitle);
   }
@@ -730,9 +745,10 @@ function childOrderOf(record: GedNode): string[] {
 }
 
 /** A strict target format never writes `WWW` on a record, which neither
- *  version allows there: the record-level link extension instead. */
+ *  version allows there, nor Family Historian's `_WEBTAG`, which the health
+ *  check reports as a dialect form: the record-level link extension instead. */
 function strictLinkFormat(format: LinkFormat, overrides?: FormatOverrides): LinkFormat {
-  return overrides?.standard && format === "WWW" ? "_URL" : format;
+  return overrides?.standard && (format === "WWW" || format === "WEBTAG") ? "_URL" : format;
 }
 
 /**
@@ -745,13 +761,15 @@ function buildLinkNode(
   format: LinkFormat,
   url: string,
   records: GedNode[],
+  /** The version a media record is written in — the main's target's. */
+  version: "5.5.1" | "7.0",
   reserved?: ReadonlySet<string>,
 ): GedNode {
   if (format === "WEBTAG") {
     return { level: 0, tag: "_WEBTAG", children: [{ level: 1, tag: "URL", value: url, children: [] }] };
   }
   if (format === "OBJE") {
-    const obje = createMediaRecord(records, url, undefined, reserved);
+    const obje = createMediaRecord(records, url, version, undefined, reserved);
     return { level: 0, tag: "OBJE", value: obje.xref, children: [] };
   }
   return { level: 0, tag: format === "_URL" ? RECORD_LINK_EXTENSION : "WWW", value: url, children: [] };

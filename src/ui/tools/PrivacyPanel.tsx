@@ -12,11 +12,12 @@ import {
   type ResnMode,
   type StripCategory,
 } from "../../tools/privacy";
-import { downloadOptions, serializeGedcom } from "../../gedcom/serialize";
-import { prepareDownload } from "../../save/outputFile";
+import { serializeGedcom } from "../../gedcom/serialize";
+import { downloadVersion, outputOptions, prepareDownload } from "../../save/outputFile";
+import { useTargetFormat } from "../TargetFormatContext";
 import { downloadText, savedName } from "../download";
 import { PersonLink } from "../PersonLink";
-import { ToolsLoading } from "./shared";
+import { ToolsLoading, ToolsIntro } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { afterPendingAdds } from "../source/pendingAdds";
 
@@ -60,6 +61,7 @@ export function PrivacyPanel({
   active: boolean;
 }) {
   const { t } = useTranslation();
+  const { target } = useTargetFormat();
   const [options, setOptions] = useState<PrivacyOptions>(defaultPrivacyOptions);
   const [ready, setReady] = useState(false);
   const [showList, setShowList] = useState(false);
@@ -100,15 +102,17 @@ export function PrivacyPanel({
     afterPendingAdds(() => {
       const { records, report } = privatizeDataset(dataset, options);
       const d = new Date(); // one shared stamp so the .ged and its report sort together
-      prepareDownload(records, dataset, undefined, d); // UTF-8, stamped, complete
-      downloadText(savedName(fileName, "ged", d), serializeGedcom(records, downloadOptions(dataset)));
+      // In the version Save writes: a strict target converts the file.
+      const version = downloadVersion(dataset, target);
+      prepareDownload(records, dataset, version, d); // UTF-8, stamped, complete
+      downloadText(savedName(fileName, "ged", d), serializeGedcom(records, outputOptions(dataset, version)));
       downloadText(savedName(fileName, "report.txt", d), privacyReportText(report.flagged, options));
     });
   }
 
   return (
     <div className="tools-privacy">
-      <p className="tools-intro">{t("tools.privacy.intro")}</p>
+      <ToolsIntro>{t("tools.privacy.intro")}</ToolsIntro>
 
       {/* Threshold + recent-death */}
       <div className="tools-privacy-group">

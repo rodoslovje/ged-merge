@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { LegendEntry } from "../chart/nodeColor";
 
@@ -22,9 +23,26 @@ interface Props {
 
 export function ChartLegend({ entries, hidden, onToggle, tint }: Props) {
   const { t } = useTranslation();
-  if (entries.length === 0) return null;
+  const ref = useRef<HTMLDivElement>(null);
+  const shown = entries.length > 0;
+  // The band wraps onto as many lines as its chips need; the wrap learns its
+  // height, so the canvas above ends at the band's top edge however tall it is.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const wrap = el?.parentElement;
+    if (!el || !wrap) return;
+    const set = () => wrap.style.setProperty("--chart-legend-h", `${el.offsetHeight}px`);
+    set();
+    const ro = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(set);
+    ro?.observe(el);
+    return () => {
+      ro?.disconnect();
+      wrap.style.removeProperty("--chart-legend-h");
+    };
+  }, [shown]);
+  if (!shown) return null;
   return (
-    <div className="kin-legend chart-legend" role="group" aria-label={t("kin.legend")}>
+    <div ref={ref} className="kin-legend chart-legend" role="group" aria-label={t("kin.legend")}>
       {entries.map((e) => {
         const off = hidden?.has(e.key) ?? false;
         const body = (

@@ -23,8 +23,10 @@ export type MediaMode = "inline" | "shared";
  * `OBJE` records, by counting how each `OBJE` on an `INDI`/`FAM` record is
  * expressed. Ties — and a file with no photos at all — fall back to "shared",
  * since shared records allow one photo to be referenced by several people.
+ * A 7.0 target (`version`) is always "shared": 7.0 has no inline media block.
  */
-export function detectMediaMode(records: GedNode[]): MediaMode {
+export function detectMediaMode(records: GedNode[], version: "5.5.1" | "7.0"): MediaMode {
+  if (version === "7.0") return "shared";
   let inline = 0;
   let shared = 0;
   for (const rec of records) {

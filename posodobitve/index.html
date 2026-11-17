@@ -86,6 +86,87 @@
 
         <article class="guide-body changelog-body">
           <section class="changelog-entry">
+            <h2>2026-11-17</h2>
+            <ul>
+              <li><strong>Časovnica izriše krvno linijo po letih</strong> — v novi postavitvi »Rodovne linije« stojijo predniki pri letu rojstva in se stekajo k osebi, potomci se pod njo razvejijo, po želji z življenjskimi črtami, prikrite žive osebe pa stojijo pri desetletju rojstva.</li>
+              <li><strong>Časovnica prikaže zgodovinske dogodke</strong> — z gumbom »Zgodovinski dogodki« v nastavitvah diagrama se označijo vojne, reforme in selitve v državah, kjer so osebe na diagramu takrat živele, letnice nad vrsticami pa zdaj ostanejo vidne tudi med pomikanjem.</li>
+              <li><strong>Veje so jasneje ločene</strong> — štiri linije starih staršev so na vseh diagramih modra, oranžna, zelena in vijolična, po vejah pa se lahko obarvajo tudi trakovi Časovnice.</li>
+              <li><strong>Statistika prikaže poroke med priimki</strong> — stran <em>Imena</em> nariše omrežje priimkov, ki jih povezujejo poroke njihovih nosilcev, razvrsti najpogostejše pare priimkov v porokah in po desetletjih pokaže najpogostejše priimke.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-16</h2>
+            <ul>
+              <li><strong>Drevo lahko delite kot družinsko spletno stran</strong> — <em>Orodja → Spletna stran</em> prenese eno stran HTML, ki jo sorodniki odprejo z diska ali s katerega koli spletnega strežnika; na njej so iskanje, stran vsake osebe, diagrami, zemljevid in statistika, datoteke GEDCOM pa z nje ni mogoče prenesti.</li>
+              <li><strong>Fotografije na spletni strani</strong> — z izbiro <em>Fotografije</em> se stran prenese kot ZIP s stranjo in njenimi fotografijami, med katerimi ni nobene s skrito osebo, stran vsake osebe pokaže njene fotografije z označenimi osebami, po mapah pa izberete, katere fotografije gredo na stran in katere v trak na vrhu začetne strani.</li>
+              <li><strong>Deljena povezava do spletne strani pokaže predogled</strong> — naslov, vaše besedilo in naslovno fotografijo po vaši izbiri, ki stoji tudi ob naslovu na začetni strani, povezava do diagrama sorodstva navaja obe osebi, strani lahko date svojo ikono in jo odprete iskalnikom, stran v glavi in nogi vodi na vašo glavno rodoslovno spletno stran, na strani osebe pa so našteti tudi njeni polbratje in polsestre.</li>
+              <li><strong>Stran vsake osebe vodi do njenih diagramov</strong> — ob imenu so mali zemljevid njenih krajev in ploščice za pahljačo, časovnico in sorodstvo, kraj s koordinato se odpre na malem zemljevidu, klik na osebo v diagramu odpre njeno stran, ob dogodkih so starosti, delujejo pa tudi bližnjice na tipkovnici.</li>
+              <li><strong>Sami določite, kaj stran pokaže</strong> — žive osebe in osebe, umrle v zadnjih 20 letih, kot zahteva ZVOP-2, izpustite ali jih pokažete z začetnicami, imenom ali imenom in priimkom, objavite vse osebe, krvne sorodnike ali prednike in potomce, vire, opombe, naslove, sloje zemljevida in prenose pa dodate le po želji.</li>
+              <li><strong>Statistika pokaže, kje se je družina rodila</strong> — stran <em>Kraji in selitve</em>, ki nadomešča stran <em>Selitve</em>, pokaže najpogostejše kraje rojstva po desetletjih, rojstva po desetletjih, obarvana po kraju rojstva, ter povezave med kraji rojstva staršev in kraji rojstva njihovih otrok, po krajih ali po državah.</li>
+              <li><strong>Diagrame osebe odprete s tipko</strong> — <span class="gm-key">P</span>, <span class="gm-key">L</span> in <span class="gm-key">G</span> odprejo pahljačo, časovnico in zemljevid, diagram sorodstva se seli na <span class="gm-key">K</span>, na strani z diagrami iste tipke preklapljajo med njimi, <span class="gm-key">S</span> pa odpre statistiko.</li>
+              <li><strong>Brez zapisa o poroki ni več zakoncev</strong> — kjer datoteka poroke ne zapiše, oznaka sorodstva pove Partner ali Partnerka namesto Mož, Žena ali Zakonec.</li>
+              <li><strong>Filtriranje po nazivu dogodka in po vzroku smrti</strong> — v <em>Orodja → Paketna opravila</em> filtra dogodka osebe in zveze sprejmeta naziv ali vrednost, ki jo iščete, na primer dogodek po meri »Separation« ali poklic kmet, nov filter <em>Vzrok smrti</em> pa najde zapisani vzrok ali vzrok, ki vsebuje vpisane besede.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-15</h2>
+            <ul>
+              <li><strong>Združite lahko celotno vhodno datoteko</strong> — z izbiro <em>Celotna datoteka</em> nad seznamom ujemanj se ob shranjevanju prenesejo vse osebe iz vhodne datoteke z družinami, viri in opombami, potrjene osebe se združijo, o nepregledanih možnih ujemanjih pa se odločite ob shranjevanju.</li>
+              <li><strong>Zapišete lahko, da se par ni poročil</strong> — meni <em>+ Dodaj družinski dogodek</em> se konča s skupino <em>Se ni zgodilo</em>, vsaka taka navedba je svoja vrstica pred dogodki, diagrami pa ob poroki označijo par, ki ni poročen (⚯), je ločen (⚮) ali živi ločeno (⚬⚬).</li>
+              <li><strong>Prenosi v ozadju so zdaj vidni</strong> — vrteči se krogec ob gumbu Razveljavi našteje vse prenose, ki še tečejo, ne glede na to, kje ste jih začeli: iskanje krajev in naslovov, branje strani virov in prenos registrov krajev, pri vsakem pa pokaže, kako daleč je.</li>
+              <li><strong>Več registrov krajev se prenaša hkrati</strong> — kraji in naslovi GURS in DGU se prenašajo vzporedno, vsak prenos pokaže napredek v svojem gumbu, s klikom nanj pa ga prekličete.</li>
+              <li><strong>Nepovezano vejo lahko prenesete ali odstranite</strong> — <em>Nepovezane veje</em> zdaj naštejejo vsako skupino oseb, ki ni povezana z glavnim drevesom, pri njeni najmlajši osebi; vejo lahko iz njene vrstice prenesete kot datoteko GEDCOM ali jo izbrišete, nepovezano osebo pa izbrišete z gumbom <em>Odstrani osebo</em>.</li>
+              <li><strong>Pregled oceni manjkajoče datume</strong> — osebi brez ključnih datumov ponudi ocenjeno rojstvo, nova ugotovitev <em>Poroka brez datuma</em> pa ocenjen datum poroke, oboje enako, kot ga zapišeta paketni opravili za oceno.</li>
+              <li><strong>Pregled popravi identifikatorje zapisov in odstrani oznake po meri</strong> — <em>Popravi identifikator</em> da zapisu vira, opombe ali medija identifikator, ki ga standard dovoljuje, in posodobi vse kazalce nanj, <em>Odstrani oznako</em> pa oznako po meri odstrani iz cele datoteke.</li>
+              <li><strong>Paketna opravila pretvarjajo tudi družinske dogodke</strong> — <em>Pretvori vrsto dogodka</em> pretvori tudi družinske dogodke izbranih oseb, na primer ločeno življenje (<code>SEPA</code>) v poimenovan dogodek.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-14</h2>
+            <ul>
+              <li><strong>Datume porok lahko ocenite paketno</strong> — paketno opravilo <em>Dodaj ocenjen datum poroke (BEF, ABT)</em> poroki brez datuma zapiše datum, ocenjen iz rojstev otrok ali zakoncev, filter <em>Zveza</em> pa zdaj najde poroke brez datuma ali le z ocenjenim datumom.</li>
+              <li><strong>Paketna opravila najdejo rojstva, ki še nimajo vira</strong> — filter <em>Viri</em> zdaj preveri en sam dogodek, zadetki so prikazani ob filtrih, sliko in vir pa izberete tako, da vtipkate del imena.</li>
+              <li><strong>Obraze na skupinski fotografiji le poimenujete</strong> — pregledovalnik fotografij sam najde obraze, kar na vašem računalniku, s klikom na obraz pa izberete, kdo je to, pri čemer so najprej ponujeni bližnji sorodniki osebe, velikost vsakega označenega območja pa spremenite z vlečenjem vogala.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-12</h2>
+            <ul>
+              <li><strong>Zemljevid dobi nov koren iz seznama dogodkov</strong> — gumb z drevesom ob vsaki osebi v podoknu dogodkov pokaže prednike in potomce te osebe, enaka ikona pa je zdaj tudi namesto gumba »Koren« v podoknu osebe na drugih diagramih.</li>
+              <li><strong>Hišna številka iz kraja se prestavi v naslov</strong> — iskanje »Žirovnica 7« v imenikih zapiše celoten kraj, hišno številko »Žirovnica 7« pa vpiše v polje Naslov.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-11</h2>
+            <ul>
+              <li><strong>Video navodila na YouTubu</strong> — na kanalu <a href="https://www.youtube.com/@GEDMerge" target="_blank" rel="noopener">GED Merge</a> nastaja <a href="https://www.youtube.com/watch?v=qEsR1sWkMNo&amp;list=PLXKQGQgTQGAY" target="_blank" rel="noopener">serija video navodil</a>, ki program pokaže pri delu, korak za korakom.</li>
+              <li><strong>Pripoved v poročilih loči poroko od partnerske zveze</strong> — zveza brez zapisane poroke imenuje partnerja in je označena z ⚯, zgodba pa omeni poroko po rojstvu otrok, ponovno poroko po smrti zakonca, ločitev in ločeno življenje.</li>
+              <li><strong>Vsaka datoteka si zapomni svojo izhodiščno osebo</strong> — ko datoteko znova odprete, je izhodiščna oseba, ki ste jo zanjo nazadnje izbrali, že nastavljena.</li>
+              <li><strong>Avtor datoteke lahko navaja tudi vašo e-pošto in spletno stran</strong> — vpišete ju ob svojem imenu na novem zavihku Urejanje v Nastavitvah, zapišeta pa se povsod, kjer GED Merge doda zapis avtorja.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-09</h2>
+            <ul>
+              <li><strong>Ujemanja lahko po urejanju glavne datoteke znova izračunate</strong> — gumb ↻ ob filtru seznama ujemanj datoteki primerja še enkrat, vsi potrjeni, zavrnjeni in preloženi pari pa se ohranijo.</li>
+              <li><strong>Predogled shranjevanja našteje le ujemanja, ki jih vaša datoteka še ne podkrepi</strong> — zakonec, starš ali otrok, ki ima v vaši datoteki isto mesto, ni več naveden.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-08</h2>
+            <ul>
+              <li><strong>Pregled izpiše otroke, rojene pred poroko staršev</strong> — poroko, ki je v datoteki le ocenjena, pa datira pred rojstvo najstarejšega otroka.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-06</h2>
+            <ul>
+              <li><strong>Datoteke iz starejših rodoslovnih programov se pravilno preberejo, shranjevanje v GEDCOM 7.0 pa pretvori tudi njihove navedbe virov, medije in priče</strong> — datoteke Brother's Keeper z oznako ANSEL obdržijo č, š in ž, odprejo pa se tudi zelo velike datoteke iz MyHeritage.</li>
+              <li><strong>Diagrami, obarvani po kraju rojstva, združijo kraje po državah in občinah</strong> — vsaka država dobi svoj razpon barv, vsaka občina v njem pa svojo skupino odtenkov; ključ barv se po potrebi razporedi v več vrstic in je zato viden v celoti.</li>
+              <li><strong>Natisnjen diagram zapolni več papirja</strong> — natisne se samo narisani del diagrama, datoteka PDF pa dobi ime po diagramu, tako kot datoteka SVG.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
             <h2>2026-11-04</h2>
             <ul>
               <li><strong>Vaši predniki in potomci so izpisani krepko</strong> — tako ime kot oznaka sorodstva; aplikacija in diagrami imajo vsak svoje stikalo.</li>

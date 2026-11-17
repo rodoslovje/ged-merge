@@ -105,6 +105,16 @@ test("a chart that can't be split still prints on real paper", async ({ page }) 
   await page.locator(".charts-kind").getByRole("tab", { name: "Fan" }).click();
   await page.locator("svg.tree-svg").waitFor();
 
+  // The fan's canvas is a square around the full ancestor radius; the drawing
+  // inside it is not. The print is cropped to the drawing, so the blank part
+  // of the square no longer takes page space from the chart.
+  const canvas = await page.locator("svg.tree-svg").evaluate((svg) => {
+    const vb = (svg as SVGSVGElement).viewBox.baseVal;
+    const b = (svg as SVGSVGElement).getBBox();
+    return { w: vb.width, h: vb.height, drawnH: b.height };
+  });
+  expect(canvas.drawnH).toBeLessThan(canvas.h - 50);
+
   await page.locator(".export-menu .tree-export-btn").click();
   await page.getByRole("menuitem", { name: "PDF (print)" }).click();
   const dialog = page.locator(".sheet-dialog");
@@ -121,4 +131,6 @@ test("a chart that can't be split still prints on real paper", async ({ page }) 
   const printDocs = await page.evaluate(() => (window as unknown as { __printDocs: string[] }).__printDocs);
   expect(printDocs[0]).toContain("size: 1587px 2245px"); // A2 portrait, 420 × 594 mm
   expect(printDocs[0]).not.toContain("<filter");
+  // The diagram band is the drawing (plus a little padding), not the canvas.
+  expect(printDocs[0]).toMatch(/<g transform="translate\(-?[\d.]+,-[\d.]+\)">/);
 });

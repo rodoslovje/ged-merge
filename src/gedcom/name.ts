@@ -121,7 +121,8 @@ export function parseName(value: string | undefined, subTags: Map<string, string
   // Married surname stored inline (Gramps/PAF/Brother's Keeper style). The
   // value is a bare surname; tolerate a slash-wrapped form too.
   const marnm = subTags.get("_MARNM");
-  const married = marnm?.match(/\/([^/]*)\//)?.[1].trim() ?? marnm;
+  // Wrapped whole (`/Kovač/`) only: `Tomc/Tomec` lists spellings, all kept.
+  const married = marnm?.match(/^\s*\/(.*)\/\s*$/)?.[1].trim() ?? marnm;
 
   const raw = (value ?? "").trim();
 

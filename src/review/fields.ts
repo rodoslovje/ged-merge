@@ -5,7 +5,7 @@ import { decomposePlace } from "../gedcom/place";
 import { eventAddressFullText } from "../gedcom/address";
 import { compareKey, foldToken } from "../match/text";
 import { canonicalPlaceToken, placeCompareKey } from "../match/place";
-import { ALIAS_GIVEN_CEILING, PARENT_GIVEN_CONFLICT, comparableName, dateCompareKey, knownGivenSimilarity, nameSimilarity } from "../match/similarity";
+import { ALIAS_GIVEN_CEILING, PARENT_GIVEN_CONFLICT, SAME_PERSON_GIVEN, comparableName, dateCompareKey, givenSimilarity, knownGivenSimilarity, nameSimilarity } from "../match/similarity";
 import { findEvent, fullDatesLabel, lifespanLabel, displayName, nameTypeLabel } from "../match/relatives";
 import { birthDateOf, formatLifespan, isDeceased, yearsApprox, type YearsApprox } from "../gedcom/lifespan";
 import { dateText, dateToSortKey, parseDate } from "../gedcom/date";
@@ -438,6 +438,28 @@ function buildParentRows(
 }
 
 /**
+ * The incoming father and mother as the Parents rows show them: each found in
+ * whichever family the incoming person is a child in, and read crossed when the
+ * rows read them crossed. The merge links these ids, so it never stitches in a
+ * parent the review did not offer, or drops one it did.
+ */
+export function incomingParentIds(
+  main: Individual | undefined,
+  compare: Individual,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  confirmed: ReadonlyMap<string, string> | undefined,
+): { father?: string; mother?: string } {
+  const cFather = parentRelative(compare, compareDs, "husband");
+  const cMother = parentRelative(compare, compareDs, "wife");
+  const crossed = parentsAreCrossed(
+    parentRelative(main, mainDs, "husband"), parentRelative(main, mainDs, "wife"), cFather, cMother, confirmed,
+  );
+  const [father, mother] = crossed ? [cMother, cFather] : [cFather, cMother];
+  return { father: father[0]?.id, mother: mother[0]?.id };
+}
+
+/**
  * Do the incoming parents belong in the other slots? Scores the two readings —
  * father↔father + mother↔mother against father↔mother + mother↔father — and
  * says so when crossing them wins and at least one crossed pair is a real match.
@@ -707,6 +729,11 @@ function pairFamilies(
       let sim = 0;
       if (mSpouse && cSpouse && confirmed?.(mSpouse.id, cSpouse.id)) {
          sim = CONFIRMED_PAIR_SCORE;
+      } else if (mSpouse && cSpouse && unionsContradict(mf, cf, mSpouse, cSpouse)) {
+         // The dates say two marriages — a wife dead before the other wedding,
+         // or two exactly dated weddings years apart — however alike the two
+         // partners' names. Only shared children can still tie them together.
+         sim = childOverlap();
       } else if (mSpouse && cSpouse) {
          // Both unions name a partner, so the partners decide: two people are
          // the same one only at the bar the table uses everywhere else
@@ -858,7 +885,8 @@ interface Relative {
  * Summary counts over a set of field rows:
  *  - `newCount`  = fields the compare record has but the main lacks (to add)
  *  - `diffCount` = fields both have but that differ (to reconcile)
- *  - `linkCount` = attached links the compare has that the main lacks
+ *  - `linkCount` = links the compare has that the main lacks — bare, or the
+ *    page URL a citation carries (such a row counts as new/diff and link)
  *
  * Links are tallied separately (not folded into new/diff) so the matches list
  * can surface and filter on them as their own dimension.
@@ -888,9 +916,16 @@ export function fieldDiffCounts(
       else if (mKeys.size && iKeys.size && !(mKeys.size === iKeys.size && [...mKeys].every((k) => iKeys.has(k)))) diffCount++;
     } else if (row.state === "incoming-only") newCount++;
     else if (row.state === "conflict") diffCount++;
-    if (row.mainLinkIcons || row.incomingLinkIcons) {
-      const mainIconKeys = new Set((row.mainLinkIcons ?? []).map(linkKey));
-      if ((row.incomingLinkIcons ?? []).some((url) => !mainIconKeys.has(linkKey(url)))) linkCount++;
+    // A URL the row brings is a new link whether it sits bare beside the
+    // sources or inside a citation (its exact page, not a repository fallback
+    // every citation of that archive shares). One per row.
+    if (isSources) {
+      const urlsOf = (icons: string[] | undefined, sources: SourceCitation[] | undefined, exactOnly: boolean) => [
+        ...(icons ?? []),
+        ...(sources ?? []).flatMap((c) => (c.url && (c.exact || !exactOnly) ? [c.url] : [])),
+      ];
+      const mainUrlKeys = new Set(urlsOf(row.mainLinkIcons, row.mainSources, false).map(linkKey));
+      if (urlsOf(row.incomingLinkIcons, row.incomingSources, true).some((url) => !mainUrlKeys.has(linkKey(url)))) linkCount++;
     }
   }
   return { newCount, diffCount, linkCount };
@@ -1020,8 +1055,13 @@ function pushRelativesRow(
   // (main-if-present) work; rendering uses the structured `relatives` pairs.
   const m = main.length ? pairs.map((p) => p.main?.text ?? "").join("\n") : "";
   const i = incoming.length ? pairs.map((p) => p.incoming?.text ?? "").join("\n") : "";
+  // A pair you confirmed is one person, whatever each file calls them (Mina
+  // and Marija): the row agrees, so a parent is not shown as a disagreement.
+  const samePerson = (p: RelativePair) =>
+    !!p.main && !!p.incoming && (compareKey(p.main.text) === compareKey(p.incoming.text)
+      || (!!p.incoming.id && confirmed?.get(p.incoming.id) === p.main.id));
   const state: FieldState =
-    m && !i ? "main-only" : !m && i ? "incoming-only" : compareKey(m) === compareKey(i) ? "agree" : "conflict";
+    m && !i ? "main-only" : !m && i ? "incoming-only" : pairs.every(samePerson) ? "agree" : "conflict";
   rows.push({
     key,
     label,
@@ -1099,6 +1139,24 @@ export function relativePersonSimilarity(
 }
 
 /**
+ * Do the two unions' own dates make them two marriages? Either partner dead
+ * (on an exact date) in a year before the other union's exactly dated
+ * marriage — a widower's first wife cannot be his second — or two exactly
+ * dated marriages further apart than a transcription slip
+ * ({@link EXACT_YEAR_TOLERANCE}). Approximate dates never contradict.
+ */
+function unionsContradict(mf: Family, cf: Family, mSpouse: Individual, cSpouse: Individual): boolean {
+  const exactYear = (d: GedDate | undefined) => (d?.qualifier === "exact" ? d.year : undefined);
+  const mMarr = exactYear(mf.events.find(e => e.tag === "MARR")?.date);
+  const cMarr = exactYear(cf.events.find(e => e.tag === "MARR")?.date);
+  const mDeath = exactYear(findEvent(mSpouse, "DEAT")?.date);
+  const cDeath = exactYear(findEvent(cSpouse, "DEAT")?.date);
+  if (mMarr != null && cDeath != null && cDeath < mMarr) return true;
+  if (cMarr != null && mDeath != null && mDeath < cMarr) return true;
+  return mMarr != null && cMarr != null && Math.abs(mMarr - cMarr) > EXACT_YEAR_TOLERANCE;
+}
+
+/**
  * Score given to a union pair joined on the partner's given name alone (see
  * {@link samePartner}) — above the 0.5 bar `pairFamilies` admits candidates at,
  * but below any full-name agreement, so a partner who matches outright still
@@ -1153,6 +1211,11 @@ function knownNameSimilarity(a: Relative, b: Relative, an: PersonName, bn: Perso
   for (const x of aNames) {
     for (const y of bNames) {
       if (x === an && y === bn) continue;
+      // Two wives of one man share his surname as their married name, so a
+      // surname met through an alias identifies nobody — "Katarina /Jakša/"
+      // and "Ana /Jakša/" are two women. The given names must agree on their
+      // own, as the matcher requires of an alias (`knownGivenSimilarity`).
+      if (!x.given || !y.given || givenSimilarity(x.given, y.given) < SAME_PERSON_GIVEN) continue;
       const sim = nameSimilarity(x, y) ?? 0;
       if (sim >= RELATIVE_PAIR_THRESHOLD) best = Math.max(best, Math.min(ALIAS_GIVEN_CEILING, sim));
     }
@@ -1309,6 +1372,11 @@ function relativeSimilarity(a: Relative, b: Relative, kind: RelativeKind = "part
   // approximate dates.
   const tolerance = a.birthApprox || b.birthApprox ? 10 : EXACT_YEAR_TOLERANCE;
   if (gap > tolerance) return Math.max(0, nameSim - 0.25);
+  // An estimate's wider tolerance only spares the pair the penalty: a year
+  // nine off an estimate corroborates nothing, and crediting it lifted
+  // "Marija Kambič" 1848 over the bar against a "Marija Jaklič" ~1839 — a
+  // widower's two wives shown as one.
+  if (gap > EXACT_YEAR_TOLERANCE) return nameSim;
   // Within tolerance the year *corroborates* the name and ranks the candidates
   // — it never stands in for a name. Siblings share the year they were born as
   // readily as the surname, so without this guard a shared 1803 lifted
