@@ -16,6 +16,7 @@ export const ALL_SITES = [
   "matricula",
   "geneanet",
   "geneanettree",
+  "indeks",
   "findagrave",
   "billiongraves",
   "legacy",
@@ -35,14 +36,16 @@ export type ReshapeSite = (typeof ALL_SITES)[number];
 
 /** Sites the enrichment fetch can usefully contact — Newspapers.com sits behind
  *  a bot wall (verified: every relay gets the challenge page) and generic links
- *  have no parser. FamilySearch answers for one link shape only: an image page,
+ *  have no parser, nor has the client-rendered Slovenian Genealogical Index. FamilySearch answers for one link shape only: an image page,
  *  whose ark serves the record's own citation as JSON. Indexed record pages need
  *  a login and catalog films carry no citation at all, so both keep their
  *  offline fields. Shared by the fetcher and the panel's button/progress so
  *  they can't disagree. */
 export function isFetchableSite(site: ReshapeSite, bookUrl?: string): boolean {
   if (site === "familysearch") return bookUrl !== undefined && isFamilySearchImageArk(bookUrl);
-  return site !== "newspapers" && site !== "other";
+  // The Slovenian Genealogical Index renders its pages in the browser — a
+  // relay sees an empty shell. Its link already names the person and tree.
+  return site !== "newspapers" && site !== "indeks" && site !== "other";
 }
 
 /** A FamilySearch image ark {@link parseFamilySearchArkJson} has something to

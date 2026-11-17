@@ -1892,6 +1892,51 @@ describe("reshapeSources — citation placement", () => {
     expect(idPage.bookType).toBe("unknown");
   });
 
+  it("recognizes Slovenian Genealogical Index person pages, the contributor as author", () => {
+    // As copied out of a GEDCOM 5.5.1 file: the id's at-signs doubled.
+    const rec = recognizeSourceUrl(
+      "https://indeks.rodoslovje.si/?t=descendants&n=Matija&sn=Slobodnik&dob=21%20SEP%201726&c=Renko&id=@@60899836@@",
+    )!;
+    expect(rec.site).toBe("indeks");
+    expect(rec.bookUrl).toBe(
+      "https://indeks.rodoslovje.si/?t=descendants&n=Matija&sn=Slobodnik&dob=21%20SEP%201726&c=Renko&id=@60899836@",
+    );
+    expect(rec.proposed.title).toBe("Matija Slobodnik - Renko - Slovenski rodoslovni indeks");
+    expect(rec.proposed.author).toBe("Renko");
+    // Diacritics in the name survive (percent-encoded or raw).
+    const enc = recognizeSourceUrl("https://indeks.rodoslovje.si/?t=tree&n=Ana&sn=Matekovi%C4%8D&c=Renko&id=%4032441185%40")!;
+    expect(enc.proposed.title).toBe("Ana Matekovič - Renko - Slovenski rodoslovni indeks");
+    // A search names no record or author — only whom it looks for.
+    const search = recognizeSourceUrl("https://indeks.rodoslovje.si/?n=marija&sn=rakar")!;
+    expect(search.site).toBe("indeks");
+    expect(search.proposed.title).toBe("Marija Rakar - Slovenski rodoslovni indeks");
+    expect(search.proposed.author).toBeUndefined();
+    expect(siteQuay("indeks", "https://indeks.rodoslovje.si/?n=marija&sn=rakar")).toBeUndefined();
+    // The bare front page is no source of anything.
+    expect(recognizeSourceUrl("https://indeks.rodoslovje.si/?t=contributors")?.site).not.toBe("indeks");
+  });
+
+  it("files every view of one index person under one source", () => {
+    const { text, counts, report } = applyAll(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 BIRT
+2 WWW https://indeks.rodoslovje.si/?t=descendants&n=Matija&sn=Slobodnik&dob=21%20SEP%201726&c=Renko&id=@@60899836@@
+1 DEAT
+2 WWW https://indeks.rodoslovje.si/?t=tree&n=Matija&sn=Slobodnik&c=Renko&id=@@60899836@@
+0 TRLR`);
+    expect(report.groups).toHaveLength(1);
+    expect(counts.sourcesCreated).toBe(1);
+    expect(text).toContain("1 TITL Matija Slobodnik - Renko - Slovenski rodoslovni indeks");
+    expect(text).toContain("1 AUTH Renko");
+    // The link round-trips: the written `@@` reads back as the site's `@`.
+    const back = dataset(text);
+    expect(findReshapableLinks(back).groups).toHaveLength(0);
+    expect(serializeGedcom(back.records)).toBe(text);
+  });
+
   it("recognizes Geneanet member-tree person pages (own group, not cemeteries)", () => {
     // Semicolon-separated GeneWeb params; pz/nz (the sosa root) must not match.
     const rec = recognizeSourceUrl("http://gw.geneanet.org/hawlina?lang=de;pz=peter;nz=hawlina;ocz=0;p=rajko;n=vute")!;
@@ -3787,6 +3832,9 @@ describe("siteQuay — the quality a recognized link proposes for its citation",
     // Another researcher's conclusions.
     expect(siteQuay("geneanettree", "https://gw.geneanet.org/hawlina?lang=en&p=rajko&n=vute")).toBe("1");
     expect(siteQuay("familysearch", "https://www.familysearch.org/tree/person/details/KWCH-1XZ")).toBe("1");
+    expect(siteQuay("indeks", "https://indeks.rodoslovje.si/?t=tree&n=Matija&c=Renko&id=@60899836@")).toBe("1");
+    // …but an index contributor's transcribed register is a secondary record.
+    expect(siteQuay("indeks", "https://indeks.rodoslovje.si/?t=tree&n=Matija&c=Renko-matricula&id=@P12@")).toBe("2");
     // Sites that publish no evidence of their own leave the reader to judge.
     expect(siteQuay("wikipedia", "https://sl.wikipedia.org/wiki/Ljubljana")).toBeUndefined();
     expect(siteQuay("other", "https://example.com/page")).toBeUndefined();

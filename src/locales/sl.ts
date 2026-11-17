@@ -1700,6 +1700,7 @@ export const sl = {
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet pokopališča",
   "tools.sources.reshapeSite.geneanettree": "Geneanet drevesa",
+  "tools.sources.reshapeSite.indeks": "Slovenski rodoslovni indeks",
   "tools.sources.reshapeSite.findagrave": "Find a Grave",
   "tools.sources.reshapeSite.legacy": "Legacy.com",
   "tools.sources.reshapeSite.newspapers": "Newspapers.com",

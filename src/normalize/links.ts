@@ -97,6 +97,94 @@ export function canonicalFamilySearchUrl(url: string): string {
   return `${m[1]}www.familysearch.org/ark:/61903/${m[2]}${cat ? `?cat=${cat}` : ""}`;
 }
 
+/** A person page of the Slovenian Genealogical Index (indeks.rodoslovje.si):
+ *  `?t=tree&n={given}&sn={surname}&dob={date}&c={contributor}&id=@{xref}@`. The
+ *  pair `c` + `id` names the record — the contributor's tree and the person's
+ *  GEDCOM id in it; the rest is the view (`t`, `dir`, `gens`) and search
+ *  hints that change with how the reader got there. */
+export interface IndeksUrlParts {
+  contributor: string;
+  /** The GEDCOM xref without its `@` delimiters ("60899836"). */
+  id: string;
+  given?: string;
+  surname?: string;
+  dob?: string;
+  /** The page view the link opens: `tree` (default), `ancestors`, `descendants`. */
+  view: string;
+  dir?: string;
+}
+
+const INDEKS_RE = /^https?:\/\/(?:www\.)?indeks\.rodoslovje\.si\/?\?(.*)$/i;
+
+/** One query value as the reader means it: percent-decoded, `+` as a space. */
+function queryValue(raw: string): string {
+  return decodeUrlSafe(raw.replace(/\+/g, " ")).trim();
+}
+
+/** The query of an index URL, keys lowercased and values decoded. */
+function indeksParams(url: string): Map<string, string> | undefined {
+  const m = INDEKS_RE.exec(url.trim());
+  if (!m) return undefined;
+  const params = new Map<string, string>();
+  for (const pair of m[1].replace(/#.*$/, "").replace(/&amp;/gi, "&").split("&")) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) params.set(pair.slice(0, eq).toLowerCase(), queryValue(pair.slice(eq + 1)));
+  }
+  return params;
+}
+
+/** The name an index search link looks for (`?n=marija&sn=rakar`) — a query
+ *  over every contributor, not one record; undefined when it names nobody. */
+export function indeksSearchName(url: string): { given?: string; surname?: string } | undefined {
+  const params = indeksParams(url);
+  const given = params?.get("n") || undefined;
+  const surname = params?.get("sn") || undefined;
+  return given || surname ? { given, surname } : undefined;
+}
+
+/**
+ * Read a Slovenian Genealogical Index person link. The site writes the id with
+ * its GEDCOM delimiters unescaped (`id=@60899836@`); a copy taken out of a
+ * GEDCOM 5.5.1 file doubles them (`@@60899836@@`), an encoder writes `%40` —
+ * all name the same record. A search or contributors page (no `c` + `id`) is
+ * not a person and reads as undefined.
+ */
+export function parseIndeksUrl(url: string): IndeksUrlParts | undefined {
+  const params = indeksParams(url);
+  if (!params) return undefined;
+  const contributor = params.get("c");
+  const id = params.get("id")?.replace(/@/g, "").trim();
+  if (!contributor || !id) return undefined;
+  const view = params.get("t")?.toLowerCase();
+  return {
+    contributor,
+    id,
+    given: params.get("n") || undefined,
+    surname: params.get("sn") || undefined,
+    dob: params.get("dob") || undefined,
+    view: view === "ancestors" || view === "descendants" ? view : "tree",
+    dir: params.get("dir") || undefined,
+  };
+}
+
+/** The canonical form of an index person link: the site's own parameter order
+ *  and spelling (`@` and spaces left readable, as the site writes them). */
+export function indeksPersonUrl(p: IndeksUrlParts): string {
+  const enc = (s: string) => encodeURIComponent(s).replace(/%40/g, "@");
+  const query = [
+    `t=${p.view}`,
+    p.given && `n=${enc(p.given)}`,
+    p.surname && `sn=${enc(p.surname)}`,
+    p.dob && `dob=${enc(p.dob)}`,
+    `c=${enc(p.contributor)}`,
+    `id=@${enc(p.id)}@`,
+    p.dir && `dir=${enc(p.dir)}`,
+  ]
+    .filter(Boolean)
+    .join("&");
+  return `https://indeks.rodoslovje.si/?${query}`;
+}
+
 /** An id that is case-sensitive on its own site — a YouTube video, a Google
  *  Books volume. Case-folding these would make two different resources
  *  compare equal, so the key carries the id as written. */
@@ -111,9 +199,12 @@ const CASE_SENSITIVE_ID_RE =
  * since they link to the same record in different UI languages, and reduce a
  * FamilySearch ark to the page it names. A case-sensitive resource id
  * (YouTube, Google Books) survives the fold, so ids differing only by case
- * stay distinct.
+ * stay distinct. A Slovenian Genealogical Index person link reduces to the
+ * record it names (contributor + id), whatever view or search hints it carries.
  */
 export function linkKey(url: string): string {
+  const indeks = parseIndeksUrl(url);
+  if (indeks) return `https://indeks.rodoslovje.si/?c=${indeks.contributor.toLowerCase()}&id=${indeks.id.toLowerCase()}`;
   const caseId = CASE_SENSITIVE_ID_RE.exec(url.trim())?.[1];
   const key = canonicalFamilySearchUrl(url.trim().toLowerCase())
     .replace(/^http:\/\//, "https://")

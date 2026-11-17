@@ -1482,6 +1482,7 @@ export const en = {
   "tools.sources.reshapeSite.matricula": "Matricula Online",
   "tools.sources.reshapeSite.geneanet": "Geneanet Cemeteries",
   "tools.sources.reshapeSite.geneanettree": "Geneanet Trees",
+  "tools.sources.reshapeSite.indeks": "Slovenian Genealogical Index",
   "tools.sources.reshapeSite.findagrave": "Find a Grave",
   "tools.sources.reshapeSite.legacy": "Legacy.com",
   "tools.sources.reshapeSite.newspapers": "Newspapers.com",
