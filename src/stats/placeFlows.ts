@@ -56,7 +56,7 @@ function placeAt(p: PersonFacts | undefined, level: FlowLevel): { key: string; l
 }
 
 /** The spelling written most often, of a key's spellings. */
-function commonest(spellings: Map<string, number>): string {
+export function commonest(spellings: Map<string, number>): string {
   let label = "";
   let best = -1;
   for (const [s, c] of spellings) if (c > best) { best = c; label = s; }

@@ -20,6 +20,8 @@ import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
 import { migrationStats } from "../../stats/migration";
 import { NO_PLACE, OTHER, placeDecades, placeFlows, placeStack, type FlowLevel } from "../../stats/placeFlows";
 import { DecadeGrid, FlowChart, MultiStackChart, type Swatch } from "./PlaceCharts";
+import { SurnameNetwork } from "./SurnameNetwork";
+import { surnameMarriages, surnameNetwork } from "../../stats/surnames";
 import { COUPLE_KINSHIP, lineageStats, relatedCouples, type CoupleKinship } from "../../stats/lineage";
 import { researchStats, type SourcedTag } from "../../stats/research";
 import { eventDisplayLabel, familyEventLabel } from "../../gedcom/eventTags";
@@ -209,6 +211,8 @@ export function StatsPanel({
 
   const ov = useMemo(() => (scoped && page === "tree" ? overview(scoped) : undefined), [scoped, page]);
   const names = useMemo(() => (scoped && page === "names" ? namesStats(scoped) : undefined), [scoped, page]);
+  const wed = useMemo(() => (scoped && page === "names" ? surnameMarriages(scoped) : undefined), [scoped, page]);
+  const network = useMemo(() => (wed ? surnameNetwork(wed) : undefined), [wed]);
   const life = useMemo(() => (scoped && page === "lifespan" ? lifespanStats(scoped) : undefined), [scoped, page]);
   const fams = useMemo(() => (scoped && page === "families" ? familyStats(scoped) : undefined), [scoped, page]);
   const related = useMemo(() => (scoped && page === "families" ? relatedCouples(scoped.byId, scoped.families) : undefined), [scoped, page]);
@@ -386,6 +390,8 @@ export function StatsPanel({
     id === "complete" ? t("stats.click.missing")
       : id === "byCentury" ? t("stats.click.chip")
         : id === "jobsByCentury" ? t("stats.click.job")
+        : id === "surnameNetwork" ? t("stats.click.network")
+        : id === "surnamePairs" ? t("stats.click.marriages")
         : id === "oldest" ? ""
           : id === "repeatedAncestors" ? t("stats.click.person")
           : id === "sourcedByTag" ? t("stats.click.unsourced")
@@ -901,6 +907,58 @@ export function StatsPanel({
               [{ head: t("stats.men"), tone: "male" }, { head: t("stats.women"), tone: "female" }],
               names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
             ), true)}
+            {wed && network && network.nodes.length > 1 && (() => {
+              const label = (key: string) => wed.nodes.get(key)!.label;
+              const pairLabel = (a: string, b: string) => `${label(a)} × ${label(b)}`;
+              // Each surname's partners, most marriages first, over every pair (not only those drawn).
+              const partners = new Map<string, { key: string; count: number }[]>();
+              for (const p of wed.pairs) {
+                for (const [self, other] of [[p.a, p.b], [p.b, p.a]]) {
+                  let list = partners.get(self);
+                  if (!list) partners.set(self, (list = []));
+                  list.push({ key: other, count: p.ids.length });
+                }
+              }
+              const nodeTip = (key: string) => {
+                const n = wed.nodes.get(key)!;
+                const list = partners.get(key) ?? [];
+                const lines = [
+                  t("stats.nPeople", { count: n.people }),
+                  n.within.length
+                    ? `${t("stats.nMarriages", { count: n.ids.length })} (${t("stats.net.within", { count: n.within.length })})`
+                    : t("stats.nMarriages", { count: n.ids.length }),
+                ];
+                if (list.length) {
+                  lines.push(t("stats.net.partners"));
+                  for (const x of list.slice(0, 6)) lines.push(`  ${label(x.key)}: ${num(x.count)}`);
+                  if (list.length > 6) lines.push(`  ${t("stats.net.more", { count: list.length - 6 })}`);
+                }
+                return lines.join("\n");
+              };
+              return card("surnameNetwork", t("stats.surnameNetwork"), t("stats.surnameNetworkNote", { count: network.nodes.length }), withCsv(
+                "surnameNetwork",
+                () => [[t("stats.surname"), t("stats.surname"), t("stats.csv.count")], ...network.pairs.map((p) => [label(p.a), label(p.b), p.ids.length])],
+                <SurnameNetwork
+                  nodes={network.nodes.map((n) => ({ key: n.key, label: n.label, people: n.people, heading: n.label, tip: nodeTip(n.key) }))}
+                  links={network.pairs.map((p) => ({ key: p.key, a: p.a, b: p.b, count: p.ids.length, tip: `${pairLabel(p.a, p.b)}: ${t("stats.nMarriages", { count: p.ids.length })}` }))}
+                  picked={pickedIn("surnameNetwork")}
+                  onPickNode={(key) => choose("surnameNetwork", key, label(key), wed.nodes.get(key)!.ids, true)}
+                  onPickLink={(key) => {
+                    const p = network.pairs.find((x) => x.key === key)!;
+                    choose("surnameNetwork", `link:${key}`, pairLabel(p.a, p.b), p.ids, true);
+                  }}
+                />,
+              ), true);
+            })()}
+            {wed && wed.pairs.length > 0 && card("surnamePairs", t("stats.surnamePairs"), null, ranked(
+              "surnamePairs",
+              t("stats.surnamePair"),
+              wed.pairs.map((p) => ({ key: p.key, label: `${wed.nodes.get(p.a)!.label} × ${wed.nodes.get(p.b)!.label}`, count: p.ids.length, ids: p.ids })),
+              20,
+              undefined,
+              false,
+              true,
+            ))}
             {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
               { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
               { key: "sonGrandfather", label: t("stats.namesake.sonGrandfather"), share: names.namesakes.sonGrandfather, tone: "male" },
