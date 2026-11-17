@@ -19,6 +19,10 @@ export interface HistoryEvent {
   /** ISO codes (lower case) of the countries it belongs to, or "world" for
    *  an event that touched everyone's ancestors. */
   where: "world" | readonly string[];
+  /** The label names which of its countries the chart's people lived in —
+   *  for an event that happened to several countries at once (an EU
+   *  enlargement), where the year alone would not say whose it was. */
+  namesCountries?: boolean;
 }
 
 /** The Habsburg lands as the files write them today. */
@@ -90,10 +94,34 @@ export const HISTORY_EVENTS: readonly HistoryEvent[] = [
   { id: "parisTreaty", from: 1947, where: ["si", "it", "hr"] },
   { id: "germanySplit", from: 1949, where: ["de"] },
   { id: "hungary1956", from: 1956, where: ["hu"] },
+  { id: "eec", from: 1958, where: ["be", "de", "fr", "it", "lu", "nl"], namesCountries: true },
   { id: "pragueSpring", from: 1968, where: ["cz", "sk"] },
+  { id: "ecJoin", from: 1973, where: ["dk", "ie", "gb"], namesCountries: true },
+  { id: "ecJoin", from: 1981, where: ["gr"], namesCountries: true },
+  { id: "ecJoin", from: 1986, where: ["pt", "es"], namesCountries: true },
   { id: "berlinWall", from: 1989, where: ["de"] },
   { id: "yugoslaviaEnd", from: 1991, where: YUGOSLAVIA },
+  { id: "euJoin", from: 1995, where: ["at", "fi", "se"], namesCountries: true },
+  { id: "euJoin", from: 2004, where: ["cy", "cz", "ee", "hu", "lv", "lt", "mt", "pl", "sk", "si"], namesCountries: true },
+  { id: "euJoin", from: 2007, where: ["bg", "ro"], namesCountries: true },
+  { id: "euJoin", from: 2013, where: ["hr"], namesCountries: true },
+  { id: "brexit", from: 2020, where: ["gb"] },
+  { id: "covid", from: 2020, to: 2023, where: "world" },
 ];
+
+/** A stable key for one event: the id alone repeats where one label serves
+ *  several years (each EU enlargement). */
+export function historyKey(e: HistoryEvent): string {
+  return `${e.id}-${e.from}`;
+}
+
+/** Which of an event's countries somebody on the chart lived in at the time,
+ *  in the event's own order. */
+export function historyCountries(e: HistoryEvent, presence: readonly HistoryPresence[]): string[] {
+  if (e.where === "world") return [];
+  const end = e.to ?? e.from;
+  return e.where.filter((c) => presence.some((p) => p.from <= end && p.to >= e.from && p.countries.has(c)));
+}
 
 /** One person on the chart: where they lived, and when. */
 export interface HistoryPresence {
