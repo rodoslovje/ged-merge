@@ -9816,10 +9816,28 @@ button.stats-tile:hover, .stats-tile.picked { border-color: var(--accent); }
   cursor: pointer;
 }
 .stats-col:disabled { cursor: default; }
-.stats-col-plot { flex: 1 1 auto; min-height: 140px; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; }
+.stats-col-plot { flex: 1 1 auto; min-height: 140px; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; position: relative; }
+/* Guide lines: a hairline per column at a round value, behind the bars; the
+ * gaps between the columns break it into a dashed line across the chart. */
+.stats-grid { position: absolute; left: 0; right: -2px; border-top: 1px solid var(--border-2); pointer-events: none; }
+.stats-col:last-child .stats-grid { right: 0; }
+/* The lines' values stand in a gutter right of the last column, clear of every bar. */
+.stats-columns.gridded { padding-right: 2.6rem; }
+.stats-grid-value {
+  position: absolute;
+  left: calc(100% + 4px);
+  top: 0;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  line-height: 1;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .stats-col-value { text-align: center; font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .stats-col-bar {
   display: block;
+  position: relative;
   background: var(--stats-bar);
   border-radius: 4px 4px 0 0;
   opacity: 0.8;

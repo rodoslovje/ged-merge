@@ -311,6 +311,8 @@ export function StatsPanel({
         tip: t("stats.periodTip", { from: p.from, to: p.to, value: format(p.value), n: num(p.n) }),
       }))}
       format={format}
+      // A guide line sits on a round value: "25", not "25.0".
+      gridFormat={format === dec ? num : format}
       labelEvery={periodPointStep(points.length)}
       picked={pickedIn(card)}
       onPick={(key) => {
