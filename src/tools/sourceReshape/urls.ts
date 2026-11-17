@@ -15,6 +15,10 @@ import { withScheme } from "../../gedcom/uri";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { parsePastedFsCitation } from "./enrich";
 
+/** The society that publishes the Slovenian Genealogical Index — the agency
+ *  responsible for every source taken from it. */
+export const INDEKS_AGENCY = "Slovensko rodoslovno društvo";
+
 // ---------------------------------------------------------------------------
 // URL recognition (offline)
 
@@ -358,7 +362,11 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
       site: "indeks",
       groupKey: `ri:${indeks.contributor.toLowerCase()}:${indeks.id.toLowerCase()}`,
       bookUrl: indeksPersonUrl(indeks),
-      proposed: { title: siteTitle(who || undefined, indeks.contributor, "Slovenski rodoslovni indeks"), author: indeks.contributor },
+      proposed: {
+        title: siteTitle(who || undefined, indeks.contributor, "Slovenski rodoslovni indeks"),
+        author: indeks.contributor,
+        agency: INDEKS_AGENCY,
+      },
       titleRank: who ? 2 : 0,
     };
   }
@@ -375,7 +383,7 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
       site: "indeks",
       groupKey: `ri:q:${linkKey(url)}`,
       bookUrl: cleanUrl(url),
-      proposed: { title: siteTitle(who, undefined, "Slovenski rodoslovni indeks") },
+      proposed: { title: siteTitle(who, undefined, "Slovenski rodoslovni indeks"), agency: INDEKS_AGENCY },
       titleRank: 1,
     };
   }

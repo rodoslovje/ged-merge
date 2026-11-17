@@ -1903,6 +1903,7 @@ describe("reshapeSources — citation placement", () => {
     );
     expect(rec.proposed.title).toBe("Matija Slobodnik - Renko - Slovenski rodoslovni indeks");
     expect(rec.proposed.author).toBe("Renko");
+    expect(rec.proposed.agency).toBe("Slovensko rodoslovno društvo");
     // Diacritics in the name survive (percent-encoded or raw).
     const enc = recognizeSourceUrl("https://indeks.rodoslovje.si/?t=tree&n=Ana&sn=Matekovi%C4%8D&c=Renko&id=%4032441185%40")!;
     expect(enc.proposed.title).toBe("Ana Matekovič - Renko - Slovenski rodoslovni indeks");
@@ -1911,6 +1912,7 @@ describe("reshapeSources — citation placement", () => {
     expect(search.site).toBe("indeks");
     expect(search.proposed.title).toBe("Marija Rakar - Slovenski rodoslovni indeks");
     expect(search.proposed.author).toBeUndefined();
+    expect(search.proposed.agency).toBe("Slovensko rodoslovno društvo");
     expect(siteQuay("indeks", "https://indeks.rodoslovje.si/?n=marija&sn=rakar")).toBeUndefined();
     // The bare front page is no source of anything.
     expect(recognizeSourceUrl("https://indeks.rodoslovje.si/?t=contributors")?.site).not.toBe("indeks");
@@ -1931,6 +1933,7 @@ describe("reshapeSources — citation placement", () => {
     expect(counts.sourcesCreated).toBe(1);
     expect(text).toContain("1 TITL Matija Slobodnik - Renko - Slovenski rodoslovni indeks");
     expect(text).toContain("1 AUTH Renko");
+    expect(text).toMatch(/AGNC Slovensko rodoslovno društvo/);
     // The link round-trips: the written `@@` reads back as the site's `@`.
     const back = dataset(text);
     expect(findReshapableLinks(back).groups).toHaveLength(0);

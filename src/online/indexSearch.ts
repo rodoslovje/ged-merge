@@ -151,6 +151,13 @@ export function indexPersonUrl(hit: IndexHit): string {
   return `${INDEX_SITE}?${p.toString()}`;
 }
 
+/** What a hit is best cited by: a register transcription or a grave by its
+ *  own page (the Matricula scan, the grave), anything else by its index page. */
+export function hitCiteUrl(hit: IndexHit): string {
+  const kind = contributorSource(hit.contributor).kind;
+  return (kind !== "tree" && hit.links?.[0]) || indexPersonUrl(hit);
+}
+
 function sexOf(value: string | undefined): Sex | undefined {
   const v = value?.toLowerCase();
   return v === "m" ? "M" : v === "f" ? "F" : undefined;

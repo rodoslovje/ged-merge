@@ -2735,7 +2735,29 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 .person-search-table thead th { border-top: none; color: var(--muted); font-weight: 600; }
-.person-search-table th:first-child { width: 28%; }
+.person-search-table th:nth-child(2) { width: 26%; }
+.person-search-table .person-search-pick { width: 22px; padding-right: 0; }
+.person-search-pick input { accent-color: var(--accent); margin: 2px 0 0; }
+.person-search-pick-new { align-self: flex-start; }
+.person-search-copy {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 6px 12px;
+}
+.person-search-copy-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.person-search-copy-btn:disabled {
+  background: transparent;
+  border-color: var(--border-2);
+  color: var(--faint);
+  cursor: default;
+}
 .person-search-table .f-label { color: var(--muted); }
 .person-search-group th {
   padding-top: 8px;

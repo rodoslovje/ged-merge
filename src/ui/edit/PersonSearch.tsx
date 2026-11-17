@@ -11,6 +11,7 @@ import {
   contributorUrl,
   type ContributorKind,
   fetchIndexHits,
+  hitCiteUrl,
   hitsForComparison,
   indexApiUrl,
   indexPersonUrl,
@@ -23,9 +24,10 @@ import {
 } from "../../online/indexSearch";
 import { individualFieldRows } from "../../review/fields";
 import { SITE_ICON } from "../../tools/sourceReshape/urls";
-import type { FieldRow } from "../../review/types";
+import type { FieldChoice, FieldRow } from "../../review/types";
 import { useSetSettings, useSettingsSlice } from "../SettingsContext";
-import { FieldValue } from "../FieldValue";
+import { FieldValue, LinkIcons } from "../FieldValue";
+import { SourceRefs } from "../SourceRef";
 import { ExternalIcon } from "../icons/ExternalIcon";
 import { ChevronIcon } from "../icons/ChevronIcon";
 
@@ -137,11 +139,17 @@ function hitName(hit: IndexHit): string {
   return [hit.name, hit.surname].filter(Boolean).join(" ");
 }
 
+/** Whether a row brings sources or links of the index's own. */
+function bringsSources(row: FieldRow): boolean {
+  return !!(row.incomingSources?.length || row.incomingLinkIcons?.length);
+}
+
 /**
  * The rows a comparison shows: what the index agrees with, contradicts or
  * adds. What only the person has (their own sources, events the index never
- * records) is left out — it says nothing about the hit. A group heading stays
- * only over rows that do.
+ * records) is left out — it says nothing about the hit; a sources row stays
+ * when the index brings a link of its own (a Matricula page, a grave). A group
+ * heading stays only over rows that do.
  */
 function comparedRows(rows: FieldRow[]): FieldRow[] {
   const out: FieldRow[] = [];
@@ -151,7 +159,9 @@ function comparedRows(rows: FieldRow[]): FieldRow[] {
       heading = row;
       continue;
     }
-    if (row.state === "main-only" || row.mainSources || row.incomingSources) continue;
+    if (row.state === "main-only") continue;
+    const hasSources = !!(row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons);
+    if (hasSources && !bringsSources(row)) continue;
     if (heading) {
       out.push(heading);
       heading = undefined;
@@ -161,7 +171,67 @@ function comparedRows(rows: FieldRow[]): FieldRow[] {
   return out;
 }
 
-/** One hit set against the person, field by field, as Merge would compare them. */
+/** A row the reader can take into the person: one the index adds to, or
+ *  differs on. Relatives are people, not values — they stay for reading. */
+function copyable(row: FieldRow): boolean {
+  if (row.isGroupHeader || row.relatives) return false;
+  if (row.key === "father" || row.key === "mother" || row.key.startsWith("fam.")) return false;
+  return row.state === "incoming-only" || row.state === "conflict";
+}
+
+/** Each heading's copyable rows, so one tick takes a whole event. */
+function rowsUnder(rows: FieldRow[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  let heading: string | undefined;
+  for (const row of rows) {
+    if (row.isGroupHeader) {
+      heading = row.key;
+      out.set(heading, []);
+    } else if (heading && copyable(row)) out.get(heading)!.push(row.key);
+  }
+  return out;
+}
+
+/** The cells of one value: plain text, or the sources and links it carries. */
+function RowValue({ row, side }: { row: FieldRow; side: "main" | "incoming" }) {
+  const { t } = useTranslation();
+  const mine = side === "main";
+  const sources = mine ? row.mainSources : row.incomingSources;
+  const icons = mine ? row.mainLinkIcons : row.incomingLinkIcons;
+  const other = mine ? row.incomingLinkIcons : row.mainLinkIcons;
+  if (row.mainSources || row.incomingSources || row.mainLinkIcons || row.incomingLinkIcons) {
+    return (
+      <>
+        <SourceRefs t={t} mainSources={sources} {...(mine ? {} : { compareAgainst: row.mainSources })} />
+        {icons?.length ? <LinkIcons urls={icons} otherUrls={other} /> : null}
+      </>
+    );
+  }
+  return mine ? (
+    <FieldValue text={row.main} links={row.mainLinks} linkIcons={row.mainLinkIcons} />
+  ) : (
+    <FieldValue
+      text={row.incoming}
+      links={row.incomingLinks}
+      otherLinks={row.mainLinks}
+      linkIcons={row.incomingLinkIcons}
+      otherLinkIcons={row.mainLinkIcons}
+    />
+  );
+}
+
+/** Take the ticked rows of a hit into the person; `citeUrl` cites the hit on
+ *  every event the copy changes. */
+type CopyFromHit = (
+  hit: Individual,
+  hitDs: Dataset,
+  fields: Record<string, FieldChoice>,
+  citeUrl: string | undefined,
+) => void;
+
+/** One hit set against the person, field by field, as Merge would compare
+ *  them — with a tick on each row the index adds or differs on, to take it
+ *  into the person. */
 function HitComparison({
   person,
   dataset,
@@ -171,6 +241,7 @@ function HitComparison({
   onIndex,
   onBack,
   onCite,
+  onCopy,
 }: {
   person: Individual;
   dataset: Dataset;
@@ -180,15 +251,44 @@ function HitComparison({
   onIndex: (i: number) => void;
   onBack: () => void;
   onCite: (url: string) => void;
+  onCopy: CopyFromHit;
 }) {
   const { t } = useTranslation();
   const { hit, id, score } = ranked[index];
   const normalized = useMemo(() => hitsForComparison(hitsDs, dataset), [hitsDs, dataset]);
+  /** Bumped after a copy: the person changed in place, so the rows are read again. */
+  const [copies, setCopies] = useState(0);
   const rows = useMemo(() => {
     const indi = normalized.individuals.get(id);
     return indi ? comparedRows(individualFieldRows(t, person, indi, dataset, normalized)) : [];
-  }, [normalized, id, person, dataset, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalized, id, person, dataset, t, copies]);
+  const groups = useMemo(() => rowsUnder(rows), [rows]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [cite, setCite] = useState(true);
+  // Another hit, or the rows read again after a copy: nothing stays ticked.
+  useEffect(() => setPicked(new Set()), [id, copies]);
+
   const url = indexPersonUrl(hit);
+  const citeUrl = hitCiteUrl(hit);
+  const toggle = (keys: string[], on: boolean) =>
+    setPicked((p) => {
+      const next = new Set(p);
+      for (const k of keys) {
+        if (on) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
+  const allNew = rows.filter((r) => copyable(r) && r.state === "incoming-only").map((r) => r.key);
+  const copy = () => {
+    const indi = normalized.individuals.get(id);
+    if (!indi || !picked.size) return;
+    const fields: Record<string, FieldChoice> = {};
+    for (const key of picked) fields[key] = "incoming";
+    onCopy(indi, normalized, fields, cite ? citeUrl : undefined);
+    setCopies((n) => n + 1);
+  };
 
   return (
     <div className="person-search-compare">
@@ -225,45 +325,81 @@ function HitComparison({
         <span>{hitName(hit)}</span>
         <Contributor contributor={hit.contributor} className="person-search-contributor" link />
       </div>
+      {allNew.length > 0 && (
+        <button type="button" className="tools-issue-link person-search-pick-new" onClick={() => toggle(allNew, true)}>
+          {t("indexSearch.pickNew")}
+        </button>
+      )}
       <table className="person-search-table">
         <thead>
           <tr>
+            <th className="person-search-pick" />
             <th />
             <th>{t("indexSearch.thisPerson")}</th>
             <th>{t("indexSearch.site.index")}</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) =>
-            row.isGroupHeader ? (
-              <tr key={row.key} className="person-search-group">
-                <th colSpan={3}>{row.displayLabel ?? row.label}</th>
-              </tr>
-            ) : (
+          {rows.map((row) => {
+            if (row.isGroupHeader) {
+              const keys = groups.get(row.key) ?? [];
+              const on = keys.length > 0 && keys.every((k) => picked.has(k));
+              return (
+                <tr key={row.key} className="person-search-group">
+                  <td className="person-search-pick">
+                    {keys.length > 0 && (
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        aria-label={t("indexSearch.pickRow", { field: row.displayLabel ?? row.label })}
+                        onChange={(e) => toggle(keys, e.target.checked)}
+                      />
+                    )}
+                  </td>
+                  <th colSpan={3}>{row.displayLabel ?? row.label}</th>
+                </tr>
+              );
+            }
+            const label = row.displayLabel ?? row.label;
+            return (
               <tr key={row.key} className={`field ${row.state}`}>
-                <td className="f-label">{row.displayLabel ?? row.label}</td>
+                <td className="person-search-pick">
+                  {copyable(row) && (
+                    <input
+                      type="checkbox"
+                      checked={picked.has(row.key)}
+                      aria-label={t("indexSearch.pickRow", { field: label })}
+                      title={t(row.state === "conflict" ? "indexSearch.pickReplace" : "indexSearch.pickAdd")}
+                      onChange={(e) => toggle([row.key], e.target.checked)}
+                    />
+                  )}
+                </td>
+                <td className="f-label">{label}</td>
                 <td className="f-val gm-data" title={row.mainTitle}>
-                  <FieldValue text={row.main} links={row.mainLinks} linkIcons={row.mainLinkIcons} />
+                  <RowValue row={row} side="main" />
                 </td>
                 <td className="f-val gm-data" title={row.incomingTitle}>
-                  <FieldValue
-                    text={row.incoming}
-                    links={row.incomingLinks}
-                    otherLinks={row.mainLinks}
-                    linkIcons={row.incomingLinkIcons}
-                    otherLinkIcons={row.mainLinkIcons}
-                  />
+                  <RowValue row={row} side="incoming" />
                 </td>
               </tr>
-            ),
-          )}
+            );
+          })}
         </tbody>
       </table>
+      <div className="person-search-copy">
+        <label className="person-search-exact">
+          <input type="checkbox" checked={cite} onChange={(e) => setCite(e.target.checked)} />
+          {t("indexSearch.citeCopied")}
+        </label>
+        <button type="button" className="person-search-copy-btn" disabled={!picked.size} onClick={copy}>
+          {t("indexSearch.copy", { n: picked.size })}
+        </button>
+      </div>
       <div className="person-search-hit-foot">
         <a className="tools-issue-link" href={url} target="_blank" rel="noopener noreferrer">
           {t("indexSearch.open")}
         </a>
-        <button type="button" className="tools-issue-link" onClick={() => onCite(url)}>
+        <button type="button" className="tools-issue-link" onClick={() => onCite(citeUrl)}>
           {t("indexSearch.cite")}
         </button>
       </div>
@@ -286,11 +422,14 @@ export function PersonSearch({
   person,
   dataset,
   onCite,
+  onCopy,
 }: {
   person: Individual;
   dataset: Dataset;
   /** Open Add source for this person with the hit's index link in it. */
   onCite: (url: string) => void;
+  /** Take a hit's ticked rows into this person. */
+  onCopy: CopyFromHit;
 }) {
   const { t } = useTranslation();
   const { allowLinkFetch, indexContributor, indexExact } = useSettingsSlice(SETTINGS_KEYS);
@@ -419,6 +558,7 @@ export function PersonSearch({
               onIndex={setComparing}
               onBack={() => setComparing(null)}
               onCite={onCite}
+              onCopy={onCopy}
             />
           ) : (
             <>

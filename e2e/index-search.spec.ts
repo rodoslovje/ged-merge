@@ -23,7 +23,8 @@ writeFileSync(
 const HITS = [
   {
     id: 2, ext_id: "eb4c3216", contributor: "Markovič-matricula", name: "Ivan", surname: "Benko", sex: "",
-    date_of_birth: "6 JUN 1861", place_of_birth: "Beltinci", parents_list: null, partners_list: null, links: null,
+    date_of_birth: "6 JUN 1861", place_of_birth: "Beltinci", parents_list: null, partners_list: null,
+    links: ["https://data.matricula-online.eu/sl/slovenia/maribor/beltinci/00050/?pg=1"],
   },
   {
     id: 1, ext_id: "@I19364@", contributor: "Bandelj", name: "Janez", surname: "Penko", sex: "m",
@@ -176,4 +177,33 @@ test("index hits are ranked against the person and compared with them one by one
   await expect.poll(() => asked.length).toBe(2);
   expect(asked[1]).toContain("exact=true");
   await expect(page.getByRole("link", { name: "Genealogical index" })).toHaveAttribute("href", /ex=1/);
+});
+
+test("ticked rows are copied into the person, citing the hit", async ({ page }) => {
+  await openPerson(page, true);
+  const hits = page.locator(".person-search-hit");
+  await hits.first().getByRole("button", { name: "Compare" }).click();
+  const compare = page.locator(".person-search-compare");
+  const copy = compare.getByRole("button", { name: /Copy selected/ });
+  await expect(copy).toBeDisabled();
+
+  // One tick on the Death heading takes its date and place.
+  await compare.getByRole("checkbox", { name: "Take Death" }).check();
+  await expect(copy).toHaveText("Copy selected (2)");
+  await expect(compare.getByRole("checkbox", { name: "Cite the index as the source" })).toBeChecked();
+  await copy.click();
+
+  // The person now has the death, cited from the index; the comparison agrees.
+  const personPanel = page.locator(".edit-person");
+  await expect(personPanel).toContainText("1862–1927");
+  // The death's source: the index's own card-index glyph.
+  await expect(personPanel).toContainText("📇");
+  await expect(compare.locator("tr.field.agree", { hasText: "5 APR 1927" })).toHaveCount(1);
+  await expect(copy).toBeDisabled();
+
+  // A register transcription's own page shows in its comparison.
+  const next = compare.getByRole("button", { name: "Next match" });
+  for (let i = 0; i < 3; i++) await next.click();
+  await expect(compare).toContainText("Ivan Benko");
+  await expect(compare.locator('a[href*="matricula-online.eu"]')).toHaveCount(1);
 });

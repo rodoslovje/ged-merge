@@ -17,7 +17,7 @@ import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { BackButton } from "./BackButton";
 import { MapIcon } from "./icons/MapIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
-import { decisionKey, decisionStatusByMainId, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, decisionStatusByMainId, toggleDecisionStatus, type CandidateDecision, type FieldChoice, type MatchDecisionStatus } from "../review/types";
 import type { MatchResult } from "../match/types";
 import {
   addChild,
@@ -135,6 +135,7 @@ import { leftTarget, useDropHighlight } from "./useDropHighlight";
 import { TrashIcon } from "./icons/TrashIcon";
 import { SearchIcon } from "./icons/SearchIcon";
 import { PersonSearch } from "./edit/PersonSearch";
+import { copyHitRows, hitSourceFields } from "../online/copyFromHit";
 
 
 interface Props {
@@ -1168,6 +1169,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     }
     attachSourceCitation(event, cite.sourceXref, cite.page, EVENT_CHILD_ORDER, cite.quay);
     linkPageMedia(event, pageObjeXref, EVENT_CHILD_ORDER);
+  }
+
+  /** The search rail's "Copy selected": the ticked rows of an index hit into
+   *  the person, citing the hit (its source record found or created first, in
+   *  the same undo step) on what changed. */
+  function copyFromIndex(hit: Individual, hitDs: Dataset, fields: Record<string, FieldChoice>, citeUrl: string | undefined) {
+    if (!person || !Object.keys(fields).length) return;
+    const source = citeUrl ? hitSourceFields(citeUrl) : undefined;
+    const resolved = source ? resolveSourceFields(source) : undefined;
+    const cite = resolved && { sourceXref: resolved.sourceXref, page: resolved.page, quay: source?.quay };
+    commitTo(person, (indi) => copyHitRows(dataset, indi, hit, hitDs, fields, t, cite), resolved?.extraPatches);
   }
 
   /** The confirmed Add source dialog. An Add confirmed while the page lookup
@@ -2403,6 +2415,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             person={person}
             dataset={dataset}
             onCite={(url) => setSourceDialogTarget({ kind: "individual", text: url })}
+            onCopy={copyFromIndex}
           />
         ) : (
           <WiderFamilyPanel
