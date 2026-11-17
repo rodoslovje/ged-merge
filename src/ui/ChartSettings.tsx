@@ -67,6 +67,7 @@ export function ChartSettings({
   // The effective type drives which extra rows show; with a locked type it wins
   // even if the shared (persisted) type is something else.
   const effectiveType = lockedType ?? settings.type;
+  const bars = settings.timelineLayout === "bars";
   // The Contemporaries surname rings draw one mark per band of people, so they
   // only offer the axes a band can answer for all of them at once — on Sex or
   // Living a band holds both, and one fill would have to pick a side.
@@ -201,7 +202,8 @@ export function ChartSettings({
           {effectiveType === "timeline" && (
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("tree.settings.timeline.events")}</span>
-              <div className="chart-settings-segmented">
+              {/* The Lines layout draws no bars: only the historical events apply. */}
+              {bars && <div className="chart-settings-segmented">
                 {EVENT_SCOPES.map((scope) => (
                   <button
                     key={scope}
@@ -211,8 +213,9 @@ export function ChartSettings({
                     {t(`tree.settings.timeline.events.${scope}`)}
                   </button>
                 ))}
-              </div>
+              </div>}
               <div className="chart-settings-segmented chart-settings-toggles">
+                {bars && <>
                 <button
                   className={settings.timelineEventLabels ? "active" : ""}
                   aria-pressed={settings.timelineEventLabels}
@@ -227,6 +230,7 @@ export function ChartSettings({
                 >
                   {t("tree.settings.timeline.residence")}
                 </button>
+                </>}
                 <button
                   className={settings.timelineHistory ? "active" : ""}
                   aria-pressed={settings.timelineHistory}
@@ -235,6 +239,16 @@ export function ChartSettings({
                 >
                   {t("tree.settings.timeline.history")}
                 </button>
+                {!bars && (
+                  <button
+                    className={settings.timelineLifelines ? "active" : ""}
+                    aria-pressed={settings.timelineLifelines}
+                    title={t("tree.settings.timeline.lifelines.title")}
+                    onClick={() => set({ timelineLifelines: !settings.timelineLifelines })}
+                  >
+                    {t("tree.settings.timeline.lifelines")}
+                  </button>
+                )}
               </div>
             </div>
           )}

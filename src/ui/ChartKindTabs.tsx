@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { keyHint } from "../keyboard/shortcuts";
 import { tabIndexFor, tablistKeyDown } from "../keyboard/tablist";
 import { useTranslation } from "react-i18next";
-import { useChartSettings, type ChartKind, type FanShape, type TreeLayout } from "./ChartSettingsContext";
+import { useChartSettings, type ChartKind, type FanShape, type TimelineLayout, type TreeLayout } from "./ChartSettingsContext";
 import { PickerMenu } from "./PickerMenu";
 import { Segmented } from "./Segmented";
 import { usePhone } from "./usePhone";
@@ -20,6 +20,7 @@ export const PEDIGREE_KINDS: ChartKind[] = ["tree", "fan"];
 
 const TREE_LAYOUTS: TreeLayout[] = ["tidy", "grid"];
 const FAN_SHAPES: FanShape[] = ["fan", "circle"];
+const TIMELINE_LAYOUTS: TimelineLayout[] = ["bars", "lines"];
 
 /** The pedigree kind's second row: Tree | Grid for the layered chart, Fan |
  *  Circle for the radial one — the chart's look, next to its kind. The radial
@@ -41,6 +42,21 @@ export function PedigreeVariantTabs({ hideShape = false }: { hideShape?: boolean
       value={settings.treeLayout}
       onChange={(treeLayout) => set({ treeLayout })}
       items={TREE_LAYOUTS.map((k) => ({ key: k, label: t(`tree.layout.${k}`) }))}
+    />
+  );
+}
+
+/** The Timeline's second row: lifespan Bars, or the blood line as Lines on a
+ *  vertical year axis. */
+export function TimelineLayoutTabs() {
+  const { t } = useTranslation();
+  const { settings, set } = useChartSettings();
+  return (
+    <Segmented
+      label={t("timeline.layout")}
+      value={settings.timelineLayout}
+      onChange={(timelineLayout) => set({ timelineLayout })}
+      items={TIMELINE_LAYOUTS.map((k) => ({ key: k, label: t(`timeline.layout.${k}`) }))}
     />
   );
 }

@@ -60,6 +60,10 @@ const SETTINGS_KEYS = ["showAge", "marriedSurname"] as const;
 
 export type { ChartAlignment };
 
+/** The Timeline's look: lifespan bars per person, or the blood line on a
+ *  vertical year axis. */
+export type TimelineLayout = "bars" | "lines";
+
 /** Whose lifespan bars carry event dots on the Timeline. */
 export type TimelineEventScope = "person" | "all" | "off";
 
@@ -112,6 +116,10 @@ export interface ChartSettings {
   timelineEventLabels: boolean;
   /** Timeline: mark the historical events of the countries the people lived in. */
   timelineHistory: boolean;
+  /** Timeline Lines: hang each person's life from their birth dot down to their death. */
+  timelineLifelines: boolean;
+  /** Timeline: lifespan bars, or the blood line on a vertical year axis. */
+  timelineLayout: TimelineLayout;
   /** Show residence information — the Timeline draws it as a thin strip under
    *  the lifespan bar, the Report as ⌂ fact lines. One shared choice. */
   showResidence: boolean;
@@ -159,6 +167,8 @@ const DEFAULTS: ChartSettings = {
   timelineEvents: "person",
   timelineEventLabels: false,
   timelineHistory: false,
+  timelineLifelines: false,
+  timelineLayout: "bars",
   showResidence: false,
   showOccupation: false,
   showEducation: false,
@@ -254,6 +264,8 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
           : DEFAULTS.timelineEvents,
       timelineEventLabels: bool(parsed.timelineEventLabels, DEFAULTS.timelineEventLabels),
       timelineHistory: bool(parsed.timelineHistory, DEFAULTS.timelineHistory),
+      timelineLifelines: bool(parsed.timelineLifelines, DEFAULTS.timelineLifelines),
+      timelineLayout: parsed.timelineLayout === "lines" ? "lines" : DEFAULTS.timelineLayout,
       // showResidence replaced the timeline-only `timelineResidence` when the
       // Report gained residence lines; older blobs carry the old name.
       showResidence: bool(
