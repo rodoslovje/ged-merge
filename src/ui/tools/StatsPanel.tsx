@@ -20,6 +20,7 @@ import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
 import { migrationStats } from "../../stats/migration";
 import { NO_PLACE, OTHER, placeDecades, placeFlows, placeStack, type FlowLevel } from "../../stats/placeFlows";
 import { DecadeGrid, FlowChart, MultiStackChart, type Swatch } from "./PlaceCharts";
+import { surnameDecades } from "../../stats/surnames";
 import { COUPLE_KINSHIP, lineageStats, relatedCouples, type CoupleKinship } from "../../stats/lineage";
 import { researchStats, type SourcedTag } from "../../stats/research";
 import { eventDisplayLabel, familyEventLabel } from "../../gedcom/eventTags";
@@ -209,6 +210,7 @@ export function StatsPanel({
 
   const ov = useMemo(() => (scoped && page === "tree" ? overview(scoped) : undefined), [scoped, page]);
   const names = useMemo(() => (scoped && page === "names" ? namesStats(scoped) : undefined), [scoped, page]);
+  const surnameGrid = useMemo(() => (scoped && page === "names" ? surnameDecades(scoped) : undefined), [scoped, page]);
   const life = useMemo(() => (scoped && page === "lifespan" ? lifespanStats(scoped) : undefined), [scoped, page]);
   const fams = useMemo(() => (scoped && page === "families" ? familyStats(scoped) : undefined), [scoped, page]);
   const related = useMemo(() => (scoped && page === "families" ? relatedCouples(scoped.byId, scoped.families) : undefined), [scoped, page]);
@@ -252,6 +254,7 @@ export function StatsPanel({
       : b.hi === undefined ? `${signed(b.lo)}+`
         : b.lo === b.hi ? signed(b.lo) : `${signed(b.lo)}–${signed(b.hi)}`;
   const centuryLabel = (c: number) => t("stats.century", { from: c, to: c + 99, n: c / 100 + 1 });
+  const decadeLabel = (d: number) => t("stats.decade", { decade: d, end: d + 9 });
 
   // The data behind each card, as table rows for its CSV download — registered
   // as the charts render (before the card around them), built only on a click.
@@ -636,7 +639,6 @@ export function StatsPanel({
 
     const partName = (key: string, label: string) => (key === OTHER ? t("stats.otherPlaces") : key === NO_PLACE ? t("stats.noBirthPlace") : shortPlace(label, home));
     const partFull = (key: string, label: string) => (key === OTHER ? t("stats.otherPlaces") : key === NO_PLACE ? t("stats.noBirthPlace") : label);
-    const decadeLabel = (d: number) => t("stats.decade", { decade: d, end: d + 9 });
     csvOf.set("placeStack", () => [
       [t("stats.decadeCol"), ...stack.parts.map((p) => partFull(p.key, p.label)), t("stats.csv.count")],
       ...stack.decades.map((d) => [decadeLabel(d.decade), ...d.parts.map((ids) => ids.length), d.count]),
@@ -900,6 +902,24 @@ export function StatsPanel({
               t("stats.givenName"),
               [{ head: t("stats.men"), tone: "male" }, { head: t("stats.women"), tone: "female" }],
               names.byCentury.map((row) => ({ century: row.century, cells: [row.male, row.female] })),
+            ), true)}
+            {surnameGrid && surnameGrid.first !== undefined && surnameGrid.last !== undefined && card("surnameDecades", t("stats.surnameDecades"), t("stats.surnameDecadesNote", { count: surnameGrid.rows.length }), withCsv(
+              "surnameDecades",
+              () => [[t("stats.surname"), t("stats.decadeCol"), t("stats.csv.count")], ...surnameGrid.rows.flatMap((r) => [...r.byDecade].sort((a, b) => a[0] - b[0]).map(([d, ids]) => [r.label, decadeLabel(d), ids.length]))],
+              <DecadeGrid
+                rows={surnameGrid.rows.map((r) => ({ key: r.key, label: r.label, tip: `${r.label}: ${t("stats.nPeople", { count: r.count })}`, cells: new Map([...r.byDecade].map(([d, ids]) => [d, ids.length])) }))}
+                first={surnameGrid.first}
+                last={surnameGrid.last}
+                max={surnameGrid.max}
+                format={num}
+                decadeLabel={String}
+                picked={pickedIn("surnameDecades")}
+                tip={(r, d, n) => `${r.label} — ${decadeLabel(d)}: ${t("stats.nPeople", { count: n })}`}
+                onPick={(row, d) => {
+                  const r = surnameGrid.rows.find((x) => x.key === row)!;
+                  choose("surnameDecades", `${row}:${d}`, `${r.label} — ${decadeLabel(d)}`, r.byDecade.get(d) ?? []);
+                }}
+              />,
             ), true)}
             {card("namesakes", t("stats.namesakes"), null, shares("namesakes", [
               { key: "sonFather", label: t("stats.namesake.sonFather"), share: names.namesakes.sonFather, tone: "male" },
