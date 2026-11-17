@@ -2609,6 +2609,7 @@ export const sl = {
   "history.ljubljanaQuake": "ljubljanski potres",
   "history.auFederation": "Avstralska federacija",
   "history.ww1": "prva svetovna vojna",
+  "history.isonzo": "soška fronta",
   "history.spanishFlu": "španska gripa",
   "history.habsburgEnd": "razpad Avstro-Ogrske",
   "history.scs": "Kraljevina SHS",
