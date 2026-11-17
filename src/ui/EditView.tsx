@@ -282,8 +282,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const noteBaselineRef = useRef(new Map<string, string[]>());
   // Whether the user has clicked "+ Add note" for the current person.
   const [notesAdded, setNotesAdded] = useState(false);
-  /** The "search elsewhere" panel under the person header; stays open from person to person. */
+  /** The "search elsewhere" rail, in the Relatives rail's place; stays open from person to person. */
   const [searchOpen, setSearchOpen] = useState(false);
+  const widerOpen = settings.widerFamily.open && !searchOpen;
   // Whether the user has clicked "+ FamilySearch ID" for the current person.
   const [fsIdAdded, setFsIdAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
@@ -1963,13 +1964,31 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             <button
               type="button"
               className="tree-open-btn edit-wider-toggle"
-              aria-pressed={settings.widerFamily.open}
+              aria-pressed={widerOpen}
               aria-controls="edit-wider"
               aria-label={t("edit.wider.title")}
-              title={t(settings.widerFamily.open ? "edit.wider.hide" : "edit.wider.show")}
-              onClick={() => setSettings({ widerFamily: { ...settings.widerFamily, open: !settings.widerFamily.open } })}
+              title={t(widerOpen ? "edit.wider.hide" : "edit.wider.show")}
+              onClick={() => {
+                setSearchOpen(false);
+                setSettings({ widerFamily: { ...settings.widerFamily, open: !widerOpen } });
+              }}
             >
               <RelativesIcon size={16} />
+            </button>
+            <button
+              type="button"
+              className="tree-open-btn edit-search-toggle"
+              aria-pressed={searchOpen}
+              aria-controls="edit-search"
+              aria-label={t("indexSearch.title")}
+              title={t(searchOpen ? "indexSearch.hide" : "indexSearch.tooltip")}
+              onClick={() => {
+                // The search takes the Relatives rail's place: one rail at a time.
+                if (!searchOpen && settings.widerFamily.open) setSettings({ widerFamily: { ...settings.widerFamily, open: false } });
+                setSearchOpen(!searchOpen);
+              }}
+            >
+              <SearchIcon size={16} />
             </button>
           </div>
         </div>
@@ -2016,29 +2035,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               }
               modified={changedPersonIds.has(person.id)}
               controls={
-                <>
-                  <button
-                    type="button"
-                    className="edit-search-btn"
-                    title={t("indexSearch.tooltip")}
-                    aria-pressed={searchOpen}
-                    onClick={() => setSearchOpen((o) => !o)}
-                  >
-                    <SearchIcon size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="edit-delete-btn"
-                    title={t("edit.deletePersonTooltip")}
-                    onClick={handleDeletePerson}
-                  >
-                    <TrashIcon />
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="edit-delete-btn"
+                  title={t("edit.deletePersonTooltip")}
+                  onClick={handleDeletePerson}
+                >
+                  <TrashIcon />
+                </button>
               }
             />
           </div>
-          {searchOpen && <PersonSearch key={`search-${person.id}`} person={person} dataset={dataset} onCompare={onCompareIndexHit} />}
           <PersonMedia
             // person.raw is mutated in place, so remount whenever this person
             // was rebuilt (fresh `Individual` identity → fresh nodeId) or a
@@ -2392,12 +2399,16 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             )}
         </div>
         </div>
-        <WiderFamilyPanel
-          dataset={dataset}
-          personId={person.id}
-          navigate={navigate}
-          relationsGen={relationsGenRef.current}
-        />
+        {searchOpen ? (
+          <PersonSearch key={`search-${person.id}`} person={person} dataset={dataset} onCompare={onCompareIndexHit} />
+        ) : (
+          <WiderFamilyPanel
+            dataset={dataset}
+            personId={person.id}
+            navigate={navigate}
+            relationsGen={relationsGenRef.current}
+          />
+        )}
         </div>
       </div>
       <AddSourceDialog

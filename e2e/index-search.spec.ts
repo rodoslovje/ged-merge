@@ -41,7 +41,8 @@ const HITS = [
 async function openPerson(page: Page, fetch: boolean): Promise<string[]> {
   const asked: string[] = [];
   await page.addInitScript((on) => {
-    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: on }));
+    // The Relatives rail open, as a reader may have left it.
+    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: on, widerFamily: { open: true } }));
   }, fetch);
   await page.route("**/indeks-api.rodoslovje.si/**", async (route) => {
     asked.push(route.request().url());
@@ -51,13 +52,17 @@ async function openPerson(page: Page, fetch: boolean): Promise<string[]> {
   await page.locator("input.file-input").first().setInputFiles(FILE);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator(".edit-name-input").first()).toHaveValue("Janez");
-  await page.locator(".edit-search-btn").click();
+  await expect(page.locator("#edit-wider")).toBeVisible();
+  // The search takes the Relatives rail's place.
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.locator("#edit-search")).toBeVisible();
+  await expect(page.locator("#edit-wider")).toHaveCount(0);
   return asked;
 }
 
-test("the search panel prefills the other sites and stays offline with lookups off", async ({ page }) => {
+test("the search rail prefills the other sites and stays offline with lookups off", async ({ page }) => {
   const asked = await openPerson(page, false);
-  const panel = page.locator(".person-search");
+  const panel = page.locator("#edit-search");
   await expect(panel.getByRole("link", { name: "FamilySearch tree" })).toHaveAttribute(
     "href",
     /familysearch\.org\/search\/tree\/results\?q\.givenName=Janez&q\.surname=Penko&q\.birthLikeDate\.from=1860&q\.birthLikeDate\.to=1864/,
@@ -65,13 +70,26 @@ test("the search panel prefills the other sites and stays offline with lookups o
   await expect(panel.getByRole("link", { name: "WikiTree" })).toHaveAttribute("href", /wpFirst=Janez&wpLast=Penko/);
   await expect(panel.getByRole("link", { name: "Geni" })).toHaveAttribute("href", /names=Janez\+Penko/);
   await expect(panel).toContainText("Look up details online");
-  await expect(panel.getByRole("button", { name: "Search the index here" })).toHaveCount(0);
   expect(asked).toEqual([]);
+
+  // Relatives back: the search rail gives way.
+  await page.getByRole("button", { name: "Relatives", exact: true }).click();
+  await expect(page.locator("#edit-wider")).toBeVisible();
+  await expect(page.locator("#edit-search")).toHaveCount(0);
+});
+
+test("turning lookups on with the rail open lists the index's hits", async ({ page }) => {
+  const asked = await openPerson(page, false);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Advanced" }).click();
+  await page.getByRole("checkbox", { name: /Look up details online/ }).check();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".person-search-hit")).toHaveCount(2);
+  expect(asked).toHaveLength(1);
 });
 
 test("index hits are ranked against the person and Compare opens the pair in Merge", async ({ page }) => {
   const asked = await openPerson(page, true);
-  await page.getByRole("button", { name: "Search the index here" }).click();
   const hits = page.locator(".person-search-hit");
   await expect(hits).toHaveCount(2);
   await expect(hits.first()).toContainText("Janez Penko");
