@@ -2724,7 +2724,7 @@ export const sl = {
   "chartColor.axis.plain.tip": "Ena barva za vse",
   "chartColor.axis.generation": "Rod",
   "chartColor.axis.generation.tip": "Rodovi nad osebo v eni barvni lestvici, pod njo v drugi",
-  "chartColor.axis.branch": "Družinska veja",
+  "chartColor.axis.branch": "Veja",
   "chartColor.axis.branch.tip": "Vsaka linija starih staršev nad osebo in vsaka linija otrok pod njo ima svojo barvo",
   "chartColor.axis.sex": "Spol",
   "chartColor.axis.sex.tip": "Moški in ženske",
