@@ -381,16 +381,18 @@ export function PersonSearch({
           <div className="person-search-index-head">
             <h3 className="person-search-index-title">{t("indexSearch.site.index")}</h3>
             {searchable && (
-              <label className="person-search-exact" title={t("indexSearch.exact.hint")}>
+              // The index's own "Exact / Approximate" choice, as its readers know
+              // it; approximate is this search's default, so it is the box.
+              <label className="person-search-exact" title={t("indexSearch.approximate.hint")}>
                 <input
                   type="checkbox"
-                  checked={indexExact}
+                  checked={!indexExact}
                   onChange={(e) => {
                     setComparing(null);
-                    setSettings({ indexExact: e.target.checked });
+                    setSettings({ indexExact: !e.target.checked });
                   }}
                 />
-                {t("indexSearch.exact")}
+                {t("indexSearch.approximate")}
               </label>
             )}
           </div>

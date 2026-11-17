@@ -169,8 +169,9 @@ test("index hits are ranked against the person and compared with them one by one
   await compare.getByRole("button", { name: /Back to the matches/ }).click();
   await expect(hits).toHaveCount(2);
 
-  // Exact names: asked again, with the index's exact match, and remembered.
-  await page.getByRole("checkbox", { name: "Exact names" }).check();
+  // Approximate off (the index's Exact): asked again, exactly.
+  await expect(page.getByRole("checkbox", { name: "Approximate" })).toBeChecked();
+  await page.getByRole("checkbox", { name: "Approximate" }).uncheck();
   await expect(hits).toHaveCount(2);
   await expect.poll(() => asked.length).toBe(2);
   expect(asked[1]).toContain("exact=true");
