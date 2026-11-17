@@ -52,12 +52,40 @@ function largestValue(items: readonly { value: number }[]): number {
   return max;
 }
 
+/**
+ * Round values for a chart's guide lines: up to three multiples of the
+ * smallest step of 1, 2, 2.5 or 5 times a power of ten that is at least a
+ * quarter of the tallest column, all below it.
+ */
+export function gridValues(max: number): number[] {
+  if (!(max > 0)) return [];
+  const quarter = max / 4;
+  const power = 10 ** Math.floor(Math.log10(quarter));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= quarter)!;
+  return [step, 2 * step, 3 * step].filter((v) => v < max);
+}
+
+/**
+ * Guide lines across a column's plot, at the heights of `values`; the last
+ * column also writes their values, in the gutter right of the chart (see
+ * `.stats-columns.gridded`). Drawn only where the columns carry no values of
+ * their own, so that a chart is read one way or the other.
+ */
+export function GridLines({ values, max, last, format }: { values: number[]; max: number; last: boolean; format: (v: number) => string }) {
+  return values.map((v) => (
+    <span key={v} className="stats-guide" style={{ bottom: `${(100 * v) / max}%` }} aria-hidden="true">
+      {last && <span className="stats-guide-value">{format(v)}</span>}
+    </span>
+  ));
+}
+
 export function ColumnChart({
   columns,
   onPick,
   picked,
   tone,
   format = (v) => String(v),
+  gridFormat = format,
   labelEvery = 1,
 }: {
   columns: Column[];
@@ -65,15 +93,18 @@ export function ColumnChart({
   picked?: string;
   tone?: Tone;
   format?: (value: number) => string;
+  /** The guide lines' values, where they are rounder than the columns' ({@link format} by default). */
+  gridFormat?: (value: number) => string;
   /** Write every n-th axis label only, where wide labels would run together;
    *  the hover tip still names every column. */
   labelEvery?: number;
 }) {
   const max = largestValue(columns);
   const labelled = columns.length <= VALUE_LABELS_UP_TO;
+  const grid = labelled ? [] : gridValues(max);
   return (
     // With every other label blank, a written one may spill over its blank neighbours.
-    <div className={`stats-columns${toneClass(tone)}${labelEvery > 1 ? " spread" : ""}`}>
+    <div className={`stats-columns${toneClass(tone)}${labelEvery > 1 ? " spread" : ""}${grid.length ? " gridded" : ""}`}>
       {columns.map((c, i) => (
         <button
           key={c.key}
@@ -84,6 +115,7 @@ export function ColumnChart({
           {...tipProps(c.tip, { acts: true })}
         >
           <span className="stats-col-plot">
+            <GridLines values={grid} max={max} last={i === columns.length - 1} format={gridFormat} />
             {labelled && !(c.empty ?? c.count === 0) && <span className="stats-col-value">{format(c.value)}</span>}
             <span className="stats-col-bar" style={{ height: `${(100 * c.value) / max}%` }} />
           </span>
@@ -107,7 +139,7 @@ export interface StackedColumn {
 /**
  * Columns of two parts stacked one on the other — what grew up below, what
  * died young above — each part listing its own rows, with a legend naming
- * the two below.
+ * the two below unless the hover tips and the card's notes name them.
  */
 export function StackedColumnChart({
   columns,
@@ -116,6 +148,7 @@ export function StackedColumnChart({
   picked,
   tones,
   labelEvery = 1,
+  legend = true,
 }: {
   columns: StackedColumn[];
   /** What the lower and the upper part stand for, in the legend. */
@@ -124,14 +157,18 @@ export function StackedColumnChart({
   tones?: [StackTone, StackTone];
   /** Write every n-th axis label only (see {@link ColumnChart}). */
   labelEvery?: number;
+  /** Name the two parts under the chart. */
+  legend?: boolean;
   onPick: (key: string, part: "lower" | "upper") => void;
   /** `key:lower` or `key:upper`. */
   picked?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (!columns.length) return <p className="muted stats-empty">{t("stats.empty")}</p>;
   const max = largestValue(columns.map((c) => ({ value: c.lower.value + c.upper.value })));
   const labelled = columns.length <= VALUE_LABELS_UP_TO;
+  const grid = labelled ? [] : gridValues(max);
+  const gridFormat = (v: number) => v.toLocaleString(i18n.language);
   const part = (c: StackedColumn, which: "lower" | "upper") => {
     const p = c[which];
     return (
@@ -147,10 +184,11 @@ export function StackedColumnChart({
   };
   return (
     <div className="stats-stacked">
-      <div className={`stats-columns${labelEvery > 1 ? " spread" : ""}`}>
+      <div className={`stats-columns${labelEvery > 1 ? " spread" : ""}${grid.length ? " gridded" : ""}`}>
         {columns.map((c, i) => (
           <div key={c.key} className="stats-col">
             <span className="stats-col-plot">
+              <GridLines values={grid} max={max} last={i === columns.length - 1} format={gridFormat} />
               {c.top && labelled && <span className="stats-col-value">{c.top}</span>}
               {part(c, "upper")}
               {part(c, "lower")}
@@ -159,10 +197,12 @@ export function StackedColumnChart({
           </div>
         ))}
       </div>
-      <div className="stats-pair-legend">
-        <span className={`stats-stack-lower${stackToneClass(tones?.[0])}`}>{names[0]}</span>
-        <span className={`stats-stack-upper${stackToneClass(tones?.[1])}`}>{names[1]}</span>
-      </div>
+      {legend && (
+        <div className="stats-pair-legend">
+          <span className={`stats-stack-lower${stackToneClass(tones?.[0])}`}>{names[0]}</span>
+          <span className={`stats-stack-upper${stackToneClass(tones?.[1])}`}>{names[1]}</span>
+        </div>
+      )}
     </div>
   );
 }

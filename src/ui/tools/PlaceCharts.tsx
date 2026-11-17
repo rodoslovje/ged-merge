@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { tipProps } from "../IconTip";
+import { GridLines, gridValues } from "./StatsCharts";
 
 // The Places page's three charts: a flow from the parents' birth places to the
 // children's, a grid of places by decade, and births by decade stacked by
@@ -319,12 +320,14 @@ export function MultiStackChart({
   for (const c of columns) max = Math.max(max, c.values.reduce((a, b) => a + b, 0));
   const every = Math.max(1, Math.ceil(columns.length / 12));
   const labelled = columns.length <= 13;
+  const grid = labelled ? [] : gridValues(max);
   return (
     <div className="stats-stacked">
-      <div className={`stats-columns${every > 1 ? " spread" : ""}`}>
+      <div className={`stats-columns${every > 1 ? " spread" : ""}${grid.length ? " gridded" : ""}`}>
         {columns.map((c, i) => (
           <div key={c.key} className="stats-col">
             <span className="stats-col-plot">
+              <GridLines values={grid} max={max} last={i === columns.length - 1} format={format} />
               {c.top && labelled && <span className="stats-col-value">{c.top}</span>}
               {c.values.map((v, p) => ({ v, p })).reverse().map(({ v, p }) => v > 0 && (
                 <button

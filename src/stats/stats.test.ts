@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { computeKinship } from "../tools/batch";
 import { buildStatsFacts } from "./facts";
 import { applyCountry, DEFAULT_SCOPE, scopeFacts, type StatsScope } from "./scope";
-import { familyStats, histogram, lifespanStats, nameKindsStats, namesStats, overview, rankNames } from "./aggregate";
+import { familyStats, histogram, lifespanStats, meanByPeriod, meanPeriodWidth, nameKindsStats, namesStats, overview, rankNames } from "./aggregate";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -227,7 +227,7 @@ describe("aggregates", () => {
     const l = lifespanStats(scoped());
     expect(l.all?.n).toBe(4); // I1, I3, I4, I6 — I2's birth is ABT
     expect(lifespanStats(scoped({ approx: true })).all?.n).toBe(5);
-    expect(l.childDeaths.find((c) => c.century === 1800)).toMatchObject({ n: 4, ids: ["@I6@"] });
+    expect(l.childDeaths).toEqual([]); // no period has 5 deaths
     expect(l.oldest[0]).toEqual({ id: "@I1@", age: 70 });
   });
 
@@ -244,19 +244,58 @@ describe("aggregates", () => {
     expect(f.childrenMean).toEqual({ value: 1, n: 3 });
   });
 
-  it("averages grown and young-dead children per family by century", () => {
-    const ds = dataset(["0 HEAD",
-      "0 @F1@ FAM", "1 HUSB @I1@", "1 MARR", "2 DATE 1850", "1 CHIL @C1@", "1 CHIL @C2@", "1 CHIL @C3@", "1 CHIL @C4@",
-      "0 @I1@ INDI", "1 FAMS @F1@",
-      "0 @C1@ INDI", "1 BIRT", "2 DATE 1851", "1 DEAT", "2 DATE 1853", "1 FAMC @F1@",
-      "0 @C2@ INDI", "1 BIRT", "2 DATE 1852", "1 DEAT", "2 DATE 1920", "1 FAMC @F1@",
-      "0 @C3@ INDI", "1 BIRT", "2 DATE 1854", "1 FAMS @F2@", "1 FAMC @F1@",
-      "0 @C4@ INDI", "1 BIRT", "2 DATE 1856", "1 FAMC @F1@",
-      "0 @F2@ FAM", "1 HUSB @C3@",
-      "0 TRLR"].join("\n"));
+  it("averages grown and young-dead children per family by quarter-century", () => {
+    // Five such families, each married in 1850: a child who died at 2, one
+    // who died at 68, one who married, one with no death and no marriage.
+    // A sixth family, married last year, has no grown children yet: no reading.
+    const thisYear = new Date().getFullYear();
+    const family = (i: number, year: number) => [
+      `0 @F${i}@ FAM`, `1 HUSB @H${i}@`, "1 MARR", `2 DATE ${year}`, ...[1, 2, 3, 4].map((c) => `1 CHIL @C${i}x${c}@`),
+      `0 @H${i}@ INDI`, `1 FAMS @F${i}@`,
+      `0 @C${i}x1@ INDI`, "1 BIRT", `2 DATE ${year + 1}`, "1 DEAT", `2 DATE ${year + 3}`, `1 FAMC @F${i}@`,
+      `0 @C${i}x2@ INDI`, "1 BIRT", `2 DATE ${year + 2}`, "1 DEAT", `2 DATE ${year + 70}`, `1 FAMC @F${i}@`,
+      `0 @C${i}x3@ INDI`, "1 BIRT", `2 DATE ${year + 4}`, `1 FAMS @G${i}@`, `1 FAMC @F${i}@`,
+      `0 @C${i}x4@ INDI`, "1 BIRT", `2 DATE ${year + 6}`, `1 FAMC @F${i}@`,
+      `0 @G${i}@ FAM`, `1 HUSB @C${i}x3@`,
+    ];
+    const ds = dataset(["0 HEAD", ...[1, 2, 3, 4, 5].flatMap((i) => family(i, 1850)), ...family(6, thisYear - 1), "0 TRLR"].join("\n"));
     const facts = buildStatsFacts(ds);
     const l = lifespanStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
-    expect(l.childSurvival).toEqual([{ century: 1800, n: 1, grown: 2, died: 1, grownIds: ["@C2@", "@C3@"], diedIds: ["@C1@"] }]);
+    expect(l.childSurvival).toHaveLength(1);
+    expect(l.childSurvival[0]).toMatchObject({ from: 1850, to: 1874, n: 5, grown: 2, died: 1 });
+    expect(l.childSurvival[0].diedIds).toContain("@C1x1@");
+    expect(l.childSurvival[0].grownIds).toEqual(expect.arrayContaining(["@C1x2@", "@C1x3@"]));
+  });
+
+  it("averages age at death per quarter-century, leaving out thin periods and those still mostly living", () => {
+    const thisYear = new Date().getFullYear();
+    const lines = ["0 HEAD"];
+    let n = 0;
+    const person = (born: number, died?: number) => {
+      lines.push(`0 @P${++n}@ INDI`, "1 BIRT", `2 DATE ${born}`);
+      if (died !== undefined) lines.push("1 DEAT", `2 DATE ${died}`);
+    };
+    for (let i = 0; i < 5; i++) person(1700 + i, 1760 + i); // 60 years each
+    for (let i = 0; i < 5; i++) person(1730 + i, i ? 1800 + i : 1731); // one infant death
+    for (let i = 0; i < 4; i++) person(1760, 1800); // too few
+    for (let i = 0; i < 5; i++) person(thisYear - 20, thisYear - 19); // dead young …
+    for (let i = 0; i < 10; i++) person(thisYear - 20); // … among many living
+    lines.push("0 TRLR");
+    const facts = buildStatsFacts(dataset(lines.join("\n")));
+    const l = lifespanStats(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
+    expect(l.byPeriod.map((p) => [p.from, p.to, p.value, p.n])).toEqual([[1700, 1724, 60, 5], [1725, 1749, (1 + 4 * 70) / 5, 5]]);
+    expect(l.childDeaths.map((p) => [p.from, p.value])).toEqual([[1700, 0], [1725, 20]]);
+    expect(l.byPeriodAdults.map((p) => p.from)).toEqual([1700]); // 1725 keeps only 4 adults
+  });
+
+  it("widens the averaging period for a file that reaches far back", () => {
+    const year = (y: number) => y;
+    expect(meanPeriodWidth([1600, 2020], year)).toBe(25);
+    expect(meanPeriodWidth([1400, 2020], year)).toBe(50);
+    expect(meanPeriodWidth([900, 2020], year)).toBe(100);
+    expect(meanByPeriod([1850, 1851, 1852, 1853, 1860, 1880], year, () => 1, String, 25)).toEqual([
+      { from: 1850, to: 1874, value: 1, n: 5, ids: ["1850", "1851", "1852", "1853", "1860"] },
+    ]);
   });
 
   it("counts additional name kinds and missing name parts", () => {
@@ -282,25 +321,19 @@ describe("aggregates", () => {
     expect(f.marriagePlaces.map((b) => [b.label, b.ids])).toEqual([["Šmartin", ["@F1@", "@F2@"]], ["Kranj", ["@F3@"]]]);
   });
 
-  it("leaves a family dated only by an approximate child out of the century means by default", () => {
-    const ds = dataset(`0 HEAD
-0 @I1@ INDI
-1 BIRT
-2 DATE ABT 1850
-1 FAMC @F1@
-0 @I2@ INDI
-1 FAMS @F1@
-0 @F1@ FAM
-1 HUSB @I2@
-1 CHIL @I1@
-0 TRLR`);
+  it("leaves a family dated only by an approximate child out of the period means by default", () => {
+    const ds = dataset(["0 HEAD", ...[1, 2, 3, 4, 5].flatMap((i) => [
+      `0 @C${i}@ INDI`, "1 BIRT", "2 DATE ABT 1850", `1 FAMC @F${i}@`,
+      `0 @H${i}@ INDI`, `1 FAMS @F${i}@`,
+      `0 @F${i}@ FAM`, `1 HUSB @H${i}@`, `1 CHIL @C${i}@`,
+    ]), "0 TRLR"].join("\n"));
     const facts = buildStatsFacts(ds);
     const scopedOf = (approx: boolean) => {
       const scope = { ...DEFAULT_SCOPE, approx };
       return applyCountry(facts, scopeFacts(facts, scope, null, undefined), scope);
     };
-    expect(familyStats(scopedOf(false)).childrenByCentury).toEqual([]);
-    expect(familyStats(scopedOf(true)).childrenByCentury.map((p) => p.ids)).toEqual([["@F1@"]]);
+    expect(familyStats(scopedOf(false)).childrenByPeriod).toEqual([]);
+    expect(familyStats(scopedOf(true)).childrenByPeriod.map((p) => p.ids)).toEqual([["@F1@", "@F2@", "@F3@", "@F4@", "@F5@"]]);
   });
 });
 

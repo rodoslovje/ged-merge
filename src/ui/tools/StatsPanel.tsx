@@ -14,7 +14,7 @@ import {
   namesStats,
   overview,
   type Bucket,
-  type CenturyPoint,
+  type PeriodPoint,
   type Share,
 } from "../../stats/aggregate";
 import { birthStats, deathStats, occupationStats } from "../../stats/vitals";
@@ -292,26 +292,32 @@ export function StatsPanel({
     );
   };
 
-  /** A column chart of a by-century average or share. */
-  const centuries = (card: string, title: string, points: CenturyPoint[], format: (v: number) => string, opts: { families?: boolean; tone?: Tone } = {}) => withCsv(
+  /** A period's axis label: a century by its name, a shorter period by its first year. */
+  const periodPointLabel = (p: { from: number; to: number }) => (p.to - p.from === 99 ? centuryLabel(p.from) : String(p.from));
+  /** Label about eight periods however many there are: a card a third wide holds no more. */
+  const periodPointStep = (count: number) => Math.max(1, Math.ceil(count / 8));
+  /** A column chart of a by-period average or share. */
+  const periods = (card: string, title: string, points: PeriodPoint[], format: (v: number) => string, opts: { families?: boolean; tone?: Tone } = {}) => withCsv(
     card,
-    () => [[t("stats.centuryCol"), title, t("stats.csv.counted")], ...points.map((p) => [`${p.century}–${p.century + 99}`, Math.round(p.value * 10) / 10, p.n])],
+    () => [[t("stats.periodCol"), title, t("stats.csv.counted")], ...points.map((p) => [`${p.from}–${p.to}`, Math.round(p.value * 10) / 10, p.n])],
     <ColumnChart
       tone={opts.tone}
       columns={points.map((p) => ({
-        key: String(p.century),
-        label: centuryLabel(p.century),
+        key: String(p.from),
+        label: periodPointLabel(p),
         value: p.value,
         count: p.ids.length,
         empty: false,
-        tip: t("stats.centuryTip", { from: p.century, to: p.century + 99, value: format(p.value), n: num(p.n) }),
+        tip: t("stats.periodTip", { from: p.from, to: p.to, value: format(p.value), n: num(p.n) }),
       }))}
       format={format}
-      labelEvery={points.length > 8 ? 2 : 1}
+      // A guide line sits on a round value: "25", not "25.0".
+      gridFormat={format === dec ? num : format}
+      labelEvery={periodPointStep(points.length)}
       picked={pickedIn(card)}
       onPick={(key) => {
-        const p = points.find((x) => String(x.century) === key)!;
-        choose(card, key, centuryLabel(p.century), p.ids, opts.families);
+        const p = points.find((x) => String(x.from) === key)!;
+        choose(card, key, `${p.from}–${p.to}`, p.ids, opts.families);
       }}
     />
   );
@@ -1000,9 +1006,6 @@ export function StatsPanel({
             {card("ageAtDeath", t("stats.ageAtDeath"), null, buckets("ageAtDeath", t("stats.ageAtDeath"), life.ageAtDeath), true)}
             {scope.sex !== "F" && card("ageAtDeathMale", t("stats.ageAtDeathMale"), t("stats.nPeople", { count: total(life.ageAtDeathMale) }), buckets("ageAtDeathMale", t("stats.ageAtDeathMale"), life.ageAtDeathMale, { tone: "male", labelEvery: 2, label: lowerBound, tipLabel: rangeLabel }))}
             {scope.sex !== "M" && card("ageAtDeathFemale", t("stats.ageAtDeathFemale"), t("stats.nPeople", { count: total(life.ageAtDeathFemale) }), buckets("ageAtDeathFemale", t("stats.ageAtDeathFemale"), life.ageAtDeathFemale, { tone: "female", labelEvery: 2, label: lowerBound, tipLabel: rangeLabel }))}
-            {card("lifeByCentury", t("stats.lifeByCentury"), null, centuries("lifeByCentury", t("stats.lifeByCentury"), life.byCentury, dec))}
-            {scope.sex !== "F" && card("lifeByCenturyMale", t("stats.lifeByCenturyMale"), null, centuries("lifeByCenturyMale", t("stats.lifeByCenturyMale"), life.byCenturyMale, dec, { tone: "male" }))}
-            {scope.sex !== "M" && card("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), null, centuries("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), life.byCenturyFemale, dec, { tone: "female" }))}
             {card("oldest", t("stats.oldestList"), null, (
               <ol className="stats-oldest">
                 {life.oldest.map((o) => (
@@ -1013,37 +1016,43 @@ export function StatsPanel({
                 ))}
               </ol>
             ))}
-            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, centuries("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byCenturyAdults, dec))}
-            {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, centuries("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
+            {scope.sex !== "F" && card("lifeByCenturyMale", t("stats.lifeByCenturyMale"), null, periods("lifeByCenturyMale", t("stats.lifeByCenturyMale"), life.byPeriodMale, dec, { tone: "male" }))}
+            {scope.sex !== "M" && card("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), null, periods("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), life.byPeriodFemale, dec, { tone: "female" }))}
+            {card("lifeByCentury", t("stats.lifeByCentury"), null, periods("lifeByCentury", t("stats.lifeByCentury"), life.byPeriod, dec))}
+            {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, periods("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
             {card("childSurvival", t("stats.childSurvival"), null, (() => {
               const names: [string, string] = [t("stats.childGrown", { age: ADULT_AGE }), t("stats.childDiedYoung", { age: ADULT_AGE })];
               return withCsv(
                 "childSurvival",
-                () => [[t("stats.centuryCol"), ...names, t("stats.childSurvived", { age: ADULT_AGE }), t("stats.csv.counted")], ...life.childSurvival.map((p) => [`${p.century}–${p.century + 99}`, Math.round(p.grown * 10) / 10, Math.round(p.died * 10) / 10, pct(p.grownIds.length, p.grownIds.length + p.diedIds.length), p.n])],
+                () => [[t("stats.periodCol"), ...names, t("stats.childSurvived", { age: ADULT_AGE }), t("stats.csv.counted")], ...life.childSurvival.map((p) => [`${p.from}–${p.to}`, Math.round(p.grown * 10) / 10, Math.round(p.died * 10) / 10, pct(p.grownIds.length, p.grownIds.length + p.diedIds.length), p.n])],
                 <StackedColumnChart
                   names={names}
+                  labelEvery={periodPointStep(life.childSurvival.length)}
+                  legend={false}
                   picked={pickedIn("childSurvival")}
                   columns={life.childSurvival.map<StackedColumn>((p) => {
-                    const part = (name: string, v: number, ids: string[]) => ({
-                      value: v,
-                      tip: t("stats.centuryTip", { from: p.century, to: p.century + 99, value: `${name} ${dec(v)}`, n: num(p.n) }),
-                      count: ids.length,
+                    // Either part's tip tells the whole column: the legend is gone.
+                    const tip = t("stats.childSurvivalTip", {
+                      from: p.from, to: p.to, age: ADULT_AGE, grown: dec(p.grown), died: dec(p.died),
+                      share: pct(p.grownIds.length, p.grownIds.length + p.diedIds.length), n: num(p.n),
                     });
+                    const part = (v: number, ids: string[]) => ({ value: v, tip, count: ids.length });
                     return {
-                      key: String(p.century),
-                      label: centuryLabel(p.century),
-                      lower: part(names[0], p.grown, p.grownIds),
-                      upper: part(names[1], p.died, p.diedIds),
+                      key: String(p.from),
+                      label: periodPointLabel(p),
+                      lower: part(p.grown, p.grownIds),
+                      upper: part(p.died, p.diedIds),
                       top: p.grownIds.length + p.diedIds.length ? pct(p.grownIds.length, p.grownIds.length + p.diedIds.length) : undefined,
                     };
                   })}
                   onPick={(key, which) => {
-                    const p = life.childSurvival.find((x) => String(x.century) === key)!;
-                    choose("childSurvival", `${key}:${which}`, `${names[which === "lower" ? 0 : 1]} — ${centuryLabel(p.century)}`, which === "lower" ? p.grownIds : p.diedIds);
+                    const p = life.childSurvival.find((x) => String(x.from) === key)!;
+                    choose("childSurvival", `${key}:${which}`, `${names[which === "lower" ? 0 : 1]} — ${p.from}–${p.to}`, which === "lower" ? p.grownIds : p.diedIds);
                   }}
                 />,
               );
             })())}
+            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, periods("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byPeriodAdults, dec))}
           </>
         )}
 
@@ -1083,7 +1092,7 @@ export function StatsPanel({
             {card("children", t("stats.childrenPerFamilyChart"), t("stats.nFamilies", { count: families }), buckets("children", t("stats.childrenPerFamilyChart"), fams.children, { families: true }))}
             {card("unions", t("stats.unionsPerPerson"), t("stats.nPeople", { count: total(fams.unionsPerPerson) }), buckets("unions", t("stats.unionsPerPerson"), fams.unionsPerPerson))}
             {card("firstChild", t("stats.firstChild"), t("stats.nFamilies", { count: total(fams.firstChild) }), buckets("firstChild", t("stats.firstChild"), fams.firstChild, { families: true, label: (b) => t(`stats.firstChild.${b.key}`) }))}
-            {card("childrenByCentury", t("stats.childrenByCentury"), null, centuries("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByCentury, dec, { families: true }))}
+            {card("childrenByCentury", t("stats.childrenByCentury"), null, periods("childrenByCentury", t("stats.childrenByCentury"), fams.childrenByPeriod, dec, { families: true }))}
             {related && card("relatedCouples", t("stats.relatedCouples"), t("stats.nFamilies", { count: related.of }), (
               <BarList
                 picked={pickedIn("relatedCouples")}
@@ -1189,7 +1198,7 @@ export function StatsPanel({
             {flows && grid && stack && placesCards()}
             {!moves.distanceMean && <p className="muted stats-empty stats-note">{t("stats.noDistances")}</p>}
             {moves.distanceMean && card("distance", t("stats.distance"), t("stats.nPeople", { count: total(moves.distance) }), buckets("distance", t("stats.distance"), moves.distance, { label: distanceLabel }))}
-            {moves.distanceMean && card("distanceByCentury", t("stats.meanDistance"), null, centuries("distanceByCentury", t("stats.meanDistance"), moves.distanceByCentury, (v) => t("stats.km", { value: num(Math.round(v)) })))}
+            {moves.distanceMean && card("distanceByCentury", t("stats.meanDistance"), null, periods("distanceByCentury", t("stats.meanDistance"), moves.distanceByPeriod, (v) => t("stats.km", { value: num(Math.round(v)) })))}
             {card("countryMoves", t("stats.countryMoves"), t("stats.nPeople", { count: moves.emigrants.n }), (
               <BarList
                 limit={listLimit("countryMoves", moves.countryMoves.length, 15)}
