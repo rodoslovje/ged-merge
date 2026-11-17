@@ -73,7 +73,6 @@ export const HISTORY_EVENTS: readonly HistoryEvent[] = [
   { id: "ljubljanaQuake", from: 1895, where: ["si"] },
   { id: "auFederation", from: 1901, where: ["au"] },
   { id: "ww1", from: 1914, to: 1918, where: "world" },
-  { id: "isonzo", from: 1915, to: 1917, where: ["si", "it"] },
   { id: "spanishFlu", from: 1918, to: 1920, where: "world" },
   { id: "habsburgEnd", from: 1918, where: ["at", "cz", "sk", "hu", "pl", "ua"] },
   { id: "scs", from: 1918, where: YUGOSLAVIA },

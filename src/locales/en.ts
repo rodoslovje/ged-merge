@@ -2339,7 +2339,6 @@ export const en = {
   "history.ljubljanaQuake": "Ljubljana earthquake",
   "history.auFederation": "Australian Federation",
   "history.ww1": "First World War",
-  "history.isonzo": "Isonzo Front",
   "history.spanishFlu": "Spanish flu",
   "history.habsburgEnd": "end of Austria-Hungary",
   "history.scs": "Kingdom of Serbs, Croats and Slovenes",

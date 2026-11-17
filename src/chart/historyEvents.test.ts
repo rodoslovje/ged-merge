@@ -56,7 +56,7 @@ describe("pickHistoryEvents", () => {
     expect(picked).toContain("revolutions1848");
     expect(picked).toContain("ljubljanaQuake");
     expect(picked).toContain("ww1"); // world-wide, in range
-    expect(picked).not.toContain("isonzo"); // nobody in Slovenia by then
+    expect(picked).not.toContain("rapallo"); // nobody in Slovenia by then
     expect(picked).not.toContain("usCivilWar");
 
     const american = [{ countries: new Set(["us"]), from: 1850, to: 1930 }];
