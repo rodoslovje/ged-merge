@@ -1,5 +1,5 @@
 import type { ScopedFacts } from "./scope";
-import { birthYearOf, byLabel, centuryOf, mean, share, type Bucket, type CenturyPoint, type Mean, type Share } from "./aggregate";
+import { birthYearOf, byLabel, mean, meanByPeriod, meanPeriodWidth, share, type Bucket, type Mean, type PeriodPoint, type Share } from "./aggregate";
 
 /**
  * The Places page: how far lives moved, from the birth place to the death
@@ -14,7 +14,7 @@ export interface MigrationStats {
   /** Birth-to-death distance in spans; bucket keys are the span's lower bound in km. */
   distance: Bucket[];
   distanceMean?: Mean;
-  distanceByCentury: CenturyPoint[];
+  distanceByPeriod: PeriodPoint[];
   /** Of the people whose birth and death countries are both known, those who differ. */
   emigrants: Share;
   /** Moves between countries, keyed `from>to`, most common first. */
@@ -38,17 +38,6 @@ export function migrationStats(s: ScopedFacts): MigrationStats {
     distance[i].ids.push(p.id);
   }
 
-  const centuries = new Map<number, { sum: number; ids: string[] }>();
-  for (const p of moved) {
-    const y = year(p);
-    if (y === undefined) continue;
-    const c = centuryOf(y);
-    let g = centuries.get(c);
-    if (!g) centuries.set(c, (g = { sum: 0, ids: [] }));
-    g.sum += p.movedKm!;
-    g.ids.push(p.id);
-  }
-
   const both = s.people.filter((p) => p.birthCountry && p.deathCountry);
   const moves = new Map<string, string[]>();
   for (const p of both) {
@@ -65,9 +54,7 @@ export function migrationStats(s: ScopedFacts): MigrationStats {
   return {
     distance,
     distanceMean: mean(moved.map((p) => p.movedKm!)),
-    distanceByCentury: [...centuries]
-      .sort((a, b) => a[0] - b[0])
-      .map(([century, g]) => ({ century, value: g.sum / g.ids.length, n: g.ids.length, ids: g.ids })),
+    distanceByPeriod: meanByPeriod(moved, year, (p) => p.movedKm, (p) => p.id, meanPeriodWidth(moved, year)),
     emigrants: share(both, (p) => p.birthCountry !== p.deathCountry),
     countryMoves: [...moves]
       .map(([key, ids]) => ({ key, count: ids.length, ids }))
