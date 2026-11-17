@@ -73,8 +73,8 @@ export function gridValues(max: number): number[] {
  */
 function GridLines({ values, max, last, format }: { values: number[]; max: number; last: boolean; format: (v: number) => string }) {
   return values.map((v) => (
-    <span key={v} className="stats-grid" style={{ bottom: `${(100 * v) / max}%` }} aria-hidden="true">
-      {last && <span className="stats-grid-value">{format(v)}</span>}
+    <span key={v} className="stats-guide" style={{ bottom: `${(100 * v) / max}%` }} aria-hidden="true">
+      {last && <span className="stats-guide-value">{format(v)}</span>}
     </span>
   ));
 }
