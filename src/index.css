@@ -9875,7 +9875,7 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
 .stats-network.focused .stats-network-link line:not(.hit) { stroke-opacity: 0.08; }
 .stats-network .stats-network-link.lit line:not(.hit) { stroke-opacity: 0.9; }
 .stats-network .stats-network-link:hover line:not(.hit),
-.stats-network .stats-network-link.picked line:not(.hit) { stroke: var(--text); stroke-opacity: 0.9; }
+.stats-network .stats-network-link.picked line:not(.hit) { stroke-opacity: 1; }
 .stats-network-node { cursor: pointer; transition: opacity 0.12s; }
 .stats-network-node:focus { outline: none; }
 .stats-network-node circle { fill: var(--panel-2); stroke: var(--accent); stroke-width: 1.5px; }
@@ -9890,8 +9890,10 @@ button.stats-col-bar:hover, button.stats-col-bar.picked { opacity: 1; }
   pointer-events: none;
 }
 .stats-network-node.dim { opacity: 0.25; }
-.stats-network-node.focus circle, .stats-network-node:focus-visible circle { stroke: var(--text); stroke-width: 2.5px; }
-.stats-network-node.picked circle { fill: var(--accent-soft); stroke: var(--text); stroke-width: 2.5px; }
+/* The surname pointed at, and the picked one, fill with the accent — opaque,
+   so the lines under the circle stay hidden. */
+.stats-network-node.focus circle, .stats-network-node:focus-visible circle { fill: color-mix(in oklch, var(--accent) 25%, var(--panel)); stroke-width: 2.5px; }
+.stats-network-node.picked circle { fill: color-mix(in oklch, var(--accent) 55%, var(--panel)); stroke-width: 2.5px; }
 /* Places by decade: a grid that scrolls sideways when the decades run long. */
 .stats-grid-scroll { overflow-x: auto; }
 .stats-decades { display: grid; gap: 3px; align-items: stretch; min-width: min-content; }
