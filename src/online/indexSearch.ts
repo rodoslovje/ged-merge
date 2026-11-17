@@ -126,7 +126,7 @@ function addHit(people: People, hit: IndexHit, index: number): void {
   ];
   const { byTag, recordLinks } = splitRowLinks((hit.links ?? []).join(","), events);
   for (const e of events) pushEvent(children, e.tag, e.date, e.place, byTag.get(e.tag));
-  for (const url of [...recordLinks, indexPersonUrl(hit)]) children.push(node(1, "WWW", url));
+  for (const url of recordLinks) children.push(node(1, "WWW", url));
   addPerson(people, id, children);
 
   const relative = (r: IndexRelative, rid: string): string => {

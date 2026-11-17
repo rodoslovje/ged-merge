@@ -2660,7 +2660,7 @@ button:focus-visible {
   padding: 0 4px;
   border-radius: var(--radius-pill);
   background: var(--accent-soft);
-  color: var(--accent-ink);
+  color: var(--accent);
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }

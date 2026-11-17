@@ -123,7 +123,6 @@ describe("hit records", () => {
     expect(ds.individuals.get(parents.wife!)!.names[0].given).toBe("Jožefa");
     const spouseFam = ds.families.get(penko.spouseOf[0])!;
     expect(spouseFam.husband).toBe(penko.id);
-    expect(penko.links).toContain(indexPersonUrl(PENKO));
     const benko = ds.individuals.get(hitXref(1))!;
     expect(benko.events.map((e) => e.tag)).toEqual(["BIRT", "CHR"]);
   });
