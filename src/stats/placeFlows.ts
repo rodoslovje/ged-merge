@@ -56,7 +56,7 @@ function placeAt(p: PersonFacts | undefined, level: FlowLevel): { key: string; l
 }
 
 /** The spelling written most often, of a key's spellings. */
-function commonest(spellings: Map<string, number>): string {
+export function commonest(spellings: Map<string, number>): string {
   let label = "";
   let best = -1;
   for (const [s, c] of spellings) if (c > best) { best = c; label = s; }
@@ -157,17 +157,33 @@ export interface PlaceDecades {
 
 /** The commonest birth places among the dated births, by decade. */
 export function placeDecades(s: ScopedFacts, top = DECADE_TOP): PlaceDecades {
+  const { distinct, ...grid } = decadeGrid(s, (p) => (p.birthPlace ? [p.birthPlaceKey, p.birthPlace] : undefined), top);
+  return { ...grid, places: distinct };
+}
+
+/**
+ * The `top` commonest values among the dated births, with their people by
+ * decade of birth. `valueOf` gives a person's value as its folded key and its
+ * spelling, or nothing; `distinct` counts every key, dated or not.
+ */
+export function decadeGrid(
+  s: ScopedFacts,
+  valueOf: (p: PersonFacts) => [key: string, label: string] | undefined,
+  top: number,
+): Omit<PlaceDecades, "places"> & { distinct: number } {
   const year = birthYearOf(s);
   const groups = new Map<string, { spellings: Map<string, number>; people: { id: string; decade: number }[] }>();
-  const places = new Set<string>();
+  const keys = new Set<string>();
   for (const p of s.people) {
-    if (!p.birthPlace) continue;
-    places.add(p.birthPlaceKey);
+    const value = valueOf(p);
+    if (!value) continue;
+    const [key, label] = value;
+    keys.add(key);
     const y = year(p);
     if (y === undefined) continue;
-    let g = groups.get(p.birthPlaceKey);
-    if (!g) groups.set(p.birthPlaceKey, (g = { spellings: new Map(), people: [] }));
-    g.spellings.set(p.birthPlace, (g.spellings.get(p.birthPlace) ?? 0) + 1);
+    let g = groups.get(key);
+    if (!g) groups.set(key, (g = { spellings: new Map(), people: [] }));
+    g.spellings.set(label, (g.spellings.get(label) ?? 0) + 1);
     g.people.push({ id: p.id, decade: Math.floor(y / 10) * 10 });
   }
   const rows: DecadeRow[] = [...groups]
@@ -193,7 +209,7 @@ export function placeDecades(s: ScopedFacts, top = DECADE_TOP): PlaceDecades {
       if (ids.length > max) max = ids.length;
     }
   }
-  return { rows, first, last, max, places: places.size };
+  return { rows, first, last, max, distinct: keys.size };
 }
 
 /** The places the stacked decades colour on their own. */
