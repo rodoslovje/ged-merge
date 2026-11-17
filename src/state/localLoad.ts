@@ -196,7 +196,7 @@ function buildSliced(decoded: DecodeResult, alive: () => boolean): Promise<Datas
  * giving the page a turn between them. Undefined once `alive` turns false.
  * The first slice runs at once, in the caller's task.
  */
-async function runSliced<T>(steps: Steps<T>, alive: () => boolean): Promise<T | undefined> {
+export async function runSliced<T>(steps: Steps<T>, alive: () => boolean): Promise<T | undefined> {
   let deadline = performance.now() + SLICE_MS;
   for (;;) {
     const r = steps.next();
@@ -211,7 +211,7 @@ async function runSliced<T>(steps: Steps<T>, alive: () => boolean): Promise<T | 
 /** Resolve in a later task, so rendering and input get their turn. A message
  *  to ourselves rather than a timer: nested timers are clamped to 4 ms, which
  *  over a few hundred slices adds up. */
-function nextTask(): Promise<void> {
+export function nextTask(): Promise<void> {
   if (typeof MessageChannel === "undefined" || typeof document === "undefined") {
     return new Promise((resolve) => setTimeout(resolve, 0));
   }

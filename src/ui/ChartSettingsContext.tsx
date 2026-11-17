@@ -60,6 +60,10 @@ const SETTINGS_KEYS = ["showAge", "marriedSurname"] as const;
 
 export type { ChartAlignment };
 
+/** The Timeline's look: lifespan bars per person, or the blood line on a
+ *  vertical year axis. */
+export type TimelineLayout = "bars" | "lines";
+
 /** Whose lifespan bars carry event dots on the Timeline. */
 export type TimelineEventScope = "person" | "all" | "off";
 
@@ -110,6 +114,12 @@ export interface ChartSettings {
   timelineEvents: TimelineEventScope;
   /** Timeline: label the event dots with small text under the bar. */
   timelineEventLabels: boolean;
+  /** Timeline: mark the historical events of the countries the people lived in. */
+  timelineHistory: boolean;
+  /** Timeline Lines: hang each person's life from their birth dot down to their death. */
+  timelineLifelines: boolean;
+  /** Timeline: lifespan bars, or the blood line on a vertical year axis. */
+  timelineLayout: TimelineLayout;
   /** Show residence information — the Timeline draws it as a thin strip under
    *  the lifespan bar, the Report as ⌂ fact lines. One shared choice. */
   showResidence: boolean;
@@ -156,6 +166,9 @@ const DEFAULTS: ChartSettings = {
   privacyLiving: false,
   timelineEvents: "person",
   timelineEventLabels: false,
+  timelineHistory: false,
+  timelineLifelines: false,
+  timelineLayout: "bars",
   showResidence: false,
   showOccupation: false,
   showEducation: false,
@@ -250,6 +263,9 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
           ? parsed.timelineEvents
           : DEFAULTS.timelineEvents,
       timelineEventLabels: bool(parsed.timelineEventLabels, DEFAULTS.timelineEventLabels),
+      timelineHistory: bool(parsed.timelineHistory, DEFAULTS.timelineHistory),
+      timelineLifelines: bool(parsed.timelineLifelines, DEFAULTS.timelineLifelines),
+      timelineLayout: parsed.timelineLayout === "lines" ? "lines" : DEFAULTS.timelineLayout,
       // showResidence replaced the timeline-only `timelineResidence` when the
       // Report gained residence lines; older blobs carry the old name.
       showResidence: bool(
@@ -285,22 +301,29 @@ function save(settings: ChartSettings): void {
   }
 }
 
-export function ChartSettingsProvider({ children }: { children: React.ReactNode }) {
+export function ChartSettingsProvider({ children, persist = true }: {
+  children: React.ReactNode;
+  /** Off for the family website, as for {@link SettingsProvider}: its charts
+   *  start from the defaults (their address says the rest) and never write the
+   *  app's stored chart choices. */
+  persist?: boolean;
+}) {
   // Seed the Age and Married-name toggles from their global preferences on first
   // load, so charts honour them by default (SettingsProvider wraps this one, so
   // the global values are already resolved synchronously here).
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
-  const [settings, setSettings] = useState<ChartSettings>(
-    () => load({ showAge: appSettings.showAge, showMarriedName: appSettings.marriedSurname }),
-  );
+  const [settings, setSettings] = useState<ChartSettings>(() => {
+    const seed = { showAge: appSettings.showAge, showMarriedName: appSettings.marriedSurname };
+    return persist ? load(seed) : { ...DEFAULTS, ...seed };
+  });
 
   const update = useCallback((patch: Partial<ChartSettings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      save(next);
+      if (persist) save(next);
       return next;
     });
-  }, []);
+  }, [persist]);
 
   const value = useMemo<ChartSettingsCtx>(
     () => ({

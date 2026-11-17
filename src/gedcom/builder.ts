@@ -373,6 +373,7 @@ function readOrdinance(node: GedNode, event: GedEvent): void {
 
 function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, noteIndex: NoteIndex = new Map()): GedEvent {
   const event: GedEvent = { tag: node.tag };
+  if (isPrivateNode(node)) event.private = true;
   if (node.value?.trim()) event.value = node.value.trim();
   const dateNode = firstChild(node, "DATE");
   const placeNode = firstChild(node, "PLAC");

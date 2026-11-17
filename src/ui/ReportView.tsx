@@ -574,6 +574,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
         {selectedEntry && selectedIndi && (
           <TreeNodePanel
             node={selectedEntry}
+            personId={selectedEntry.id}
             swatch={selectedEntry.num === 1 ? COLOR_PERSON : COLOR_FAMILY}
             rows={selectedRows}
             mainPerson={mainNav}

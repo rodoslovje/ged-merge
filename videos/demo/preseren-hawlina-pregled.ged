@@ -6,7 +6,7 @@
 1 CHAR UTF-8
 1 SUBM @U1@
 1 NOTE Predniki in potomci Franceta Prešerna iz rodovnika Petra Hawline. / France Prešeren's ancestors and descendants from Peter Hawlina's pedigree.
-2 CONT Kopija za video o Pregledu: napake v tej datoteki so vnesene namerno (napačna števka, zamenjani vlogi, podvojeni zapisi …). / Copy for the health-check video: the errors in this file are introduced on purpose.
+2 CONT Kopija za video o Pregledu: napake v tej datoteki so vnesene namerno (napačna števka, zamenjani vlogi, podvojeni zapisi, nepripeta kopija Svetinove družine …). / Copy for the health-check video: the errors in this file are introduced on purpose.
 0 @I113441@ INDI
 1 NAME France /Prešeren/
 1 SEX M
@@ -323,6 +323,36 @@
 1 CHIL @I113424@
 1 MARR
 2 DATE ~1690
+0 @I900001@ INDI
+1 NAME Jakob /Svetina/
+1 SEX M
+1 BIRT
+2 DATE ABT 1745
+1 DEAT
+2 DATE AFT 1835
+1 FAMS @F900001@
+0 @I900002@ INDI
+1 NAME Jera /Muhovec/
+1 SEX F
+1 BIRT
+2 DATE 27 FEB 1750
+1 DEAT
+2 DATE 26 MAR 1820
+1 FAMS @F900001@
+0 @I900003@ INDI
+1 NAME Mina /Svetina/
+1 SEX F
+1 BIRT
+2 DATE 05 MAY 1774
+1 DEAT
+2 DATE 25 APR 1842
+1 FAMC @F900001@
+0 @F900001@ FAM
+1 HUSB @I900001@
+1 WIFE @I900002@
+1 CHIL @I900003@
+1 MARR
+2 DATE 07 JUL 1773
 0 @U1@ SUBM
 1 NAME Peter Hawlina
 0 TRLR

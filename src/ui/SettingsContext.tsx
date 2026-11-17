@@ -337,9 +337,10 @@ function applyDateDisplay(s: AppSettings): void {
 }
 
 /** The preferences store the provider holds: read from localStorage once,
- *  written back on every change. Exported for its tests. */
-export function createSettingsStore(): SettingsStore {
-  let current = load();
+ *  written back on every change — or, with `persist` off, kept in memory
+ *  only, from the defaults. Exported for its tests. */
+export function createSettingsStore(persist = true): SettingsStore {
+  let current = persist ? load() : DEFAULTS;
   applyDateDisplay(current);
   const listeners = new Set<() => void>();
   return {
@@ -352,7 +353,7 @@ export function createSettingsStore(): SettingsStore {
     },
     set(patch) {
       current = { ...current, ...patch };
-      save(current);
+      if (persist) save(current);
       if ("dateDisplay" in patch) applyDateDisplay(current);
       // Copy first: a listener may unsubscribe as it runs.
       for (const listener of [...listeners]) listener();
@@ -513,10 +514,16 @@ function save(settings: AppSettings): void {
   }
 }
 
-export function SettingsProvider({ children }: { children: React.ReactNode }) {
+export function SettingsProvider({ children, persist = true }: {
+  children: React.ReactNode;
+  /** Off for the family website: it starts from the defaults and never writes
+   *  the app's stored preferences, which a site on the same origin as GED
+   *  Merge would otherwise overwrite with its author's. */
+  persist?: boolean;
+}) {
   // Created once and never replaced, so the provider itself never re-renders
   // on a preference change — only the components subscribed to what changed.
-  const [store] = useState(createSettingsStore);
+  const [store] = useState(() => createSettingsStore(persist));
   return <SettingsContext.Provider value={store}>{children}</SettingsContext.Provider>;
 }
 

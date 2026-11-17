@@ -160,6 +160,7 @@
             <li class="guide-toc-sub"><a href="#duplicates">↳ Dvojniki</a></li>
             <li class="guide-toc-sub"><a href="#normalize">↳ Poenoti in paketno uredi</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Zasebnost</a></li>
+            <li class="guide-toc-sub"><a href="#tool-website">↳ Spletna stran</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Viri</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Kraji</a></li>
 
@@ -560,12 +561,12 @@
             </p>
             <p>
               V Urejanju izhodiščno osebo nastavite z oznako sorodstva ob imenu osebe — na primer <em>Babica</em> ali
-              <em>Izhodiščna oseba</em>. Klik na oznako odpre meni z ukazi <strong>Pojdi na osebo …</strong>,
+              <em>Izhodiščna oseba</em>, pred katero stoji tarča izhodiščne osebe <span class="gm-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span>. Klik na oznako odpre meni z ukazi <strong>Pojdi na osebo …</strong>,
               <strong>Nastavi to osebo kot izhodiščno</strong>, <strong>Izberi drugo osebo…</strong> in
               <strong>Počisti izhodiščno osebo</strong>. Dokler izhodiščna oseba ni nastavljena, na mestu oznake stoji
               bled gumb <strong>Nastavi izhodiščno osebo</strong>. Kadar oznake ni, ker je v Nastavitvah → Prikaz
               izklopljeno <em>Prikaži sorodstvo</em> ali ker oseba z izhodiščno osebo ni v sorodu, isti meni odpre
-              majhna ikona <span class="gm-glyph">⌂</span>. Na telefonu je izhodiščna oseba tudi v meniju
+              tarča sama. Na telefonu je izhodiščna oseba tudi v meniju
               <span class="gm-glyph">☰</span>.
             </p>
             <p>
@@ -1404,9 +1405,10 @@
               <li><strong>Povzetek</strong> — glavna števila (osebe, družine, moški in ženske, živi in umrli, letnice
                 rojstev, najvišje starosti, največje družine), popolnost podatkov, najpogostejša imena ter države in kraji
                 rojstva.</li>
-              <li><strong>Imena</strong> — priimki, moška in ženska imena, najpogostejša imena po stoletjih, število imen
-                posamezne osebe, otroci, ki imajo ime po enem od staršev ali starih staršev, ter vrste dodatnih imen,
-                skupaj z osebami brez imena ali priimka.</li>
+              <li><strong>Imena</strong> — priimki, moška in ženska imena, najpogostejša imena po stoletjih,
+                najpogostejši priimki po desetletjih, omrežje priimkov, ki jih povezujejo poroke njihovih nosilcev, z
+                najpogostejšimi pari priimkov v porokah, število imen posamezne osebe ter otroci, ki imajo ime po enem od
+                staršev ali starih staršev.</li>
               <li><strong>Življenjska doba</strong> — starost ob smrti za vse ter posebej za moške in ženske, njeno
                 povprečje po stoletju rojstva, delež otrok, ki so umrli pred 5. letom starosti, ter koliko otrok na
                 družino je dočakalo 18 let in koliko jih je umrlo prej.</li>
@@ -1417,13 +1419,16 @@
                 ženske, in po mesecih, dnevi od rojstva do krsta, dvojčki, vzroki smrti ter kraji rojstva in smrti.</li>
               <li><strong>Poklic</strong> — najpogostejši poklici po stoletjih, poklici in izobrazba moških in žensk ter
                 število poklicev posamezne osebe.</li>
-              <li><strong>Selitve</strong> — razdalja od kraja rojstva do kraja smrti, selitve med državami in zakonca,
-                rojena v istem kraju.</li>
+              <li><strong>Kraji in selitve</strong> — najpogostejši kraji rojstva po desetletjih, rojstva po
+                desetletjih, obarvana po kraju rojstva, povezave med kraji rojstva staršev in kraji rojstva njihovih
+                otrok (po krajih ali po državah), razdalja od kraja rojstva do kraja smrti, selitve med državami in
+                zakonca, rojena v istem kraju.</li>
               <li><strong>Rodovi</strong> — predniki ene osebe po rodovih, na očetovi in na materini strani, koliko otrok
                 so imeli, potomci te osebe, posebej moški in ženske, predniki, pri katerih se srečata dve liniji, ter
                 najbližje slepe ulice: predniki, ki jim manjka oče ali mati, kot delovni seznam za raziskovanje.</li>
               <li><strong>Raziskava</strong> — koliko dogodkov ima navedbo vira, po vrstah dogodkov in po straneh
-                družine, ter koliko navedb virov ima posamezna oseba.</li>
+                družine, koliko navedb virov ima posamezna oseba ter vrste dodatnih imen, skupaj z osebami brez imena
+                ali priimka.</li>
             </ul>
             <p>
               Z gumbi <em>Vsi</em>, <em>Krvni sorodniki</em>, <em>Predniki</em> in <em>Potomci</em> poleg strani
@@ -1733,8 +1738,13 @@
                 <li>spol, leto rojstva, starost (ob smrti; za osebe brez zapisa o smrti do danes) in živi (ali oseba
                   ima zapis o smrti ali ne);</li>
                 <li>dogodek, ki ga oseba ima ali nima (rojstvo, smrt, poklic … — ali kateri koli nestandardni
-                  dogodek);</li>
-                <li>dogodek, ki ga imajo ali nimajo zveze osebe (poroka, ločitev, stan zveze … — ali kateri koli
+                  dogodek). Pri dogodku po meri, lastnosti, kot je poklic, in nestandardnem dogodku polje z besedilom
+                  izbiro zoži na tiste, katerih naziv ali vrednost vsebuje vpisano besedilo, tako da filter
+                  <em>Dogodek</em> → <em>ima</em> → <em>Poklic</em> z besedilom »kmet« najde kmete;</li>
+                <li>vzrok smrti (kateri koli zapisani vzrok ali vzrok, ki vsebuje vpisano besedilo, npr.
+                  <em>Vzrok smrti</em> → <em>ima</em> → »jetika«);</li>
+                <li>dogodek, ki ga imajo ali nimajo zveze osebe (poroka, ločitev, stan zveze, dogodek po meri, ki ga
+                  enako zožite po nazivu, npr. <em>Zveza</em> → <em>ima</em> → <em>Dogodek</em> »Separation« … — ali kateri koli
                   dogodek, tako da filter <em>Zveza</em> → <em>nima</em> → <em>kateri koli dogodek</em> skupaj s
                   filtrom <em>Sorodniki: ima partnerja</em> najde pare, o katerih datoteka ne pove ničesar). Možnost
                   <em>nima datuma</em> najde zvezo, pri kateri je dogodek zapisan brez datuma, možnost <em>ima ocenjen
@@ -1861,6 +1871,44 @@
               avtorja datoteke (vaše ime, naslov in e-pošta), zunanje identifikatorje drevesa (<code>_UID</code>,
               <code>_FID</code>, <code>AFN</code>) ter vse poštne naslove, e-pošto in telefonske številke v celotni
               datoteki. Predogled prešteje, koliko oseb je prikritih ali odstranjenih, preden prenesete prikriti GEDCOM.
+            </p>
+            <h3 id="tool-website">Spletna stran</h3>
+            <p>
+              Orodje prenese drevo kot <strong>eno stran HTML</strong>, ki jo sorodniki odprejo z diska, vi pa jo lahko
+              naložite tudi na kateri koli spletni strežnik. Na strani so domača stran z iskanjem in zanimivostmi, stran
+              vsake osebe, diagrami in zemljevid ter statistika. Datoteke GEDCOM s strani ni mogoče prenesti, zato si
+              sorodniki drevo lahko ogledajo, ne morejo pa ga odnesti. Vaša delovna datoteka ostane nedotaknjena.
+            </p>
+            <div>
+              Sami izberete, kaj stran pokaže:
+              <ul>
+                <li><strong>Žive osebe</strong> — izpustite jih ali pa pokažete njihove začetnice, samo ime, ime in priimek ali vse podatke. Osebe, umrle v zadnjih 20 letih, se objavijo enako kot žive, označene kot pokojne, a brez datuma; toliko let zahteva slovenski zakon o varstvu osebnih podatkov (ZVOP-2), število pa lahko spremenite. Osebe, označene kot zasebne, se ne objavijo nikoli.</li>
+                <li><strong>Koga objavim</strong> — vse osebe v datoteki, krvne sorodnike izhodiščne osebe ali njene prednike in potomce, skupaj z zakonci ali brez njih.</li>
+                <li><strong>Objavi tudi</strong> — vire, naslove in opombe; vsako od teh se objavi šele, ko ga obkljukate. Brez naslovov se dogodek na hišnem naslovu prikaže pri naselju, tudi na zemljevidu.</li>
+                <li><strong>Fotografije</strong> — fotografije iz vaše mape z mediji, po mapah: izpuščene, na straneh oseb ali tam in še v traku fotografij na vrhu začetne strani. Fotografija, na kateri je kdo skrit, se ne objavi nikoli, tudi skupinska ne. S fotografijami se stran prenese kot ZIP: majhna <code>index.html</code>, ki jo predogled deljene povezave hitro prebere, datoteke, ki jih naloži, in mapa <code>photos</code>. Vsaka fotografija obdrži čas izvirnika, zato <code>rsync</code> po razpakiranju na strežnik pošlje le spremenjene fotografije. <em>Naslovna fotografija</em>, ki jo izberete sami, stoji ob naslovu na začetni strani in je slika ob deljeni povezavi; ker jo izberete vi, se objavi ne glede na to, kdo je na njej, vendar le kot naslovna.</li>
+                <li><strong>Zemljevid</strong> — osnovni zemljevid in tisti vaši dodatni sloji (Nastavitve → Zemljevid), ki jih obiskovalci smejo vklopiti.</li>
+                <li><strong>Prikaz oseb</strong> — vrstni red imena, prikaz datumov, starosti in oznake sorodstva; izhodišče so vaše nastavitve.</li>
+                <li><strong>Prenosi</strong> — ali lahko obiskovalci prenesejo diagrame, poročila in statistiko.</li>
+                <li><strong>Iskalniki</strong> — stran jih prosi, naj je ne vključijo, razen če jim indeksiranje dovolite; imena in datumi vseh objavljenih oseb se nato lahko pojavijo v rezultatih iskanja.</li>
+              </ul>
+            </div>
+            <p>
+              Stran dopolnijo še naslov, nekaj besed za sorodnike v vsakem jeziku, izhodiščna oseba in začetna stran.
+              V polje <em>Naslov te strani</em> vpišete, kam boste stran naložili: diagrami, ki jih obiskovalci
+              prenesejo, ta naslov navajajo poleg »Narejeno z GED Merge«. Ikona strani je slika, ki jo navedete v
+              polju <em>Ikona strani</em>, sicer <code>favicon.ico</code> na tem naslovu, če obstaja, in nazadnje
+              ikona GED Merge. <em>Dodaten naslov</em> — vaša druga (glavna) spletna stran, kjer gostite svoje družinske ali rodoslovne raziskave —
+              dobi svojo povezavo v glavi in nogi strani. Vsaka oseba in
+              vsak pogled vsakega diagrama ima svoj naslov, zato povezava, ki jo pošljete sorodniku, odpre točno to, kar
+              ste videli vi. Na strani osebe so ob imenu mali zemljevid njenih krajev in ploščice za pahljačo, časovnico
+              in sorodstvo, njene fotografije se odprejo v pregledovalniku z označenimi osebami, ob vsakem dogodku so
+              starosti kot v Urejanju, polbratje in polsestre imajo ob starših ter bratih in sestrah svojo kartico,
+              razvrščeni po skupnem staršu, klik na osebo v diagramu pa odpre njeno stran. Stran pozna tudi bližnjice na
+              tipkovnici aplikacije — seznam pokaže tipka <kbd>?</kbd>. Povezava do strani, deljena na Facebooku, WhatsAppu
+              in podobnih, pokaže naslov, vaše besedilo in naslovno fotografijo; za fotografijo mora biti vpisan
+              <em>Naslov te strani</em>, saj jo predogled najde le po polnem naslovu — manjšo kopijo naslovne
+              fotografije, ki jo sprejme vsaka storitev. Povezava do diagrama
+              sorodstva navaja obe osebi, zato vsakomur pokaže isti dve. Če delovni prostor hranite v brskalniku, si orodje izbire zapomni za vsako datoteko posebej.
             </p>
             <h3 id="tool-sources">Viri</h3>
             <p>
@@ -2610,14 +2658,14 @@
                 pod njo končajo — veja, ki je rod nadaljevala, zavzame večino loka, brat ali sestra brez otrok pa obdrži
                 ozek izsek, v katerega se ime še vedno izpiše. Vsaka poroka je tanek pas ob zunanjem robu izseka z imenom
                 zakonca, otroci te poroke pa so izrisani ob njem; potomci so v svoji barvi, korak stran od zelene
-                prednikov, ki z vsakim rodom zbledi (na barvni osi <em>Družinska veja</em> dobi linija vsakega otroka
+                prednikov, ki z vsakim rodom zbledi (na barvni osi <em>Veja</em> dobi linija vsakega otroka
                 izhodiščne osebe svoj odtenek). Obroči se končajo tam, kjer v rodu zmanjka prostora za ime vsake osebe;
                 oznaka <span class="gm-badge rep">+7</span> na zadnjem obroču prešteje preostale. Izseki potomcev in
                 pasovi zakoncev nosijo samo imena: imenu, ki je za svoj izsek predolgo, se najprej umakne poročni
                 priimek, nato priimek, sicer se izpusti, ne pa skrajša.</li>
               <li><strong>Časovnica</strong> — najbližja družina kot časovni trakovi na skupni letni osi; glejte
                 spodaj.</li>
-              <li><strong>Sorodstvo</strong> (<span class="gm-key">S</span>) — prikaže, kako je izbrana oseba v sorodu z
+              <li><strong>Sorodstvo</strong> (<span class="gm-key">K</span>) — prikaže, kako je izbrana oseba v sorodu z
                 vašo <a href="#home-person">izhodiščno osebo</a> (<a href="#home-person">§7</a>); če te še ni,
                 vas diagram zanjo takoj vpraša. Diagram razporedi verigo sorodnikov med njima, označeno z
                 natančnim sorodstvom (npr. <em>Bratranec v 2. kolenu +1</em>, zapis iz <a href="#home-person">§7</a>). Diagram se odpre na
@@ -2672,11 +2720,13 @@
                 <span class="gm-glyph">⚯</span>. Privzeto sta izklopljena.</li>
               <li><strong>Dogodki</strong> (samo Časovnica) — čigavi trakovi nosijo pike dogodkov: <em>Ta oseba</em>,
                 <em>Vse osebe</em> ali <em>Brez</em>; poleg tega <strong>Oznake dogodkov</strong> (strnjeno besedilo pod
-                piko) in skupni <strong>Trak prebivališč</strong> (glejte <a href="#reports">Poročila</a> spodaj).</li>
+                piko), skupni <strong>Trak prebivališč</strong> (glejte <a href="#reports">Poročila</a> spodaj) in
+                <strong>Zgodovinski dogodki</strong> (glejte <em>Časovnica</em> spodaj). Pri postavitvi <em>Rodovne
+                linije</em> ostanejo le <strong>Zgodovinski dogodki</strong>, dodane pa so <strong>Življenjske črte</strong>.</li>
               <li><strong>Barva</strong> (vse vrste razen Poročila in Zemljevida) — kaj pove barva osebe.
-                <em>Enobarvno</em> je lastno barvanje diagrama; <em>Rod</em> in <em>Družinska veja</em> bereta mesto
-                osebe na diagramu, zato <em>Rod</em> deluje pri vseh vrstah, <em>Družinska veja</em> pa je na voljo
-                tam, kjer so veje tudi izrisane — pri rodovniških diagramih in Sodobnikih; <em>Spol</em>, <em>Živi</em>,
+                <em>Enobarvno</em> je lastno barvanje diagrama; <em>Rod</em> in <em>Veja</em> bereta mesto
+                osebe na diagramu, zato <em>Rod</em> deluje pri vseh vrstah, <em>Veja</em> pa je na voljo
+                tam, kjer so veje tudi izrisane — pri rodovniških diagramih, Časovnici in Sodobnikih; <em>Spol</em>, <em>Živi</em>,
                 <em>Država</em> (kraja rojstva, bivanja, smrti ali pokopa, prvega, ki je zapisan), <em>Kraj rojstva</em> (če ta ni zapisan, pa
                 kraj bivanja ali smrti, ki ga diagram izpiše ob osebi), <em>Priimek</em>, <em>Starost staršev</em> ob rojstvu osebe (povprečje obeh),
                 <em>Življenjska doba</em>, <em>Stoletje</em> rojstva in <em>Viri</em> (kolikšen del rojstva, smrti in
@@ -2795,6 +2845,33 @@
               brez znanega konca (smrt ni zabeležena) se proti koncu zoži — do zadnjega datiranega dogodka ali do danes,
               če za osebo sklepamo, da še živi.
             </p>
+            <p>
+              Z gumbom <strong>Zgodovinski dogodki</strong> v nastavitvah diagrama se na letni osi označijo vojne, reforme,
+              epidemije in selitve. Obdobje se izriše kot bled pas, pod njegovo oznako pa tanka črta s krajiščema pokaže točen razpon
+              let; posamezno leto se izriše kot pikčasta črta. Obe svetovni vojni, španska gripa, velika gospodarska
+              kriza in pandemija covida-19 se pokažejo vedno. Dogodki posamezne države se pokažejo le, če je kdo z diagrama takrat živel v tej
+              državi, kar se razbere iz krajev njegovih dogodkov. Kraj brez navedene države velja za državo, izbrano v
+              <em>Nastavitvah → Kraji brez navedene države</em>. Družina s Kranjske tako vidi Ilirske province in franciscejski kataster,
+              izseljenec v Ohio pa še ameriško državljansko vojno in Ellis Island. Letnice in oznake dogodkov ostanejo
+              na vrhu tudi med pomikanjem navzdol.
+            </p>
+            <p>
+              Postavitev <em>Rodovne linije</em> (gumb nad diagramom, poleg gumba <em>Trakovi</em>) izriše krvno linijo
+              osebe na navpični letni osi. Vsak prednik je pika pri letu rojstva, s črto povezana z otrokom, zato se
+              linije navzdol stekajo k osebi; potomci se pod njo razvejijo. Očetova stran stoji levo, materina desno.
+              Manjkajoče leto rojstva se oceni en rod (30 let) od datiranega sorodnika in se izriše kot prazna pika.
+              <strong>Življenjske črte</strong> iz pike rojstva spustijo črto do smrti ali do danes; kjer je začetek
+              ocenjen, je črta črtkana. Zgodovinski dogodki potekajo čez diagram kot pasovi in črte, njihove oznake pa
+              stojijo v stolpcu ob letnicah. Kjer je dogodkov veliko, se desetletja raztegnejo po višini. Barva
+              <em>Veja</em> da štirim linijam starih staršev štiri jasno različne barve, tukaj in na trakovih.
+            </p>
+            <p>
+              Ko je vklopljena nastavitev <em>Skrij žive osebe</em>, se leto žive osebe nikoli ne pokaže. V obeh
+              postavitvah stoji oseba na sredini desetletja rojstva, ±5 let od resnice, s črtkanim trakom ali črto do
+              danes. Brat ali sestra z enako letnico se zamakne za dve leti. Na družinski spletni strani se za osebe,
+              objavljene brez podrobnosti, ne bere noben njihov datum: stojijo tam, kamor jih postavi njihov rod, na
+              25 let natančno.
+            </p>
             <h3 id="contemporaries">Sodobniki</h3>
             <p>
               Vrsta <strong>Sodobniki</strong> odgovori na vprašanje, na katerega rodovniški diagrami ne morejo:
@@ -2841,7 +2918,7 @@
               namenjena imenom družine, posamezna oseba pa sodi na Kolo. Kadar je <em>Barva</em>
               (<a href="#charts">§11</a>) nastavljena na
               <em>Enobarvno</em>, so pasovi obarvani samo po tej smeri. Tu so na voljo še <em>Rod</em>,
-              <em>Družinska veja</em> in <em>Priimek</em> — te tri lahko pas pove za vse svoje osebe hkrati, saj zajema
+              <em>Veja</em> in <em>Priimek</em> — te tri lahko pas pove za vse svoje osebe hkrati, saj zajema
               en priimek v eni družinski veji pri enem rodu. Drugih izbir ni, ker bi morale ugibati: v pasu so moški in
               ženske, živi in umrli, ena sama barva pa bi izbrala eno in preostale napačno prikazala. Če katero od njih
               izberete na drugem diagramu, se ti obroči vrnejo na <em>Enobarvno</em>, vaša izbira pa ostane
@@ -3673,6 +3750,7 @@
                 <tr><td><span class="gm-key">?</span> / <span class="gm-key">F1</span></td><td>Prikaži seznam bližnjic — F1 deluje tudi iz polja, ki ga urejate</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Zapusti polje, ki ga urejate, in ohrani vpisano (Urejanje) / zapri okno / zapusti stran z diagramom</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Preklopi na Urejanje · Združevanje · Orodja</td></tr>
+                <tr><td><span class="gm-key">S</span></td><td>Odpri statistiko (Orodja)</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Pomakni primerjavo (Združevanje); po tipki <span class="gm-key">Enter</span> se s puščicama premikate po njenih poljih</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Premakni označeno vrstico seznama, v katerem ste — polja primerjave, pari dvojnikov, ugotovitve Pregleda, zadetki iskanja</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Prejšnje / naslednje ujemanje — v Združevanju in Urejanju ter na seznamu dvojnikov</td></tr>
@@ -3681,7 +3759,8 @@
                 <tr><td><span class="gm-key">Enter</span></td><td>Shrani polje, ki ga urejate, in pojdi na naslednje — za zadnjim na gumb <strong>+ Dodaj</strong> pri dogodku (Urejanje) — ali odpri označeno vrstico: v Združevanju primerjavo, v Orodjih par ali skupino dvojnikov, v Pregledu zapis</td></tr>
                 <tr><td><span class="gm-key">1</span> · <span class="gm-key">2</span> · <span class="gm-key">3</span></td><td>V primerjavi (Združevanje): ohrani <strong>glavno</strong> · vzemi <strong>vhodno</strong> · ohrani <strong>oboje</strong> za označeno polje; <span class="gm-key">Esc</span> vrne na seznam ujemanj</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Odpri diagram osebe (drevo, mreža, pahljača, krog)</td></tr>
-                <tr><td><span class="gm-key">S</span></td><td>Odpri diagram sorodstva</td></tr>
+                <tr><td><span class="gm-key">K</span></td><td>Odpri diagram sorodstva</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span></td><td>Odpri pahljačo · časovnico · zemljevid osebe</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Pojdi na izhodiščno osebo (Urejanje)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↑</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↑</span></td><td>Odpri očeta · mater (Urejanje in diagram)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Odpri prejšnjega · naslednjega brata ali sestro, po rojstvu (Urejanje)</td></tr>
@@ -3706,6 +3785,7 @@
               <thead><tr><th>Tipke</th><th>Dejanje</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Preklopi vrsto diagrama (drevo … poročilo)</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span> · <span class="gm-key">K</span></td><td>Preklopi na pahljačo · časovnico · zemljevid · sorodstvo</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Predniki / potomci</td></tr>
                 <tr><td><span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span></td><td>Primerjalno drevo: potrdi / zavrni / preloži izbrani par (dokler je par izbran, tipka D ujemanje preloži in ne prikaže potomcev)</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Povečaj / pomanjšaj</td></tr>

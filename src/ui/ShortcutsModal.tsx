@@ -21,6 +21,10 @@ interface Props {
   /** Where the user is. The sheet then leads with the keys that work there
    *  and lists the rest under "Elsewhere". Omitted on the landing page. */
   context?: ShortcutScope;
+  /** The sheet's groups: the app's by default; the family website's its own. */
+  groups?: ShortcutGroup[];
+  /** A short sheet (the family website's): narrower, two columns, tighter rows. */
+  compact?: boolean;
 }
 
 /**
@@ -145,7 +149,7 @@ function PrintColumns({ shown }: { shown: Shown[] }) {
  * app root, which the print stylesheet hides, and marks the document while
  * it is open so that stylesheet knows what to print.
  */
-export function ShortcutsModal({ isOpen, onClose, context }: Props) {
+export function ShortcutsModal({ isOpen, onClose, context, groups = SHORTCUT_GROUPS, compact }: Props) {
   const { t } = useTranslation();
   const ref = useModalKeyboard(isOpen, onClose);
 
@@ -157,11 +161,11 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
 
   if (!isOpen) return null;
 
-  const all: Shown[] = SHORTCUT_GROUPS.map((group) => ({ group, items: group.items }));
+  const all: Shown[] = groups.map((group) => ({ group, items: group.items }));
   const here: Shown[] = [];
   const elsewhere: Shown[] = [];
   if (context) {
-    for (const group of SHORTCUT_GROUPS) {
+    for (const group of groups) {
       const near = group.items.filter((item) => {
         const scope = itemScope(group, item);
         return !scope || scope.includes(context);
@@ -188,7 +192,7 @@ export function ShortcutsModal({ isOpen, onClose, context }: Props) {
   return createPortal(
     <div className="modal-overlay shortcuts-print-root" onClick={onClose}>
       <div
-        className="modal shortcuts-modal"
+        className={`modal shortcuts-modal${compact ? " shortcuts-compact" : ""}`}
         ref={ref}
         tabIndex={-1}
         role="dialog"

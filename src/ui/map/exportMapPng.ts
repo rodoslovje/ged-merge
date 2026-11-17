@@ -11,7 +11,9 @@ import {
   HEADER_H,
   MARGIN_X,
   SANS,
-  SITE,
+  exportFooterLinks,
+  FOOTER_LINK_FONT,
+  FOOTER_LINK_SEP,
 } from "../exportSvg";
 import { downloadBlob } from "../download";
 import {
@@ -323,8 +325,10 @@ export function exportMapPng(
   };
   const timestamp = new Date().toLocaleString();
   const titleNeeds = textW(title, `600 18px ${SANS}`) + 2 * MARGIN_X;
+  const footLinks = exportFooterLinks();
+  const linksW = footLinks.reduce((w, l, i) => w + textW(l.text, FOOTER_LINK_FONT) + (i ? textW(FOOTER_LINK_SEP, FOOTER_LINK_FONT) : 0), 0);
   const footerNeeds =
-    2 * MARGIN_X + BADGE_SIZE + 8 + textW(SITE, `600 12px ${SANS}`) + FOOTER_GAP + textW(timestamp, `12px ${SANS}`);
+    2 * MARGIN_X + BADGE_SIZE + 8 + linksW + FOOTER_GAP + textW(timestamp, `12px ${SANS}`);
   const mapsW = rects.reduce((sum, r) => sum + r.width, 0) + PANE_GAP * (panes.length - 1);
   const mapsH = Math.max(...rects.map((r) => r.height));
   const totalW = Math.ceil(Math.max(mapsW, titleNeeds, footerNeeds));
@@ -373,10 +377,19 @@ export function exportMapPng(
   const footTextY = footY + FOOTER_H / 2 + 4;
   ctx.fillStyle = bandInk;
   ctx.textAlign = "left";
-  ctx.font = `600 12px ${SANS}`;
-  const siteX = MARGIN_X + BADGE_SIZE + 8;
-  ctx.fillText(SITE, siteX, footTextY);
-  ctx.fillRect(siteX, footTextY + 2, ctx.measureText(SITE).width, 0.75);
+  ctx.font = FOOTER_LINK_FONT;
+  // The footer's links, each underlined as the SVG export draws them.
+  let linkX = MARGIN_X + BADGE_SIZE + 8;
+  footLinks.forEach((l, i) => {
+    if (i) {
+      ctx.fillText(FOOTER_LINK_SEP, linkX, footTextY);
+      linkX += ctx.measureText(FOOTER_LINK_SEP).width;
+    }
+    ctx.fillText(l.text, linkX, footTextY);
+    const w = ctx.measureText(l.text).width;
+    ctx.fillRect(linkX, footTextY + 2, w, 0.75);
+    linkX += w;
+  });
   ctx.textAlign = "right";
   ctx.font = `12px ${SANS}`;
   ctx.globalAlpha = 0.7;

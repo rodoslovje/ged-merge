@@ -160,6 +160,7 @@
             <li class="guide-toc-sub"><a href="#duplicates">↳ Find duplicates</a></li>
             <li class="guide-toc-sub"><a href="#normalize">↳ Normalize &amp; batch</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Privacy</a></li>
+            <li class="guide-toc-sub"><a href="#tool-website">↳ Family website</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Sources</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Places</a></li>
 
@@ -556,11 +557,11 @@
             </p>
             <p>
               In Edit you set it from the kinship label beside the person's name — <em>Grandmother</em>, say, or
-              <em>Start Person</em>. Clicking the label opens a menu: <strong>Go to</strong> the start person,
+              <em>Start Person</em>, with the start person's target <span class="gm-glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span> in front of it. Clicking the label opens a menu: <strong>Go to</strong> the start person,
               <strong>Make this person the start person</strong>, <strong>Choose another person…</strong> by name, or
               <strong>Clear start person</strong>. While no start person is set, a faint <strong>Set start person</strong>
               chip stands where the label would be. When the label is not shown — <em>Show kinship</em> is off in
-              Settings → Display, or the person is no relation — a small <span class="gm-glyph">⌂</span> opens the
+              Settings → Display, or the person is no relation — the target alone opens the
               same menu. On a phone the start person is also in the <span class="gm-glyph">☰</span> menu.
             </p>
             <p>
@@ -1377,8 +1378,9 @@
                 deceased, birth years, the highest ages, the largest families), how complete the data is, the most
                 common names, and the countries and places people were born in.</li>
               <li><strong>Names</strong> — surnames, men's and women's given names, the most common names per century,
-                how many given names people carry, children named after a parent or a grandparent, and the kinds of
-                additional name people have, with those missing a given name or a surname.</li>
+                the most common surnames decade by decade, a network of the surnames joined by their bearers' marriages
+                with the most-married pairs of surnames, how many given names people carry, and children named after a
+                parent or a grandparent.</li>
               <li><strong>Lifespan</strong> — age at death, for everyone and for men and women apart, its average per
                 century of birth, how many children died before the age of five, and how many children per family grew
                 up or died young.</li>
@@ -1391,14 +1393,17 @@
                 died in.</li>
               <li><strong>Occupation</strong> — the most common occupations per century, occupations and education for
                 men and women, and how many occupations a person has.</li>
-              <li><strong>Migration</strong> — the distance from the birth place to the death place, moves between
-                countries, and spouses born in the same place.</li>
+              <li><strong>Places &amp; migration</strong> — the most common birth places decade by decade, births by
+                decade coloured by birth place, a flow from the parents' birth places to their children's (by place or
+                by country), the distance from the birth place to the death place, moves between countries, and spouses
+                born in the same place.</li>
               <li><strong>Generations</strong> — one person's ancestors generation by generation, on the father's side
                 and on the mother's, how many children they had, the person's descendants, men and women apart, the
                 ancestors where two lines meet, and the nearest brick walls: the ancestors whose father or mother is
                 missing, a worklist for research.</li>
               <li><strong>Research</strong> — how many events cite a source, by kind of event and by side of the family,
-                and the source citations each person carries.</li>
+                the source citations each person carries, and the kinds of additional name people have, with those
+                missing a given name or a surname.</li>
             </ul>
             <p>
               Beside the pages, <em>All</em>, <em>Blood relatives</em>, <em>Ancestors</em> and <em>Descendants</em>
@@ -1663,8 +1668,13 @@
               given name or surname), a name part the record has or lacks (given name, surname, or married name in
               either notation), sex, birth year, age (at
               death; for people without a death record, to today), living (has a death record or not), an event the
-              person has or does not have (birth, death, occupation, … — or any non-standard event), an event the
-              person's unions carry or lack (marriage, divorce, a partnership status … — or any event at all, so
+              person has or does not have (birth, death, occupation, … — or any non-standard event; for a custom
+              event, an attribute such as occupation, or any non-standard event, a text field narrows it to the ones
+              whose name or value contains what you type, so <em>Event has Occupation farmer</em> finds the farmers),
+              the cause of death (any recorded cause, or one containing what you type — <em>Cause of death has
+              typhus</em>), an event the
+              person's unions carry or lack (marriage, divorce, a partnership status, a custom event narrowed by its
+              name the same way — <em>Union has Event Separation</em> — … or any event at all, so
               <em>Union does not have any event</em> next to <em>Relatives has a partner</em> finds the couples the
               file says nothing about; <em>has no date for</em> finds a union whose event is recorded without a date, and
               <em>has an estimated date for</em> one dated only by an estimate such as ABT, BEF or AFT), place, note text (matched against the note as written, so a note that is
@@ -1774,6 +1784,44 @@
               name, address and email), external tree ids (<code>_UID</code>, <code>_FID</code>, <code>AFN</code>), and
               every postal address, email or phone number across the whole file. A preview counts how many people are
               redacted or removed before you download the redacted GEDCOM.
+            </p>
+            <h3 id="tool-website">Family website</h3>
+            <p>
+              Downloads your tree as <strong>one HTML page</strong> for relatives to browse: they open it from disk, or you
+              put it on any web server. The page has a front page with search and highlights, a page for every person,
+              the charts and the map, and the statistics — with no GEDCOM to download, so the tree can be looked at but
+              not taken away. Your live main file is never touched.
+            </p>
+            <div>
+              You choose what the website shows:
+              <ul>
+                <li><strong>Living people</strong> — left out, or shown with their initials, their given name, their given name and surname, or all their details. People who died in the last 20 years — what Slovenia's data protection act (ZVOP-2) asks; the number is yours to change — are published as the living are, marked as deceased but without a date. People marked private are never published.</li>
+                <li><strong>Who is published</strong> — everyone in the file, the start person's blood relatives, or their ancestors and descendants, with or without their spouses.</li>
+                <li><strong>Also publish</strong> — sources, addresses and notes, each off until you tick it. Without addresses, an event at a house is shown at its settlement, on the map too.</li>
+                <li><strong>Photos</strong> — the photos of your media folder, folder by folder: left out, on the person pages, or there and in the strip of photos atop the front page. A photo with anyone hidden on it — a group photo too — is never published. With photos the website downloads as a ZIP: a small <code>index.html</code> that a shared link's preview reads quickly, the files it loads, and a <code>photos</code> folder. Each photo keeps its original's time, so after unpacking, <code>rsync</code> to your server sends only the photos that changed. A <em>Cover photo</em> of your choice stands beside the title on the front page and is the picture a shared link shows; it is yours to choose, so it goes in whoever is on it, though only as the cover.</li>
+                <li><strong>Map</strong> — the base map, and which of your extra layers (Settings → Map) visitors may switch on.</li>
+                <li><strong>How people are shown</strong> — name order, date display, ages and kinship labels, starting from your own settings.</li>
+                <li><strong>Downloads</strong> — whether visitors may download the charts, reports and statistics.</li>
+                <li><strong>Search engines</strong> — the website asks them to leave it out, unless you let them index it; the names and dates of everyone published can then turn up in search results.</li>
+              </ul>
+            </div>
+            <p>
+              A title, a few words in each language, the start person and the page the website opens on finish it.
+              <em>This website's address</em> is where you will put it: the charts visitors download name it
+              beside "Made with GED Merge". The website's icon is the image you give as its <em>Website icon</em>,
+              else the <code>favicon.ico</code> at that address when there is one, and GED Merge's otherwise. An
+              <em>Additional address</em> — your other (main) site, where you host your family or genealogy research — gets a link of its
+              own in the website's header and footer. Every person, and every view of every
+              chart, has an address of its own, so a link you send a relative opens exactly what you saw. On a
+              person's page, a small map of their places and tiles for the fan, the timeline and the relationship
+              sit beside the name, their photos open in the viewer with the people tagged on them, ages show beside each
+              event as in Edit, half-siblings have a card of their own beside the parents and siblings, grouped by the
+              parent they share, and a person picked on a chart opens their page. The website answers the app's keyboard
+              shortcuts — <kbd>?</kbd> lists them. A link to the website, shared on Facebook, WhatsApp and the like, shows its
+              title, your words and the cover photo; the photo needs <em>This website's address</em>, as a preview finds it
+              only by its full address — a small copy of the cover that every service accepts. A link to a relationship diagram names both people, so it shows the same two to
+              anyone. With your
+              workspace kept in the browser, these choices are remembered for each file.
             </p>
             <h3 id="tool-sources">Sources</h3>
             <p>
@@ -2500,7 +2548,7 @@
                 and is left off rather than cut short.</li>
               <li><strong>Timeline</strong> — the immediate family as lifespan bars along one shared year axis; see
                 below.</li>
-              <li><strong>Relationship</strong> (<span class="gm-key">S</span>) — traces how the selected person is
+              <li><strong>Relationship</strong> (<span class="gm-key">K</span>) — traces how the selected person is
                 related to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>); if none is set
                 yet, it prompts for one inline. The diagram lays out the chain of relatives between the two, labelled
                 with the exact kinship (e.g. <em>2nd cousin +1</em>, the notation of <a href="#home-person">§7</a>). The chart opens on the
@@ -2554,11 +2602,13 @@
                 <span class="gm-glyph">⚯</span> there. Both off by default.</li>
               <li><strong>Events</strong> (Timeline only) — whose bars carry event dots: <em>This person</em>, <em>All
                 people</em> or <em>Off</em>; plus <strong>Event labels</strong> (compact text under each dot) and the
-                shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below).</li>
+                shared <strong>Residence bar</strong> (see <a href="#reports">Reports</a>, below); and
+                <strong>Historical events</strong> (see <em>Timeline</em>, below). The <em>Lines</em> layout keeps only
+                <strong>Historical events</strong> and adds <strong>Lifelines</strong>.</li>
               <li><strong>Color</strong> (every kind but the Report and the Map) — what a person's fill says.
                 <em>Plain</em> is the chart's own colouring; <em>Generation</em> and <em>Family line</em> read the
                 person's place on the chart, so <em>Generation</em> serves every kind while <em>Family line</em> is
-                offered where the lines are actually drawn — the pedigree charts and Contemporaries; <em>Sex</em>,
+                offered where the lines are actually drawn — the pedigree charts, the Timeline and Contemporaries; <em>Sex</em>,
                 <em>Living</em>, <em>Country</em> (of the birth, residence, death or burial place, whichever is recorded
                 first), <em>Birth place</em> (with none recorded, the residence or death place the chart writes on the
                 person), <em>Surname</em>, <em>Parents' age</em> at the person's birth (the average of
@@ -2676,6 +2726,32 @@
               aria-hidden="true">←</span> emigration/immigration), and <span aria-hidden="true">⚭</span> marks a
               marriage. An open-ended bar (no death recorded) tapers off — to the last dated event, or to the present day
               if the person is presumed living.
+            </p>
+            <p>
+              <strong>Historical events</strong> in the chart settings marks wars, reforms, epidemics and migrations on
+              the year axis: a span as a faint band with a bracket over its years under the label, a single year as a
+              dotted line. The world wars, the Spanish flu, the Great Depression and the COVID-19 pandemic always show. A country's own events
+              show only when someone on the chart lived in that country at the time, judged by the places of their
+              events. A place that names no country counts as the country chosen under <em>Settings → Places naming no country</em>. So a family
+              from Carniola sees the Illyrian Provinces and the Franciscan cadastre, and an emigrant to Ohio adds the
+              Civil War and Ellis Island. The year ruler and the event labels stay at the top while you scroll down.
+            </p>
+            <p>
+              The <em>Lines</em> layout, beside <em>Bars</em> above the chart, draws the person's blood line on a
+              vertical year axis instead. Each ancestor is a dot at their birth year, joined by a line to their child,
+              so the lines converge down onto the person; the descendants branch out below. The father's side stands on
+              the left and the mother's on the right. A missing birth year is estimated a generation (30 years) from a
+              dated relative and drawn as a hollow dot. <strong>Lifelines</strong> hang each life from the birth dot down
+              to the death, or to today, dashed where the start is estimated. The historical events cross the chart as
+              bands and lines, their labels in a column beside the year scale, and the decades grow taller where events
+              crowd. The Color setting's <em>Family line</em> gives the four grandparents' lines four distinct colours,
+              here and on the bars.
+            </p>
+            <p>
+              With <em>Hide living people</em> on, a living person's year never shows. On either layout they stand at
+              the middle of their birth decade, ±5 years from the truth, with a dashed bar or lifeline to today; siblings
+              who land on the same year step two years apart. On the family website, people published without details
+              keep no date of their own: they stand where their generation puts them, within 25 years.
             </p>
             <h3 id="contemporaries">Contemporaries</h3>
             <p>
@@ -3531,6 +3607,7 @@
                 <tr><td><span class="gm-key">?</span> / <span class="gm-key">F1</span></td><td>Show the shortcut list — F1 works from inside a field too</td></tr>
                 <tr><td><span class="gm-key">Esc</span></td><td>Leave the field you're typing in, keeping what you typed (Edit) / close a dialog / leave a chart page</td></tr>
                 <tr><td><span class="gm-key">E</span> · <span class="gm-key">M</span> · <span class="gm-key">T</span></td><td>Switch to Edit · Merge · Tools</td></tr>
+                <tr><td><span class="gm-key">S</span></td><td>Open the statistics (Tools)</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Scroll the comparison (Merge); after <span class="gm-key">Enter</span> they step its fields</td></tr>
                 <tr><td><span class="gm-key">↑</span> / <span class="gm-key">↓</span></td><td>Step the highlighted row of the list you are in — the comparison's fields, the duplicate pairs, the health check's findings, the search results</td></tr>
                 <tr><td><span class="gm-key">←</span> / <span class="gm-key">→</span></td><td>Previous / next match — in Merge and Edit, and in the duplicates list</td></tr>
@@ -3539,7 +3616,8 @@
                 <tr><td><span class="gm-key">Enter</span></td><td>Save the field you're editing and step to the next one — the event's <strong>+ Add</strong> button after the last (Edit) — or open the highlighted row: the comparison in Merge, a duplicate pair or group in Tools, the record in the health check</td></tr>
                 <tr><td><span class="gm-key">1</span> · <span class="gm-key">2</span> · <span class="gm-key">3</span></td><td>In the comparison (Merge): keep <strong>Main</strong> · take <strong>Incoming</strong> · keep <strong>Both</strong> for the highlighted field; <span class="gm-key">Esc</span> returns to the match list</td></tr>
                 <tr><td><span class="gm-key">V</span></td><td>Open the person's chart (tree, grid, fan, circle)</td></tr>
-                <tr><td><span class="gm-key">S</span></td><td>Open the relationship diagram</td></tr>
+                <tr><td><span class="gm-key">K</span></td><td>Open the relationship diagram</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span></td><td>Open the person's fan · timeline · map</td></tr>
                 <tr><td><span class="gm-key">H</span></td><td>Go to the start person (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">↑</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">↑</span></td><td>Open the father · the mother (Edit, and on a chart)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">→</span></td><td>Open the previous · next sibling, by birth (Edit)</td></tr>
@@ -3564,6 +3642,7 @@
               <thead><tr><th>Keys</th><th>Action</th></tr></thead>
               <tbody>
                 <tr><td><span class="gm-key">1</span> … <span class="gm-key">8</span></td><td>Switch chart kind (Tree … Report)</td></tr>
+                <tr><td><span class="gm-key">P</span> · <span class="gm-key">L</span> · <span class="gm-key">G</span> · <span class="gm-key">K</span></td><td>Switch to the fan · timeline · map · relationship</td></tr>
                 <tr><td><span class="gm-key">A</span> / <span class="gm-key">D</span></td><td>Ancestors / Descendants</td></tr>
                 <tr><td><span class="gm-key">C</span> / <span class="gm-key">R</span> / <span class="gm-key">D</span></td><td>Compare Tree: confirm / reject / defer the selected pair (while a pair is selected, D defers it instead of showing descendants)</td></tr>
                 <tr><td><span class="gm-key">+</span> / <span class="gm-key">−</span></td><td>Zoom in / out</td></tr>

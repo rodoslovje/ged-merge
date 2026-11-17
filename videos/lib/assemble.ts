@@ -29,8 +29,9 @@ function srtTime(s: number): string {
  */
 function lines(text: string): string[] {
   const out: string[] = [];
-  // A sentence ends at . ! or ? followed by a space — not at the dot in "gedmerge.com".
-  for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+  // A sentence ends at . ! or ? followed by a space — not at the dot in
+  // "gedmerge.com", nor between the numbers of a date written "1. 3. 1698".
+  for (const sentence of text.split(/(?<=[.!?])\s+(?=\D)/)) {
     let rest = sentence.trim();
     while (rest.length > 90) {
       const cut = rest.lastIndexOf(", ", 90);

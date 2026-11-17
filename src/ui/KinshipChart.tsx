@@ -186,7 +186,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     for (const w of wheel.wedges) {
       if (w.key === OWN_BRANCH || w.side === "own") continue;
       const i = (w.side === "father" ? 0 : 2) + Math.min(seen[w.side]++, 1);
-      map.set(w.key, { label: wedgeLabel(w.key, w.ancestorId), color: lineColor(i, 4, "ancestors") });
+      map.set(w.key, { label: wedgeLabel(w.key, w.ancestorId), color: lineColor(i, "ancestors") });
     }
     return map;
   }, [wheel.wedges, wedgeLabel]);
@@ -633,7 +633,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         </>
       }
       controlsRight={
-        <div className="tree-controls-right">
+        <div className="tree-controls-right kin-controls-right">
+          {/* The find box first, at the top right as on every chart; what the
+              chart counts sits under it. */}
+          <ChartFindBox find={find} />
           <span className="kin-count">
             {onMap ? (
               <>
@@ -661,7 +664,6 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
               t("kin.count", { count: drawnCount })
             )}
           </span>
-          <ChartFindBox find={find} />
         </div>
       }
     >
@@ -992,6 +994,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         {selected && (
           <TreeNodePanel
             node={{ name: nameFor(selected), years: selected.years, sex: selected.sex }}
+            personId={selected.id}
             swatch={colorOf(selected)}
             rows={selectedRows}
             mainPerson={mainNav}

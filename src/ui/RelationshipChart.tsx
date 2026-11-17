@@ -54,6 +54,9 @@ interface Props {
   /** Reports target swaps up to the Charts hub, so switching to a pedigree
    *  chart roots on the person this diagram currently points at. */
   onTargetChange?: (id: string) => void;
+  /** Reports a swap of the person the diagram measures from — the family
+   *  website writes it into its address, so a link names the pair shown. */
+  onStartChange?: (id: string) => void;
 }
 
 interface PathOption {
@@ -68,7 +71,7 @@ interface PathOption {
  * parent couples beside each rail. A selector offers the shortest route plus
  * every distinct bloodline; clicking a person opens the shared detail panel.
  */
-export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange }: Props) {
+export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange, onStartChange }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
   const formatName = useNameOf(marriedNameOverride(settings.showMarriedName));
@@ -85,10 +88,11 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     (side: "start" | "target", id: string) => {
       (side === "start" ? setStartSel : setTargetSel)(id);
       if (side === "target") onTargetChange?.(id);
+      else onStartChange?.(id);
       setOptionIdx(0);
       setPicking(null);
     },
-    [onTargetChange],
+    [onTargetChange, onStartChange],
   );
 
   const nameOf = useCallback(
@@ -418,6 +422,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         {selectedBox && selectedIndi && (
           <TreeNodePanel
             node={selectedBox}
+            personId={selectedBox.id}
             swatch={colorFor(selectedBox)}
             rows={selectedRows}
             mainPerson={{ linkable: (id) => mainDs.individuals.has(id), onNavigate }}

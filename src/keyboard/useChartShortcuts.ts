@@ -5,7 +5,8 @@ import type { TreeMode } from "../chart/personTree";
 
 // Bare-key shortcuts for the full-page chart overlays: +/− zoom, 0 reset,
 // F fit-to-screen, A/D ancestors/descendants, H back to the start person,
-// digits 1–n for the kind switcher, and the arrows to scroll the canvas
+// digits 1–n (and P / L / G / K for the fan / timeline / map / relationship)
+// for the kind switcher, and the arrows to scroll the canvas
 // (Shift for a bigger step, PageUp/PageDown for most of a screen). Each chart page passes only the handlers it supports; the hidden
 // Edit/Merge views gate their own key handlers while an overlay is open, so
 // these keys never collide with the decision shortcuts (C/R/D) underneath; the
@@ -126,6 +127,18 @@ export function useChartShortcuts(handlers: Handlers) {
       }
       if (lower === CHART_KEY.descendants) {
         if (h.onMode) { e.preventDefault(); h.onMode("descendants"); }
+        return;
+      }
+      // P / L / G / K: the fan, the timeline, the map, the relationship — the
+      // keys that open them from Edit.
+      const lettered = lower === CHART_KEY.fan ? "fan"
+        : lower === CHART_KEY.timeline ? "timeline"
+        : lower === CHART_KEY.map ? "map"
+        : lower === CHART_KEY.relationship ? "relationship"
+        : undefined;
+      if (lettered && !e.shiftKey && h.kinds?.includes(lettered) && h.onKind) {
+        e.preventDefault();
+        h.onKind(lettered);
         return;
       }
       if (h.kinds && h.onKind && key >= "1" && key <= "9") {

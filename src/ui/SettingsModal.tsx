@@ -17,7 +17,8 @@ import { BASEMAPS, CUSTOM_BASEMAP } from "./map/basemapPresets";
 import type { MiniMapPin } from "./map/MiniPlaceMap";
 import { xrefLabel, type NameOrder } from "../gedcom/nameDisplay";
 import type { PersonName } from "../gedcom/types";
-import { SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { THEME_MODES, type ThemeMode } from "./useTheme";
 import { COUNTRY_CODES } from "../gedcom/countryCode";
 import { countryFacetLabel } from "../geo/placeCountry";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
@@ -39,7 +40,7 @@ import { TrashIcon } from "./icons/TrashIcon";
 // the base-map sample is actually shown.
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
 
-export type ThemeMode = "auto" | "light" | "dark";
+export type { ThemeMode };
 
 interface Props {
   isOpen: boolean;
@@ -161,8 +162,6 @@ function isGedcomStandard(key: keyof FormatOverrides, choice: string): boolean {
   return key === "placeSeparator" && choice === "comma-space";
 }
 
-const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
-const LANG_LABELS: Record<string, string> = { en: "🇬🇧 English", sl: "🇸🇮 Slovenščina" };
 
 /** Sample person used by the live name-display preview — a married woman so the
  * married-surname, order and uppercase options are all visible at once. */
@@ -436,7 +435,7 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                     checked={i18n.language === lng}
                     onChange={() => i18n.changeLanguage(lng)}
                   />
-                  <span className="settings-row-label">{LANG_LABELS[lng] ?? lng}</span>
+                  <span className="settings-row-label">{LANGUAGE_LABELS[lng]}</span>
                 </label>
               ))}
             </div>

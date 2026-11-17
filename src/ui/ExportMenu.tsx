@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { DownloadIcon } from "./icons/DownloadIcon";
+import { useExportsAllowed } from "./PublishedView";
 
 // The chart-toolbar "Export" dropdown: one button for every download format
 // instead of a growing row of per-format buttons. New formats (PNG, reports,
@@ -28,6 +29,8 @@ export function ExportMenu({ items, disabled, compact = false }: {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const { containerRef, triggerRef, close, onTriggerKeyDown } = usePopoverKeyboard(open, setOpen, { arrows: true });
+  // The family website offers downloads only when its author allowed them.
+  if (!useExportsAllowed()) return null;
 
   return (
     <div className="export-menu" ref={containerRef}>

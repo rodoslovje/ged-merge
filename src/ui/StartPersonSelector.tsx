@@ -11,7 +11,7 @@ import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
 import { lifespanApproxOf } from "../gedcom/lifespan";
 import { SearchIcon } from "./icons/SearchIcon";
-import { HomeIcon } from "./icons/HomeIcon";
+import { StartIcon } from "./icons/StartIcon";
 import { homePlaceOf } from "../chart/nodeDisplay";
 import { personOptionTitle } from "./edit/RelativePickerCard";
 
@@ -37,12 +37,12 @@ interface Props {
   placeholder?: string;
   /** Input tooltip. Defaults to the start-person wording. */
   tooltip?: string;
-  /** Icon to show left of the input. Defaults to "house". */
-  icon?: "house" | "search";
+  /** Icon to show left of the input. Defaults to "start" (the target). */
+  icon?: "start" | "search";
   /** When set (and a start person is chosen), the start icon becomes a button that
-   *  navigates back to the start person. Only meaningful with `icon="house"`. */
+   *  navigates back to the start person. Only meaningful with `icon="start"`. */
   onStartClick?: () => void;
-  /** The house button's hover text, where it does something other than go to the start person. */
+  /** The start button's hover text, where it does something other than go to the start person. */
   startClickTitle?: string;
   /** When true (default), the selected person's name is shown as the input
    * placeholder. Set false for a pure search field that should always show the
@@ -68,7 +68,7 @@ export function StartPersonSelector({
   onAutoFocused,
   placeholder,
   tooltip,
-  icon = "house",
+  icon = "start",
   onStartClick,
   startClickTitle,
   selectedAsPlaceholder = true,
@@ -197,11 +197,11 @@ export function StartPersonSelector({
     }
   }
 
-  const glyph = icon === "house" ? <HomeIcon size={14} /> : <SearchIcon size={14} />;
+  const glyph = icon === "start" ? <StartIcon size={14} /> : <SearchIcon size={14} />;
 
   // When a start person is set and a handler is provided, the start icon is a
   // button that jumps back to that person; otherwise it's a static glyph.
-  const clickableStart = icon === "house" && !!startId && !!onStartClick;
+  const clickableStart = icon === "start" && !!startId && !!onStartClick;
 
   return (
     <div className={startId ? "start-selector" : "start-selector unset"}>

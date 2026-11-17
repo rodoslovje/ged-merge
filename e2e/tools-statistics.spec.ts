@@ -116,8 +116,15 @@ test("generations follow the line's person, research counts the sources", async 
   await expect(panel.locator(".stats-tile", { hasText: "Events with a source" }).locator(".stats-tile-value")).toHaveText("0%");
 
   // Without coordinates there are no distances, and the page says why.
-  await panel.getByRole("tab", { name: "Migration" }).click();
+  await panel.getByRole("tab", { name: "Places & migration" }).click();
   await expect(panel.locator(".stats-note")).toBeVisible();
+  // Petra was born in Kranj, her father in Škofja Loka (her mother's place is
+  // not known): one pair, and a ribbon that lists her.
+  await expect(panel.locator(".stats-tile", { hasText: "Born in another place than a parent" }).locator(".stats-tile-value")).toHaveText("100%");
+  const flow = panel.locator(".stats-card", { has: page.getByRole("heading", { name: "From the parents' birth place to the child's", exact: true }) });
+  await expect(flow.locator(".stats-flow-label")).toHaveCount(2);
+  await flow.locator(".stats-flow-links path").first().click();
+  await expect(flow.locator(".stats-pick .tools-issue")).toHaveCount(1);
 
   expect(errors).toEqual([]);
 });

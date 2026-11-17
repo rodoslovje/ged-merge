@@ -3,7 +3,7 @@ import { writeVersionOf } from "../normalize/formatOverrides";
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type RecordPatch, type PendingEditApply, applyRecordPatches, dropNoopPatches, noteChangePatches, snapshotRecords, patchesFromSnapshots } from "./historyTypes";
 import { useTranslation } from "react-i18next";
-import type { Dataset, Family, GedDate, GedNode, GeoCoord, Individual } from "../gedcom/types";
+import type { Dataset, Family, GedDate, GedNode, Individual } from "../gedcom/types";
 import { lastChangedText } from "../gedcom/chanCrea";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { coupleAgesDisplay, lifespanWithAge } from "../gedcom/age";
@@ -120,9 +120,7 @@ import { TranslationChips } from "./edit/TranslationChips";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
 import { NotesEditor } from "./edit/NotesEditor";
-import { MAP_EVENT_KINDS, personPoints } from "../geo/points";
-import { buildPersonPaths } from "../geo/paths";
-import { kindsColorVar } from "./map/markerStyle";
+import { personMapOf } from "./map/personMap";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
 const MiniPlaceMap = lazy(() => import("./map/MiniPlaceMap"));
@@ -132,7 +130,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaViewer, type MediaEditFields, type MediaRefContext } from "./MediaViewer";
 import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from "../gedcom/media";
-import { eventDisplayLabel, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
+import { SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { leftTarget, useDropHighlight } from "./useDropHighlight";
 import { TrashIcon } from "./icons/TrashIcon";
 
@@ -514,6 +512,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       }
       if (key === KEY.relationship) {
         if (id) { e.preventDefault(); showCharts(id, "relationship"); }
+        return;
+      }
+      // P / L / G: the fan, the timeline, the map.
+      const lettered = key === KEY.fan ? "fan" : key === KEY.timeline ? "timeline" : key === KEY.map ? "map" : undefined;
+      if (lettered) {
+        if (id) { e.preventDefault(); showCharts(id, lettered); }
         return;
       }
       if (key === KEY.home) {
@@ -1828,47 +1832,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // small map under the events list. Null when nothing is geocoded.
   const personMap = useMemo(() => {
     if (!person) return null;
-    const points = personPoints(dataset, person.id);
-    if (!points.length) return null;
-    const byCoord = new Map<
-      string,
-      { coord: GeoCoord; place: string; addrs: Set<string>; labels: string[]; kinds: Set<string> }
-    >();
-    for (const p of points) {
-      const k = `${p.coord.lat}:${p.coord.lon}`;
-      const label = `${eventDisplayLabel(p.tag, t)}${p.year !== undefined ? ` ${p.year}` : ""}`;
-      const hit = byCoord.get(k);
-      if (hit) {
-        hit.labels.push(label);
-        hit.kinds.add(p.kind);
-        if (p.address) hit.addrs.add(p.address);
-      } else {
-        byCoord.set(k, {
-          coord: p.coord,
-          place: p.place,
-          addrs: new Set(p.address ? [p.address] : []),
-          labels: [label],
-          kinds: new Set([p.kind]),
-        });
-      }
-    }
-    const pins = [...byCoord.values()].map((g) => ({
-      coord: g.coord,
-      label: g.place,
-      // One address means this pin is that house; several events with
-      // different addresses landed on one coordinate, so name none.
-      ...(g.addrs.size === 1 ? { sub: [...g.addrs][0] } : {}),
-      lines: g.labels,
-      kind: "candidate" as const,
-      colorVar: kindsColorVar(g.kinds),
-    }));
-    const path = buildPersonPaths(points)
-      .find((pp) => pp.personId === person.id)
-      ?.stops.map((s) => s.coord);
-    // Event kinds present, in the canonical order — the legend row.
-    const present = new Set(points.map((p) => p.kind));
-    const kinds = MAP_EVENT_KINDS.filter((k) => present.has(k));
-    return { pins, path, kinds };
+    return personMapOf(dataset, person.id, t);
     // person is rebuilt (fresh identity) on each own edit; undoVersion covers
     // undo/redo; tick covers family-event edits, which replace the Family
     // object but not this person (same reason birthParentAges depends on it).

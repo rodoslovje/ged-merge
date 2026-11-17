@@ -71,7 +71,58 @@ function paint(root: HTMLElement, skip: (node: Element) => boolean): { svg: SVGS
   };
 
   const visit = (node: Element, into: SVGElement) => {
-    if (skip(node) || node instanceof SVGElement) return;
+    if (skip(node)) return;
+    // The flow's ribbons are the one drawing made of paths: copied as they
+    // stand, each with the colour it is painted in.
+    if (node instanceof SVGSVGElement && node.classList.contains("stats-flow-links")) {
+      const r = node.getBoundingClientRect();
+      const copy = el("svg", {
+        x: x(r.left), y: y(r.top), width: r.width, height: r.height,
+        viewBox: node.getAttribute("viewBox") ?? "", preserveAspectRatio: "none",
+      });
+      for (const path of node.querySelectorAll("path")) {
+        const ps = getComputedStyle(path);
+        copy.appendChild(el("path", { d: path.getAttribute("d") ?? "", fill: ps.fill, "fill-opacity": ps.fillOpacity }));
+      }
+      into.appendChild(copy);
+      return;
+    }
+    // The surname network: its lines, circles and names, each in the colours
+    // and the dimming it shows.
+    if (node instanceof SVGSVGElement && node.classList.contains("stats-network")) {
+      const r = node.getBoundingClientRect();
+      const copy = el("svg", { x: x(r.left), y: y(r.top), width: r.width, height: r.height, viewBox: node.getAttribute("viewBox") ?? "" });
+      for (const g of node.children) {
+        const group = el("g", { opacity: getComputedStyle(g).opacity });
+        for (const shape of g.children) {
+          const ss = getComputedStyle(shape);
+          if (shape instanceof SVGLineElement) {
+            if (shape.classList.contains("hit")) continue;
+            group.appendChild(el("line", {
+              x1: shape.getAttribute("x1")!, y1: shape.getAttribute("y1")!, x2: shape.getAttribute("x2")!, y2: shape.getAttribute("y2")!,
+              stroke: ss.stroke, "stroke-opacity": ss.strokeOpacity, "stroke-width": shape.getAttribute("stroke-width") ?? ss.strokeWidth, "stroke-linecap": "round",
+            }));
+          } else if (shape instanceof SVGCircleElement) {
+            group.appendChild(el("circle", {
+              cx: shape.getAttribute("cx")!, cy: shape.getAttribute("cy")!, r: shape.getAttribute("r")!,
+              fill: ss.fill, stroke: ss.stroke, "stroke-width": ss.strokeWidth,
+            }));
+          } else if (shape instanceof SVGTextElement) {
+            const label = el("text", {
+              x: shape.getAttribute("x")!, y: shape.getAttribute("y")!, "text-anchor": "middle",
+              fill: ss.fill, stroke: ss.stroke, "stroke-width": ss.strokeWidth, "stroke-linejoin": "round", "paint-order": "stroke",
+              "font-family": ss.fontFamily, "font-size": ss.fontSize, "font-weight": ss.fontWeight,
+            });
+            label.textContent = shape.textContent;
+            group.appendChild(label);
+          }
+        }
+        copy.appendChild(group);
+      }
+      into.appendChild(copy);
+      return;
+    }
+    if (node instanceof SVGElement) return;
     const cs = getComputedStyle(node);
     if (cs.display === "none" || cs.visibility === "hidden") return;
     const r = node.getBoundingClientRect();
@@ -158,11 +209,33 @@ const PAD_X = 24;
 const PAD_Y = 16;
 
 /** Draw `root` as a standalone, banded SVG and download it as SVG or PNG. */
+/**
+ * Run `fn` with every scrolled grid in `root` (the decade grids) laid out in
+ * full: the root is widened by the largest overflow and each scroller brought
+ * back to its start, so the picture shows every column with the sticky labels
+ * at the left. The width and scroll positions come back afterwards.
+ */
+function unscrolled<T>(root: HTMLElement, fn: () => T): T {
+  const scrollers = [...root.querySelectorAll<HTMLElement>(".stats-grid-scroll")];
+  const overflow = scrollers.reduce((m, s) => Math.max(m, s.scrollWidth - s.clientWidth), 0);
+  if (overflow <= 0) return fn();
+  const oldWidth = root.style.width;
+  const oldScroll = scrollers.map((s) => s.scrollLeft);
+  try {
+    root.style.width = `${root.offsetWidth + overflow}px`;
+    for (const s of scrollers) s.scrollLeft = 0;
+    return fn();
+  } finally {
+    root.style.width = oldWidth;
+    scrollers.forEach((s, i) => { s.scrollLeft = oldScroll[i]; });
+  }
+}
+
 export async function exportStats(root: HTMLElement, format: "svg" | "png", fileName: string, opts: SvgExportOptions): Promise<void> {
-  const painted = withLightPalette(() => ({
+  const painted = unscrolled(root, () => withLightPalette(() => ({
     ...paint(root, SKIP),
     foreground: getComputedStyle(document.body).color,
-  }));
+  })));
   // The cards would otherwise touch the image's edges.
   const width = painted.width + 2 * PAD_X;
   const height = painted.height + 2 * PAD_Y;

@@ -531,8 +531,12 @@ const IN_LAW_TREE = `0 HEAD
 0 TRLR
 `;
 
+/** The in-law tree with every couple recorded as married — the in-law words
+ *  presuppose a marriage (see the partner case below). */
+const MARRIED_IN_LAW_TREE = IN_LAW_TREE.replace(/(0 @F\d+@ FAM\n)/g, "$11 MARR Y\n");
+
 describe("kinshipLabel in-laws and the uncle's side", () => {
-  const ds = dataset(IN_LAW_TREE);
+  const ds = dataset(MARRIED_IN_LAW_TREE);
   // Interpolates {{kinship}} and honours the genitive context, like i18next.
   const words: Record<string, string> = {
     "kinship.wifeOf": "Žena {{kinship}}",
@@ -574,6 +578,25 @@ describe("kinshipLabel in-laws and the uncle's side", () => {
     expect(kinshipLabel(ds, "@I1@", "@I22@", tr)).toBe("Nečak zakonca");
   });
 
+  it("names partners, not spouses, where the file records no marriage", () => {
+    const unwed = dataset(IN_LAW_TREE);
+    const words: Record<string, string> = {
+      "kinship.partnerOfF": "Partnerka {{kinship}}",
+      "kinship.ofPartnerF": "{{kinship}} partnerke",
+      "kinship.ofPartner": "{{kinship}} partnerja",
+      "kinship.nephew": "Nečak",
+      "kinship.nephew_gen": "nečaka",
+      "kinship.brother_gen": "brata",
+    };
+    const tp: Translate = (key, o) => {
+      const ctx = typeof o?.context === "string" ? words[`${key}_${o.context}`] : undefined;
+      return (ctx ?? words[key] ?? key).replace("{{kinship}}", String(o?.kinship ?? ""));
+    };
+    expect(kinshipLabel(unwed, "@I1@", "@I24@", tp)).toBe("Partnerka nečaka");
+    expect(kinshipLabel(unwed, "@I1@", "@I19@", t)).not.toBe("kinship.fatherInLaw");
+    expect(kinshipLabel(unwed, "@I1@", "@I18@", t)).not.toBe("kinship.daughterInLaw");
+  });
+
   it("stops at one marriage", () => {
     expect(kinshipLabel(ds, "@I1@", "@I25@", t)).toBeUndefined();
   });
@@ -587,7 +610,7 @@ describe("createKinshipResolver", () => {
   // The resolver is a cached view over kinshipLabel/bloodLineage: for a fixed
   // start person it must agree with the direct functions on every target and
   // every relation shape — ancestor, sibling, spouse, step, self, unrelated.
-  const trees = { TREE, STEP_TREE, IN_LAW_TREE };
+  const trees = { TREE, STEP_TREE, IN_LAW_TREE, MARRIED_IN_LAW_TREE };
 
   for (const [name, text] of Object.entries(trees)) {
     it(`matches the direct functions on every pair (${name})`, () => {
