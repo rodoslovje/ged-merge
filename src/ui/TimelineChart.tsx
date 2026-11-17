@@ -32,6 +32,8 @@ import { useNodeColorer } from "./useNodeColorer";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { ChartLegend } from "./ChartLegend";
 import { usePublishedSettings } from "./PublishedView";
+import { historyPresence, historyYears, pickHistoryEvents } from "../chart/historyEvents";
+import { useHomeCountry } from "./DatasetDerivations";
 
 // Full-page family Timeline: the root person and their immediate family
 // (parents, siblings, spouses, children) as horizontal lifespan bars on a
@@ -121,6 +123,13 @@ const TAPER_W = 12;
  *  140px apart, so density never needs to adapt to the span. */
 const TICK_STEP = 10;
 
+/** Historical-event labels: lanes between the year ruler and the first row.
+ *  A label that fits no lane is dropped; its rule keeps the tooltip. */
+const HIST_LANE_H = 15;
+const HIST_LANES = 3;
+/** Estimated width per character of an 11px label, for lane packing. */
+const HIST_CHAR_W = 5.8;
+
 interface Props {
   mainDs: Dataset;
   rootId: string;
@@ -180,6 +189,17 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const rowH = ROW_H + (photosOn ? PHOTO_SHIFT : 0) + (stripOn ? STRIP_H + STRIP_GAP : 0);
   const laneY = barY + BAR_H + 10 + (stripOn ? STRIP_H + STRIP_GAP : 0);
 
+  // Historical events, picked by where and when the people on the chart lived
+  // (a bare village stands in the file's home country).
+  const historyOn = settings.timelineHistory;
+  const homeCountry = useHomeCountry();
+  const history = useMemo(() => {
+    if (!historyOn || !data || data.minYear === undefined || data.maxYear === undefined) return [];
+    const x0 = Math.floor(data.minYear / TICK_STEP) * TICK_STEP;
+    const x1 = Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP;
+    return pickHistoryEvents(historyPresence(mainDs, data.rows, homeCountry), x0, x1);
+  }, [historyOn, data, mainDs, homeCountry]);
+
   // Axis domain: the data range rounded outward to whole decades, so the chart
   // always opens and closes on a labelled gridline (e.g. 1930 … 2030).
   const geom = useMemo(() => {
@@ -187,12 +207,25 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     const x0 = Math.floor(data.minYear / TICK_STEP) * TICK_STEP;
     const x1 = Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP;
     const contentW = (x1 - x0) * PX_PER_YEAR;
-    const contentH = AXIS_H + data.rows.length * rowH;
     const xOf = (year: number) => (year - x0) * PX_PER_YEAR;
     const ticks: number[] = [];
     for (let y = x0; y <= x1; y += TICK_STEP) ticks.push(y);
-    return { x0, x1, contentW, contentH, xOf, ticks };
-  }, [data, rowH]);
+    // Pack the event labels greedily into the lanes under the ruler, in year
+    // order, each into the first lane where it clears its left neighbour.
+    const laneEnd: number[] = [];
+    const events = history.map((e) => {
+      const text = `${historyYears(e)} ${t(`history.${e.id}`)}`;
+      const x = xOf(e.from);
+      let lane: number | undefined = laneEnd.findIndex((end) => x >= end);
+      if (lane < 0) lane = laneEnd.length < HIST_LANES ? laneEnd.length : undefined;
+      if (lane !== undefined) laneEnd[lane] = x + text.length * HIST_CHAR_W + 10;
+      return { ...e, text, x, w: e.to !== undefined ? (e.to - e.from) * PX_PER_YEAR : 0, lane };
+    });
+    // The rows start below the ruler and the lanes in use.
+    const topH = AXIS_H + laneEnd.length * HIST_LANE_H;
+    const contentH = topH + data.rows.length * rowH;
+    return { x0, x1, contentW, contentH, topH, xOf, ticks, events };
+  }, [data, rowH, history, t]);
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching.
   const kinship = useMemo(
@@ -240,7 +273,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     const m = new Map<string, TimelineRow & ChartNode>();
     rows.forEach((r, i) => {
       const x = geom && r.from !== undefined ? geom.xOf(r.from) : 0;
-      m.set(r.key, { ...r, x, y: AXIS_H + i * rowH });
+      m.set(r.key, { ...r, x, y: (geom?.topH ?? AXIS_H) + i * rowH });
     });
     return m;
   }, [rows, geom, rowH]);
@@ -397,8 +430,26 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                   <line className="timeline-now" x1={geom.xOf(nowYear)} y1={AXIS_H - 8} x2={geom.xOf(nowYear)} y2={geom.contentH} />
                 )}
 
+                {/* Historical events: a faint band over a span, a dotted rule
+                    on a single year, the label in a lane under the ruler. */}
+                {geom.events.map((e) => (
+                  <g key={e.id} className="timeline-history">
+                    <title>{e.text}</title>
+                    {e.w > 0 ? (
+                      <rect className="timeline-history-band" x={e.x} y={AXIS_H - 8} width={e.w} height={geom.contentH - AXIS_H + 8} />
+                    ) : (
+                      <line className="timeline-history-line" x1={e.x} y1={AXIS_H - 8} x2={e.x} y2={geom.contentH} />
+                    )}
+                    {e.lane !== undefined && (
+                      <text className="timeline-history-label" x={e.x + 3} y={AXIS_H + e.lane * HIST_LANE_H + 11}>
+                        {e.text}
+                      </text>
+                    )}
+                  </g>
+                ))}
+
                 {rows.map((row, i) => {
-                  const y = AXIS_H + i * rowH;
+                  const y = geom.topH + i * rowH;
                   const hidden = redacted(row);
                   const meta = rowMeta(row);
                   const role = rowRole(row);
