@@ -838,6 +838,19 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </span>
               </span>
             </label>
+            <label className="settings-row settings-format-row">
+              <span className="settings-row-text">
+                <span className="settings-row-label">{t("settings.links.indexContributor")}</span>
+                <span className="settings-hint">{t("settings.links.indexContributor.hint")}</span>
+              </span>
+              <input
+                type="text"
+                className="settings-text-input"
+                value={settings.indexContributor}
+                placeholder={t("settings.links.indexContributor.placeholder")}
+                onChange={(e) => set({ indexContributor: e.target.value })}
+              />
+            </label>
           </section>
 
           </>

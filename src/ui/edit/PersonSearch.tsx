@@ -5,11 +5,15 @@ import { displayDateText } from "../../gedcom/dateDisplay";
 import { defaultPrivacyOptions, livingReason } from "../../tools/privacy";
 import { personQuery, searchUrl, SEARCH_SITES, type PersonQuery } from "../../online/searchLinks";
 import {
+  clusterHits,
+  contributorList,
   fetchIndexHits,
   hitsForComparison,
   indexApiUrl,
   indexPersonUrl,
   rankHits,
+  type HitCluster,
+  type IndexAnswer,
   type IndexHit,
   type RankedHit,
   type RankedHits,
@@ -21,28 +25,28 @@ import { FieldValue } from "../FieldValue";
 import { ExternalIcon } from "../icons/ExternalIcon";
 import { ChevronIcon } from "../icons/ChevronIcon";
 
-const SETTINGS_KEYS = ["allowLinkFetch"] as const;
+const SETTINGS_KEYS = ["allowLinkFetch", "indexContributor"] as const;
 
-/** How many ranked hits the rail lists. */
+/** How many people (groups of matched hits) the rail lists. */
 const SHOWN = 10;
 
 /** Answers already fetched this session, by API address — returning to a
  *  person does not ask the index again. */
-const answered = new Map<string, IndexHit[]>();
+const answered = new Map<string, IndexAnswer>();
 const ANSWERED_CAP = 100;
 /** Searches on their way, by API address — a rail shown again before the
  *  answer arrives waits for the same request instead of sending another. */
-const inflight = new Map<string, Promise<IndexHit[]>>();
+const inflight = new Map<string, Promise<IndexAnswer>>();
 
-function askIndex(query: PersonQuery): Promise<IndexHit[]> {
-  const url = indexApiUrl(query);
+function askIndex(query: PersonQuery, own: readonly string[]): Promise<IndexAnswer> {
+  const url = indexApiUrl(query, own);
   let pending = inflight.get(url);
   if (!pending) {
-    pending = fetchIndexHits(query, AbortSignal.timeout(20000))
-      .then((hits) => {
+    pending = fetchIndexHits(query, own, AbortSignal.timeout(20000))
+      .then((answer) => {
         if (answered.size >= ANSWERED_CAP) answered.delete(answered.keys().next().value!);
-        answered.set(url, hits);
-        return hits;
+        answered.set(url, answer);
+        return answer;
       })
       .finally(() => inflight.delete(url));
     inflight.set(url, pending);
@@ -50,11 +54,26 @@ function askIndex(query: PersonQuery): Promise<IndexHit[]> {
   return pending;
 }
 
+type Done = RankedHits & {
+  /** The people shown, in ranking order — see {@link clusterHits}. */
+  clusters: HitCluster[];
+  /** Every hit shown, cluster by cluster: the order the comparison steps through. */
+  flat: RankedHit[];
+  /** All the hits the index has for the search. */
+  total: number;
+};
+
 type SearchState =
   | { state: "idle" }
   | { state: "loading" }
   | { state: "error" }
-  | ({ state: "done" } & RankedHits);
+  | ({ state: "done" } & Done);
+
+function settle(person: Individual, dataset: Dataset, answer: IndexAnswer, own: readonly string[]): Done {
+  const ranked = rankHits(person, dataset, answer.hits);
+  const clusters = clusterHits(ranked.ranked, own).slice(0, SHOWN);
+  return { ...ranked, clusters, flat: clusters.flatMap((c) => c.members), total: answer.total };
+}
 
 function vital(symbol: string, date: string | undefined, place: string | undefined): string | undefined {
   const parts = [date ? displayDateText(date) : "", place ?? ""].filter(Boolean);
@@ -227,31 +246,39 @@ export function PersonSearch({
   onCite: (url: string) => void;
 }) {
   const { t } = useTranslation();
-  const { allowLinkFetch } = useSettingsSlice(SETTINGS_KEYS);
+  const { allowLinkFetch, indexContributor } = useSettingsSlice(SETTINGS_KEYS);
+  const own = useMemo(() => contributorList(indexContributor), [indexContributor]);
+  const ownKey = own.join(",");
   const query = useMemo(() => personQuery(person, dataset), [person, dataset]);
   const living = useMemo(
     () => !!livingReason(person, dataset, defaultPrivacyOptions(), new Date().getFullYear()),
     [person, dataset],
   );
   const [search, setSearch] = useState<SearchState>(() => {
-    const cached = query && answered.get(indexApiUrl(query));
-    return cached ? { state: "done", ...rankHits(person, dataset, cached) } : { state: "idle" };
+    const cached = query && answered.get(indexApiUrl(query, own));
+    return cached ? { state: "done", ...settle(person, dataset, cached, own) } : { state: "idle" };
   });
   const [attempt, setAttempt] = useState(0);
-  /** The hit open in the comparison, by its place in the ranked list. */
+  /** The hit open in the comparison, by its place in `flat`. */
   const [comparing, setComparing] = useState<number | null>(null);
 
   const searchable = !!query && allowLinkFetch && !living;
   // Ask the index as soon as it may be asked: on showing the person, on the
-  // switch being turned on, and again on "Try again". An answer already held
-  // (the cache) leaves nothing to ask.
+  // switch being turned on, on a changed own-tree name, and again on "Try
+  // again". An answer already held (the cache) leaves nothing to ask.
   useEffect(() => {
-    if (!searchable || !query || search.state !== "idle") return;
+    if (!searchable || !query) return;
+    const cached = answered.get(indexApiUrl(query, own));
+    if (cached) {
+      setSearch({ state: "done", ...settle(person, dataset, cached, own) });
+      return;
+    }
     let cancelled = false;
     setSearch({ state: "loading" });
-    askIndex(query)
-      .then((hits) => {
-        if (!cancelled) setSearch({ state: "done", ...rankHits(person, dataset, hits) });
+    setComparing(null);
+    askIndex(query, own)
+      .then((answer) => {
+        if (!cancelled) setSearch({ state: "done", ...settle(person, dataset, answer, own) });
       })
       .catch(() => {
         if (!cancelled) setSearch({ state: "error" });
@@ -264,15 +291,15 @@ export function PersonSearch({
     // Person and dataset are fixed per mount (the rail is keyed by person);
     // `attempt` re-runs the search after an error.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchable, attempt]);
+  }, [searchable, attempt, ownKey]);
 
   const retry = () => {
     setSearch({ state: "idle" });
     setAttempt((n) => n + 1);
   };
 
-  const shown = search.state === "done" ? search.ranked.slice(0, SHOWN) : [];
-  const open = search.state === "done" && searchable && comparing !== null && comparing < shown.length;
+  const flat = search.state === "done" ? search.flat : [];
+  const open = search.state === "done" && searchable && comparing !== null && comparing < flat.length;
 
   return (
     <aside
@@ -283,7 +310,7 @@ export function PersonSearch({
       <div className="edit-wider-head">
         <div className="edit-wider-title">
           <strong id="edit-search-title">{t("indexSearch.title")}</strong>
-          {search.state === "done" && <span className="edit-wider-count gm-data">{search.ranked.length}</span>}
+          {search.state === "done" && <span className="edit-wider-count gm-data">{search.total}</span>}
         </div>
         {query ? (
           <div className="person-search-sites">
@@ -312,48 +339,75 @@ export function PersonSearch({
               {t("indexSearch.error")}{" "}
               <button type="button" className="tools-issue-link" onClick={retry}>{t("indexSearch.retry")}</button>
             </p>
-          ) : !shown.length ? (
+          ) : !flat.length ? (
             <p className="person-search-note">{t("indexSearch.none")}</p>
           ) : open ? (
             <HitComparison
               person={person}
               dataset={dataset}
               hitsDs={search.ds}
-              ranked={shown}
+              ranked={flat}
               index={comparing}
               onIndex={setComparing}
               onBack={() => setComparing(null)}
               onCite={onCite}
             />
           ) : (
-            <ol className="person-search-hits">
-              {shown.map(({ hit, score }, i) => {
-                const facts = [
-                  vital("*", hit.date_of_birth || hit.date_of_baptism, hit.place_of_birth || hit.place_of_baptism),
-                  vital("†", hit.date_of_death, hit.place_of_death),
-                  vital("⚰", hit.date_of_burial, hit.place_of_burial),
-                ].filter((f): f is string => !!f);
-                const relatives = relativesLine(hit);
-                return (
-                  <li key={hit.id} className="person-search-hit">
-                    <div className="person-search-hit-name">
-                      <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
-                      <button type="button" className="person-search-hit-open" onClick={() => setComparing(i)}>
-                        {hitName(hit)}
-                      </button>
-                    </div>
-                    {facts.map((f) => <div key={f} className="person-search-hit-fact">{f}</div>)}
-                    {relatives && <div className="person-search-hit-relatives">{relatives}</div>}
-                    <div className="person-search-hit-foot">
-                      <span className="person-search-contributor">{hit.contributor}</span>
-                      <button type="button" className="tools-issue-link" onClick={() => setComparing(i)}>
-                        {t("indexSearch.compare")}
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
+            <>
+              <ol className="person-search-hits">
+                {search.clusters.map((cluster) => {
+                  const [{ hit, score }, ...others] = cluster.members;
+                  const at = (r: RankedHit) => flat.indexOf(r);
+                  const facts = [
+                    vital("*", hit.date_of_birth || hit.date_of_baptism, hit.place_of_birth || hit.place_of_baptism),
+                    vital("†", hit.date_of_death, hit.place_of_death),
+                    vital("⚰", hit.date_of_burial, hit.place_of_burial),
+                  ].filter((f): f is string => !!f);
+                  const relatives = relativesLine(hit);
+                  return (
+                    <li key={hit.id} className="person-search-hit">
+                      <div className="person-search-hit-name">
+                        <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
+                        <button type="button" className="person-search-hit-open" onClick={() => setComparing(at(cluster.members[0]))}>
+                          {hitName(hit)}
+                        </button>
+                      </div>
+                      {cluster.inOwnTree && <div className="person-search-own">{t("indexSearch.inOwnTree")}</div>}
+                      {facts.map((f) => <div key={f} className="person-search-hit-fact">{f}</div>)}
+                      {relatives && <div className="person-search-hit-relatives">{relatives}</div>}
+                      {(others.length > 0 || cluster.alsoIn.length > 0) && (
+                        <div className="person-search-also">
+                          {t("indexSearch.alsoIn")}{" "}
+                          {others.map((m, j) => (
+                            <span key={m.hit.id}>
+                              {j > 0 && " · "}
+                              <button
+                                type="button"
+                                className="tools-issue-link"
+                                title={t("indexSearch.compareThis")}
+                                onClick={() => setComparing(at(m))}
+                              >
+                                {m.hit.contributor}
+                              </button>
+                            </span>
+                          ))}
+                          {cluster.alsoIn.length > 0 && `${others.length ? " · " : ""}${cluster.alsoIn.join(" · ")}`}
+                        </div>
+                      )}
+                      <div className="person-search-hit-foot">
+                        <span className="person-search-contributor">{hit.contributor}</span>
+                        <button type="button" className="tools-issue-link" onClick={() => setComparing(at(cluster.members[0]))}>
+                          {t("indexSearch.compare")}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+              {search.total > search.ranked.length && (
+                <p className="person-search-note">{t("indexSearch.more", { total: search.total, shown: search.ranked.length })}</p>
+              )}
+            </>
           )}
         </div>
       )}

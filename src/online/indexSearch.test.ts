@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { hitXref, hitsDataset, hitsForComparison, indexApiUrl, indexPersonUrl, rankHits, type IndexHit } from "./indexSearch";
+import { clusterHits, contributorList, hitXref, hitsDataset, hitsForComparison, indexApiUrl, indexPersonUrl, rankHits, type IndexHit, type RankedHit } from "./indexSearch";
 import { individualFieldRows } from "../review/fields";
 import { personQuery, searchUrl } from "./searchLinks";
 
@@ -100,6 +100,12 @@ describe("search addresses", () => {
     expect(url.searchParams.get("date_of_birth_to")).toBe("1864");
     expect(url.searchParams.has("place_of_birth")).toBe(false);
   });
+  it("asks for the index's matches and leaves the reader's own trees out", () => {
+    const url = new URL(indexApiUrl(q, contributorList(" Renko , Renko-matricula,")));
+    expect(url.searchParams.get("same_as")).toBe("true");
+    expect(url.searchParams.get("exclude_contributor")).toBe("Renko,Renko-matricula");
+    expect(new URL(indexApiUrl(q)).searchParams.has("exclude_contributor")).toBe(false);
+  });
   it("prefills each site", () => {
     expect(searchUrl("familysearchTree", q)).toContain("/search/tree/results?q.givenName=Janez&q.surname=Penko&q.birthLikeDate.from=1860");
     expect(searchUrl("familysearchRecords", q)).toContain("/search/record/results?");
@@ -133,6 +139,26 @@ describe("hit records", () => {
     expect(ranked.map((r) => r.hit.id)).toEqual([PENKO.id, BENKO.id]);
     expect(ranked[0].id).toBe(hitXref(1));
     expect(ranked[0].score).toBeGreaterThan(ranked[1].score);
+  });
+
+  it("groups hits that are one person in several trees, through matches outside the hits too", () => {
+    const hit = (id: number, contributor: string, same: [string, string][] = []): RankedHit => ({
+      id: `@X${id}@`,
+      score: 100 - id,
+      hit: { id, contributor, ext_id: `@I${id}@`, same_as: same.map(([c, e]) => ({ contributor: c, ext_id: e })) },
+    });
+    const ranked = [
+      hit(1, "Bandelj", [["Mamić", "@I2@"], ["Renko", "@I77@"]]),
+      hit(2, "Mamić", [["Hawlina", "@I9@"]]),
+      hit(3, "Kos"),
+      // Joined to Bandelj only through Hawlina @I9@, which is not a hit.
+      hit(4, "Zupan", [["Hawlina", "@I9@"], ["Sever", "@I5@"]]),
+    ];
+    const clusters = clusterHits(ranked, ["Renko"]);
+    expect(clusters.map((c) => c.members.map((m) => m.hit.id))).toEqual([[1, 2, 4], [3]]);
+    expect(clusters[0].inOwnTree).toBe(true);
+    expect(clusters[0].alsoIn.sort()).toEqual(["Hawlina", "Sever"]);
+    expect(clusters[1]).toMatchObject({ inOwnTree: false, alsoIn: [] });
   });
 
   it("compares a hit with the person field by field, in the main file's conventions", () => {

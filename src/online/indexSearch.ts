@@ -18,8 +18,9 @@ import { INDEX_SITE, type PersonQuery } from "./searchLinks";
 
 export const INDEX_API = "https://indeks-api.rodoslovje.si/api/search/advanced/persons";
 
-/** How many hits to ask for: the search is fuzzy ("Renko" also finds "Benko"),
- *  so the right person can sit well down its list until we rank it. */
+/** How many hits to ask for. The index ranks its own hits before cutting the
+ *  list (exact fields first, then name similarity, then year distance), so
+ *  the right person is among them; the match score then ranks them finely. */
 const HIT_LIMIT = 50;
 
 export interface IndexRelative {
@@ -52,12 +53,35 @@ export interface IndexHit {
   parents_list?: IndexRelative[] | null;
   partners_list?: IndexRelative[] | null;
   links?: string[] | null;
+  /** The index's direct matches in other trees, best first (asked for with `same_as=true`). */
+  same_as?: IndexSameAs[] | null;
+}
+
+/** A record in another tree the index has matched a hit with. */
+export interface IndexSameAs {
+  contributor: string;
+  ext_id: string;
+  name?: string;
+  surname?: string;
+}
+
+/** What one search answered: the hits sent, and how many there are in all. */
+export interface IndexAnswer {
+  hits: IndexHit[];
+  /** All the hits the index has for the query (its `X-Total-Count`). */
+  total: number;
+}
+
+/** Contributor names as the index takes them: trimmed, comma-separated, no blanks. */
+export function contributorList(names: string): string[] {
+  return names.split(",").map((n) => n.trim()).filter(Boolean);
 }
 
 /** The API address for a query. The place is left out on purpose: the index
  *  spells places as each contributor did, and a mismatch there would hide the
- *  right person — the ranking weighs places instead. */
-export function indexApiUrl(q: PersonQuery): string {
+ *  right person — the ranking weighs places instead. `exclude` names the
+ *  reader's own tree(s), left out of the hits. */
+export function indexApiUrl(q: PersonQuery, exclude: readonly string[] = []): string {
   const p = new URLSearchParams();
   if (q.given) p.set("name", q.given);
   if (q.surname) p.set("surname", q.surname);
@@ -65,16 +89,24 @@ export function indexApiUrl(q: PersonQuery): string {
   if (q.birthTo !== undefined) p.set("date_of_birth_to", String(q.birthTo));
   if (q.deathFrom !== undefined) p.set("date_of_death", String(q.deathFrom));
   if (q.deathTo !== undefined) p.set("date_of_death_to", String(q.deathTo));
+  if (exclude.length) p.set("exclude_contributor", exclude.join(","));
+  p.set("same_as", "true");
   p.set("limit", String(HIT_LIMIT));
   return `${INDEX_API}?${p.toString()}`;
 }
 
 /** Fetch the hits for a query. Throws on a network failure or a non-OK answer. */
-export async function fetchIndexHits(q: PersonQuery, signal?: AbortSignal): Promise<IndexHit[]> {
-  const res = await fetch(indexApiUrl(q), { signal, headers: { Accept: "application/json" } });
+export async function fetchIndexHits(
+  q: PersonQuery,
+  exclude: readonly string[] = [],
+  signal?: AbortSignal,
+): Promise<IndexAnswer> {
+  const res = await fetch(indexApiUrl(q, exclude), { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`index search: HTTP ${res.status}`);
   const body: unknown = await res.json();
-  return Array.isArray(body) ? (body as IndexHit[]) : [];
+  const hits = Array.isArray(body) ? (body as IndexHit[]) : [];
+  const total = Number(res.headers.get("X-Total-Count"));
+  return { hits, total: Number.isFinite(total) && total >= hits.length ? total : hits.length };
 }
 
 /** The hit's own page on the index website. */
@@ -214,4 +246,77 @@ export function hitsForComparison(hitsDs: Dataset, mainDs: Dataset): Dataset {
     profiles.set(mainDs, profile);
   }
   return normalizeDataset(hitsDs, profile).dataset;
+}
+
+/** One person as the index knows them: the hits that are the same record in
+ *  different trees, by the index's own matches. */
+export interface HitCluster {
+  /** Best match first; the first is the one the list shows. */
+  members: RankedHit[];
+  /** Other trees the index matched this person in, not among the hits. */
+  alsoIn: string[];
+  /** The reader's own tree holds this person too (a match with one of `own`). */
+  inOwnTree: boolean;
+}
+
+function recordKey(contributor: string, extId: string | undefined): string {
+  return `${contributor}\u0000${extId ?? ""}`;
+}
+
+/**
+ * Group ranked hits into the people they are. The index lists only direct
+ * matches (A–B and B–C, not always A–C), so groups are joined through every
+ * match — also through records that are not among the hits. A group stands
+ * where its best hit did in the ranking.
+ */
+export function clusterHits(ranked: readonly RankedHit[], own: readonly string[] = []): HitCluster[] {
+  const parent = new Map<string, string>();
+  const find = (k: string): string => {
+    let root = k;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    for (let cur = k; cur !== root; ) {
+      const next = parent.get(cur)!;
+      parent.set(cur, root);
+      cur = next;
+    }
+    return root;
+  };
+  const add = (k: string) => {
+    if (!parent.has(k)) parent.set(k, k);
+  };
+  for (const r of ranked) {
+    const k = recordKey(r.hit.contributor, r.hit.ext_id);
+    add(k);
+    for (const m of r.hit.same_as ?? []) {
+      const other = recordKey(m.contributor, m.ext_id);
+      add(other);
+      const [ra, rb] = [find(k), find(other)];
+      if (ra !== rb) parent.set(rb, ra);
+    }
+  }
+  const ownSet = new Set(own);
+  const byRoot = new Map<string, HitCluster>();
+  const out: HitCluster[] = [];
+  for (const r of ranked) {
+    const root = find(recordKey(r.hit.contributor, r.hit.ext_id));
+    let cluster = byRoot.get(root);
+    if (!cluster) {
+      cluster = { members: [], alsoIn: [], inOwnTree: false };
+      byRoot.set(root, cluster);
+      out.push(cluster);
+    }
+    cluster.members.push(r);
+  }
+  for (const cluster of out) {
+    const present = new Set(cluster.members.map((m) => m.hit.contributor));
+    const also = new Set<string>();
+    for (const m of cluster.members) {
+      for (const s of m.hit.same_as ?? []) {
+        if (ownSet.has(s.contributor)) cluster.inOwnTree = true;
+        else if (!present.has(s.contributor)) also.add(s.contributor);
+      }
+    }
+    cluster.alsoIn = [...also];
+  }
+  return out;
 }

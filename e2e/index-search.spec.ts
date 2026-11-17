@@ -35,18 +35,37 @@ const HITS = [
     ],
     partners_list: [{ id: "@I19369@", sex: "f", name: "Marija", surname: "Penko", date_of_birth: "23 AUG 1865" }],
     links: null,
+    same_as: [
+      { contributor: "Mamić", ext_id: "@I7@", name: "Janez", surname: "Penko" },
+      { contributor: "Hawlina", ext_id: "@I8@", name: "Janez", surname: "Penko" },
+      { contributor: "Penko", ext_id: "@I1@", name: "Janez", surname: "Penko" },
+    ],
+  },
+  {
+    // The same Janez in another tree: grouped under the Bandelj record.
+    id: 3, ext_id: "@I7@", contributor: "Mamić", name: "Janez", surname: "Penko", sex: "m",
+    date_of_birth: "1862", parents_list: null, partners_list: null, links: null,
+    same_as: [{ contributor: "Bandelj", ext_id: "@I19364@", name: "Janez", surname: "Penko" }],
   },
 ];
 
 async function openPerson(page: Page, fetch: boolean): Promise<string[]> {
   const asked: string[] = [];
   await page.addInitScript((on) => {
-    // The Relatives rail open, as a reader may have left it.
-    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: on, widerFamily: { open: true } }));
+    // The Relatives rail open, as a reader may have left it; the reader's own
+    // tree on the index named.
+    localStorage.setItem(
+      "gedmerge.settings",
+      JSON.stringify({ allowLinkFetch: on, widerFamily: { open: true }, indexContributor: "Penko" }),
+    );
   }, fetch);
   await page.route("**/indeks-api.rodoslovje.si/**", async (route) => {
     asked.push(route.request().url());
-    await route.fulfill({ contentType: "application/json", body: JSON.stringify(HITS) });
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "X-Total-Count": "312", "Access-Control-Expose-Headers": "X-Total-Count" },
+      body: JSON.stringify(HITS),
+    });
   });
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
@@ -94,24 +113,34 @@ test("index hits are ranked against the person and compared with them one by one
   await expect(hits).toHaveCount(2);
   await expect(hits.first()).toContainText("Janez Penko");
   await expect(hits.first()).toContainText("Jurij Penko");
+  // One person in three trees: the reader's own (marked), Mamić (a hit), Hawlina.
+  await expect(hits.first()).toContainText("Already in your tree");
+  await expect(hits.first().locator(".person-search-also")).toHaveText("Also in: Mamić · Hawlina");
+  await expect(page.locator(".edit-wider-count")).toHaveText("312");
+  await expect(page.locator("#edit-search")).toContainText("The index has 312 matches for this search; the best 3 are ranked here.");
   expect(asked).toHaveLength(1);
   expect(asked[0]).toContain("surname=Penko");
+  expect(asked[0]).toContain("exclude_contributor=Penko");
+  expect(asked[0]).toContain("same_as=true");
   expect(asked[0]).not.toContain("place");
 
   // A hit opens into a comparison with the person, in the rail.
   await hits.first().getByRole("button", { name: "Compare" }).click();
   const compare = page.locator(".person-search-compare");
-  await expect(compare).toContainText("1 / 2");
+  await expect(compare).toContainText("1 / 3");
   const death = compare.locator("tr.field.incoming-only", { hasText: "1927" });
   await expect(death).toHaveCount(1);
   await expect(compare.locator("tr.field.agree", { hasText: "Penko" }).first()).toBeVisible();
 
-  // Step to the next hit and back to the list.
+  // Step through the same person's other tree, then the next person.
   await compare.getByRole("button", { name: "Next match" }).click();
-  await expect(compare).toContainText("2 / 2");
+  await expect(compare).toContainText("2 / 3");
+  await expect(compare).toContainText("Mamić");
+  await compare.getByRole("button", { name: "Next match" }).click();
   await expect(compare).toContainText("Ivan Benko");
   await compare.getByRole("button", { name: "Previous match" }).click();
-  await expect(compare).toContainText("Janez Penko");
+  await compare.getByRole("button", { name: "Previous match" }).click();
+  await expect(compare).toContainText("Bandelj");
 
   // Cite it: Add source opens with the hit's index link.
   await compare.getByRole("button", { name: "Add as source" }).click();

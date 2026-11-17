@@ -2667,6 +2667,16 @@ button:focus-visible {
 .person-search-hit-fact,
 .person-search-hit-relatives { color: var(--muted); overflow-wrap: anywhere; }
 .person-search-hit-relatives { font-style: italic; }
+.person-search-own {
+  display: inline-block;
+  margin: 2px 0;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+.person-search-also { color: var(--muted); font-size: 0.85em; overflow-wrap: anywhere; }
 .person-search-hit-foot {
   display: flex; flex-wrap: wrap; align-items: baseline;
   gap: 2px 12px;
