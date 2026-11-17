@@ -125,8 +125,8 @@ const TICK_STEP = 10;
 
 /** Historical-event labels: lanes between the year ruler and the first row.
  *  A label that fits no lane is dropped; its rule keeps the tooltip. */
-const HIST_LANE_H = 15;
-const HIST_LANES = 3;
+const HIST_LANE_H = 19;
+const HIST_LANES = 4;
 /** Estimated width per character of an 11px label, for lane packing. */
 const HIST_CHAR_W = 5.8;
 
@@ -218,8 +218,11 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       const x = xOf(e.from);
       let lane: number | undefined = laneEnd.findIndex((end) => x >= end);
       if (lane < 0) lane = laneEnd.length < HIST_LANES ? laneEnd.length : undefined;
-      if (lane !== undefined) laneEnd[lane] = x + text.length * HIST_CHAR_W + 10;
-      return { ...e, text, x, w: e.to !== undefined ? (e.to - e.from) * PX_PER_YEAR : 0, lane };
+      const w = e.to !== undefined ? (e.to - e.from) * PX_PER_YEAR : 0;
+      // A span's bracket holds the lane to its last year, so the next label
+      // there can't sit over it.
+      if (lane !== undefined) laneEnd[lane] = x + Math.max(text.length * HIST_CHAR_W, w) + 10;
+      return { ...e, text, x, w, lane };
     });
     // The rows start below the ruler and the lanes in use.
     const topH = AXIS_H + laneEnd.length * HIST_LANE_H;
@@ -388,23 +391,43 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       {nowYear >= g.x0 && nowYear <= g.x1 && (
         <line className="timeline-now" x1={g.xOf(nowYear)} y1={AXIS_H - 8} x2={g.xOf(nowYear)} y2={height} />
       )}
-      {/* Historical events: a faint band over a span, a dotted rule on a
-          single year, the label in a lane under the ruler. */}
-      {g.events.map((e) => (
-        <g key={e.id} className="timeline-history">
-          <title>{e.text}</title>
-          {e.w > 0 ? (
-            <rect className="timeline-history-band" x={e.x} y={AXIS_H - 8} width={e.w} height={height - AXIS_H + 8} />
-          ) : (
-            <line className="timeline-history-line" x1={e.x} y1={AXIS_H - 8} x2={e.x} y2={height} />
-          )}
-          {e.lane !== undefined && (
-            <text className="timeline-history-label" x={e.x + 3} y={AXIS_H + e.lane * HIST_LANE_H + 11}>
-              {e.text}
-            </text>
-          )}
-        </g>
-      ))}
+      {/* Historical spans shade the years behind the rows. The shading is
+          one flat tint however many spans overlap — solid shapes under one
+          group opacity — so two spans never stack into a darker stripe; which
+          span runs from when to when is the bracket under its label. */}
+      <g className="timeline-history-bands">
+        {g.events.map((e) =>
+          e.w > 0 ? (
+            <rect key={e.id} x={e.x} y={AXIS_H - 8} width={e.w} height={height - AXIS_H + 8}>
+              <title>{e.text}</title>
+            </rect>
+          ) : null,
+        )}
+      </g>
+      {/* A single year is a dotted rule; every event's label sits in a lane
+          under the ruler, a span's with a bracket over its exact years. */}
+      {g.events.map((e) => {
+        const laneY = e.lane !== undefined ? AXIS_H + e.lane * HIST_LANE_H : 0;
+        return (
+          <g key={e.id} className="timeline-history">
+            <title>{e.text}</title>
+            {e.w === 0 && <line className="timeline-history-line" x1={e.x} y1={AXIS_H - 8} x2={e.x} y2={height} />}
+            {e.lane !== undefined && (
+              <>
+                <text className="timeline-history-label" x={e.x + 3} y={laneY + 11}>
+                  {e.text}
+                </text>
+                {e.w > 0 && (
+                  <path
+                    className="timeline-history-span"
+                    d={`M ${e.x} ${laneY + 11} V ${laneY + 15} H ${e.x + e.w} V ${laneY + 11}`}
+                  />
+                )}
+              </>
+            )}
+          </g>
+        );
+      })}
     </>
   );
 

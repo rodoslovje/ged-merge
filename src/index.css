@@ -6020,8 +6020,18 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-dasharray: 4 4;
   opacity: 0.6;
 }
-/* Historical events: a faint band over a span, a dotted rule on one year. */
-.timeline-history-band { fill: color-mix(in srgb, var(--timeline-history) 9%, transparent); }
+/* Historical events: spans shade the years with one flat tint (solid fills
+   under a group opacity, so overlaps never darken), a single year is a dotted
+   rule, and a span's label carries a bracket over its exact years. */
+.timeline-history-bands {
+  fill: var(--timeline-history);
+  opacity: 0.08;
+}
+.timeline-history-span {
+  fill: none;
+  stroke: var(--timeline-history);
+  stroke-width: 1.5;
+}
 .timeline-history-line {
   stroke: var(--timeline-history);
   stroke-width: 1;
