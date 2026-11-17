@@ -87,6 +87,41 @@ function paint(root: HTMLElement, skip: (node: Element) => boolean): { svg: SVGS
       into.appendChild(copy);
       return;
     }
+    // The surname network: its lines, circles and names, each in the colours
+    // and the dimming it shows.
+    if (node instanceof SVGSVGElement && node.classList.contains("stats-network")) {
+      const r = node.getBoundingClientRect();
+      const copy = el("svg", { x: x(r.left), y: y(r.top), width: r.width, height: r.height, viewBox: node.getAttribute("viewBox") ?? "" });
+      for (const g of node.children) {
+        const group = el("g", { opacity: getComputedStyle(g).opacity });
+        for (const shape of g.children) {
+          const ss = getComputedStyle(shape);
+          if (shape instanceof SVGLineElement) {
+            if (shape.classList.contains("hit")) continue;
+            group.appendChild(el("line", {
+              x1: shape.getAttribute("x1")!, y1: shape.getAttribute("y1")!, x2: shape.getAttribute("x2")!, y2: shape.getAttribute("y2")!,
+              stroke: ss.stroke, "stroke-opacity": ss.strokeOpacity, "stroke-width": shape.getAttribute("stroke-width") ?? ss.strokeWidth, "stroke-linecap": "round",
+            }));
+          } else if (shape instanceof SVGCircleElement) {
+            group.appendChild(el("circle", {
+              cx: shape.getAttribute("cx")!, cy: shape.getAttribute("cy")!, r: shape.getAttribute("r")!,
+              fill: ss.fill, stroke: ss.stroke, "stroke-width": ss.strokeWidth,
+            }));
+          } else if (shape instanceof SVGTextElement) {
+            const label = el("text", {
+              x: shape.getAttribute("x")!, y: shape.getAttribute("y")!, "text-anchor": "middle",
+              fill: ss.fill, stroke: ss.stroke, "stroke-width": ss.strokeWidth, "stroke-linejoin": "round", "paint-order": "stroke",
+              "font-family": ss.fontFamily, "font-size": ss.fontSize, "font-weight": ss.fontWeight,
+            });
+            label.textContent = shape.textContent;
+            group.appendChild(label);
+          }
+        }
+        copy.appendChild(group);
+      }
+      into.appendChild(copy);
+      return;
+    }
     if (node instanceof SVGElement) return;
     const cs = getComputedStyle(node);
     if (cs.display === "none" || cs.visibility === "hidden") return;
