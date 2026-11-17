@@ -5,6 +5,7 @@ import {
   type FamilySearchUrlParts,
   familySearchImageNumber as imageNumber,
   indeksPersonUrl,
+  indeksSearchName,
   linkKey,
   parseFamilySearchUrl,
   parseIndeksUrl,
@@ -359,6 +360,23 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
       bookUrl: indeksPersonUrl(indeks),
       proposed: { title: siteTitle(who || undefined, indeks.contributor, "Slovenski rodoslovni indeks"), author: indeks.contributor },
       titleRank: who ? 2 : 0,
+    };
+  }
+  const indeksSearch = indeksSearchName(url);
+  if (indeksSearch) {
+    if (!sites.has("indeks")) return undefined;
+    // A search over every contributor (`?n=marija&sn=rakar`) names no record
+    // or author — only whom it looks for, capitalized as a name is written.
+    const who = [indeksSearch.given, indeksSearch.surname]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\p{L}+/gu, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+    return {
+      site: "indeks",
+      groupKey: `ri:q:${linkKey(url)}`,
+      bookUrl: cleanUrl(url),
+      proposed: { title: siteTitle(who, undefined, "Slovenski rodoslovni indeks") },
+      titleRank: 1,
     };
   }
 
@@ -738,10 +756,12 @@ export function siteQuay(site: ReshapeSite, url: string | undefined): string | u
 /** An index record is a contributor's tree — another researcher's conclusions
  *  (`1`) — unless it sits under one of their transcription suffixes: a parish
  *  register (`-matricula`), a gravestone (`-geneanet`) or a military record
- *  (`-military`) read into the index, each a secondary record (`2`). */
-function indeksQuay(url: string | undefined): string {
+ *  (`-military`) read into the index, each a secondary record (`2`). A search
+ *  link names no record, so it proposes nothing. */
+function indeksQuay(url: string | undefined): string | undefined {
   const contributor = url ? parseIndeksUrl(url)?.contributor : undefined;
-  return contributor && /-(?:matricula|geneanet|military)$/i.test(contributor) ? "2" : "1";
+  if (!contributor) return undefined;
+  return /-(?:matricula|geneanet|military)$/i.test(contributor) ? "2" : "1";
 }
 
 const siteIconCache = new Map<string, string | undefined>();

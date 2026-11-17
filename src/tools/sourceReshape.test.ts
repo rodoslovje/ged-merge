@@ -1906,8 +1906,14 @@ describe("reshapeSources — citation placement", () => {
     // Diacritics in the name survive (percent-encoded or raw).
     const enc = recognizeSourceUrl("https://indeks.rodoslovje.si/?t=tree&n=Ana&sn=Matekovi%C4%8D&c=Renko&id=%4032441185%40")!;
     expect(enc.proposed.title).toBe("Ana Matekovič - Renko - Slovenski rodoslovni indeks");
-    // A search page names no person and stays a plain link.
-    expect(recognizeSourceUrl("https://indeks.rodoslovje.si/?n=Matija&sn=Slobodnik")?.site).toBeUndefined();
+    // A search names no record or author — only whom it looks for.
+    const search = recognizeSourceUrl("https://indeks.rodoslovje.si/?n=marija&sn=rakar")!;
+    expect(search.site).toBe("indeks");
+    expect(search.proposed.title).toBe("Marija Rakar - Slovenski rodoslovni indeks");
+    expect(search.proposed.author).toBeUndefined();
+    expect(siteQuay("indeks", "https://indeks.rodoslovje.si/?n=marija&sn=rakar")).toBeUndefined();
+    // The bare front page is no source of anything.
+    expect(recognizeSourceUrl("https://indeks.rodoslovje.si/?t=contributors")?.site).not.toBe("indeks");
   });
 
   it("files every view of one index person under one source", () => {
@@ -1917,7 +1923,7 @@ describe("reshapeSources — citation placement", () => {
 1 CHAR UTF-8
 0 @I1@ INDI
 1 BIRT
-2 WWW https://indeks.rodoslovje.si/?t=descendants&n=Matija&sn=Slobodnik&dob=21 SEP 1726&c=Renko&id=@@60899836@@
+2 WWW https://indeks.rodoslovje.si/?t=descendants&n=Matija&sn=Slobodnik&dob=21%20SEP%201726&c=Renko&id=@@60899836@@
 1 DEAT
 2 WWW https://indeks.rodoslovje.si/?t=tree&n=Matija&sn=Slobodnik&c=Renko&id=@@60899836@@
 0 TRLR`);

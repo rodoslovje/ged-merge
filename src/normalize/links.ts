@@ -121,6 +121,27 @@ function queryValue(raw: string): string {
   return decodeUrlSafe(raw.replace(/\+/g, " ")).trim();
 }
 
+/** The query of an index URL, keys lowercased and values decoded. */
+function indeksParams(url: string): Map<string, string> | undefined {
+  const m = INDEKS_RE.exec(url.trim());
+  if (!m) return undefined;
+  const params = new Map<string, string>();
+  for (const pair of m[1].replace(/#.*$/, "").replace(/&amp;/gi, "&").split("&")) {
+    const eq = pair.indexOf("=");
+    if (eq > 0) params.set(pair.slice(0, eq).toLowerCase(), queryValue(pair.slice(eq + 1)));
+  }
+  return params;
+}
+
+/** The name an index search link looks for (`?n=marija&sn=rakar`) — a query
+ *  over every contributor, not one record; undefined when it names nobody. */
+export function indeksSearchName(url: string): { given?: string; surname?: string } | undefined {
+  const params = indeksParams(url);
+  const given = params?.get("n") || undefined;
+  const surname = params?.get("sn") || undefined;
+  return given || surname ? { given, surname } : undefined;
+}
+
 /**
  * Read a Slovenian Genealogical Index person link. The site writes the id with
  * its GEDCOM delimiters unescaped (`id=@60899836@`); a copy taken out of a
@@ -129,13 +150,8 @@ function queryValue(raw: string): string {
  * not a person and reads as undefined.
  */
 export function parseIndeksUrl(url: string): IndeksUrlParts | undefined {
-  const m = INDEKS_RE.exec(url.trim());
-  if (!m) return undefined;
-  const params = new Map<string, string>();
-  for (const pair of m[1].replace(/#.*$/, "").replace(/&amp;/gi, "&").split("&")) {
-    const eq = pair.indexOf("=");
-    if (eq > 0) params.set(pair.slice(0, eq).toLowerCase(), queryValue(pair.slice(eq + 1)));
-  }
+  const params = indeksParams(url);
+  if (!params) return undefined;
   const contributor = params.get("c");
   const id = params.get("id")?.replace(/@/g, "").trim();
   if (!contributor || !id) return undefined;
