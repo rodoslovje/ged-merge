@@ -1004,9 +1004,6 @@ export function StatsPanel({
             {card("ageAtDeath", t("stats.ageAtDeath"), null, buckets("ageAtDeath", t("stats.ageAtDeath"), life.ageAtDeath), true)}
             {scope.sex !== "F" && card("ageAtDeathMale", t("stats.ageAtDeathMale"), t("stats.nPeople", { count: total(life.ageAtDeathMale) }), buckets("ageAtDeathMale", t("stats.ageAtDeathMale"), life.ageAtDeathMale, { tone: "male", labelEvery: 2, label: lowerBound, tipLabel: rangeLabel }))}
             {scope.sex !== "M" && card("ageAtDeathFemale", t("stats.ageAtDeathFemale"), t("stats.nPeople", { count: total(life.ageAtDeathFemale) }), buckets("ageAtDeathFemale", t("stats.ageAtDeathFemale"), life.ageAtDeathFemale, { tone: "female", labelEvery: 2, label: lowerBound, tipLabel: rangeLabel }))}
-            {card("lifeByCentury", t("stats.lifeByCentury"), null, periods("lifeByCentury", t("stats.lifeByCentury"), life.byPeriod, dec))}
-            {scope.sex !== "F" && card("lifeByCenturyMale", t("stats.lifeByCenturyMale"), null, periods("lifeByCenturyMale", t("stats.lifeByCenturyMale"), life.byPeriodMale, dec, { tone: "male" }))}
-            {scope.sex !== "M" && card("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), null, periods("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), life.byPeriodFemale, dec, { tone: "female" }))}
             {card("oldest", t("stats.oldestList"), null, (
               <ol className="stats-oldest">
                 {life.oldest.map((o) => (
@@ -1017,7 +1014,9 @@ export function StatsPanel({
                 ))}
               </ol>
             ))}
-            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, periods("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byPeriodAdults, dec))}
+            {scope.sex !== "F" && card("lifeByCenturyMale", t("stats.lifeByCenturyMale"), null, periods("lifeByCenturyMale", t("stats.lifeByCenturyMale"), life.byPeriodMale, dec, { tone: "male" }))}
+            {scope.sex !== "M" && card("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), null, periods("lifeByCenturyFemale", t("stats.lifeByCenturyFemale"), life.byPeriodFemale, dec, { tone: "female" }))}
+            {card("lifeByCentury", t("stats.lifeByCentury"), null, periods("lifeByCentury", t("stats.lifeByCentury"), life.byPeriod, dec))}
             {card("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), null, periods("childDeaths", t("stats.childDeaths", { age: CHILD_AGE }), life.childDeaths, (v) => pct(v, 100)))}
             {card("childSurvival", t("stats.childSurvival"), null, (() => {
               const names: [string, string] = [t("stats.childGrown", { age: ADULT_AGE }), t("stats.childDiedYoung", { age: ADULT_AGE })];
@@ -1049,6 +1048,7 @@ export function StatsPanel({
                 />,
               );
             })())}
+            {card("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), null, periods("lifeAdults", t("stats.lifeAdults", { age: CHILD_AGE }), life.byPeriodAdults, dec))}
           </>
         )}
 
