@@ -50,7 +50,7 @@ const EMPTY_MAPS = { mainToCompare: new Map<string, string>(), compareToMain: ne
 /** Width of one leaf slot. */
 const SLOT_W = 58;
 /** Height of a year — the least, and the most the historical-event labels may
- *  stretch it to so they fit two columns. */
+ *  stretch it to so they fit one column (a year apart takes 12). */
 const PX_PER_YEAR = 6;
 const PX_PER_YEAR_MAX = 14;
 /** The year column on the left. */
@@ -154,37 +154,27 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
   const history = useHistoryEvents(mainDs, people, y0, y1);
   // Their labels get a space of their own between the year scale and the
   // people — over the drawing they would sit on the first ancestors' names —
-  // in at most two columns. Where two columns cannot hold labels this close
-  // together, the decades grow taller until they can (up to a limit; past it
-  // a label steps down under its neighbour).
+  // in one column. Where two events stand closer than a label's height, the
+  // decades grow taller until they don't (up to a limit). Events of the very
+  // same year — or closer than the limit allows — step down one under the
+  // other.
   const { historyLabels, historyW, pxPerYear } = useMemo(() => {
     if (y0 === undefined || !history.length) return { historyLabels: [], historyW: 0, pxPerYear: PX_PER_YEAR };
-    const pack = (px: number) => {
-      const last = [-Infinity, -Infinity];
-      let fits = true;
-      const labels = history.map((e) => {
-        let y = TOP + (e.from - y0) * px - 3;
-        let col = last.findIndex((l) => y - l >= LABEL_H);
-        if (col < 0) {
-          fits = false;
-          col = last[0] <= last[1] ? 0 : 1;
-          y = last[col] + LABEL_H;
-        }
-        last[col] = y;
-        return { ...e, col, y };
-      });
-      return { fits, labels };
-    };
     let px = PX_PER_YEAR;
-    let packed = pack(px);
-    while (!packed.fits && px < PX_PER_YEAR_MAX) packed = pack((px += 1));
-    const colW = [0, 1].map((c) =>
-      Math.max(0, ...packed.labels.filter((l) => l.col === c).map((l) => l.text.length * CHAR_W)),
-    );
-    const colX = [AXIS_W + 4, AXIS_W + 4 + colW[0] + 14];
+    for (let i = 1; i < history.length; i++) {
+      const gap = history[i].from - history[i - 1].from;
+      if (gap > 0) px = Math.max(px, LABEL_H / gap);
+    }
+    px = Math.min(Math.ceil(px), PX_PER_YEAR_MAX);
+    let last = -Infinity;
+    const labels = history.map((e) => {
+      const y = Math.max(TOP + (e.from - y0) * px - 3, last + LABEL_H);
+      last = y;
+      return { ...e, x: AXIS_W + 4, y };
+    });
     return {
-      historyLabels: packed.labels.map((l) => ({ ...l, x: colX[l.col] })),
-      historyW: colW[0] + (colW[1] ? colW[1] + 14 : 0) + 12,
+      historyLabels: labels,
+      historyW: Math.max(...labels.map((l) => l.text.length * CHAR_W)) + 12,
       pxPerYear: px,
     };
   }, [history, y0]);
