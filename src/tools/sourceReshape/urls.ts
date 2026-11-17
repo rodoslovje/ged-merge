@@ -677,7 +677,7 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
   geneanettree: "🌲",
-  indeks: "🇸🇮",
+  indeks: "📇",
   findagrave: "🪦",
   billiongraves: "🪦",
   legacy: "📰",
