@@ -292,7 +292,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
-  const { canvasRef, zoomLayerRef, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
@@ -372,6 +372,42 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       : t(`timeline.role.${roleKey(row)}`);
   };
 
+  /** The year ruler, the decade grid, today's rule and the historical events,
+   *  drawn down to `height` — the whole chart, or just the header that the
+   *  sticky copy repeats over the scrolling rows. */
+  const backdrop = (g: NonNullable<typeof geom>, height: number) => (
+    <>
+      {g.ticks.map((year) => (
+        <g key={year}>
+          <line className="timeline-grid" x1={g.xOf(year)} y1={AXIS_H - 8} x2={g.xOf(year)} y2={height} />
+          <text className="timeline-axis gm-data" x={g.xOf(year)} y={AXIS_H - 14} textAnchor="middle">
+            {year}
+          </text>
+        </g>
+      ))}
+      {nowYear >= g.x0 && nowYear <= g.x1 && (
+        <line className="timeline-now" x1={g.xOf(nowYear)} y1={AXIS_H - 8} x2={g.xOf(nowYear)} y2={height} />
+      )}
+      {/* Historical events: a faint band over a span, a dotted rule on a
+          single year, the label in a lane under the ruler. */}
+      {g.events.map((e) => (
+        <g key={e.id} className="timeline-history">
+          <title>{e.text}</title>
+          {e.w > 0 ? (
+            <rect className="timeline-history-band" x={e.x} y={AXIS_H - 8} width={e.w} height={height - AXIS_H + 8} />
+          ) : (
+            <line className="timeline-history-line" x1={e.x} y1={AXIS_H - 8} x2={e.x} y2={height} />
+          )}
+          {e.lane !== undefined && (
+            <text className="timeline-history-label" x={e.x + 3} y={AXIS_H + e.lane * HIST_LANE_H + 11}>
+              {e.text}
+            </text>
+          )}
+        </g>
+      ))}
+    </>
+  );
+
   return (
     <ChartPage
       backLabel={backLabel}
@@ -416,37 +452,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
             <svg className="tree-svg" width={laid.width} height={laid.height} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
               <g transform={`translate(${PAD},${PAD})`}>
-                {/* Year ruler + vertical decade grid. */}
-                {geom.ticks.map((year) => (
-                  <g key={year}>
-                    <line className="timeline-grid" x1={geom.xOf(year)} y1={AXIS_H - 8} x2={geom.xOf(year)} y2={geom.contentH} />
-                    <text className="timeline-axis gm-data" x={geom.xOf(year)} y={AXIS_H - 14} textAnchor="middle">
-                      {year}
-                    </text>
-                  </g>
-                ))}
-                {/* Today, when it falls inside the axis. */}
-                {nowYear >= geom.x0 && nowYear <= geom.x1 && (
-                  <line className="timeline-now" x1={geom.xOf(nowYear)} y1={AXIS_H - 8} x2={geom.xOf(nowYear)} y2={geom.contentH} />
-                )}
-
-                {/* Historical events: a faint band over a span, a dotted rule
-                    on a single year, the label in a lane under the ruler. */}
-                {geom.events.map((e) => (
-                  <g key={e.id} className="timeline-history">
-                    <title>{e.text}</title>
-                    {e.w > 0 ? (
-                      <rect className="timeline-history-band" x={e.x} y={AXIS_H - 8} width={e.w} height={geom.contentH - AXIS_H + 8} />
-                    ) : (
-                      <line className="timeline-history-line" x1={e.x} y1={AXIS_H - 8} x2={e.x} y2={geom.contentH} />
-                    )}
-                    {e.lane !== undefined && (
-                      <text className="timeline-history-label" x={e.x + 3} y={AXIS_H + e.lane * HIST_LANE_H + 11}>
-                        {e.text}
-                      </text>
-                    )}
-                  </g>
-                ))}
+                {backdrop(geom, geom.contentH)}
 
                 {rows.map((row, i) => {
                   const y = geom.topH + i * rowH;
@@ -667,6 +673,22 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
 
         {laid && (
           <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
+        )}
+        {/* The year ruler and the event labels ride above the scrolling rows —
+            scrolled away, a label no longer says which band is which. Same
+            sticky header as the Kinship bars (outside the canvas, carrying its
+            PAD and scroll offset); only once the chart has scrolled. */}
+        {laid && geom && viewport.top > 1 && (
+          <div className="kin-sticky" style={{ height: (geom.topH + PAD) * zoom }} aria-hidden>
+            <svg
+              width={laid.width * zoom}
+              height={(geom.topH + PAD) * zoom}
+              viewBox={`0 0 ${laid.width} ${geom.topH + PAD}`}
+              style={{ transform: `translateX(${-viewport.left}px)` }}
+            >
+              <g transform={`translate(${PAD},${PAD})`}>{backdrop(geom, geom.topH)}</g>
+            </svg>
+          </div>
         )}
 
         {selectedRow && selectedIndi && (

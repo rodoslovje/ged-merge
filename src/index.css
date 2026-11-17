@@ -6359,6 +6359,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .kin-sticky svg {
   display: block;
   margin: auto;
+  /* A chart wider than the pane must keep its width, or the flex row shrinks
+     it to fit and the scroll offset slides the whole ruler out of view. */
+  flex: none;
 }
 
 /* ── Contemporaries on a map ─────────────────────────────────────────────────
