@@ -261,6 +261,23 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   // Position each row for useTreeCanvas (rows satisfy ChartNode once they get
   // an x/y); the root person's row pins the initial scroll.
   const rows = useMemo(() => data?.rows ?? [], [data]);
+  // Where a hidden person's bar starts: the middle of their birth decade.
+  // Siblings who land on the same blurred year would sit exactly one under the
+  // other, so each younger one (rows run oldest first) moves on two years.
+  const blurredFrom = useMemo(() => {
+    const out = new Map<string, number>();
+    const taken = new Map<string, number>();
+    for (const r of rows) {
+      if (r.from === undefined || !redacted(r)) continue;
+      const year = blurYear(r.from);
+      const family = mainDs.individuals.get(r.id)?.childOf[0] ?? r.id;
+      const key = `${family}:${year}`;
+      const n = taken.get(key) ?? 0;
+      taken.set(key, n + 1);
+      out.set(r.key, year + 2 * n);
+    }
+    return out;
+  }, [rows, redacted, mainDs]);
   // The shared Color axis over everyone on the chart; on the plain axis the
   // root's bar keeps the accent and the family the muted green.
   // A row's family line is where the person stands in the blood trees — a
@@ -504,7 +521,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                   // decade (±5 years) — to today while they live — so the
                   // generations still read but no date shows, the name's
                   // place on the axis included.
-                  const from = row.from !== undefined && hidden ? blurYear(row.from) : row.from;
+                  const from = hidden ? blurredFrom.get(row.key) : row.from;
                   const to = row.to !== undefined && hidden && !row.living ? blurYear(row.to) : row.to;
                   const barX = from !== undefined ? geom.xOf(from) : 0;
                   const barW = from !== undefined && to !== undefined

@@ -122,6 +122,16 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
           ? { ...p, year: blurYear(p.year), estimated: false }
           : p,
     );
+    // Hidden siblings on the same blurred year: each younger one (the trees
+    // list children oldest first) moves on two years, as on the bars.
+    const taken = new Map<string, number>();
+    for (const p of points) {
+      if (p.year === undefined || !redacted(p.node)) continue;
+      const key = `${p.node.main?.childOf[0] ?? p.key}:${p.year}`;
+      const n = taken.get(key) ?? 0;
+      taken.set(key, n + 1);
+      p.year += 2 * n;
+    }
     const years = points.flatMap((p) => (p.year === undefined ? [] : [p.year]));
     return {
       ...l,
