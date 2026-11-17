@@ -57,11 +57,16 @@ const DOT_R = 4.5;
 const ROOT_R = 7;
 const TICK_STEP = 10;
 /** Estimated width per character of an 11px label, for collision checks. */
-const CHAR_W = 5.8;
+const CHAR_W = 6.4;
 const LABEL_H = 12;
 
 const COLOR_ANCESTOR = "var(--node-main)";
 const COLOR_DESCENDANT = "var(--node-desc)";
+
+/** The middle of the year's decade: 1973 → 1975. */
+function blurYear(year: number): number {
+  return Math.floor(year / 10) * 10 + 5;
+}
 
 interface Props {
   mainDs: Dataset;
@@ -94,14 +99,29 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
 
   // A living person shown without details keeps their year off the chart too:
   // on a year axis the dot's height *is* the birth year.
+  // The family website's people shown without details keep no year at all.
+  const withheld = useCallback((n: TreeNode) => !!n.main && !!reduced?.has(n.main.id), [reduced]);
   const redacted = useCallback(
-    (n: TreeNode) => (settings.privacyLiving && n.living) || (!!n.main && !!reduced?.has(n.main.id)),
-    [settings.privacyLiving, reduced],
+    (n: TreeNode) => (settings.privacyLiving && n.living) || withheld(n),
+    [settings.privacyLiving, withheld],
   );
   const layout = useMemo(() => {
-    const l = layoutLineage(trees.ancestors, trees.descendants, (n) => (redacted(n) ? undefined : birthYear(n.main)));
-    // An estimate stepped in from a relative would place them all the same.
-    const points = l.points.map((p) => (redacted(p.node) ? { ...p, year: undefined, estimated: false } : p));
+    // A living person under the privacy setting stands at the middle of their
+    // birth decade — near enough to read the generations, ±5 years from the
+    // truth. The blurred year is also what their undated relatives are
+    // estimated from, so no estimate leads back to the real one.
+    const l = layoutLineage(trees.ancestors, trees.descendants, (n) => {
+      if (withheld(n)) return undefined;
+      const year = birthYear(n.main);
+      return year !== undefined && redacted(n) ? blurYear(year) : year;
+    });
+    const points = l.points.map((p) =>
+      withheld(p.node)
+        ? { ...p, year: undefined, estimated: false }
+        : redacted(p.node) && p.year !== undefined
+          ? { ...p, year: blurYear(p.year), estimated: false }
+          : p,
+    );
     const years = points.flatMap((p) => (p.year === undefined ? [] : [p.year]));
     return {
       ...l,
@@ -109,7 +129,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
       minYear: years.length ? Math.min(...years) : undefined,
       maxYear: years.length ? Math.max(...years) : undefined,
     };
-  }, [trees, redacted]);
+  }, [trees, redacted, withheld]);
 
   // The year scale, whole decades either side of the dated people — down to
   // the last death, or today, while the lifelines hang below the births.
@@ -182,6 +202,15 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     };
   }, [layout, y0, y1, historyW, pxPerYear]);
 
+  // What a dot is labelled: the name, or for a hidden living person their
+  // kinship to the start person (else "Living").
+  const kinship = useMemo(() => (startId ? createKinshipResolver(mainDs, startId, t) : undefined), [mainDs, startId, t]);
+  const nameFor = useCallback(
+    (p: LineagePoint) =>
+      redacted(p.node) ? (p.node.main && kinship?.label(p.node.main.id)) || livingLabelFor(t, p.node.sex) : p.node.name,
+    [redacted, kinship, t],
+  );
+
   // Every point in pixels; labels greedily, nearest generations first, each
   // dropped when it would overlap one already placed (the dot keeps its tooltip).
   const placed = useMemo(() => {
@@ -193,9 +222,16 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
       y: p.year === undefined ? geom.undatedY : geom.yOf(p.year),
       label: false,
     }));
-    const boxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
+    // Every dot is an obstacle too: a name run over its neighbour's dot reads
+    // as that neighbour's name.
+    const boxes: { x0: number; x1: number; y0: number; y1: number }[] = all.map((p) => ({
+      x0: p.x - DOT_R,
+      x1: p.x + DOT_R,
+      y0: p.y - DOT_R,
+      y1: p.y + DOT_R,
+    }));
     for (const p of [...all].sort((a, b) => Math.abs(a.gen) - Math.abs(b.gen))) {
-      const w = p.node.name.length * CHAR_W + 4;
+      const w = nameFor(p).length * CHAR_W + 4;
       const box = { x0: p.x + 7, x1: p.x + 7 + w, y0: p.y - LABEL_H / 2, y1: p.y + LABEL_H / 2 };
       if (boxes.some((b) => b.x0 < box.x1 && box.x0 < b.x1 && b.y0 < box.y1 && box.y0 < b.y1)) continue;
       boxes.push(box);
@@ -203,7 +239,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     }
     for (const p of all) m.set(p.key, p);
     return m;
-  }, [layout, geom]);
+  }, [layout, geom, nameFor]);
 
   const points = useMemo(() => [...placed.values()], [placed]);
   const subjects = useMemo(
@@ -247,10 +283,6 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     }),
     [mainDs, setSelectedKey, changeRoot],
   );
-
-  const kinship = useMemo(() => (startId ? createKinshipResolver(mainDs, startId, t) : undefined), [mainDs, startId, t]);
-  const nameFor = (p: LineagePoint) =>
-    redacted(p.node) ? (p.node.main && kinship?.label(p.node.main.id)) || livingLabelFor(t, p.node.sex) : p.node.name;
 
   const pageKind = t("timeline.pageTitle");
   const root = rootPoint?.node;
@@ -350,18 +382,21 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
                   )}
 
                   {/* Lifelines: each life hangs from the birth dot down to the
-                      death year — to today, fading, for the living. Behind the
-                      curves, so the family links stay on top. */}
+                      death year — to today, fading, for the living. Dashed
+                      where the start is not the recorded year: estimated from
+                      a relative, or a hidden living person's blurred decade.
+                      Behind the curves, so the family links stay on top. */}
                   {lifelines &&
                     points.map((p) => {
-                      if (p.year === undefined || redacted(p.node)) return null;
-                      const died = deathYear(p.node.main);
+                      if (p.year === undefined) return null;
+                      const hidden = redacted(p.node);
+                      const died = hidden ? undefined : deathYear(p.node.main);
                       const end = died ?? (p.node.living ? nowYear : undefined);
                       if (end === undefined || end <= p.year) return null;
                       return (
                         <line
                           key={`life:${p.key}`}
-                          className={`timeline-lines-life${p.estimated ? " estimated" : ""}${died === undefined ? " open" : ""}`}
+                          className={`timeline-lines-life${p.estimated || hidden ? " estimated" : ""}${died === undefined ? " open" : ""}`}
                           x1={p.x}
                           y1={p.y}
                           x2={p.x}
@@ -407,7 +442,13 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
                           selectNode(p.key);
                         }}
                       >
-                        <title>{p.estimated ? `${tip} (${t("timeline.lines.estimated")})` : tip}</title>
+                        <title>
+                          {hidden && p.year !== undefined
+                            ? `${tip} (${t("timeline.lines.blurred")})`
+                            : p.estimated
+                              ? `${tip} (${t("timeline.lines.estimated")})`
+                              : tip}
+                        </title>
                         <circle
                           className={`timeline-lines-dot${p.estimated ? " estimated" : ""}${isRoot ? " root" : ""}`}
                           cx={p.x}
