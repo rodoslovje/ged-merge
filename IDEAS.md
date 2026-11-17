@@ -88,6 +88,65 @@ platform API with OAuth2 solves both, and unlocks person-level linking.
   compare slot for a field-by-field merge like a compare file, and write the
   FSID back onto matched persons that lack one.
 
+### Index hints: search indeks.rodoslovje.si per person (analysed 2026-11-16)
+
+The one record-hint source no other program can offer. Today the index reaches
+GED Merge only as a CSV the user exports by hand (`src/csv/giMatches.ts`); the
+index API can be called straight from the browser instead.
+
+- **Facts checked 2026-11-16** (index code in `../genealogical-index`):
+  `https://indeks-api.rodoslovje.si/api/search/advanced/persons` is public (no
+  login), answers `Access-Control-Allow-Origin: https://gedmerge.com`, takes
+  `name`, `surname`, `date_of_birth`/`date_of_birth_to` (year range works),
+  `place_of_birth`, death/burial equivalents, `contributor`, `source`
+  (`all|tree|matricula|geneanet|military`), `limit`, `exact`; matching is fuzzy
+  (trigram — "Novak" also finds "Novšak"). One call ≈ 2 s. Each hit carries
+  `ext_id`, `contributor`, vitals, `parents_list` / `partners_list` (with the
+  relatives' ext_ids) and `links` — the same fields as the CSV search export.
+  Tree walking and pair-by-pair match detail are JWT-gated and not available.
+- **REST, not MCP.** The same data is behind `/mcp` (stateless JSON-RPC,
+  `MCP_MAX_CONCURRENT=4`), but a deterministic hint needs no model; plain GET
+  is simpler and cacheable. MCP is for path 2 below.
+- **Phase 1 — "Search the index" for one person.** A lookup action on the
+  person card; a popover lists the hits ranked by the ordinary match score
+  against this person, each with "Open in index" and "Compare" (loads the hits
+  into the compare slot and opens that pair in Merge). Behind the existing
+  "Look up details online" switch; sends only name + years (+ place if used),
+  never the file.
+- **Phase 2 — batch over branch ends.** People without parents (or a chosen
+  branch / N generations from the start person), queried sequentially (≤ 2 in
+  flight), cancelable, cached in IndexedDB by query; all hits become one
+  incoming dataset → the normal match list. A server-side batch endpoint on the
+  index would make this kinder to the API — the index is ours, so that is an
+  option.
+- **Phase 3 — hint badges** from the cache in Edit and on chart nodes.
+- **Open points:** skip people the privacy rule treats as living (a name query
+  still reveals interest); exclude the user's own contributor tree (a setting,
+  or auto-detected when hits carry the person's own xref as `ext_id`); list
+  `indeks-api.rodoslovje.si` in the Settings hint and the Privacy page.
+
+### AI assistant with a local model + the index MCP (analysed 2026-11-16)
+
+The index's `/mcp` endpoint (public, stateless, CORS open) lets an AI work the
+index. Three ways to bring that together with the user's file:
+
+1. **No AI** — the index hints above. Do first.
+2. **AI inside GED Merge** — GED Merge as the host: an MCP client (JS SDK,
+   `StreamableHTTPClientTransport`) to the index, its own read-only tools over
+   the loaded file (person, parents, partners, children), and a local model
+   through an OpenAI-compatible endpoint (Ollama needs
+   `OLLAMA_ORIGINS=https://gedmerge.com`; LM Studio has a CORS switch). Output
+   is a *proposal* reviewed in the normal merge view, never a direct write.
+   Pitfalls: Chrome's Local Network Access prompt for a public page reaching
+   localhost; Safari blocks it; 7–14B models are unreliable at multi-step tool
+   calls (~14–32B Qwen-class needed). Opt-in like the online lookups.
+3. **AI outside GED Merge** — Claude Desktop / LM Studio / Jan with the index
+   MCP plus a small local stdio MCP bridge that reads the `.ged` from disk
+   (could live in `ged-tools`); the AI writes its finds as a CSV in the
+   index search-export format, which GED Merge already imports. Works with no
+   GED Merge change. WebMCP (`navigator.modelContext`) would let the page
+   expose tools itself, but is still experimental.
+
 ### Research finds from register browsing (candidate persons)
 
 Agreed direction 2026-07-31, replacing the user's external Excel table. The
@@ -159,6 +218,53 @@ already has a drag-to-draw crop editor, dashed boxes with name labels, and
   only worth weighing once detection has shipped.
 - Related: the corpus already carries vendor face regions to read — Family
   Historian `_ASID`/`_AREA`, MyHeritage `_CUTOUT` (see the custom-tag plan).
+
+### Market comparison (reviewed 2026-11-15)
+
+Against online platforms (Ancestry, MyHeritage, FamilySearch, Findmypast,
+Geneanet), shared trees (FamilySearch Tree, Geni, WikiTree), desktop programs
+(RootsMagic, Legacy, Family Tree Maker, Family Historian, Gramps,
+MacFamilyTree, Heredis, Ancestris, Ahnenblatt) and self-hosted sites
+(webtrees, Gramps Web). From general market knowledge, not a fresh web survey.
+
+**Where GED Merge already leads:** field-by-field merge with normalization to
+the main file's conventions; no account / no upload / offline; lossless
+GEDCOM with strict 5.5.1 / 7.0 output; whole-file maintenance tools; the
+Slovenian context (parish-register index, GURS, indeks.rodoslovje.si, full
+Slovenian UI) — no local competitor.
+
+**Gaps, in proposed order** (effort / payoff):
+
+1. Record hints from existing sources — "Search on …" links prefilled with
+   name/year/place (Matricula, Geneanet, FamilySearch, Findmypast) and
+   [index hints](#index-hints-search-indeksrodoslovjesi-per-person-analysed-2026-11-16)
+   (small–medium / very high).
+2. Research management — [candidate persons](#research-finds-from-register-browsing-candidate-persons),
+   to-do and research log per person, source coverage, evidence analysis for
+   conflicting facts as in Family Historian (medium / high).
+3. List reports + CSV, hourglass chart, anniversary calendar — see the
+   MacFamilyTree gaps below (medium / high).
+4. Sharing with family without a server — one self-contained HTML file or a
+   static site of the living-filtered tree (medium / very high).
+5. Family book as PDF — narrative, charts, photos, person and place index
+   (large / high).
+6. [FamilySearch API](#familysearch-api-integration-major-feature) (large +
+   approval / high).
+7. AI, opt-in with the user's own key or a local model — reading parish
+   registers (Kurrent, Latin) into candidate persons, a Latin/German register
+   glossary, biographies from events
+   ([local AI + index MCP](#ai-assistant-with-a-local-model--the-index-mcp-analysed-2026-11-16))
+   (large / very high).
+8. Historical maps — Franziscean cadastre and Josephinian survey layers
+   (mapire.eu, Arhiv RS), GOV jurisdictions (medium / medium).
+9. Light DNA — shared-cM relationship predictor, DNA-match CSV import linked
+   to persons (small–medium / medium).
+10. Direct import of RootsMagic `.rmtree` (SQLite) and Gramps XML; GEDZIP;
+    sync through the user's own file (File System Access autosave) or their
+    own Drive/Dropbox.
+
+**Deliberately out of scope:** hosting record collections, a social world
+tree, accounts, DNA testing.
 
 ### Gaps against MacFamilyTree (reviewed 2026-08-31)
 
