@@ -2645,6 +2645,7 @@ export const sl = {
   "timeline.lines.undated": "Brez letnice: osebe, ki morda živijo, ali osebe brez datumov",
   "timeline.lines.estimated": "leto je ocenjeno po staršu ali otroku",
   "timeline.lines.blurred": "pika stoji na sredini desetletja rojstva, ne pri letu rojstva",
+  "timeline.lines.byGeneration": "pika stoji po rodu, ocenjeno iz datumov sorodnikov, na 25 let natančno",
   "timeline.role.ancestor": "Prednik/prednica",
   "timeline.role.father": "Oče",
   "timeline.role.mother": "Mati",

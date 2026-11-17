@@ -68,6 +68,11 @@ function blurYear(year: number): number {
   return Math.floor(year / 10) * 10 + 5;
 }
 
+/** The middle of the year's quarter-century: 1958 → 1962. */
+function bandYear(year: number): number {
+  return Math.floor(year / 25) * 25 + 12;
+}
+
 interface Props {
   mainDs: Dataset;
   rootId: string;
@@ -99,7 +104,8 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
 
   // A living person shown without details keeps their year off the chart too:
   // on a year axis the dot's height *is* the birth year.
-  // The family website's people shown without details keep no year at all.
+  // The family website's people shown without details: none of their own
+  // dates is read — they stand where their generation puts them.
   const withheld = useCallback((n: TreeNode) => !!n.main && !!reduced?.has(n.main.id), [reduced]);
   const redacted = useCallback(
     (n: TreeNode) => (settings.privacyLiving && n.living) || withheld(n),
@@ -116,8 +122,11 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
       return year !== undefined && redacted(n) ? blurYear(year) : year;
     });
     const points = l.points.map((p) =>
+      // Nothing of their own was read (yearOf gave none): any year they have
+      // is stepped in from dated relatives, a generation at a time, and is
+      // shown only as the 25-year band it falls in.
       withheld(p.node)
-        ? { ...p, year: undefined, estimated: false }
+        ? { ...p, year: p.year === undefined ? undefined : bandYear(p.year), estimated: false }
         : redacted(p.node) && p.year !== undefined
           ? { ...p, year: blurYear(p.year), estimated: false }
           : p,
@@ -444,7 +453,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
                       >
                         <title>
                           {hidden && p.year !== undefined
-                            ? `${tip} (${t("timeline.lines.blurred")})`
+                            ? `${tip} (${t(withheld(p.node) ? "timeline.lines.byGeneration" : "timeline.lines.blurred")})`
                             : p.estimated
                               ? `${tip} (${t("timeline.lines.estimated")})`
                               : tip}

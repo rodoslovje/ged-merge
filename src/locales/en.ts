@@ -2375,6 +2375,7 @@ export const en = {
   "timeline.lines.undated": "No year shown: may be living, or no date to place them by",
   "timeline.lines.estimated": "year estimated from a parent or child",
   "timeline.lines.blurred": "placed at the middle of the birth decade, not the year",
+  "timeline.lines.byGeneration": "placed by generation from their relatives' dates, within 25 years",
   "timeline.role.ancestor": "Ancestor",
   "timeline.role.father": "Father",
   "timeline.role.mother": "Mother",
