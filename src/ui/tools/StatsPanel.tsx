@@ -294,6 +294,8 @@ export function StatsPanel({
 
   /** A period's axis label: a century by its name, a shorter period by its first year. */
   const periodPointLabel = (p: { from: number; to: number }) => (p.to - p.from === 99 ? centuryLabel(p.from) : String(p.from));
+  /** Label about eight periods however many there are: a card a third wide holds no more. */
+  const periodPointStep = (count: number) => Math.max(1, Math.ceil(count / 8));
   /** A column chart of a by-period average or share. */
   const periods = (card: string, title: string, points: PeriodPoint[], format: (v: number) => string, opts: { families?: boolean; tone?: Tone } = {}) => withCsv(
     card,
@@ -309,7 +311,7 @@ export function StatsPanel({
         tip: t("stats.periodTip", { from: p.from, to: p.to, value: format(p.value), n: num(p.n) }),
       }))}
       format={format}
-      labelEvery={points.length > 8 ? 2 : 1}
+      labelEvery={periodPointStep(points.length)}
       picked={pickedIn(card)}
       onPick={(key) => {
         const p = points.find((x) => String(x.from) === key)!;
@@ -1024,6 +1026,7 @@ export function StatsPanel({
                 () => [[t("stats.periodCol"), ...names, t("stats.childSurvived", { age: ADULT_AGE }), t("stats.csv.counted")], ...life.childSurvival.map((p) => [`${p.from}–${p.to}`, Math.round(p.grown * 10) / 10, Math.round(p.died * 10) / 10, pct(p.grownIds.length, p.grownIds.length + p.diedIds.length), p.n])],
                 <StackedColumnChart
                   names={names}
+                  labelEvery={periodPointStep(life.childSurvival.length)}
                   picked={pickedIn("childSurvival")}
                   columns={life.childSurvival.map<StackedColumn>((p) => {
                     const part = (name: string, v: number, ids: string[]) => ({
