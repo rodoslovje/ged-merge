@@ -6054,6 +6054,15 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-width: 1.4;
   opacity: 0.7;
 }
+/* A life hanging from its birth dot: a broad faint stroke, dashed when the
+   birth year is only estimated, fainter still while the life is ongoing. */
+.timeline-lines-life {
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.35;
+}
+.timeline-lines-life.estimated { stroke-dasharray: 3 5; }
+.timeline-lines-life.open { opacity: 0.18; }
 .timeline-lines-person { cursor: pointer; }
 .timeline-lines-dot { stroke-width: 1.5; }
 .timeline-lines-dot.root { stroke: var(--text); stroke-width: 2; }

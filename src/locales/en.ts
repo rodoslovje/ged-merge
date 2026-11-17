@@ -2302,6 +2302,8 @@ export const en = {
   "tree.settings.timeline.residence": "Residence bar",
   "tree.settings.timeline.history": "Historical events",
   "tree.settings.timeline.history.title": "Mark the wars, reforms and migrations of the countries the people on the chart lived in",
+  "tree.settings.timeline.lifelines": "Lifelines",
+  "tree.settings.timeline.lifelines.title": "Hang each life from the birth dot down to the year of death",
   "history.ottomanRaids": "Ottoman raids",
   "history.thirtyYearsWar": "Thirty Years' War",
   "history.viennaSiege": "Siege of Vienna",

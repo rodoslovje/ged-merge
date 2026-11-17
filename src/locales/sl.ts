@@ -2572,6 +2572,8 @@ export const sl = {
   "tree.settings.timeline.residence": "Trak prebivališč",
   "tree.settings.timeline.history": "Zgodovinski dogodki",
   "tree.settings.timeline.history.title": "Označi vojne, reforme in selitve v državah, kjer so živele osebe na diagramu",
+  "tree.settings.timeline.lifelines": "Življenjske črte",
+  "tree.settings.timeline.lifelines.title": "Iz pike rojstva spusti črto življenja do leta smrti",
   "history.ottomanRaids": "turški vpadi",
   "history.thirtyYearsWar": "tridesetletna vojna",
   "history.viennaSiege": "turško obleganje Dunaja",

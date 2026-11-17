@@ -49,7 +49,10 @@ const EMPTY_MAPS = { mainToCompare: new Map<string, string>(), compareToMain: ne
 // ── Geometry (native, pre-zoom pixels) ───────────────────────────────────────
 /** Width of one leaf slot. */
 const SLOT_W = 58;
+/** Height of a year — the least, and the most the historical-event labels may
+ *  stretch it to so they fit two columns. */
 const PX_PER_YEAR = 6;
+const PX_PER_YEAR_MAX = 14;
 /** The year column on the left. */
 const AXIS_W = 46;
 const TOP = 16;
@@ -63,9 +66,6 @@ const TICK_STEP = 10;
 /** Estimated width per character of an 11px label, for collision checks. */
 const CHAR_W = 5.8;
 const LABEL_H = 12;
-/** The widest the historical-event label column grows; a longer label runs
- *  on over the drawing, on its halo. */
-const HISTORY_MAX_W = 320;
 
 const COLOR_ANCESTOR = "var(--node-main)";
 const COLOR_DESCENDANT = "var(--node-desc)";
@@ -124,12 +124,24 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     };
   }, [trees, redacted]);
 
-  // The year scale, whole decades either side of the dated people.
+  // The year scale, whole decades either side of the dated people — down to
+  // the last death, or today, while the lifelines hang below the births.
+  const nowYear = new Date().getFullYear();
+  const lifelines = settings.timelineLifelines;
+  const lastYear = useMemo(() => {
+    if (layout.maxYear === undefined || !lifelines) return layout.maxYear;
+    let last = layout.maxYear;
+    for (const p of layout.points) {
+      if (p.year === undefined) continue;
+      const end = deathYear(p.node.main) ?? (p.node.living ? nowYear : undefined);
+      if (end !== undefined && end > last) last = end;
+    }
+    return last;
+  }, [layout, lifelines, nowYear]);
   const y0 = layout.minYear === undefined ? undefined : Math.floor(layout.minYear / TICK_STEP) * TICK_STEP;
-  const y1 = layout.maxYear === undefined ? undefined : Math.ceil(layout.maxYear / TICK_STEP) * TICK_STEP;
+  const y1 = lastYear === undefined ? undefined : Math.ceil(lastYear / TICK_STEP) * TICK_STEP;
 
   // Historical events over those years, by where the chart's people lived.
-  const nowYear = new Date().getFullYear();
   const people = useMemo(
     () =>
       layout.points.flatMap((p) =>
@@ -140,27 +152,46 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     [layout, nowYear],
   );
   const history = useHistoryEvents(mainDs, people, y0, y1);
-  // Their labels get a column of their own between the year scale and the
-  // people, as wide as the labels need (within reason): over the drawing they
-  // would sit on the first ancestors' names. A label pushes right past one at
-  // nearly the same height.
-  const { historyLabels, historyW } = useMemo(() => {
-    if (y0 === undefined) return { historyLabels: [], historyW: 0 };
-    const placedLabels: { y: number; x1: number }[] = [];
-    const labels = history.map((e) => {
-      const y = TOP + (e.from - y0) * PX_PER_YEAR - 3;
-      let x = AXIS_W + 4;
-      for (const l of placedLabels) if (Math.abs(l.y - y) < LABEL_H && l.x1 > x) x = l.x1 + 12;
-      placedLabels.push({ y, x1: x + e.text.length * CHAR_W });
-      return { ...e, x, y };
-    });
-    const right = Math.max(AXIS_W, ...placedLabels.map((l) => l.x1));
-    return { historyLabels: labels, historyW: history.length ? Math.min(right - AXIS_W + 8, HISTORY_MAX_W) : 0 };
+  // Their labels get a space of their own between the year scale and the
+  // people — over the drawing they would sit on the first ancestors' names —
+  // in at most two columns. Where two columns cannot hold labels this close
+  // together, the decades grow taller until they can (up to a limit; past it
+  // a label steps down under its neighbour).
+  const { historyLabels, historyW, pxPerYear } = useMemo(() => {
+    if (y0 === undefined || !history.length) return { historyLabels: [], historyW: 0, pxPerYear: PX_PER_YEAR };
+    const pack = (px: number) => {
+      const last = [-Infinity, -Infinity];
+      let fits = true;
+      const labels = history.map((e) => {
+        let y = TOP + (e.from - y0) * px - 3;
+        let col = last.findIndex((l) => y - l >= LABEL_H);
+        if (col < 0) {
+          fits = false;
+          col = last[0] <= last[1] ? 0 : 1;
+          y = last[col] + LABEL_H;
+        }
+        last[col] = y;
+        return { ...e, col, y };
+      });
+      return { fits, labels };
+    };
+    let px = PX_PER_YEAR;
+    let packed = pack(px);
+    while (!packed.fits && px < PX_PER_YEAR_MAX) packed = pack((px += 1));
+    const colW = [0, 1].map((c) =>
+      Math.max(0, ...packed.labels.filter((l) => l.col === c).map((l) => l.text.length * CHAR_W)),
+    );
+    const colX = [AXIS_W + 4, AXIS_W + 4 + colW[0] + 14];
+    return {
+      historyLabels: packed.labels.map((l) => ({ ...l, x: colX[l.col] })),
+      historyW: colW[0] + (colW[1] ? colW[1] + 14 : 0) + 12,
+      pxPerYear: px,
+    };
   }, [history, y0]);
 
   const geom = useMemo(() => {
     if (y0 === undefined || y1 === undefined) return undefined;
-    const yOf = (year: number) => TOP + (year - y0) * PX_PER_YEAR;
+    const yOf = (year: number) => TOP + (year - y0) * pxPerYear;
     const xOf = (slot: number) => AXIS_W + historyW + 16 + slot * SLOT_W;
     const scaleBottom = yOf(y1);
     const undatedY = scaleBottom + UNDATED_GAP;
@@ -172,7 +203,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
       width: xOf(layout.slots - 1) + LABEL_ROOM,
       height: (anyUndated ? undatedY : scaleBottom) + 24,
     };
-  }, [layout, y0, y1, historyW]);
+  }, [layout, y0, y1, historyW, pxPerYear]);
 
   // Every point in pixels; labels greedily, nearest generations first, each
   // dropped when it would overlap one already placed (the dot keeps its tooltip).
@@ -274,7 +305,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
       <g className="timeline-history-bands">
         {history.map((e) =>
           e.to !== undefined ? (
-            <rect key={e.key} x={AXIS_W} y={g.yOf(e.from)} width={right - AXIS_W} height={(e.to - e.from) * PX_PER_YEAR}>
+            <rect key={e.key} x={AXIS_W} y={g.yOf(e.from)} width={right - AXIS_W} height={(e.to - e.from) * pxPerYear}>
               <title>{e.text}</title>
             </rect>
           ) : null,
@@ -348,6 +379,27 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
                     </text>
                   )}
 
+                  {/* Lifelines: each life hangs from the birth dot down to the
+                      death year — to today, fading, for the living. Behind the
+                      curves, so the family links stay on top. */}
+                  {lifelines &&
+                    points.map((p) => {
+                      if (p.year === undefined || redacted(p.node)) return null;
+                      const died = deathYear(p.node.main);
+                      const end = died ?? (p.node.living ? nowYear : undefined);
+                      if (end === undefined || end <= p.year) return null;
+                      return (
+                        <line
+                          key={`life:${p.key}`}
+                          className={`timeline-lines-life${p.estimated ? " estimated" : ""}${died === undefined ? " open" : ""}`}
+                          x1={p.x}
+                          y1={p.y}
+                          x2={p.x}
+                          y2={geom.yOf(end)}
+                          stroke={colorOf(p)}
+                        />
+                      );
+                    })}
                   {/* Parent → child curves, in the older person's colour. */}
                   {layout.links.map((l) => {
                     const a = placed.get(l.from);
@@ -421,9 +473,9 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
         {laid && geom && viewport.left > 1 && (
           <div className="timeline-lines-sticky" aria-hidden>
             <svg
-              width={(PAD + AXIS_W + HISTORY_MAX_W) * zoom}
+              width={(PAD + AXIS_W + historyW) * zoom}
               height={laid.height * zoom}
-              viewBox={`0 0 ${PAD + AXIS_W + HISTORY_MAX_W} ${laid.height}`}
+              viewBox={`0 0 ${PAD + AXIS_W + historyW} ${laid.height}`}
               style={{ transform: `translateY(${-viewport.top}px)` }}
             >
               <rect className="timeline-lines-sticky-bg" x={0} y={0} width={PAD + AXIS_W + historyW} height={laid.height} />

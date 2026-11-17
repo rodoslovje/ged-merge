@@ -239,6 +239,16 @@ export function ChartSettings({
                 >
                   {t("tree.settings.timeline.history")}
                 </button>
+                {!bars && (
+                  <button
+                    className={settings.timelineLifelines ? "active" : ""}
+                    aria-pressed={settings.timelineLifelines}
+                    title={t("tree.settings.timeline.lifelines.title")}
+                    onClick={() => set({ timelineLifelines: !settings.timelineLifelines })}
+                  >
+                    {t("tree.settings.timeline.lifelines")}
+                  </button>
+                )}
               </div>
             </div>
           )}
