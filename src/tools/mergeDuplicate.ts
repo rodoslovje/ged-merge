@@ -27,7 +27,7 @@ import {
 import { applyRows, linkPlacementFor, type LinkPlacement } from "../merge/applyFields";
 import { closeKin } from "./duplicates";
 import { applyPassSafely, keepSnapshots, type PassJournal } from "./passSafety";
-import { INDI_HANDLED, type ChangeReport } from "../merge/merge";
+import { emptyChangeReport, INDI_HANDLED } from "../merge/merge";
 import { individualFieldRows, orderedEventTags } from "../review/fields";
 import type { CandidateDecision, FieldChoice, FieldRow, RelativeCell } from "../review/types";
 import {
@@ -133,7 +133,7 @@ export function mergeDuplicate(
     survivorId,
     rows,
     decision.fields,
-    emptyReport(),
+    emptyChangeReport(),
     new Set<string>(),
     INDI_HANDLED,
     t,
@@ -701,19 +701,4 @@ function addLink(dataset: Dataset, indi: Individual, tag: "FAMC" | "FAMS", famId
   if (like) mergeSubLines(line, like);
   insertOrdered(indi.raw, line, INDI_CHILD_ORDER);
   rebuildIndividual(dataset, indi);
-}
-
-function emptyReport(): ChangeReport {
-  return {
-    changes: [],
-    deferred: [],
-    graftJoins: [],
-    recordsChanged: 0,
-    newPersons: 0,
-    newFamilies: 0,
-    recordLabels: {},
-    recordKinds: {},
-    familySpouses: {},
-    customTags: {},
-  };
 }

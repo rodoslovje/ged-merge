@@ -17,7 +17,7 @@ import { useChartSettings, type ChartKind } from "./ChartSettingsContext";
 import { BackButton } from "./BackButton";
 import { MapIcon } from "./icons/MapIcon";
 import { kinshipInfo, kinshipTooltip as kinshipTooltipText, lineageClass } from "../match/kinship";
-import { decisionKey, decisionStatusByMainId, toggleDecisionStatus, type CandidateDecision, type MatchDecisionStatus } from "../review/types";
+import { decisionKey, decisionStatusByMainId, toggleDecisionStatus, type CandidateDecision, type FieldChoice, type MatchDecisionStatus } from "../review/types";
 import type { MatchResult } from "../match/types";
 import {
   addChild,
@@ -133,6 +133,9 @@ import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from 
 import { SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { leftTarget, useDropHighlight } from "./useDropHighlight";
 import { TrashIcon } from "./icons/TrashIcon";
+import { SearchIcon } from "./icons/SearchIcon";
+import { PersonSearch } from "./edit/PersonSearch";
+import { copyHitRows, hitSourceFields } from "../online/copyFromHit";
 
 
 interface Props {
@@ -278,6 +281,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const noteBaselineRef = useRef(new Map<string, string[]>());
   // Whether the user has clicked "+ Add note" for the current person.
   const [notesAdded, setNotesAdded] = useState(false);
+  /** The "search elsewhere" rail, in the Relatives rail's place; stays open from person to person. */
+  const [searchOpen, setSearchOpen] = useState(false);
+  const widerOpen = settings.widerFamily.open && !searchOpen;
   // Whether the user has clicked "+ FamilySearch ID" for the current person.
   const [fsIdAdded, setFsIdAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
@@ -1165,6 +1171,17 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     linkPageMedia(event, pageObjeXref, EVENT_CHILD_ORDER);
   }
 
+  /** The search rail's "Copy selected": the ticked rows of an index hit into
+   *  the person, citing the hit (its source record found or created first, in
+   *  the same undo step) on what changed. */
+  function copyFromIndex(hit: Individual, hitDs: Dataset, fields: Record<string, FieldChoice>, citeUrl: string | undefined) {
+    if (!person || !Object.keys(fields).length) return;
+    const source = citeUrl ? hitSourceFields(citeUrl) : undefined;
+    const resolved = source ? resolveSourceFields(source) : undefined;
+    const cite = resolved && { sourceXref: resolved.sourceXref, page: resolved.page, quay: source?.quay };
+    commitTo(person, (indi) => copyHitRows(dataset, indi, hit, hitDs, fields, t, cite), resolved?.extraPatches);
+  }
+
   /** The confirmed Add source dialog. An Add confirmed while the page lookup
    *  was still running arrives as a promise: it lands, once the answer is in,
    *  on the person and target the dialog was opened for — even when another
@@ -1957,13 +1974,31 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             <button
               type="button"
               className="tree-open-btn edit-wider-toggle"
-              aria-pressed={settings.widerFamily.open}
+              aria-pressed={widerOpen}
               aria-controls="edit-wider"
               aria-label={t("edit.wider.title")}
-              title={t(settings.widerFamily.open ? "edit.wider.hide" : "edit.wider.show")}
-              onClick={() => setSettings({ widerFamily: { ...settings.widerFamily, open: !settings.widerFamily.open } })}
+              title={t(widerOpen ? "edit.wider.hide" : "edit.wider.show")}
+              onClick={() => {
+                setSearchOpen(false);
+                setSettings({ widerFamily: { ...settings.widerFamily, open: !widerOpen } });
+              }}
             >
               <RelativesIcon size={16} />
+            </button>
+            <button
+              type="button"
+              className="tree-open-btn edit-search-toggle"
+              aria-pressed={searchOpen}
+              aria-controls="edit-search"
+              aria-label={t("indexSearch.title")}
+              title={t(searchOpen ? "indexSearch.hide" : "indexSearch.tooltip")}
+              onClick={() => {
+                // The search takes the Relatives rail's place: one rail at a time.
+                if (!searchOpen && settings.widerFamily.open) setSettings({ widerFamily: { ...settings.widerFamily, open: false } });
+                setSearchOpen(!searchOpen);
+              }}
+            >
+              <SearchIcon size={16} />
             </button>
           </div>
         </div>
@@ -2374,12 +2409,22 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             )}
         </div>
         </div>
-        <WiderFamilyPanel
-          dataset={dataset}
-          personId={person.id}
-          navigate={navigate}
-          relationsGen={relationsGenRef.current}
-        />
+        {searchOpen ? (
+          <PersonSearch
+            key={`search-${person.id}`}
+            person={person}
+            dataset={dataset}
+            onCite={(url) => setSourceDialogTarget({ kind: "individual", text: url })}
+            onCopy={copyFromIndex}
+          />
+        ) : (
+          <WiderFamilyPanel
+            dataset={dataset}
+            personId={person.id}
+            navigate={navigate}
+            relationsGen={relationsGenRef.current}
+          />
+        )}
         </div>
       </div>
       <AddSourceDialog
@@ -2389,6 +2434,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         dataset={dataset}
         t={t}
         editing={editingSourceDialog}
+        initialText={sourceDialogTarget?.kind === "individual" ? sourceDialogTarget.text : undefined}
       />
       <AddMediaDialog
         isOpen={mediaPickerOpen}

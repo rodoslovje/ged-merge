@@ -79,6 +79,8 @@ interface Props {
    * record cited by nothing yet, so a URL that matches an existing source has
    * nothing to add — the match hint says so and the Add button is disabled. */
   standalone?: boolean;
+  /** Text to put in the paste box when the dialog opens (a link to cite). */
+  initialText?: string;
 }
 
 interface FormState {
@@ -168,8 +170,11 @@ function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
 }
 
-export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone }: Props) {
+export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone, initialText }: Props) {
   const [text, setText] = useState("");
+  useEffect(() => {
+    if (isOpen && initialText) setText(initialText);
+  }, [isOpen, initialText]);
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   // The Repository dropdown: "" = none, a REPO xref, "@create@" for the
   // recognized site's proposed new repository, or "@new@" for a hand-named one.

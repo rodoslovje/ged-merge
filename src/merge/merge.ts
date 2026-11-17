@@ -263,6 +263,23 @@ export interface ReportTotals {
   deferred: number;
 }
 
+/** A report with nothing in it yet — for applying rows outside a whole merge
+ *  (a within-file duplicate merge, a copy from an index hit). */
+export function emptyChangeReport(): ChangeReport {
+  return {
+    changes: [],
+    deferred: [],
+    graftJoins: [],
+    recordsChanged: 0,
+    newPersons: 0,
+    newFamilies: 0,
+    recordLabels: {},
+    recordKinds: {},
+    familySpouses: {},
+    customTags: {},
+  };
+}
+
 export function reportTotals(report: ChangeReport): ReportTotals {
   const added = new Set<string>();
   const removed = new Set<string>();

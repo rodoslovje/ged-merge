@@ -2621,6 +2621,152 @@ button:focus-visible {
   color: var(--muted);
   font-style: normal;
 }
+/* The search rail: the same rail, its lists drawn for its width. */
+.person-search-sites {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: 4px 10px;
+}
+.person-search-label { color: var(--muted); flex: 0 0 100%; }
+.person-search-site {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.person-search-site:hover { text-decoration: underline; }
+.person-search-index { border-top: 1px solid var(--border); }
+.person-search-index-title {
+  margin: 8px 12px 2px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.person-search-note { margin: 4px 12px; color: var(--muted); }
+.person-search-hits { list-style: none; margin: 0; padding: 0; }
+.person-search-hit {
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+}
+.person-search-hit:first-child { border-top: none; }
+.person-search-hit-name {
+  display: flex; align-items: baseline; gap: 6px;
+  font-weight: 600;
+}
+.person-search-score {
+  flex: none;
+  min-width: 2em;
+  text-align: center;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.person-search-hit-fact,
+.person-search-hit-relatives { color: var(--muted); overflow-wrap: anywhere; }
+.person-search-hit-relatives { font-style: italic; }
+.person-search-own {
+  display: inline-block;
+  margin: 2px 0;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+.person-search-also { color: var(--muted); font-size: 0.85em; overflow-wrap: anywhere; }
+.person-search-kind { margin-right: 0.25em; font-style: normal; }
+.person-search-times { color: var(--muted); }
+.person-search-index-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin-right: 12px;
+}
+.person-search-exact {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.person-search-exact input { accent-color: var(--accent); margin: 0; }
+.person-search-contributor-link { color: inherit; text-decoration: none; }
+.person-search-contributor-link:hover { color: var(--accent); text-decoration: underline; }
+.person-search-hit-foot {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: 2px 12px;
+  margin-top: 2px;
+}
+.person-search-contributor { color: var(--faint); margin-right: auto; }
+.person-search-hit-name .person-search-contributor { font-weight: normal; margin-left: auto; margin-right: 0; }
+.person-search-hit-open {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.person-search-hit-open:hover { color: var(--accent); text-decoration: underline; }
+/* Comparing one hit with the person: the rail widens for two value columns. */
+.edit-wider.person-search.comparing { width: 480px; }
+.person-search-compare { padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 6px; }
+.person-search-compare-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.person-search-compare-step { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.person-search-step-btn {
+  display: inline-flex;
+  padding: 3px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+.person-search-step-btn:disabled { color: var(--faint); cursor: default; }
+.person-search-step-btn:not(:disabled):hover { background: var(--panel-2); }
+.person-search-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.person-search-table th,
+.person-search-table td {
+  padding: 3px 6px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.person-search-table thead th { border-top: none; color: var(--muted); font-weight: 600; }
+.person-search-table th:nth-child(2) { width: 26%; }
+.person-search-table .person-search-pick { width: 22px; padding-right: 0; }
+.person-search-pick input { accent-color: var(--accent); margin: 2px 0 0; }
+.person-search-pick-new { align-self: flex-start; }
+.person-search-copy {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 6px 12px;
+}
+.person-search-copy-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.person-search-copy-btn:disabled {
+  background: transparent;
+  border-color: var(--border-2);
+  color: var(--faint);
+  cursor: default;
+}
+.person-search-table .f-label { color: var(--muted); }
+.person-search-group th {
+  padding-top: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 @media (max-width: 1100px) {
   .edit-layout { grid-template-columns: minmax(0, 1fr); }
   .edit-wider { position: static; width: auto; max-height: none; }
@@ -4767,6 +4913,7 @@ button:focus-visible {
   outline: 2px solid var(--danger);
   outline-offset: 2px;
 }
+
 
 .chev { color: var(--muted); }
 

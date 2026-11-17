@@ -445,6 +445,11 @@ export function parseGiMatchesCsv(text: string): GiMatchesImport {
 }
 
 function finish(records: GedNode[], pairs: GiPair[] | undefined): GiMatchesImport {
+  return { dataset: indexDataset(records), pairs };
+}
+
+/** A dataset from records built out of index rows (a CSV export or API hits). */
+export function indexDataset(records: GedNode[]): Dataset {
   const parsed: ParseResult = {
     version: "5.5.1",
     charset: "UTF-8",
@@ -458,7 +463,7 @@ function finish(records: GedNode[], pairs: GiPair[] | undefined): GiMatchesImpor
   // have only a marriage date), so let matching use the marriage-plausibility
   // fallback for birth-less records instead of the missing-key penalty.
   dataset.sparseBirthDates = true;
-  return { dataset, pairs };
+  return dataset;
 }
 
 function parsePersonMatches(dataRows: string[][], layout: ColumnLayout): GiMatchesImport {
@@ -672,7 +677,7 @@ function personIndiChildren(
  * Only an event the row itself gives a date or place to may take one: a link
  * alone is too thin a reason to assert an event the index never stated.
  */
-function splitRowLinks(
+export function splitRowLinks(
   linksCell: string,
   events: Array<{ tag: string; date: string; place: string }>,
 ): { byTag: Map<string, string[]>; recordLinks: string[] } {
