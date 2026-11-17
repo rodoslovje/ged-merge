@@ -110,6 +110,8 @@ export interface ChartSettings {
   timelineEvents: TimelineEventScope;
   /** Timeline: label the event dots with small text under the bar. */
   timelineEventLabels: boolean;
+  /** Timeline: mark the historical events of the countries the people lived in. */
+  timelineHistory: boolean;
   /** Show residence information — the Timeline draws it as a thin strip under
    *  the lifespan bar, the Report as ⌂ fact lines. One shared choice. */
   showResidence: boolean;
@@ -156,6 +158,7 @@ const DEFAULTS: ChartSettings = {
   privacyLiving: false,
   timelineEvents: "person",
   timelineEventLabels: false,
+  timelineHistory: false,
   showResidence: false,
   showOccupation: false,
   showEducation: false,
@@ -250,6 +253,7 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
           ? parsed.timelineEvents
           : DEFAULTS.timelineEvents,
       timelineEventLabels: bool(parsed.timelineEventLabels, DEFAULTS.timelineEventLabels),
+      timelineHistory: bool(parsed.timelineHistory, DEFAULTS.timelineHistory),
       // showResidence replaced the timeline-only `timelineResidence` when the
       // Report gained residence lines; older blobs carry the old name.
       showResidence: bool(

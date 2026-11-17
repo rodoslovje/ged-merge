@@ -32,6 +32,8 @@ import { useNodeColorer } from "./useNodeColorer";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { ChartLegend } from "./ChartLegend";
 import { usePublishedSettings } from "./PublishedView";
+import { historyPresence, historyYears, pickHistoryEvents } from "../chart/historyEvents";
+import { useHomeCountry } from "./DatasetDerivations";
 
 // Full-page family Timeline: the root person and their immediate family
 // (parents, siblings, spouses, children) as horizontal lifespan bars on a
@@ -121,6 +123,13 @@ const TAPER_W = 12;
  *  140px apart, so density never needs to adapt to the span. */
 const TICK_STEP = 10;
 
+/** Historical-event labels: lanes between the year ruler and the first row.
+ *  A label that fits no lane is dropped; its rule keeps the tooltip. */
+const HIST_LANE_H = 19;
+const HIST_LANES = 4;
+/** Estimated width per character of an 11px label, for lane packing. */
+const HIST_CHAR_W = 5.8;
+
 interface Props {
   mainDs: Dataset;
   rootId: string;
@@ -180,6 +189,17 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const rowH = ROW_H + (photosOn ? PHOTO_SHIFT : 0) + (stripOn ? STRIP_H + STRIP_GAP : 0);
   const laneY = barY + BAR_H + 10 + (stripOn ? STRIP_H + STRIP_GAP : 0);
 
+  // Historical events, picked by where and when the people on the chart lived
+  // (a bare village stands in the file's home country).
+  const historyOn = settings.timelineHistory;
+  const homeCountry = useHomeCountry();
+  const history = useMemo(() => {
+    if (!historyOn || !data || data.minYear === undefined || data.maxYear === undefined) return [];
+    const x0 = Math.floor(data.minYear / TICK_STEP) * TICK_STEP;
+    const x1 = Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP;
+    return pickHistoryEvents(historyPresence(mainDs, data.rows, homeCountry), x0, x1);
+  }, [historyOn, data, mainDs, homeCountry]);
+
   // Axis domain: the data range rounded outward to whole decades, so the chart
   // always opens and closes on a labelled gridline (e.g. 1930 … 2030).
   const geom = useMemo(() => {
@@ -187,12 +207,28 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     const x0 = Math.floor(data.minYear / TICK_STEP) * TICK_STEP;
     const x1 = Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP;
     const contentW = (x1 - x0) * PX_PER_YEAR;
-    const contentH = AXIS_H + data.rows.length * rowH;
     const xOf = (year: number) => (year - x0) * PX_PER_YEAR;
     const ticks: number[] = [];
     for (let y = x0; y <= x1; y += TICK_STEP) ticks.push(y);
-    return { x0, x1, contentW, contentH, xOf, ticks };
-  }, [data, rowH]);
+    // Pack the event labels greedily into the lanes under the ruler, in year
+    // order, each into the first lane where it clears its left neighbour.
+    const laneEnd: number[] = [];
+    const events = history.map((e) => {
+      const text = `${historyYears(e)} ${t(`history.${e.id}`)}`;
+      const x = xOf(e.from);
+      let lane: number | undefined = laneEnd.findIndex((end) => x >= end);
+      if (lane < 0) lane = laneEnd.length < HIST_LANES ? laneEnd.length : undefined;
+      const w = e.to !== undefined ? (e.to - e.from) * PX_PER_YEAR : 0;
+      // A span's bracket holds the lane to its last year, so the next label
+      // there can't sit over it.
+      if (lane !== undefined) laneEnd[lane] = x + Math.max(text.length * HIST_CHAR_W, w) + 10;
+      return { ...e, text, x, w, lane };
+    });
+    // The rows start below the ruler and the lanes in use.
+    const topH = AXIS_H + laneEnd.length * HIST_LANE_H;
+    const contentH = topH + data.rows.length * rowH;
+    return { x0, x1, contentW, contentH, topH, xOf, ticks, events };
+  }, [data, rowH, history, t]);
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching.
   const kinship = useMemo(
@@ -240,7 +276,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     const m = new Map<string, TimelineRow & ChartNode>();
     rows.forEach((r, i) => {
       const x = geom && r.from !== undefined ? geom.xOf(r.from) : 0;
-      m.set(r.key, { ...r, x, y: AXIS_H + i * rowH });
+      m.set(r.key, { ...r, x, y: (geom?.topH ?? AXIS_H) + i * rowH });
     });
     return m;
   }, [rows, geom, rowH]);
@@ -259,7 +295,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
-  const { canvasRef, zoomLayerRef, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
@@ -339,6 +375,62 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       : t(`timeline.role.${roleKey(row)}`);
   };
 
+  /** The year ruler, the decade grid, today's rule and the historical events,
+   *  drawn down to `height` — the whole chart, or just the header that the
+   *  sticky copy repeats over the scrolling rows. */
+  const backdrop = (g: NonNullable<typeof geom>, height: number) => (
+    <>
+      {g.ticks.map((year) => (
+        <g key={year}>
+          <line className="timeline-grid" x1={g.xOf(year)} y1={AXIS_H - 8} x2={g.xOf(year)} y2={height} />
+          <text className="timeline-axis gm-data" x={g.xOf(year)} y={AXIS_H - 14} textAnchor="middle">
+            {year}
+          </text>
+        </g>
+      ))}
+      {nowYear >= g.x0 && nowYear <= g.x1 && (
+        <line className="timeline-now" x1={g.xOf(nowYear)} y1={AXIS_H - 8} x2={g.xOf(nowYear)} y2={height} />
+      )}
+      {/* Historical spans shade the years behind the rows. The shading is
+          one flat tint however many spans overlap — solid shapes under one
+          group opacity — so two spans never stack into a darker stripe; which
+          span runs from when to when is the bracket under its label. */}
+      <g className="timeline-history-bands">
+        {g.events.map((e) =>
+          e.w > 0 ? (
+            <rect key={e.id} x={e.x} y={AXIS_H - 8} width={e.w} height={height - AXIS_H + 8}>
+              <title>{e.text}</title>
+            </rect>
+          ) : null,
+        )}
+      </g>
+      {/* A single year is a dotted rule; every event's label sits in a lane
+          under the ruler, a span's with a bracket over its exact years. */}
+      {g.events.map((e) => {
+        const laneY = e.lane !== undefined ? AXIS_H + e.lane * HIST_LANE_H : 0;
+        return (
+          <g key={e.id} className="timeline-history">
+            <title>{e.text}</title>
+            {e.w === 0 && <line className="timeline-history-line" x1={e.x} y1={AXIS_H - 8} x2={e.x} y2={height} />}
+            {e.lane !== undefined && (
+              <>
+                <text className="timeline-history-label" x={e.x + 3} y={laneY + 11}>
+                  {e.text}
+                </text>
+                {e.w > 0 && (
+                  <path
+                    className="timeline-history-span"
+                    d={`M ${e.x} ${laneY + 11} V ${laneY + 15} H ${e.x + e.w} V ${laneY + 11}`}
+                  />
+                )}
+              </>
+            )}
+          </g>
+        );
+      })}
+    </>
+  );
+
   return (
     <ChartPage
       backLabel={backLabel}
@@ -383,22 +475,10 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
             <ChartZoom width={laid.width} height={laid.height} zoom={zoom} layerRef={zoomLayerRef}>
             <svg className="tree-svg" width={laid.width} height={laid.height} viewBox={`0 0 ${laid.width} ${laid.height}`} role="img">
               <g transform={`translate(${PAD},${PAD})`}>
-                {/* Year ruler + vertical decade grid. */}
-                {geom.ticks.map((year) => (
-                  <g key={year}>
-                    <line className="timeline-grid" x1={geom.xOf(year)} y1={AXIS_H - 8} x2={geom.xOf(year)} y2={geom.contentH} />
-                    <text className="timeline-axis gm-data" x={geom.xOf(year)} y={AXIS_H - 14} textAnchor="middle">
-                      {year}
-                    </text>
-                  </g>
-                ))}
-                {/* Today, when it falls inside the axis. */}
-                {nowYear >= geom.x0 && nowYear <= geom.x1 && (
-                  <line className="timeline-now" x1={geom.xOf(nowYear)} y1={AXIS_H - 8} x2={geom.xOf(nowYear)} y2={geom.contentH} />
-                )}
+                {backdrop(geom, geom.contentH)}
 
                 {rows.map((row, i) => {
-                  const y = AXIS_H + i * rowH;
+                  const y = geom.topH + i * rowH;
                   const hidden = redacted(row);
                   const meta = rowMeta(row);
                   const role = rowRole(row);
@@ -616,6 +696,22 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
 
         {laid && (
           <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
+        )}
+        {/* The year ruler and the event labels ride above the scrolling rows —
+            scrolled away, a label no longer says which band is which. Same
+            sticky header as the Kinship bars (outside the canvas, carrying its
+            PAD and scroll offset); only once the chart has scrolled. */}
+        {laid && geom && viewport.top > 1 && (
+          <div className="kin-sticky" style={{ height: (geom.topH + PAD) * zoom }} aria-hidden>
+            <svg
+              width={laid.width * zoom}
+              height={(geom.topH + PAD) * zoom}
+              viewBox={`0 0 ${laid.width} ${geom.topH + PAD}`}
+              style={{ transform: `translateX(${-viewport.left}px)` }}
+            >
+              <g transform={`translate(${PAD},${PAD})`}>{backdrop(geom, geom.topH)}</g>
+            </svg>
+          </div>
         )}
 
         {selectedRow && selectedIndi && (

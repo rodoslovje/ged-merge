@@ -227,6 +227,14 @@ export function ChartSettings({
                 >
                   {t("tree.settings.timeline.residence")}
                 </button>
+                <button
+                  className={settings.timelineHistory ? "active" : ""}
+                  aria-pressed={settings.timelineHistory}
+                  title={t("tree.settings.timeline.history.title")}
+                  onClick={() => set({ timelineHistory: !settings.timelineHistory })}
+                >
+                  {t("tree.settings.timeline.history")}
+                </button>
               </div>
             </div>
           )}

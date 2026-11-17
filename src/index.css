@@ -6020,6 +6020,28 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   stroke-dasharray: 4 4;
   opacity: 0.6;
 }
+/* Historical events: spans shade the years with one flat tint (solid fills
+   under a group opacity, so overlaps never darken), a single year is a dotted
+   rule, and a span's label carries a bracket over its exact years. */
+.timeline-history-bands {
+  fill: var(--timeline-history);
+  opacity: 0.08;
+}
+.timeline-history-span {
+  fill: none;
+  stroke: var(--timeline-history);
+  stroke-width: 1.5;
+}
+.timeline-history-line {
+  stroke: var(--timeline-history);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.7;
+}
+.timeline-history-label {
+  fill: var(--timeline-history);
+  font-size: 11px;
+}
 .timeline-row { cursor: pointer; }
 /* Full-width hit/selection strip behind each row. */
 .timeline-row-bg { fill: transparent; }
@@ -6347,6 +6369,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .kin-sticky svg {
   display: block;
   margin: auto;
+  /* A chart wider than the pane must keep its width, or the flex row shrinks
+     it to fit and the scroll offset slides the whole ruler out of view. */
+  flex: none;
 }
 
 /* ── Contemporaries on a map ─────────────────────────────────────────────────
