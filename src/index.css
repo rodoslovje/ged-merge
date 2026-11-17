@@ -2677,6 +2677,7 @@ button:focus-visible {
   font-size: 0.8rem;
 }
 .person-search-also { color: var(--muted); font-size: 0.85em; overflow-wrap: anywhere; }
+.person-search-kind { margin-right: 0.25em; font-style: normal; }
 .person-search-hit-foot {
   display: flex; flex-wrap: wrap; align-items: baseline;
   gap: 2px 12px;

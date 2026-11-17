@@ -72,6 +72,28 @@ export interface IndexAnswer {
   total: number;
 }
 
+/** What a contributor's records are: their own tree, or one of the non-tree
+ *  sources the index publishes under their name with a suffix. */
+export type ContributorKind = "tree" | "matricula" | "geneanet" | "military";
+
+const KIND_SUFFIXES: readonly [string, ContributorKind][] = [
+  ["-matricula", "matricula"],
+  ["-geneanet", "geneanet"],
+  ["-military", "military"],
+];
+
+/** A contributor name split into the genealogist and the kind of records:
+ *  "Markovič-matricula" is Markovič's transcribed parish registers. */
+export function contributorSource(contributor: string): { name: string; kind: ContributorKind } {
+  const lower = contributor.toLowerCase();
+  for (const [suffix, kind] of KIND_SUFFIXES) {
+    if (lower.endsWith(suffix) && contributor.length > suffix.length) {
+      return { name: contributor.slice(0, -suffix.length), kind };
+    }
+  }
+  return { name: contributor, kind: "tree" };
+}
+
 /** Contributor names as the index takes them: trimmed, comma-separated, no blanks. */
 export function contributorList(names: string): string[] {
   return names.split(",").map((n) => n.trim()).filter(Boolean);

@@ -7,6 +7,8 @@ import { personQuery, searchUrl, SEARCH_SITES, type PersonQuery } from "../../on
 import {
   clusterHits,
   contributorList,
+  contributorSource,
+  type ContributorKind,
   fetchIndexHits,
   hitsForComparison,
   indexApiUrl,
@@ -19,6 +21,7 @@ import {
   type RankedHits,
 } from "../../online/indexSearch";
 import { individualFieldRows } from "../../review/fields";
+import { SITE_ICON } from "../../tools/sourceReshape/urls";
 import type { FieldRow } from "../../review/types";
 import { useSettingsSlice } from "../SettingsContext";
 import { FieldValue } from "../FieldValue";
@@ -84,6 +87,29 @@ function relativesLine(hit: IndexHit): string {
   const names = (list: IndexHit["parents_list"]) =>
     (list ?? []).map((r) => [r.name, r.surname].filter(Boolean).join(" ")).filter(Boolean);
   return [...names(hit.parents_list), ...names(hit.partners_list)].join(" · ");
+}
+
+/** The icon of each non-tree source — the one the app shows for that site's links. */
+const KIND_ICON: Record<Exclude<ContributorKind, "tree">, string> = {
+  matricula: SITE_ICON.matricula,
+  geneanet: SITE_ICON.geneanet,
+  military: SITE_ICON.sistory,
+};
+
+/** A contributor as the reader knows them: the genealogist's name, with an
+ *  icon (and its tip) for records that are not their tree — "Markovič-matricula"
+ *  shows as ⛪ Markovič. */
+function Contributor({ contributor, className }: { contributor: string; className?: string }) {
+  const { t } = useTranslation();
+  const { name, kind } = contributorSource(contributor);
+  if (kind === "tree") return <span className={className}>{name}</span>;
+  const label = t(`indexSearch.kind.${kind}`);
+  return (
+    <span className={className} title={`${label} — ${name}`}>
+      <span className="person-search-kind" role="img" aria-label={label}>{KIND_ICON[kind]}</span>
+      {name}
+    </span>
+  );
 }
 
 function hitName(hit: IndexHit): string {
@@ -176,7 +202,7 @@ function HitComparison({
       <div className="person-search-hit-name">
         <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
         <span>{hitName(hit)}</span>
-        <span className="person-search-contributor">{hit.contributor}</span>
+        <Contributor contributor={hit.contributor} className="person-search-contributor" />
       </div>
       <table className="person-search-table">
         <thead>
@@ -387,15 +413,20 @@ export function PersonSearch({
                                 title={t("indexSearch.compareThis")}
                                 onClick={() => setComparing(at(m))}
                               >
-                                {m.hit.contributor}
+                                <Contributor contributor={m.hit.contributor} />
                               </button>
                             </span>
                           ))}
-                          {cluster.alsoIn.length > 0 && `${others.length ? " · " : ""}${cluster.alsoIn.join(" · ")}`}
+                          {cluster.alsoIn.map((c, j) => (
+                            <span key={c}>
+                              {(others.length > 0 || j > 0) && " · "}
+                              <Contributor contributor={c} />
+                            </span>
+                          ))}
                         </div>
                       )}
                       <div className="person-search-hit-foot">
-                        <span className="person-search-contributor">{hit.contributor}</span>
+                        <Contributor contributor={hit.contributor} className="person-search-contributor" />
                         <button type="button" className="tools-issue-link" onClick={() => setComparing(at(cluster.members[0]))}>
                           {t("indexSearch.compare")}
                         </button>

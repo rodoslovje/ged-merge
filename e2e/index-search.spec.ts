@@ -117,6 +117,10 @@ test("index hits are ranked against the person and compared with them one by one
   await expect(hits.first()).toContainText("Already in your tree");
   await expect(hits.first().locator(".person-search-also")).toHaveText("Also in: Mamić · Hawlina");
   await expect(page.locator(".edit-wider-count")).toHaveText("312");
+  // A register transcription shows as the genealogist with the register's icon.
+  const register = hits.nth(1).locator(".person-search-contributor");
+  await expect(register).toHaveText("⛪Markovič");
+  await expect(register).toHaveAttribute("title", "Parish-register index (Matricula) — Markovič");
   await expect(page.locator("#edit-search")).toContainText("The index has 312 matches for this search; the best 3 are ranked here.");
   expect(asked).toHaveLength(1);
   expect(asked[0]).toContain("surname=Penko");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { clusterHits, contributorList, hitXref, hitsDataset, hitsForComparison, indexApiUrl, indexPersonUrl, rankHits, type IndexHit, type RankedHit } from "./indexSearch";
+import { clusterHits, contributorList, contributorSource, hitXref, hitsDataset, hitsForComparison, indexApiUrl, indexPersonUrl, rankHits, type IndexHit, type RankedHit } from "./indexSearch";
 import { individualFieldRows } from "../review/fields";
 import { personQuery, searchUrl } from "./searchLinks";
 
@@ -139,6 +139,14 @@ describe("hit records", () => {
     expect(ranked.map((r) => r.hit.id)).toEqual([PENKO.id, BENKO.id]);
     expect(ranked[0].id).toBe(hitXref(1));
     expect(ranked[0].score).toBeGreaterThan(ranked[1].score);
+  });
+
+  it("splits a contributor into the genealogist and the kind of records", () => {
+    expect(contributorSource("Markovič-matricula")).toEqual({ name: "Markovič", kind: "matricula" });
+    expect(contributorSource("Kos-geneanet")).toEqual({ name: "Kos", kind: "geneanet" });
+    expect(contributorSource("Zupan-military")).toEqual({ name: "Zupan", kind: "military" });
+    expect(contributorSource("Bandelj")).toEqual({ name: "Bandelj", kind: "tree" });
+    expect(contributorSource("-matricula")).toEqual({ name: "-matricula", kind: "tree" });
   });
 
   it("groups hits that are one person in several trees, through matches outside the hits too", () => {
