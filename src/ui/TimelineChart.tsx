@@ -29,6 +29,7 @@ import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { useNodeColorer } from "./useNodeColorer";
+import { positionsById, useBloodTrees } from "./useBloodTrees";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { ChartLegend } from "./ChartLegend";
 import { usePublishedSettings } from "./PublishedView";
@@ -261,15 +262,24 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const rows = useMemo(() => data?.rows ?? [], [data]);
   // The shared Color axis over everyone on the chart; on the plain axis the
   // root's bar keeps the accent and the family the muted green.
-  const subjects = useMemo(
-    () => rows.map((r) => ({ indi: mainDs.individuals.get(r.id), pos: { gen: r.gen, branch: OWN_BRANCH } })),
-    [rows, mainDs],
+  // A row's family line is where the person stands in the blood trees — a
+  // grandparent's line above the root, a child's below; everyone else (the
+  // root, parents, siblings, spouses) shares the root's own.
+  const trees = useBloodTrees(mainDs, currentRootId);
+  const lineOf = useMemo(() => positionsById(trees), [trees]);
+  const posOf = useCallback(
+    (r: TimelineRow) => ({ gen: r.gen, branch: lineOf.get(r.id)?.branch ?? OWN_BRANCH }),
+    [lineOf],
   );
-  const colorer = useNodeColorer(mainDs, subjects, undefined, "noBranch");
+  const subjects = useMemo(
+    () => rows.map((r) => ({ indi: mainDs.individuals.get(r.id), pos: posOf(r) })),
+    [rows, mainDs, posOf],
+  );
+  const colorer = useNodeColorer(mainDs, subjects, trees.branches);
   const colorFor = useMemo(
     () => (row: (typeof rows)[number]) =>
-      colorer.colorFor(mainDs.individuals.get(row.id), { gen: row.gen, branch: OWN_BRANCH }) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
-    [colorer, mainDs],
+      colorer.colorFor(mainDs.individuals.get(row.id), posOf(row)) ?? (row.role === "person" ? COLOR_PERSON : COLOR_FAMILY),
+    [colorer, mainDs, posOf],
   );
   const nodesByKey = useMemo(() => {
     const m = new Map<string, TimelineRow & ChartNode>();
@@ -453,7 +463,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       }
       actions={
         <>
-          <ChartSettings lockedType="timeline" availableGenerations={depth} colorAxes="noBranch" />
+          <ChartSettings lockedType="timeline" availableGenerations={depth} />
           <ChartExportMenu
             disabled={!laid}
             slug={chartSlug(rootRow?.name, pageKind)}

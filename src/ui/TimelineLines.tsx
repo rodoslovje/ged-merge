@@ -1,13 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { emptyDataset } from "../gedcom/builder";
 import type { Dataset } from "../gedcom/types";
 import { birthYear, deathYear, lifespanApproxOf } from "../gedcom/lifespan";
 import { lifespanTooltipOf } from "../gedcom/age";
-import { buildPersonTree, pruneTree, type TreeNode } from "../chart/personTree";
+import type { TreeNode } from "../chart/personTree";
 import { familyDepth } from "../chart/timeline";
 import { layoutLineage, type LineagePoint } from "../chart/lineageYears";
-import { indexPositions } from "../chart/nodeColor";
 import { livingLabelFor } from "../chart/nodeDisplay";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -25,8 +23,8 @@ import { chartSlug } from "./exportSvg";
 import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { TimelineLayoutTabs } from "./ChartKindTabs";
-import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
-import { useNameOf } from "./SettingsContext";
+import { useChartSettings } from "./ChartSettingsContext";
+import { useBloodTrees } from "./useBloodTrees";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { useStableHandler } from "./edit/useStableHandler";
@@ -40,11 +38,6 @@ import { useHistoryEvents } from "./useHistoryEvents";
 // curve. The data and slots come from chart/lineageYears; this file turns them
 // into pixels and wires the shared chart page (settings, find, export, the
 // person panel) around them.
-
-// Empty compare side for the tree builder (see EditTree); module-level so its
-// identity is stable in memo deps.
-const EMPTY_DS = emptyDataset();
-const EMPTY_MAPS = { mainToCompare: new Map<string, string>(), compareToMain: new Map<string, string>() };
 
 // ── Geometry (native, pre-zoom pixels) ───────────────────────────────────────
 /** Width of one leaf slot. */
@@ -89,20 +82,14 @@ interface Placed extends LineagePoint, ChartNode {
 export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
-  const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
   const changeRoot = useStableHandler(onRootChange);
   const limit = settings.maxGenerations;
   const reduced = usePublishedSettings()?.reduced;
 
-  const trees = useMemo(() => {
-    const root = mainDs.individuals.get(rootId);
-    if (!root) return { ancestors: undefined, descendants: undefined };
-    const build = (mode: "ancestors" | "descendants") => {
-      const tree = buildPersonTree(t, root, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, mode, undefined, nameOf);
-      return limit === null ? tree : pruneTree(tree, limit);
-    };
-    return { ancestors: build("ancestors"), descendants: build("descendants") };
-  }, [t, mainDs, rootId, nameOf, limit]);
+  // The blood line both ways, and the family lines the Color axes read: a
+  // grandparent's line above the root, a child's below.
+  const trees = useBloodTrees(mainDs, rootId);
+  const { positions, branches } = trees;
   const depth = useMemo(() => familyDepth(mainDs, rootId), [mainDs, rootId]);
 
   // A living person shown without details keeps their year off the chart too:
@@ -218,13 +205,6 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     return m;
   }, [layout, geom]);
 
-  // The Color axes, the family line included: a grandparent's line above the
-  // root, a child's below — the same reading as the pedigree charts.
-  const { positions, branches } = useMemo(() => {
-    const a = indexPositions(trees.ancestors, "ancestors");
-    const d = indexPositions(trees.descendants, "descendants", "d:", a.positions, a.branches);
-    return { positions: d.positions, branches: d.branches };
-  }, [trees]);
   const points = useMemo(() => [...placed.values()], [placed]);
   const subjects = useMemo(
     () => points.map((p) => ({ indi: p.node.main, pos: positions.get(p.key) })),

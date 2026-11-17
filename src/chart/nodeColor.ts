@@ -61,8 +61,8 @@ export const GROUP_AXES: ColorAxis[] = ["plain", "generation", "branch", "surnam
  * What a chart can colour its people by. A chart that paints them by something
  * of its own — the Compare tree's match status — takes `none` and is offered
  * no Color setting at all. A chart that knows each person's generation but not
- * the family line they come down through — the Timeline's rows, the
- * Relationship chart's path — takes `noBranch`: a line axis there would paint
+ * the family line they come down through — the Relationship chart's path —
+ * takes `noBranch`: a line axis there would paint
  * every person the one colour. A chart that draws one mark per group — the
  * Contemporaries surname rings — takes `group` and offers {@link GROUP_AXES}.
  * Everything else offers the lot.
