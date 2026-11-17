@@ -2572,6 +2572,7 @@ export const sl = {
   "tree.settings.timeline.residence": "Trak prebivališč",
   "tree.settings.timeline.history": "Zgodovinski dogodki",
   "tree.settings.timeline.history.title": "Označi vojne, reforme in selitve v državah, kjer so živele osebe na diagramu",
+  "history.ottomanRaids": "turški vpadi",
   "history.thirtyYearsWar": "tridesetletna vojna",
   "history.viennaSiege": "turško obleganje Dunaja",
   "history.habsburgCensus": "prvo habsburško štetje prebivalstva",

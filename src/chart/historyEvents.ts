@@ -36,6 +36,7 @@ const EUROPE = [
  *  the records (a census, a register reform) or the people's moves (a famine,
  *  an emigration wave, a border), not by being famous. */
 export const HISTORY_EVENTS: readonly HistoryEvent[] = [
+  { id: "ottomanRaids", from: 1408, to: 1593, where: ["si", "hr", "at"] },
   { id: "thirtyYearsWar", from: 1618, to: 1648, where: ["de", "at", "cz", "sk"] },
   { id: "viennaSiege", from: 1683, where: HABSBURG },
   { id: "habsburgCensus", from: 1754, where: HABSBURG },

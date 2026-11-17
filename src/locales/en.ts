@@ -2302,6 +2302,7 @@ export const en = {
   "tree.settings.timeline.residence": "Residence bar",
   "tree.settings.timeline.history": "Historical events",
   "tree.settings.timeline.history.title": "Mark the wars, reforms and migrations of the countries the people on the chart lived in",
+  "history.ottomanRaids": "Ottoman raids",
   "history.thirtyYearsWar": "Thirty Years' War",
   "history.viennaSiege": "Siege of Vienna",
   "history.habsburgCensus": "first Habsburg census",
