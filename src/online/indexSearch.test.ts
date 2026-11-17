@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { inferMainProfile } from "../normalize/profile";
-import { normalizeDataset } from "../normalize/normalize";
-import { validateConformance } from "../tools/conformance/conformance";
-import { hitGedcom, hitXref, hitsDataset, indexApiUrl, indexPersonUrl, rankHits, type IndexHit } from "./indexSearch";
+import { hitXref, hitsDataset, hitsForComparison, indexApiUrl, indexPersonUrl, rankHits, type IndexHit } from "./indexSearch";
+import { individualFieldRows } from "../review/fields";
 import { personQuery, searchUrl } from "./searchLinks";
 
 const enc = (text: string) => new TextEncoder().encode(text).buffer;
@@ -132,26 +130,23 @@ describe("hit records", () => {
 
   it("ranks the matching person first", () => {
     const main = parse(MAIN);
-    const ranked = rankHits(main.individuals.get("@I1@")!, main, [BENKO, PENKO]);
+    const { ranked } = rankHits(main.individuals.get("@I1@")!, main, [BENKO, PENKO]);
     expect(ranked.map((r) => r.hit.id)).toEqual([PENKO.id, BENKO.id]);
+    expect(ranked[0].id).toBe(hitXref(1));
     expect(ranked[0].score).toBeGreaterThan(ranked[1].score);
   });
 
-  it("writes a compare file that reads back", () => {
-    const back = parse(hitGedcom(PENKO));
-    expect(back.individuals.size).toBe(4);
-    expect(back.families.size).toBe(2);
+  it("compares a hit with the person field by field, in the main file's conventions", () => {
+    const main = parse(MAIN);
+    const person = main.individuals.get("@I1@")!;
+    const { ds, ranked } = rankHits(person, main, [PENKO]);
+    const hits = hitsForComparison(ds, main);
+    const rows = individualFieldRows((k: string) => k, person, hits.individuals.get(ranked[0].id), main, hits);
+    const state = (key: string) => rows.find((r) => r.key === key)?.state;
+    expect(state("given")).toBe("agree");
+    expect(state("surname")).toBe("agree");
+    expect(rows.find((r) => r.key.startsWith("DEAT") && r.state === "incoming-only")).toBeDefined();
+    // Cached per main dataset: the second comparison reuses the profile.
+    expect(hitsForComparison(ds, main).individuals.size).toBe(hits.individuals.size);
   });
-
-  for (const version of ["5.5.1", "7.0"] as const) {
-    it(`normalizes to valid ${version} lines`, () => {
-      const form = version === "5.5.1" ? "2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n" : "";
-      const head = `0 HEAD\n1 GEDC\n2 VERS ${version}\n${form}1 SOUR test\n`;
-      const main = parse(`${head}0 TRLR\n`);
-      for (const hit of [PENKO, BENKO]) {
-        const { dataset: out } = normalizeDataset(parse(hitGedcom(hit)), inferMainProfile(main));
-        expect(validateConformance({ records: [main.records[0], ...out.records.filter((r) => r.tag !== "HEAD")] })).toEqual([]);
-      }
-    });
-  }
 });

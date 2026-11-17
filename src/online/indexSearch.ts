@@ -7,8 +7,10 @@
  * Only the name and a year window leave the device — never the file.
  */
 import type { Dataset, GedNode, Individual, Sex } from "../gedcom/types";
-import { serializeGedcom } from "../gedcom/serialize";
 import { indexDataset, splitRowLinks } from "../csv/giMatches";
+import { inferMainProfile } from "../normalize/profile";
+import type { MainProfile } from "../normalize/types";
+import { normalizeDataset } from "../normalize/normalize";
 import { addChild, addPerson, coupleFam, inferSexFromNames, newPeople, node, pushEvent, settleGuessedRoles, type People } from "../csv/people";
 import { DEFAULT_CONFIG } from "../match/types";
 import { scoreIndividualPair } from "../match/scoreIndividual";
@@ -169,37 +171,47 @@ export function hitsDataset(hits: readonly IndexHit[]): Dataset {
   return indexDataset(hitRecords(hits));
 }
 
-/** One hit as a small GEDCOM 5.5.1 file — what "Compare" loads as the
- *  incoming file, so the hit goes through the ordinary merge review. */
-export function hitGedcom(hit: IndexHit): string {
-  const head: GedNode = {
-    level: 0,
-    tag: "HEAD",
-    children: [
-      { ...node(1, "SOUR", "GEDMERGE"), children: [node(2, "NAME", "Slovenski rodoslovni indeks")] },
-      { ...node(1, "GEDC", ""), children: [node(2, "VERS", "5.5.1"), node(2, "FORM", "LINEAGE-LINKED")] },
-      node(1, "CHAR", "UTF-8"),
-    ],
-  };
-  const trlr: GedNode = { level: 0, tag: "TRLR", children: [] };
-  return serializeGedcom([head, ...hitRecords([hit]), trlr], { atEscape: "all" });
-}
-
 export interface RankedHit {
   hit: IndexHit;
+  /** The hit's xref in the ranked dataset ({@link hitXref}). */
+  id: string;
   /** The ordinary match score of this hit against the searched person, 0–100. */
   score: number;
 }
 
+export interface RankedHits {
+  /** Every hit with its parents and partners, as one dataset. */
+  ds: Dataset;
+  /** Best match first. */
+  ranked: RankedHit[];
+}
+
 /** Hits ordered by how well each matches the person, best first. */
-export function rankHits(person: Individual, mainDs: Dataset, hits: readonly IndexHit[]): RankedHit[] {
-  if (!hits.length) return [];
+export function rankHits(person: Individual, mainDs: Dataset, hits: readonly IndexHit[]): RankedHits {
   const ds = hitsDataset(hits);
-  return hits
+  const ranked = hits
     .map((hit, i) => {
-      const indi = ds.individuals.get(hitXref(i));
+      const id = hitXref(i);
+      const indi = ds.individuals.get(id);
       const score = indi ? scoreIndividualPair(person, indi, mainDs, ds, DEFAULT_CONFIG).score : 0;
-      return { hit, score };
+      return { hit, id, score };
     })
     .sort((a, b) => b.score - a.score);
+  return { ds, ranked };
+}
+
+/** The main file's conventions, inferred once per dataset: a walk of the
+ *  whole file, too slow to repeat for every hit looked at. */
+const profiles = new WeakMap<Dataset, MainProfile>();
+
+/** The hits reshaped to the main file's date, place and name conventions —
+ *  as Merge reshapes an incoming file — so a comparison shows what really
+ *  differs, not how each side spells it. */
+export function hitsForComparison(hitsDs: Dataset, mainDs: Dataset): Dataset {
+  let profile = profiles.get(mainDs);
+  if (!profile) {
+    profile = inferMainProfile(mainDs);
+    profiles.set(mainDs, profile);
+  }
+  return normalizeDataset(hitsDs, profile).dataset;
 }

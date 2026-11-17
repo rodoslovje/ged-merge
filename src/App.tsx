@@ -191,8 +191,6 @@ function AppContent() {
   // The match list as the worker last sent it, in score order: a start-person
   // change arrives as a ranking of this list (see MatchSuccess).
   const matchListRef = useRef<MatchResult | null>(null);
-  /** The pair to open when the next match result lands — see compareIndexHit. */
-  const pendingPairRef = useRef<{ mainId: string; compareId: string } | null>(null);
   /** Set by "Recompute matches": the list it replaces, whose decided pairs
    *  stay listed, and whether its own result has yet to arrive. */
   const rematchRef = useRef<{ carried: readonly MatchCandidate[]; pending: boolean } | null>(null);
@@ -495,18 +493,6 @@ function AppContent() {
             if (restored.importBranches.length) dispatch({ type: "importBranchesSet", branches: new Set(restored.importBranches) });
             if (restored.mergeScope === "file") dispatch({ type: "mergeScopeSet", scope: "file" });
           }
-          // A person searched in the index and sent here with "Compare": open
-          // their pair once the hit has been matched.
-          const wanted = pendingPairRef.current;
-          if (wanted) {
-            pendingPairRef.current = null;
-            if (result.individuals.some((c) => c.mainId === wanted.mainId && c.compareId === wanted.compareId)) {
-              setSelectedId(wanted);
-            } else {
-              setSaveToast(tRef.current("indexSearch.notPaired"));
-            }
-            setMode("merge");
-          }
           persistence.hydratedRef.current = true; // restore settled — persistence may resume
         };
         // matchDatasets can finish in under a millisecond once the engine is
@@ -723,10 +709,7 @@ function AppContent() {
     persistence.pendingSessionRef.current = null;
     persistence.pendingEditStateRef.current = null;
     if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
-      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) {
-        pendingPairRef.current = null;
-        return;
-      }
+      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
 
     // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
@@ -1268,15 +1251,6 @@ function AppContent() {
   // the review flags for inspection (see `CandidateDecision.joins`).
   const openPair = useCallback((mainId: string, compareId: string) => {
     selectFromPageRef.current({ mainId, compareId });
-  }, []);
-
-  const loadFileRef = useRef(loadFile);
-  loadFileRef.current = loadFile;
-  // "Compare" on an index search hit: the hit becomes the incoming file, and
-  // its pair with the searched person opens once matching lands.
-  const compareIndexHit = useCallback((mainId: string, compareId: string, fileName: string, text: string) => {
-    pendingPairRef.current = { mainId, compareId };
-    void loadFileRef.current("compare", new File([text], fileName, { type: "text/plain" }));
   }, []);
 
   function handleUndo() {
@@ -2975,7 +2949,6 @@ function AppContent() {
               onDirty={handleEditDirty}
               onRecordsSettled={handleEditRecordsSettled}
               onShowCharts={openCharts}
-              onCompareIndexHit={compareIndexHit}
               marriedNameTag={lastMainFile.marriedNameTag}
               navigateToId={navigateToId}
               onNavigated={() => setNavigateToId(undefined)}

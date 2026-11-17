@@ -154,8 +154,6 @@ interface Props {
   /** Open the Charts hub on this person — at the last-used kind, or a specific
    *  one (the V/R shortcuts deep-link to a pedigree chart / the relationship). */
   onShowCharts: (id: string, kind?: ChartKind) => void;
-  /** "Compare" on an index search hit: load it as the incoming file and open its pair. */
-  onCompareIndexHit: (mainId: string, compareId: string, fileName: string, text: string) => void;
   /** True when the main file records married surnames inline as `_MARNM`, so
    * the name editor offers a married-name field. */
   marriedNameTag?: boolean;
@@ -245,7 +243,7 @@ const SETTINGS_KEYS = ["order", "showAge", "showEditMap", "showKinship", "quickE
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, onCompareIndexHit, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, matches, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, matches, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -2400,7 +2398,12 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         </div>
         </div>
         {searchOpen ? (
-          <PersonSearch key={`search-${person.id}`} person={person} dataset={dataset} onCompare={onCompareIndexHit} />
+          <PersonSearch
+            key={`search-${person.id}`}
+            person={person}
+            dataset={dataset}
+            onCite={(url) => setSourceDialogTarget({ kind: "individual", text: url })}
+          />
         ) : (
           <WiderFamilyPanel
             dataset={dataset}
@@ -2418,6 +2421,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         dataset={dataset}
         t={t}
         editing={editingSourceDialog}
+        initialText={sourceDialogTarget?.kind === "individual" ? sourceDialogTarget.text : undefined}
       />
       <AddMediaDialog
         isOpen={mediaPickerOpen}

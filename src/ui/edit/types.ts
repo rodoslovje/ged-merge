@@ -27,7 +27,8 @@ export type FamilyCommit = (fam: Family, mutate: (fam: Family, noteCtx: SharedNo
  * possible outcomes — built by whichever component owns that link's local
  * `links` array, since only it knows how to commit a plain rename/removal. */
 export type SourceDialogTarget =
-  | { kind: "individual" }
+  /** `text` prefills the paste box — e.g. an index search hit's own link. */
+  | { kind: "individual"; text?: string }
   | { kind: "family"; fam: Family }
   | { kind: "event"; commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void }
   | { kind: "edit"; node: GedNode; index: number; owner: RemoveSourceOwner; fields: EditSourceFields }

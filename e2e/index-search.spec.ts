@@ -88,7 +88,7 @@ test("turning lookups on with the rail open lists the index's hits", async ({ pa
   expect(asked).toHaveLength(1);
 });
 
-test("index hits are ranked against the person and Compare opens the pair in Merge", async ({ page }) => {
+test("index hits are ranked against the person and compared with them one by one", async ({ page }) => {
   const asked = await openPerson(page, true);
   const hits = page.locator(".person-search-hit");
   await expect(hits).toHaveCount(2);
@@ -98,7 +98,26 @@ test("index hits are ranked against the person and Compare opens the pair in Mer
   expect(asked[0]).toContain("surname=Penko");
   expect(asked[0]).not.toContain("place");
 
+  // A hit opens into a comparison with the person, in the rail.
   await hits.first().getByRole("button", { name: "Compare" }).click();
-  await expect(page.locator(".candidate.selected")).toContainText("Janez Penko");
-  await expect(page.locator(".compare-panel").first()).toBeVisible();
+  const compare = page.locator(".person-search-compare");
+  await expect(compare).toContainText("1 / 2");
+  const death = compare.locator("tr.field.incoming-only", { hasText: "1927" });
+  await expect(death).toHaveCount(1);
+  await expect(compare.locator("tr.field.agree", { hasText: "Penko" }).first()).toBeVisible();
+
+  // Step to the next hit and back to the list.
+  await compare.getByRole("button", { name: "Next match" }).click();
+  await expect(compare).toContainText("2 / 2");
+  await expect(compare).toContainText("Ivan Benko");
+  await compare.getByRole("button", { name: "Previous match" }).click();
+  await expect(compare).toContainText("Janez Penko");
+
+  // Cite it: Add source opens with the hit's index link.
+  await compare.getByRole("button", { name: "Add as source" }).click();
+  await expect(page.locator(".add-source-dialog .add-source-textarea")).toHaveValue(/indeks\.rodoslovje\.si\/\?t=person.*id=%40I19364%40&c=Bandelj/);
+  await page.keyboard.press("Escape");
+
+  await compare.getByRole("button", { name: /Back to the matches/ }).click();
+  await expect(hits).toHaveCount(2);
 });

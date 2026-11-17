@@ -4,9 +4,22 @@ import type { Dataset, Individual } from "../../gedcom/types";
 import { displayDateText } from "../../gedcom/dateDisplay";
 import { defaultPrivacyOptions, livingReason } from "../../tools/privacy";
 import { personQuery, searchUrl, SEARCH_SITES, type PersonQuery } from "../../online/searchLinks";
-import { fetchIndexHits, hitGedcom, hitXref, indexApiUrl, indexPersonUrl, rankHits, type IndexHit, type RankedHit } from "../../online/indexSearch";
+import {
+  fetchIndexHits,
+  hitsForComparison,
+  indexApiUrl,
+  indexPersonUrl,
+  rankHits,
+  type IndexHit,
+  type RankedHit,
+  type RankedHits,
+} from "../../online/indexSearch";
+import { individualFieldRows } from "../../review/fields";
+import type { FieldRow } from "../../review/types";
 import { useSettingsSlice } from "../SettingsContext";
+import { FieldValue } from "../FieldValue";
 import { ExternalIcon } from "../icons/ExternalIcon";
+import { ChevronIcon } from "../icons/ChevronIcon";
 
 const SETTINGS_KEYS = ["allowLinkFetch"] as const;
 
@@ -41,7 +54,7 @@ type SearchState =
   | { state: "idle" }
   | { state: "loading" }
   | { state: "error" }
-  | { state: "done"; ranked: RankedHit[] };
+  | ({ state: "done" } & RankedHits);
 
 function vital(symbol: string, date: string | undefined, place: string | undefined): string | undefined {
   const parts = [date ? displayDateText(date) : "", place ?? ""].filter(Boolean);
@@ -54,24 +67,164 @@ function relativesLine(hit: IndexHit): string {
   return [...names(hit.parents_list), ...names(hit.partners_list)].join(" · ");
 }
 
+function hitName(hit: IndexHit): string {
+  return [hit.name, hit.surname].filter(Boolean).join(" ");
+}
+
+/**
+ * The rows a comparison shows: what the index agrees with, contradicts or
+ * adds. What only the person has (their own sources, events the index never
+ * records) is left out — it says nothing about the hit. A group heading stays
+ * only over rows that do.
+ */
+function comparedRows(rows: FieldRow[]): FieldRow[] {
+  const out: FieldRow[] = [];
+  let heading: FieldRow | undefined;
+  for (const row of rows) {
+    if (row.isGroupHeader) {
+      heading = row;
+      continue;
+    }
+    if (row.state === "main-only" || row.mainSources || row.incomingSources) continue;
+    if (heading) {
+      out.push(heading);
+      heading = undefined;
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+/** One hit set against the person, field by field, as Merge would compare them. */
+function HitComparison({
+  person,
+  dataset,
+  hitsDs,
+  ranked,
+  index,
+  onIndex,
+  onBack,
+  onCite,
+}: {
+  person: Individual;
+  dataset: Dataset;
+  hitsDs: Dataset;
+  ranked: RankedHit[];
+  index: number;
+  onIndex: (i: number) => void;
+  onBack: () => void;
+  onCite: (url: string) => void;
+}) {
+  const { t } = useTranslation();
+  const { hit, id, score } = ranked[index];
+  const normalized = useMemo(() => hitsForComparison(hitsDs, dataset), [hitsDs, dataset]);
+  const rows = useMemo(() => {
+    const indi = normalized.individuals.get(id);
+    return indi ? comparedRows(individualFieldRows(t, person, indi, dataset, normalized)) : [];
+  }, [normalized, id, person, dataset, t]);
+  const url = indexPersonUrl(hit);
+
+  return (
+    <div className="person-search-compare">
+      <div className="person-search-compare-nav">
+        <button type="button" className="tools-issue-link" onClick={onBack}>
+          {t("indexSearch.back")}
+        </button>
+        <span className="person-search-compare-step">
+          <button
+            type="button"
+            className="person-search-step-btn"
+            disabled={index === 0}
+            aria-label={t("indexSearch.prev")}
+            title={t("indexSearch.prev")}
+            onClick={() => onIndex(index - 1)}
+          >
+            <ChevronIcon dir="left" size={14} />
+          </button>
+          <span className="gm-data">{t("indexSearch.position", { n: index + 1, total: ranked.length })}</span>
+          <button
+            type="button"
+            className="person-search-step-btn"
+            disabled={index === ranked.length - 1}
+            aria-label={t("indexSearch.next")}
+            title={t("indexSearch.next")}
+            onClick={() => onIndex(index + 1)}
+          >
+            <ChevronIcon dir="right" size={14} />
+          </button>
+        </span>
+      </div>
+      <div className="person-search-hit-name">
+        <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
+        <span>{hitName(hit)}</span>
+        <span className="person-search-contributor">{hit.contributor}</span>
+      </div>
+      <table className="person-search-table">
+        <thead>
+          <tr>
+            <th />
+            <th>{t("indexSearch.thisPerson")}</th>
+            <th>{t("indexSearch.site.index")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) =>
+            row.isGroupHeader ? (
+              <tr key={row.key} className="person-search-group">
+                <th colSpan={3}>{row.displayLabel ?? row.label}</th>
+              </tr>
+            ) : (
+              <tr key={row.key} className={`field ${row.state}`}>
+                <td className="f-label">{row.displayLabel ?? row.label}</td>
+                <td className="f-val gm-data" title={row.mainTitle}>
+                  <FieldValue text={row.main} links={row.mainLinks} linkIcons={row.mainLinkIcons} />
+                </td>
+                <td className="f-val gm-data" title={row.incomingTitle}>
+                  <FieldValue
+                    text={row.incoming}
+                    links={row.incomingLinks}
+                    otherLinks={row.mainLinks}
+                    linkIcons={row.incomingLinkIcons}
+                    otherLinkIcons={row.mainLinkIcons}
+                  />
+                </td>
+              </tr>
+            ),
+          )}
+        </tbody>
+      </table>
+      <div className="person-search-hit-foot">
+        <a className="tools-issue-link" href={url} target="_blank" rel="noopener noreferrer">
+          {t("indexSearch.open")}
+        </a>
+        <button type="button" className="tools-issue-link" onClick={() => onCite(url)}>
+          {t("indexSearch.cite")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The Edit view's search rail, in the Relatives rail's place: prefilled
  * search pages of the index, FamilySearch, Geni and WikiTree for the person
  * open in Edit, and — behind the "Look up details online" switch — the
  * index's own hits, asked for as soon as the rail shows the person, ranked
- * by the match score against them, each ready to compare in Merge.
+ * by the match score against them. A hit opens into a field-by-field
+ * comparison with the person, stepping from hit to hit, and its index page
+ * can be cited as a source.
  *
  * Keyed by person, so moving to another person starts a fresh search.
  */
 export function PersonSearch({
   person,
   dataset,
-  onCompare,
+  onCite,
 }: {
   person: Individual;
   dataset: Dataset;
-  /** Load one hit as the incoming file and open its pair with this person. */
-  onCompare: (mainId: string, compareId: string, fileName: string, text: string) => void;
+  /** Open Add source for this person with the hit's index link in it. */
+  onCite: (url: string) => void;
 }) {
   const { t } = useTranslation();
   const { allowLinkFetch } = useSettingsSlice(SETTINGS_KEYS);
@@ -82,9 +235,11 @@ export function PersonSearch({
   );
   const [search, setSearch] = useState<SearchState>(() => {
     const cached = query && answered.get(indexApiUrl(query));
-    return cached ? { state: "done", ranked: rankHits(person, dataset, cached) } : { state: "idle" };
+    return cached ? { state: "done", ...rankHits(person, dataset, cached) } : { state: "idle" };
   });
   const [attempt, setAttempt] = useState(0);
+  /** The hit open in the comparison, by its place in the ranked list. */
+  const [comparing, setComparing] = useState<number | null>(null);
 
   const searchable = !!query && allowLinkFetch && !living;
   // Ask the index as soon as it may be asked: on showing the person, on the
@@ -96,7 +251,7 @@ export function PersonSearch({
     setSearch({ state: "loading" });
     askIndex(query)
       .then((hits) => {
-        if (!cancelled) setSearch({ state: "done", ranked: rankHits(person, dataset, hits) });
+        if (!cancelled) setSearch({ state: "done", ...rankHits(person, dataset, hits) });
       })
       .catch(() => {
         if (!cancelled) setSearch({ state: "error" });
@@ -111,18 +266,20 @@ export function PersonSearch({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchable, attempt]);
 
-  const compare = (hit: IndexHit) => {
-    const surname = (hit.surname || "index").replace(/[^\p{L}\p{N}-]+/gu, "_");
-    onCompare(person.id, hitXref(0), `indeks-${surname}-${hit.id}.ged`, hitGedcom(hit));
-  };
-
   const retry = () => {
     setSearch({ state: "idle" });
     setAttempt((n) => n + 1);
   };
 
+  const shown = search.state === "done" ? search.ranked.slice(0, SHOWN) : [];
+  const open = search.state === "done" && searchable && comparing !== null && comparing < shown.length;
+
   return (
-    <aside className="edit-wider person-search" id="edit-search" aria-labelledby="edit-search-title">
+    <aside
+      className={`edit-wider person-search${open ? " comparing" : ""}`}
+      id="edit-search"
+      aria-labelledby="edit-search-title"
+    >
       <div className="edit-wider-head">
         <div className="edit-wider-title">
           <strong id="edit-search-title">{t("indexSearch.title")}</strong>
@@ -155,11 +312,22 @@ export function PersonSearch({
               {t("indexSearch.error")}{" "}
               <button type="button" className="tools-issue-link" onClick={retry}>{t("indexSearch.retry")}</button>
             </p>
-          ) : !search.ranked.length ? (
+          ) : !shown.length ? (
             <p className="person-search-note">{t("indexSearch.none")}</p>
+          ) : open ? (
+            <HitComparison
+              person={person}
+              dataset={dataset}
+              hitsDs={search.ds}
+              ranked={shown}
+              index={comparing}
+              onIndex={setComparing}
+              onBack={() => setComparing(null)}
+              onCite={onCite}
+            />
           ) : (
             <ol className="person-search-hits">
-              {search.ranked.slice(0, SHOWN).map(({ hit, score }) => {
+              {shown.map(({ hit, score }, i) => {
                 const facts = [
                   vital("*", hit.date_of_birth || hit.date_of_baptism, hit.place_of_birth || hit.place_of_baptism),
                   vital("†", hit.date_of_death, hit.place_of_death),
@@ -170,16 +338,15 @@ export function PersonSearch({
                   <li key={hit.id} className="person-search-hit">
                     <div className="person-search-hit-name">
                       <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
-                      <span>{[hit.name, hit.surname].filter(Boolean).join(" ")}</span>
+                      <button type="button" className="person-search-hit-open" onClick={() => setComparing(i)}>
+                        {hitName(hit)}
+                      </button>
                     </div>
                     {facts.map((f) => <div key={f} className="person-search-hit-fact">{f}</div>)}
                     {relatives && <div className="person-search-hit-relatives">{relatives}</div>}
                     <div className="person-search-hit-foot">
                       <span className="person-search-contributor">{hit.contributor}</span>
-                      <a className="tools-issue-link" href={indexPersonUrl(hit)} target="_blank" rel="noopener noreferrer">
-                        {t("indexSearch.open")}
-                      </a>
-                      <button type="button" className="tools-issue-link" onClick={() => compare(hit)}>
+                      <button type="button" className="tools-issue-link" onClick={() => setComparing(i)}>
                         {t("indexSearch.compare")}
                       </button>
                     </div>
