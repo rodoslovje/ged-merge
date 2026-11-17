@@ -107,7 +107,7 @@ export interface StackedColumn {
 /**
  * Columns of two parts stacked one on the other — what grew up below, what
  * died young above — each part listing its own rows, with a legend naming
- * the two below.
+ * the two below unless the hover tips and the card's notes name them.
  */
 export function StackedColumnChart({
   columns,
@@ -116,6 +116,7 @@ export function StackedColumnChart({
   picked,
   tones,
   labelEvery = 1,
+  legend = true,
 }: {
   columns: StackedColumn[];
   /** What the lower and the upper part stand for, in the legend. */
@@ -124,6 +125,8 @@ export function StackedColumnChart({
   tones?: [StackTone, StackTone];
   /** Write every n-th axis label only (see {@link ColumnChart}). */
   labelEvery?: number;
+  /** Name the two parts under the chart. */
+  legend?: boolean;
   onPick: (key: string, part: "lower" | "upper") => void;
   /** `key:lower` or `key:upper`. */
   picked?: string;
@@ -159,10 +162,12 @@ export function StackedColumnChart({
           </div>
         ))}
       </div>
-      <div className="stats-pair-legend">
-        <span className={`stats-stack-lower${stackToneClass(tones?.[0])}`}>{names[0]}</span>
-        <span className={`stats-stack-upper${stackToneClass(tones?.[1])}`}>{names[1]}</span>
-      </div>
+      {legend && (
+        <div className="stats-pair-legend">
+          <span className={`stats-stack-lower${stackToneClass(tones?.[0])}`}>{names[0]}</span>
+          <span className={`stats-stack-upper${stackToneClass(tones?.[1])}`}>{names[1]}</span>
+        </div>
+      )}
     </div>
   );
 }

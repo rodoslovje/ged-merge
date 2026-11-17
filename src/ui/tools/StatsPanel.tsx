@@ -1026,18 +1026,20 @@ export function StatsPanel({
                 <StackedColumnChart
                   names={names}
                   labelEvery={periodPointStep(life.childSurvival.length)}
+                  legend={false}
                   picked={pickedIn("childSurvival")}
                   columns={life.childSurvival.map<StackedColumn>((p) => {
-                    const part = (name: string, v: number, ids: string[]) => ({
-                      value: v,
-                      tip: t("stats.periodTip", { from: p.from, to: p.to, value: `${name} ${dec(v)}`, n: num(p.n) }),
-                      count: ids.length,
+                    // Either part's tip tells the whole column: the legend is gone.
+                    const tip = t("stats.childSurvivalTip", {
+                      from: p.from, to: p.to, age: ADULT_AGE, grown: dec(p.grown), died: dec(p.died),
+                      share: pct(p.grownIds.length, p.grownIds.length + p.diedIds.length), n: num(p.n),
                     });
+                    const part = (v: number, ids: string[]) => ({ value: v, tip, count: ids.length });
                     return {
                       key: String(p.from),
                       label: periodPointLabel(p),
-                      lower: part(names[0], p.grown, p.grownIds),
-                      upper: part(names[1], p.died, p.diedIds),
+                      lower: part(p.grown, p.grownIds),
+                      upper: part(p.died, p.diedIds),
                       top: p.grownIds.length + p.diedIds.length ? pct(p.grownIds.length, p.grownIds.length + p.diedIds.length) : undefined,
                     };
                   })}
