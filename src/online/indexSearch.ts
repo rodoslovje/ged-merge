@@ -94,6 +94,12 @@ export function contributorSource(contributor: string): { name: string; kind: Co
   return { name: contributor, kind: "tree" };
 }
 
+/** The genealogist's own page on the index website (one page for their tree
+ *  and their other sources alike, as the index links it). */
+export function contributorUrl(contributor: string): string {
+  return `${INDEX_SITE}?${new URLSearchParams({ t: "contributors", c: contributorSource(contributor).name }).toString()}`;
+}
+
 /** Contributor names as the index takes them: trimmed, comma-separated, no blanks. */
 export function contributorList(names: string): string[] {
   return names.split(",").map((n) => n.trim()).filter(Boolean);
@@ -112,6 +118,7 @@ export function indexApiUrl(q: PersonQuery, exclude: readonly string[] = []): st
   if (q.deathFrom !== undefined) p.set("date_of_death", String(q.deathFrom));
   if (q.deathTo !== undefined) p.set("date_of_death_to", String(q.deathTo));
   if (exclude.length) p.set("exclude_contributor", exclude.join(","));
+  if (q.exact) p.set("exact", "true");
   p.set("same_as", "true");
   p.set("limit", String(HIT_LIMIT));
   return `${INDEX_API}?${p.toString()}`;

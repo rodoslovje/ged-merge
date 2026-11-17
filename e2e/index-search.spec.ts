@@ -47,6 +47,12 @@ const HITS = [
     date_of_birth: "1862", parents_list: null, partners_list: null, links: null,
     same_as: [{ contributor: "Bandelj", ext_id: "@I19364@", name: "Janez", surname: "Penko" }],
   },
+  {
+    // A second record of him in the same tree: one "Mamić ×2", not two.
+    id: 4, ext_id: "@I9@", contributor: "Mamić", name: "Janez", surname: "Penko", sex: "m",
+    date_of_birth: "ABT 1862", parents_list: null, partners_list: null, links: null,
+    same_as: [{ contributor: "Bandelj", ext_id: "@I19364@", name: "Janez", surname: "Penko" }],
+  },
 ];
 
 async function openPerson(page: Page, fetch: boolean): Promise<string[]> {
@@ -115,13 +121,14 @@ test("index hits are ranked against the person and compared with them one by one
   await expect(hits.first()).toContainText("Jurij Penko");
   // One person in three trees: the reader's own (marked), Mamić (a hit), Hawlina.
   await expect(hits.first()).toContainText("Already in your tree");
-  await expect(hits.first().locator(".person-search-also")).toHaveText("Also in: Mamić · Hawlina");
+  await expect(hits.first().locator(".person-search-also")).toHaveText("Also in: Mamić ×2 · Hawlina");
   await expect(page.locator(".edit-wider-count")).toHaveText("312");
   // A register transcription shows as the genealogist with the register's icon.
   const register = hits.nth(1).locator(".person-search-contributor");
   await expect(register).toHaveText("⛪Markovič");
-  await expect(register).toHaveAttribute("title", "Parish-register index (Matricula) — Markovič");
-  await expect(page.locator("#edit-search")).toContainText("The index has 312 matches for this search; the best 3 are ranked here.");
+  await expect(register).toHaveAttribute("title", "Parish-register index (Matricula) — Markovič\nOpen the genealogist's page on the index");
+  await expect(register).toHaveAttribute("href", "https://indeks.rodoslovje.si/?t=contributors&c=Markovi%C4%8D");
+  await expect(page.locator("#edit-search")).toContainText("The index has 312 matches for this search; the best 4 are ranked here.");
   expect(asked).toHaveLength(1);
   expect(asked[0]).toContain("surname=Penko");
   expect(asked[0]).toContain("exclude_contributor=Penko");
@@ -131,19 +138,25 @@ test("index hits are ranked against the person and compared with them one by one
   // A hit opens into a comparison with the person, in the rail.
   await hits.first().getByRole("button", { name: "Compare" }).click();
   const compare = page.locator(".person-search-compare");
-  await expect(compare).toContainText("1 / 3");
+  await expect(compare).toContainText("1 / 4");
   const death = compare.locator("tr.field.incoming-only", { hasText: "1927" });
   await expect(death).toHaveCount(1);
   await expect(compare.locator("tr.field.agree", { hasText: "Penko" }).first()).toBeVisible();
 
-  // Step through the same person's other tree, then the next person.
-  await compare.getByRole("button", { name: "Next match" }).click();
-  await expect(compare).toContainText("2 / 3");
+  // Step through the same person's records in other trees (both of Mamić's),
+  // then on to the next person, and back.
+  const next = compare.getByRole("button", { name: "Next match" });
+  const prev = compare.getByRole("button", { name: "Previous match" });
+  await next.click();
+  await expect(compare).toContainText("2 / 4");
   await expect(compare).toContainText("Mamić");
-  await compare.getByRole("button", { name: "Next match" }).click();
+  await next.click();
+  await expect(compare).toContainText("3 / 4");
+  await expect(compare).toContainText("Mamić");
+  await next.click();
   await expect(compare).toContainText("Ivan Benko");
-  await compare.getByRole("button", { name: "Previous match" }).click();
-  await compare.getByRole("button", { name: "Previous match" }).click();
+  for (let i = 0; i < 3; i++) await prev.click();
+  await expect(compare).toContainText("1 / 4");
   await expect(compare).toContainText("Bandelj");
 
   // Cite it: Add source opens with the hit's index link.
@@ -155,4 +168,11 @@ test("index hits are ranked against the person and compared with them one by one
 
   await compare.getByRole("button", { name: /Back to the matches/ }).click();
   await expect(hits).toHaveCount(2);
+
+  // Exact names: asked again, with the index's exact match, and remembered.
+  await page.getByRole("checkbox", { name: "Exact names" }).check();
+  await expect(hits).toHaveCount(2);
+  await expect.poll(() => asked.length).toBe(2);
+  expect(asked[1]).toContain("exact=true");
+  await expect(page.getByRole("link", { name: "Genealogical index" })).toHaveAttribute("href", /ex=1/);
 });

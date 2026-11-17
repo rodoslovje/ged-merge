@@ -8,6 +8,7 @@ import {
   clusterHits,
   contributorList,
   contributorSource,
+  contributorUrl,
   type ContributorKind,
   fetchIndexHits,
   hitsForComparison,
@@ -23,12 +24,12 @@ import {
 import { individualFieldRows } from "../../review/fields";
 import { SITE_ICON } from "../../tools/sourceReshape/urls";
 import type { FieldRow } from "../../review/types";
-import { useSettingsSlice } from "../SettingsContext";
+import { useSetSettings, useSettingsSlice } from "../SettingsContext";
 import { FieldValue } from "../FieldValue";
 import { ExternalIcon } from "../icons/ExternalIcon";
 import { ChevronIcon } from "../icons/ChevronIcon";
 
-const SETTINGS_KEYS = ["allowLinkFetch", "indexContributor"] as const;
+const SETTINGS_KEYS = ["allowLinkFetch", "indexContributor", "indexExact"] as const;
 
 /** How many people (groups of matched hits) the rail lists. */
 const SHOWN = 10;
@@ -98,18 +99,38 @@ const KIND_ICON: Record<Exclude<ContributorKind, "tree">, string> = {
 
 /** A contributor as the reader knows them: the genealogist's name, with an
  *  icon (and its tip) for records that are not their tree — "Markovič-matricula"
- *  shows as ⛪ Markovič. */
-function Contributor({ contributor, className }: { contributor: string; className?: string }) {
+ *  shows as ⛪ Markovič. With `link`, the name opens their page on the index. */
+function Contributor({ contributor, className, link }: { contributor: string; className?: string; link?: boolean }) {
   const { t } = useTranslation();
   const { name, kind } = contributorSource(contributor);
-  if (kind === "tree") return <span className={className}>{name}</span>;
-  const label = t(`indexSearch.kind.${kind}`);
-  return (
-    <span className={className} title={`${label} — ${name}`}>
-      <span className="person-search-kind" role="img" aria-label={label}>{KIND_ICON[kind]}</span>
+  const label = kind === "tree" ? undefined : t(`indexSearch.kind.${kind}`);
+  const title = [label && `${label} — ${name}`, link && t("indexSearch.contributorPage")].filter(Boolean).join("\n") || undefined;
+  const body = (
+    <>
+      {label && <span className="person-search-kind" role="img" aria-label={label}>{KIND_ICON[kind as Exclude<ContributorKind, "tree">]}</span>}
       {name}
-    </span>
+    </>
   );
+  return link ? (
+    <a className={`${className ?? ""} person-search-contributor-link`} href={contributorUrl(contributor)} target="_blank" rel="noopener noreferrer" title={title}>
+      {body}
+    </a>
+  ) : (
+    <span className={className} title={title}>{body}</span>
+  );
+}
+
+/** One contributor can hold several records of the same person (two entries
+ *  of one grave, a baptism and a burial): list each contributor once, with
+ *  its records in ranking order. */
+function byContributor(members: readonly RankedHit[]): [string, RankedHit[]][] {
+  const groups = new Map<string, RankedHit[]>();
+  for (const m of members) {
+    const list = groups.get(m.hit.contributor);
+    if (list) list.push(m);
+    else groups.set(m.hit.contributor, [m]);
+  }
+  return [...groups];
 }
 
 function hitName(hit: IndexHit): string {
@@ -202,7 +223,7 @@ function HitComparison({
       <div className="person-search-hit-name">
         <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
         <span>{hitName(hit)}</span>
-        <Contributor contributor={hit.contributor} className="person-search-contributor" />
+        <Contributor contributor={hit.contributor} className="person-search-contributor" link />
       </div>
       <table className="person-search-table">
         <thead>
@@ -272,10 +293,14 @@ export function PersonSearch({
   onCite: (url: string) => void;
 }) {
   const { t } = useTranslation();
-  const { allowLinkFetch, indexContributor } = useSettingsSlice(SETTINGS_KEYS);
+  const { allowLinkFetch, indexContributor, indexExact } = useSettingsSlice(SETTINGS_KEYS);
+  const setSettings = useSetSettings();
   const own = useMemo(() => contributorList(indexContributor), [indexContributor]);
   const ownKey = own.join(",");
-  const query = useMemo(() => personQuery(person, dataset), [person, dataset]);
+  const query = useMemo(() => {
+    const q = personQuery(person, dataset);
+    return q && indexExact ? { ...q, exact: true } : q;
+  }, [person, dataset, indexExact]);
   const living = useMemo(
     () => !!livingReason(person, dataset, defaultPrivacyOptions(), new Date().getFullYear()),
     [person, dataset],
@@ -290,8 +315,8 @@ export function PersonSearch({
 
   const searchable = !!query && allowLinkFetch && !living;
   // Ask the index as soon as it may be asked: on showing the person, on the
-  // switch being turned on, on a changed own-tree name, and again on "Try
-  // again". An answer already held (the cache) leaves nothing to ask.
+  // switch being turned on, on a changed own-tree name or exact choice, and
+  // again on "Try again". An answer already held (the cache) leaves nothing to ask.
   useEffect(() => {
     if (!searchable || !query) return;
     const cached = answered.get(indexApiUrl(query, own));
@@ -317,7 +342,7 @@ export function PersonSearch({
     // Person and dataset are fixed per mount (the rail is keyed by person);
     // `attempt` re-runs the search after an error.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchable, attempt, ownKey]);
+  }, [searchable, attempt, ownKey, indexExact]);
 
   const retry = () => {
     setSearch({ state: "idle" });
@@ -353,7 +378,22 @@ export function PersonSearch({
       </div>
       {query && (
         <div className="edit-wider-body person-search-index">
-          <h3 className="person-search-index-title">{t("indexSearch.site.index")}</h3>
+          <div className="person-search-index-head">
+            <h3 className="person-search-index-title">{t("indexSearch.site.index")}</h3>
+            {searchable && (
+              <label className="person-search-exact" title={t("indexSearch.exact.hint")}>
+                <input
+                  type="checkbox"
+                  checked={indexExact}
+                  onChange={(e) => {
+                    setComparing(null);
+                    setSettings({ indexExact: e.target.checked });
+                  }}
+                />
+                {t("indexSearch.exact")}
+              </label>
+            )}
+          </div>
           {living ? (
             <p className="person-search-note">{t("indexSearch.living")}</p>
           ) : !allowLinkFetch ? (
@@ -404,29 +444,34 @@ export function PersonSearch({
                       {(others.length > 0 || cluster.alsoIn.length > 0) && (
                         <div className="person-search-also">
                           {t("indexSearch.alsoIn")}{" "}
-                          {others.map((m, j) => (
-                            <span key={m.hit.id}>
+                          {byContributor(others).map(([contributor, records], j) => (
+                            <span key={contributor}>
                               {j > 0 && " · "}
                               <button
                                 type="button"
                                 className="tools-issue-link"
                                 title={t("indexSearch.compareThis")}
-                                onClick={() => setComparing(at(m))}
+                                onClick={() => setComparing(at(records[0]))}
                               >
-                                <Contributor contributor={m.hit.contributor} />
+                                <Contributor contributor={contributor} />
+                                {records.length > 1 && (
+                                  <span className="person-search-times" title={t("indexSearch.records", { n: records.length })}>
+                                    {` ×${records.length}`}
+                                  </span>
+                                )}
                               </button>
                             </span>
                           ))}
                           {cluster.alsoIn.map((c, j) => (
                             <span key={c}>
                               {(others.length > 0 || j > 0) && " · "}
-                              <Contributor contributor={c} />
+                              <Contributor contributor={c} link />
                             </span>
                           ))}
                         </div>
                       )}
                       <div className="person-search-hit-foot">
-                        <Contributor contributor={hit.contributor} className="person-search-contributor" />
+                        <Contributor contributor={hit.contributor} className="person-search-contributor" link />
                         <button type="button" className="tools-issue-link" onClick={() => setComparing(at(cluster.members[0]))}>
                           {t("indexSearch.compare")}
                         </button>

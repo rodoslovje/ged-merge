@@ -106,6 +106,11 @@ describe("search addresses", () => {
     expect(url.searchParams.get("exclude_contributor")).toBe("Renko,Renko-matricula");
     expect(new URL(indexApiUrl(q)).searchParams.has("exclude_contributor")).toBe(false);
   });
+  it("asks for exact names only when the reader chose them, on the API and the index site alike", () => {
+    expect(new URL(indexApiUrl(q)).searchParams.has("exact")).toBe(false);
+    expect(new URL(indexApiUrl({ ...q, exact: true })).searchParams.get("exact")).toBe("true");
+    expect(new URL(searchUrl("index", { ...q, exact: true })).searchParams.get("ex")).toBe("1");
+  });
   it("prefills each site", () => {
     expect(searchUrl("familysearchTree", q)).toContain("/search/tree/results?q.givenName=Janez&q.surname=Penko&q.birthLikeDate.from=1860");
     expect(searchUrl("familysearchRecords", q)).toContain("/search/record/results?");

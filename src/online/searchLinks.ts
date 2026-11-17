@@ -21,6 +21,9 @@ export interface PersonQuery {
   deathTo?: number;
   /** The most specific part of the birth place (the village or town). */
   birthPlace?: string;
+  /** Names exactly as written (the index's `exact`), not its fuzzy match.
+   *  The reader's choice, never set by {@link personQuery}. */
+  exact?: boolean;
 }
 
 /** Years either side of a stated birth year: an exact date still differs by a
@@ -101,7 +104,7 @@ export function searchUrl(site: SearchSite, q: PersonQuery): string {
   switch (site) {
     case "index":
       // The index website's own short parameters (its lib/url.js PARAM_MAP);
-      // ex=0 asks for its approximate (fuzzy) search, as the API call does.
+      // ex=0 asks for its approximate (fuzzy) search, ex=1 for exact names — as the API call does.
       return withParams(INDEX_SITE, {
         t: "person",
         n: q.given,
@@ -110,7 +113,7 @@ export function searchUrl(site: SearchSite, q: PersonQuery): string {
         dobt: q.birthTo,
         dod: q.deathFrom,
         dodt: q.deathTo,
-        ex: 0,
+        ex: q.exact ? 1 : 0,
       });
     case "familysearchTree":
       return familySearch("tree", q);

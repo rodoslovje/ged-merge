@@ -139,6 +139,8 @@ export interface AppSettings extends NameDisplayOptions {
   /** The reader's own contributor name(s) on the genealogical index, comma
    *  separated: their own tree is left out of index search hits. */
   indexContributor: string;
+  /** Index searches match names exactly instead of the index's fuzzy match. */
+  indexExact: boolean;
   /** Allow the Map chart to load base-map tiles from the tile provider
    *  (opt-in: tile requests reveal the viewed region). Until enabled the map
    *  draws on the bundled offline world outline. */
@@ -217,6 +219,7 @@ const DEFAULTS: AppSettings = {
   dateDisplay: "",
   allowLinkFetch: false,
   indexContributor: "",
+  indexExact: false,
   allowMapTiles: false,
   showEditMap: true,
   widerFamily: { open: true, controls: false, ancestors: 2, descendants: 1, others: 1, partners: false },
@@ -470,6 +473,7 @@ function load(): AppSettings {
           : DEFAULTS.dateDisplay,
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
       indexContributor: typeof parsed.indexContributor === "string" ? parsed.indexContributor : DEFAULTS.indexContributor,
+      indexExact: bool(parsed.indexExact, DEFAULTS.indexExact),
       allowMapTiles: bool(parsed.allowMapTiles, DEFAULTS.allowMapTiles),
       // Legacy home of this preference (before it moved into Settings).
       showEditMap: bool(parsed.showEditMap, localStorage.getItem("gedmerge-edit-map-hidden") !== "true"),
