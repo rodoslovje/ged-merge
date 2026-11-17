@@ -420,6 +420,13 @@
               with another is not that other village.
             </p>
             <p>
+              Upper levels your file never writes take your file's own chain. An incoming file that names a village's
+              crown land and empire as they were — <em>Griblje, Vojvodina Kranjska, Avstrijsko cesarstvo</em> — gets
+              <em>Griblje, Črnomelj, Slovenia</em> once at least three of its villages show those names standing for one
+              of your countries. A village your file writes under two municipalities, and a level naming a place your
+              file knows elsewhere, stay as written.
+            </p>
+            <p>
               GED Merge also reconciles the two files' <strong>GEDCOM version</strong>. If the incoming file uses a
               different version than your main file (5.5.1 vs 7.0), it is migrated to your file's version on load: shared
               notes (<code>NOTE</code> ⇄ <code>SNOTE</code>), date phrases and dual-year dates, age keywords, association
@@ -1317,7 +1324,8 @@
             <p>
               Places arrive with their coordinates. A place written by the merge takes the coordinate your file already
               holds for that exact place and address, so merged events sit on the map beside everything else instead of
-              waiting for a round of geocoding. A place the incoming file coordinated itself keeps its own; where neither
+              waiting for a round of geocoding. Where your file pins every house of a village at one spot, a new house
+              there takes that spot too. A place the incoming file coordinated itself keeps its own; where neither
               file knows the pair, or the file holds two positions that disagree, the event arrives without one and the
               <a href="#validate">health check</a> (<a href="#tools">§10</a>) says so.
             </p>
