@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { en } from "../locales/en";
 import { sl } from "../locales/sl";
-import { HISTORY_EVENTS, historyPresence, historyYears, pickHistoryEvents } from "./historyEvents";
+import { HISTORY_EVENTS, historyCountries, historyKey, historyPresence, historyYears, pickHistoryEvents } from "./historyEvents";
 
 function ds(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -65,6 +65,18 @@ describe("pickHistoryEvents", () => {
     expect(us).toContain("ellisIsland");
     expect(us).not.toContain("illyria");
     expect(us).not.toContain("revolutions1848");
+  });
+
+  it("names the countries of an enlargement the people lived in", () => {
+    const family = [
+      { countries: new Set(["si"]), from: 1950, to: 2026 },
+      { countries: new Set(["at"]), from: 1930, to: 1990 },
+    ];
+    const eu = pickHistoryEvents(family, 1900, 2030).filter((e) => e.id === "euJoin");
+    // Slovenia's 2004 only: the Austrian died before Austria's 1995.
+    expect(eu.map((e) => e.from)).toEqual([2004]);
+    expect(historyCountries(eu[0], family)).toEqual(["si"]);
+    expect(historyKey(eu[0])).toBe("euJoin-2004");
   });
 
   it("keeps to the axis", () => {

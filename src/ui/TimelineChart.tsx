@@ -32,7 +32,8 @@ import { useNodeColorer } from "./useNodeColorer";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { ChartLegend } from "./ChartLegend";
 import { usePublishedSettings } from "./PublishedView";
-import { historyPresence, historyYears, pickHistoryEvents } from "../chart/historyEvents";
+import { historyCountries, historyKey, historyPresence, historyYears, pickHistoryEvents } from "../chart/historyEvents";
+import { countryFacetName } from "../geo/placeCountry";
 import { useHomeCountry } from "./DatasetDerivations";
 
 // Full-page family Timeline: the root person and their immediate family
@@ -148,7 +149,7 @@ interface Props {
 }
 
 export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings } = useChartSettings();
   const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
@@ -197,8 +198,15 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     if (!historyOn || !data || data.minYear === undefined || data.maxYear === undefined) return [];
     const x0 = Math.floor(data.minYear / TICK_STEP) * TICK_STEP;
     const x1 = Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP;
-    return pickHistoryEvents(historyPresence(mainDs, data.rows, homeCountry), x0, x1);
-  }, [historyOn, data, mainDs, homeCountry]);
+    const presence = historyPresence(mainDs, data.rows, homeCountry);
+    // An event shared by several countries names the ones the people lived in.
+    return pickHistoryEvents(presence, x0, x1).map((e) => {
+      const countries = e.namesCountries
+        ? historyCountries(e, presence).map((c) => countryFacetName(c, i18n.language)).join(", ")
+        : "";
+      return { ...e, key: historyKey(e), text: `${historyYears(e)} ${t(`history.${e.id}`, { countries })}` };
+    });
+  }, [historyOn, data, mainDs, homeCountry, t, i18n.language]);
 
   // Axis domain: the data range rounded outward to whole decades, so the chart
   // always opens and closes on a labelled gridline (e.g. 1930 … 2030).
@@ -214,7 +222,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     // order, each into the first lane where it clears its left neighbour.
     const laneEnd: number[] = [];
     const events = history.map((e) => {
-      const text = `${historyYears(e)} ${t(`history.${e.id}`)}`;
+      const text = e.text;
       const x = xOf(e.from);
       let lane: number | undefined = laneEnd.findIndex((end) => x >= end);
       if (lane < 0) lane = laneEnd.length < HIST_LANES ? laneEnd.length : undefined;
@@ -228,7 +236,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     const topH = AXIS_H + laneEnd.length * HIST_LANE_H;
     const contentH = topH + data.rows.length * rowH;
     return { x0, x1, contentW, contentH, topH, xOf, ticks, events };
-  }, [data, rowH, history, t]);
+  }, [data, rowH, history]);
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching.
   const kinship = useMemo(
@@ -398,7 +406,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       <g className="timeline-history-bands">
         {g.events.map((e) =>
           e.w > 0 ? (
-            <rect key={e.id} x={e.x} y={AXIS_H - 8} width={e.w} height={height - AXIS_H + 8}>
+            <rect key={e.key} x={e.x} y={AXIS_H - 8} width={e.w} height={height - AXIS_H + 8}>
               <title>{e.text}</title>
             </rect>
           ) : null,
@@ -409,7 +417,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       {g.events.map((e) => {
         const laneY = e.lane !== undefined ? AXIS_H + e.lane * HIST_LANE_H : 0;
         return (
-          <g key={e.id} className="timeline-history">
+          <g key={e.key} className="timeline-history">
             <title>{e.text}</title>
             {e.w === 0 && <line className="timeline-history-line" x1={e.x} y1={AXIS_H - 8} x2={e.x} y2={height} />}
             {e.lane !== undefined && (
