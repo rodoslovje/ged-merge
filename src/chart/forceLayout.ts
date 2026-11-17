@@ -30,6 +30,8 @@ export interface ForceOptions {
   gap?: number;
 }
 
+const GRAVITY = 0.3;
+
 /** Positions of the circles' centres in a `width` × `height` box. */
 export function forceLayout(nodes: ForceNode[], edges: ForceEdge[], width: number, height: number, opts: ForceOptions = {}): Point[] {
   const n = nodes.length;
@@ -90,6 +92,9 @@ export function forceLayout(nodes: ForceNode[], edges: ForceEdge[], width: numbe
         const ex = pos[i].x - pos[j].x;
         const ey = pos[i].y - pos[j].y;
         const d = Math.max(Math.hypot(ex, ey), 1);
+        // Far apart, circles no longer push: loose groups stay near the rest
+        // instead of being driven to the walls.
+        if (d > 3 * k) continue;
         const f = (k * k) / d / d;
         dx[i] += ex * f;
         dy[i] += ey * f;
@@ -108,9 +113,10 @@ export function forceLayout(nodes: ForceNode[], edges: ForceEdge[], width: numbe
       dy[e.b] += ey * f;
     });
     for (let i = 0; i < n; i++) {
-      // A gentle pull to the middle keeps loose groups from drifting to the walls.
-      dx[i] += (cx - pos[i].x) * 0.02;
-      dy[i] += (cy - pos[i].y) * 0.02;
+      // A pull to the middle holds the groups together, the stronger across
+      // the box's short side so the picture fills its width.
+      dx[i] += (cx - pos[i].x) * GRAVITY;
+      dy[i] += (cy - pos[i].y) * GRAVITY * (width / height);
       const d = Math.hypot(dx[i], dy[i]);
       if (d > 0) {
         const step = Math.min(d, temp);

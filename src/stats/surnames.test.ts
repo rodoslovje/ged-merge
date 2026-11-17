@@ -70,7 +70,7 @@ describe("surnameNetwork", () => {
     expect(net.nodes.map((n) => n.label)).toEqual(["Novak", "Kralj"]);
   });
 
-  it("keeps the surnames with the most marriages to others", () => {
+  it("takes the strongest pairs until the surnames are full, never half a pair", () => {
     const net = surnameNetwork(surnameMarriages(scoped(FILE)), 1, 1);
     expect(net.nodes).toHaveLength(0);
     const two = surnameNetwork(surnameMarriages(scoped(FILE)), 2, 1);

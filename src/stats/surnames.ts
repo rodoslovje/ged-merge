@@ -96,22 +96,23 @@ export function surnameMarriages(s: ScopedFacts): SurnameMarriages {
   };
 }
 
-/** What the marriage network draws: the surnames with the most marriages to
- *  other surnames, and the pairs among them that married at least `minPair`
- *  times. A surname left without a line is left out. */
+/** What the marriage network draws: the surnames of the strongest pairs (at
+ *  least `minPair` marriages), strongest first, until `top` surnames are in,
+ *  and every such pair among them. */
 export function surnameNetwork(m: SurnameMarriages, top = NETWORK_TOP, minPair = NETWORK_MIN_PAIR): { nodes: SurnameNode[]; pairs: SurnamePair[] } {
+  const strong = m.pairs.filter((p) => p.ids.length >= minPair);
+  const chosen = new Set<string>();
+  for (const p of strong) {
+    const room = top - chosen.size;
+    if (room <= 0) break;
+    const missing = (chosen.has(p.a) ? 0 : 1) + (chosen.has(p.b) ? 0 : 1);
+    if (missing > room) continue;
+    chosen.add(p.a);
+    chosen.add(p.b);
+  }
   const across = (n: SurnameNode) => n.ids.length - n.within.length;
-  const chosen = new Set(
-    [...m.nodes.values()]
-      .filter((n) => across(n) > 0)
-      .sort((a, b) => across(b) - across(a) || byLabel.compare(a.label, b.label))
-      .slice(0, top)
-      .map((n) => n.key),
-  );
-  const pairs = m.pairs.filter((p) => p.ids.length >= minPair && chosen.has(p.a) && chosen.has(p.b));
-  const linked = new Set(pairs.flatMap((p) => [p.a, p.b]));
-  const nodes = [...m.nodes.values()]
-    .filter((n) => linked.has(n.key))
+  const nodes = [...chosen]
+    .map((key) => m.nodes.get(key)!)
     .sort((a, b) => across(b) - across(a) || byLabel.compare(a.label, b.label));
-  return { nodes, pairs };
+  return { nodes, pairs: strong.filter((p) => chosen.has(p.a) && chosen.has(p.b)) };
 }
