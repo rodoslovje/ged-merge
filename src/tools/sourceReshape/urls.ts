@@ -4,8 +4,10 @@ import { bookKeyOf, pageParamOf } from "../../gedcom/source";
 import {
   type FamilySearchUrlParts,
   familySearchImageNumber as imageNumber,
+  indeksPersonUrl,
   linkKey,
   parseFamilySearchUrl,
+  parseIndeksUrl,
 } from "../../normalize/links";
 import { SITE_REPO } from "./apply";
 import { withScheme } from "../../gedcom/uri";
@@ -342,6 +344,24 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
     }
   }
 
+  const indeks = parseIndeksUrl(url);
+  if (indeks) {
+    if (!sites.has("indeks")) return undefined;
+    // A person in one contributor's tree (or their -matricula / -geneanet /
+    // -military transcriptions): the contributor is the source's author, as a
+    // Geneanet tree's owner is — `{person} - {contributor} - Slovenski
+    // rodoslovni indeks`. The URL carries the name as written, diacritics
+    // and all, so nothing is left for an online lookup to add.
+    const who = [indeks.given, indeks.surname].filter(Boolean).join(" ");
+    return {
+      site: "indeks",
+      groupKey: `ri:${indeks.contributor.toLowerCase()}:${indeks.id.toLowerCase()}`,
+      bookUrl: indeksPersonUrl(indeks),
+      proposed: { title: siteTitle(who || undefined, indeks.contributor, "Slovenski rodoslovni indeks"), author: indeks.contributor },
+      titleRank: who ? 2 : 0,
+    };
+  }
+
   const bg = BILLIONGRAVES_RE.exec(url.trim());
   if (bg) {
     if (!sites.has("billiongraves")) return undefined;
@@ -657,6 +677,7 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   matricula: "⛪",
   geneanet: "🪦",
   geneanettree: "🌲",
+  indeks: "🇸🇮",
   findagrave: "🪦",
   billiongraves: "🪦",
   legacy: "📰",
@@ -705,12 +726,22 @@ const SITE_QUAY: Partial<Record<ReshapeSite, string>> = {
  *  is the register page itself, a `1:1` ark is one indexed entry read off such
  *  a page, and a tree page is somebody's conclusions. */
 export function siteQuay(site: ReshapeSite, url: string | undefined): string | undefined {
+  if (site === "indeks") return indeksQuay(url);
   if (site !== "familysearch") return SITE_QUAY[site];
   const kind = url ? parseFamilySearchUrl(url)?.kind : undefined;
   if (kind === "image") return "3";
   if (kind === "record") return "2";
   if (kind === "tree") return "1";
   return undefined;
+}
+
+/** An index record is a contributor's tree — another researcher's conclusions
+ *  (`1`) — unless it sits under one of their transcription suffixes: a parish
+ *  register (`-matricula`), a gravestone (`-geneanet`) or a military record
+ *  (`-military`) read into the index, each a secondary record (`2`). */
+function indeksQuay(url: string | undefined): string {
+  const contributor = url ? parseIndeksUrl(url)?.contributor : undefined;
+  return contributor && /-(?:matricula|geneanet|military)$/i.test(contributor) ? "2" : "1";
 }
 
 const siteIconCache = new Map<string, string | undefined>();
