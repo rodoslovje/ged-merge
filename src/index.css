@@ -4768,6 +4768,86 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+/* Search elsewhere: the button beside delete and the panel under the header. */
+.edit-search-btn {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  padding: 5px 8px;
+  transition: background 0.12s;
+}
+.edit-search-btn + .edit-delete-btn { margin-left: 0; }
+.edit-search-btn:hover { background: var(--panel-2); color: var(--text); }
+.edit-search-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+.edit-search-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.person-search {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  font-size: 0.9rem;
+}
+.person-search-sites {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px 12px;
+}
+.person-search-label { color: var(--muted); }
+.person-search-site {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.person-search-site:hover { text-decoration: underline; }
+.person-search-index { margin-top: 8px; }
+.person-search-note { margin: 0; color: var(--muted); }
+.person-search-index > .person-search-note:not(:first-child) { margin-top: 4px; }
+.person-search-hits {
+  list-style: none;
+  margin: 4px 0 0; padding: 0;
+}
+.person-search-hit {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.person-search-hit:first-child { border-top: none; }
+.person-search-score {
+  flex: none;
+  min-width: 2.2em;
+  text-align: center;
+  padding: 1px 4px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.person-search-hit-body { flex: 1; min-width: 0; }
+.person-search-hit-name { font-weight: 600; }
+.person-search-contributor {
+  margin-left: 8px;
+  font-weight: normal;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.person-search-hit-facts,
+.person-search-hit-relatives { color: var(--muted); overflow-wrap: anywhere; }
+.person-search-hit-actions {
+  flex: none;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+}
+@media (max-width: 560px) {
+  .person-search-hit { flex-wrap: wrap; }
+  .person-search-hit-actions { flex-direction: row; gap: 12px; width: 100%; justify-content: flex-end; }
+}
+
 .chev { color: var(--muted); }
 
 .breakdown {

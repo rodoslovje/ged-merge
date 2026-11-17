@@ -133,6 +133,8 @@ import { collectMediaRefs, mediaNodeAt, type MediaAddress, type MediaRef } from 
 import { SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { leftTarget, useDropHighlight } from "./useDropHighlight";
 import { TrashIcon } from "./icons/TrashIcon";
+import { SearchIcon } from "./icons/SearchIcon";
+import { PersonSearch } from "./edit/PersonSearch";
 
 
 interface Props {
@@ -152,6 +154,8 @@ interface Props {
   /** Open the Charts hub on this person — at the last-used kind, or a specific
    *  one (the V/R shortcuts deep-link to a pedigree chart / the relationship). */
   onShowCharts: (id: string, kind?: ChartKind) => void;
+  /** "Compare" on an index search hit: load it as the incoming file and open its pair. */
+  onCompareIndexHit: (mainId: string, compareId: string, fileName: string, text: string) => void;
   /** True when the main file records married surnames inline as `_MARNM`, so
    * the name editor offers a married-name field. */
   marriedNameTag?: boolean;
@@ -241,7 +245,7 @@ const SETTINGS_KEYS = ["order", "showAge", "showEditMap", "showKinship", "quickE
 /** Edit mode's person view: parents on top, the selected person in the
  * center, partners + children on the bottom. The center panel is editable;
  * relatives navigate on click. */
-export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, matches, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
+export function EditView({ dataset, fileName, startId, changeStart, onDirty, onRecordsSettled, onShowCharts, onCompareIndexHit, marriedNameTag, navigateToId, onNavigated, historyToId, onHistoryNavigated, onPersonChange, canGoBack, onGoBack, matchCompareIdFor, matchOrder, decisions, matches, changedPersonIds, compareDataset, onUpdateDecision, onPushEdit, onPatchApplied, pendingApply, onApplied, externalEditGen, addPersonRequest, active }: Props) {
   const { t } = useTranslation();
   const formatName = useNameOf();
   const settings = useSettingsSlice(SETTINGS_KEYS);
@@ -278,6 +282,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const noteBaselineRef = useRef(new Map<string, string[]>());
   // Whether the user has clicked "+ Add note" for the current person.
   const [notesAdded, setNotesAdded] = useState(false);
+  /** The "search elsewhere" panel under the person header; stays open from person to person. */
+  const [searchOpen, setSearchOpen] = useState(false);
   // Whether the user has clicked "+ FamilySearch ID" for the current person.
   const [fsIdAdded, setFsIdAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
@@ -2010,17 +2016,29 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               }
               modified={changedPersonIds.has(person.id)}
               controls={
-                <button
-                  type="button"
-                  className="edit-delete-btn"
-                  title={t("edit.deletePersonTooltip")}
-                  onClick={handleDeletePerson}
-                >
-                  <TrashIcon />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="edit-search-btn"
+                    title={t("indexSearch.tooltip")}
+                    aria-pressed={searchOpen}
+                    onClick={() => setSearchOpen((o) => !o)}
+                  >
+                    <SearchIcon size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="edit-delete-btn"
+                    title={t("edit.deletePersonTooltip")}
+                    onClick={handleDeletePerson}
+                  >
+                    <TrashIcon />
+                  </button>
+                </>
               }
             />
           </div>
+          {searchOpen && <PersonSearch key={`search-${person.id}`} person={person} dataset={dataset} onCompare={onCompareIndexHit} />}
           <PersonMedia
             // person.raw is mutated in place, so remount whenever this person
             // was rebuilt (fresh `Individual` identity → fresh nodeId) or a
