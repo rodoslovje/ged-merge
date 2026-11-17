@@ -10,6 +10,7 @@ import {
   OVERVIEW_TOP,
   familyStats,
   lifespanStats,
+  nameKindsStats,
   namesStats,
   overview,
   type Bucket,
@@ -226,6 +227,7 @@ export function StatsPanel({
   const grid = useMemo(() => (scoped && page === "migration" ? placeDecades(scoped) : undefined), [scoped, page]);
   const stack = useMemo(() => (scoped && page === "migration" ? placeStack(scoped) : undefined), [scoped, page]);
   const research = useMemo(() => (scoped && page === "research" ? researchStats(scoped) : undefined), [scoped, page]);
+  const nameKinds = useMemo(() => (scoped && page === "research" ? nameKindsStats(scoped) : undefined), [scoped, page]);
   // The same, for the father's and the mother's side of the line's person apart.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- seenVersion: the dataset is mutated in place
   const sides = useMemo(() => (page === "research" && statsStart ? computeLineSides(dataset, statsStart) : null), [page, dataset, statsStart, seenVersion]);
@@ -966,30 +968,6 @@ export function StatsPanel({
               { key: "daughterGrandmother", label: t("stats.namesake.daughterGrandmother"), share: names.namesakes.daughterGrandmother, tone: "female" },
             ], false))}
             {card("givenCount", t("stats.givenCount"), null, buckets("givenCount", t("stats.givenCount"), names.givenCount))}
-            {card("nameKinds", t("stats.nameKinds"), t("stats.nPeople", { count: scoped.people.length }), (() => {
-              // The kinds of additional name the people carry, then the primary
-              // name's gaps in the warning colour.
-              const rows: { key: string; label: string; ids: string[]; status?: BarRow["status"] }[] = [
-                ...names.nameKinds.types.map((b) => {
-                  const label = nameTypeLabel(b.label!, t);
-                  return { key: `type:${b.key}`, label: label.charAt(0).toUpperCase() + label.slice(1), ids: b.ids };
-                }),
-                { key: "noGiven", label: t("stats.name.noGiven"), ids: names.nameKinds.noGiven, status: "fair" },
-                { key: "noSurname", label: t("stats.name.noSurname"), ids: names.nameKinds.noSurname, status: "fair" },
-              ];
-              return withCsv(
-                "nameKinds",
-                () => [[t("stats.nameKinds"), t("stats.csv.count")], ...rows.map((r) => [r.label, r.ids.length])],
-                <BarList
-                  picked={pickedIn("nameKinds")}
-                  rows={rows.map((r) => ({ key: r.key, label: r.label, value: r.ids.length, display: num(r.ids.length), count: r.ids.length, status: r.status }))}
-                  onPick={(key) => {
-                    const r = rows.find((x) => x.key === key)!;
-                    choose("nameKinds", key, r.label, r.ids);
-                  }}
-                />,
-              );
-            })())}
           </>
         )}
 
@@ -1409,6 +1387,30 @@ export function StatsPanel({
               />
             ))}
             {card("citations", t("stats.citations"), t("stats.nPeople", { count: people }), buckets("citations", t("stats.citations"), research.citations))}
+            {nameKinds && card("nameKinds", t("stats.nameKinds"), t("stats.nPeople", { count: scoped.people.length }), (() => {
+              // The kinds of additional name the people carry, then the primary
+              // name's gaps in the warning colour.
+              const rows: { key: string; label: string; ids: string[]; status?: BarRow["status"] }[] = [
+                ...nameKinds.types.map((b) => {
+                  const label = nameTypeLabel(b.label!, t);
+                  return { key: `type:${b.key}`, label: label.charAt(0).toUpperCase() + label.slice(1), ids: b.ids };
+                }),
+                { key: "noGiven", label: t("stats.name.noGiven"), ids: nameKinds.noGiven, status: "fair" },
+                { key: "noSurname", label: t("stats.name.noSurname"), ids: nameKinds.noSurname, status: "fair" },
+              ];
+              return withCsv(
+                "nameKinds",
+                () => [[t("stats.nameKinds"), t("stats.csv.count")], ...rows.map((r) => [r.label, r.ids.length])],
+                <BarList
+                  picked={pickedIn("nameKinds")}
+                  rows={rows.map((r) => ({ key: r.key, label: r.label, value: r.ids.length, display: num(r.ids.length), count: r.ids.length, status: r.status }))}
+                  onPick={(key) => {
+                    const r = rows.find((x) => x.key === key)!;
+                    choose("nameKinds", key, r.label, r.ids);
+                  }}
+                />,
+              );
+            })())}
           </>
         )}
       </div>
