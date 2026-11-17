@@ -209,11 +209,33 @@ const PAD_X = 24;
 const PAD_Y = 16;
 
 /** Draw `root` as a standalone, banded SVG and download it as SVG or PNG. */
+/**
+ * Run `fn` with every scrolled grid in `root` (the decade grids) laid out in
+ * full: the root is widened by the largest overflow and each scroller brought
+ * back to its start, so the picture shows every column with the sticky labels
+ * at the left. The width and scroll positions come back afterwards.
+ */
+function unscrolled<T>(root: HTMLElement, fn: () => T): T {
+  const scrollers = [...root.querySelectorAll<HTMLElement>(".stats-grid-scroll")];
+  const overflow = scrollers.reduce((m, s) => Math.max(m, s.scrollWidth - s.clientWidth), 0);
+  if (overflow <= 0) return fn();
+  const oldWidth = root.style.width;
+  const oldScroll = scrollers.map((s) => s.scrollLeft);
+  try {
+    root.style.width = `${root.offsetWidth + overflow}px`;
+    for (const s of scrollers) s.scrollLeft = 0;
+    return fn();
+  } finally {
+    root.style.width = oldWidth;
+    scrollers.forEach((s, i) => { s.scrollLeft = oldScroll[i]; });
+  }
+}
+
 export async function exportStats(root: HTMLElement, format: "svg" | "png", fileName: string, opts: SvgExportOptions): Promise<void> {
-  const painted = withLightPalette(() => ({
+  const painted = unscrolled(root, () => withLightPalette(() => ({
     ...paint(root, SKIP),
     foreground: getComputedStyle(document.body).color,
-  }));
+  })));
   // The cards would otherwise touch the image's edges.
   const width = painted.width + 2 * PAD_X;
   const height = painted.height + 2 * PAD_Y;

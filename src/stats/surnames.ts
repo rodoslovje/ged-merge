@@ -1,9 +1,10 @@
 import type { ScopedFacts } from "./scope";
 import { byLabel } from "./aggregate";
-import { commonest } from "./placeFlows";
+import { commonest, decadeGrid, DECADE_TOP, type PlaceDecades } from "./placeFlows";
 
 /**
- * The Names page's marriage network: which surnames married each other.
+ * The Names page's surname pictures: which surnames married each other, and
+ * how the commonest surnames come and go over the decades.
  */
 
 /** The surnames the marriage network draws. */
@@ -115,4 +116,9 @@ export function surnameNetwork(m: SurnameMarriages, top = NETWORK_TOP, minPair =
     .map((key) => m.nodes.get(key)!)
     .sort((a, b) => across(b) - across(a) || byLabel.compare(a.label, b.label));
   return { nodes, pairs: strong.filter((p) => chosen.has(p.a) && chosen.has(p.b)) };
+}
+
+/** The commonest surnames among the dated births, by decade. */
+export function surnameDecades(s: ScopedFacts, top = DECADE_TOP): Omit<PlaceDecades, "places"> {
+  return decadeGrid(s, (p) => (p.surname && p.surnameKey ? [p.surnameKey, p.surname] : undefined), top);
 }
