@@ -5,7 +5,7 @@ import { birthYear, deathYear, lifespanApproxOf } from "../gedcom/lifespan";
 import { lifespanTooltipOf } from "../gedcom/age";
 import type { TreeNode } from "../chart/personTree";
 import { familyDepth } from "../chart/timeline";
-import { layoutLineage, type LineagePoint } from "../chart/lineageYears";
+import { bandYear, blurYear, layoutLineage, type LineagePoint } from "../chart/lineageYears";
 import { livingLabelFor } from "../chart/nodeDisplay";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -63,15 +63,6 @@ const LABEL_H = 12;
 const COLOR_ANCESTOR = "var(--node-main)";
 const COLOR_DESCENDANT = "var(--node-desc)";
 
-/** The middle of the year's decade: 1973 → 1975. */
-function blurYear(year: number): number {
-  return Math.floor(year / 10) * 10 + 5;
-}
-
-/** The middle of the year's quarter-century: 1958 → 1962. */
-function bandYear(year: number): number {
-  return Math.floor(year / 25) * 25 + 12;
-}
 
 interface Props {
   mainDs: Dataset;

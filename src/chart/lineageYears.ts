@@ -46,6 +46,19 @@ export interface LineageLayout {
  *  are placed this far from the parent or child that has one. */
 export const GENERATION_YEARS = 30;
 
+/** A hidden living person's year, as a chart may show it: the middle of its
+ *  decade, 1973 → 1975 — near enough to read the generations, ±5 years from
+ *  the truth. */
+export function blurYear(year: number): number {
+  return Math.floor(year / 10) * 10 + 5;
+}
+
+/** A year read off relatives alone (no date of the person's own), shown as
+ *  the middle of its quarter-century: 1958 → 1962. */
+export function bandYear(year: number): number {
+  return Math.floor(year / 25) * 25 + 12;
+}
+
 /** The children a descendant node is drawn with: every union's, then those
  *  with no recorded other parent. */
 function offspring(n: TreeNode): TreeNode[] {

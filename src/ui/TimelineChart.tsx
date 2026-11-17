@@ -3,6 +3,7 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, familyDepth, type TimelineRow } from "../chart/timeline";
+import { blurYear } from "../chart/lineageYears";
 import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox } from "../chart/nodeDisplay";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
@@ -495,11 +496,19 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                   const y = geom.topH + i * rowH;
                   const hidden = redacted(row);
                   const meta = rowMeta(row);
-                  const role = rowRole(row);
+                  // A hidden person is already named by their kinship; the role chip
+                  // would only say it twice ("Father  Father").
+                  const role = hidden && rowRole(row) === rowName(row) ? undefined : rowRole(row);
                   const color = colorFor(row);
-                  const barX = row.from !== undefined ? geom.xOf(row.from) : 0;
-                  const barW = row.from !== undefined && row.to !== undefined
-                    ? Math.max(3, (row.to - row.from) * PX_PER_YEAR)
+                  // A hidden person's bar runs from the middle of their birth
+                  // decade (±5 years) — to today while they live — so the
+                  // generations still read but no date shows, the name's
+                  // place on the axis included.
+                  const from = row.from !== undefined && hidden ? blurYear(row.from) : row.from;
+                  const to = row.to !== undefined && hidden && !row.living ? blurYear(row.to) : row.to;
+                  const barX = from !== undefined ? geom.xOf(from) : 0;
+                  const barW = from !== undefined && to !== undefined
+                    ? Math.max(3, (to - from) * PX_PER_YEAR)
                     : 0;
                   // Keep the label on-canvas even when the bar starts far right.
                   const labelX = Math.max(4, Math.min(barX, geom.contentW - 220));
@@ -584,6 +593,20 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
                       <title>{t("tree.node.clickHint")}</title>
                       {/* Full-width hit/selection strip. */}
                       <rect className="timeline-row-bg" x={0} y={0} width={geom.contentW} height={rowH} />
+                      {hidden && from !== undefined && to !== undefined && (
+                        <rect
+                          className="timeline-bar estimated"
+                          x={barX}
+                          y={barY}
+                          width={barW}
+                          height={BAR_H}
+                          rx={3}
+                          fill={color}
+                          stroke={color}
+                        >
+                          <title>{t("timeline.lines.blurred")}</title>
+                        </rect>
+                      )}
                       {!hidden && row.from !== undefined && row.to !== undefined && (
                         <>
                           <rect

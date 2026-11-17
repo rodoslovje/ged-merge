@@ -6105,6 +6105,12 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 .timeline-row:hover .timeline-bar { filter: brightness(1.12); }
 /* Open bar ends (unknown birth / death, still living) taper off, half-faded. */
 .timeline-bar-open { opacity: 0.45; }
+/* A hidden person's bar on a blurred span: a faint fill in a dashed outline. */
+.timeline-bar.estimated {
+  fill-opacity: 0.18;
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
 /* Name coloured by sex via an inline style; this fill is the unknown-sex default. */
 .timeline-row-name {
   fill: var(--text);
