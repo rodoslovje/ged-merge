@@ -10,6 +10,7 @@ import { ChartPage } from "./ChartPage";
 import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
 import { TimelineChart } from "./TimelineChart";
+import { TimelineLines } from "./TimelineLines";
 import { KinshipChart } from "./KinshipChart";
 import { ReportView } from "./ReportView";
 import { StartPersonSelector } from "./StartPersonSelector";
@@ -152,8 +153,9 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
   }
 
   if (settings.kind === "timeline") {
+    const Timeline = settings.timelineLayout === "lines" ? TimelineLines : TimelineChart;
     return (
-      <TimelineChart
+      <Timeline
         mainDs={mainDs}
         rootId={rootId}
         startId={startId}

@@ -84,6 +84,14 @@ test("timeline and relationship charts draw their people and export them", async
   expect(svg.text).not.toContain("Polona");
   expect(svg.text).toContain(">1840<"); // the year axis starts at the oldest birth
 
+  // Lines: the blood line alone on a vertical year axis — ancestors and the
+  // son, no spouse — and back to the bars.
+  await page.getByRole("tab", { name: "Lines", exact: true }).click();
+  await expect(page.locator(".timeline-lines-name")).toHaveText(["Jakob Kos", "Anton Kos", "Marija Novak", "Janez Kos", "Tone Kos"]);
+  await expect(page.locator(".timeline-lines-link")).toHaveCount(4);
+  await page.getByRole("tab", { name: "Bars", exact: true }).click();
+  await expect(page.locator(".timeline-row-name")).toHaveCount(6);
+
   // Relationship: from Janez (the start person) to his grandfather Jakob.
   await page.keyboard.press(RELATIONSHIP_KEY);
   await page.locator(".relchart-endpoint").nth(1).click();

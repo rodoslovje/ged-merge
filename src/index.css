@@ -6042,7 +6042,53 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   fill: var(--timeline-history);
   font-size: 11px;
 }
+/* The Lines layout: event labels sit over the drawing, on a halo. */
+.timeline-lines-history {
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.timeline-lines-link {
+  fill: none;
+  stroke-width: 1.4;
+  opacity: 0.7;
+}
+.timeline-lines-person { cursor: pointer; }
+.timeline-lines-dot { stroke-width: 1.5; }
+.timeline-lines-dot.root { stroke: var(--text); stroke-width: 2; }
+.timeline-lines-person:hover .timeline-lines-dot,
+.timeline-lines-person.selected .timeline-lines-dot {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.timeline-lines-person.find-hit .timeline-lines-dot {
+  stroke: var(--status-diff);
+  stroke-width: 2.5;
+}
+.timeline-lines-name {
+  font-size: 11px;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.timeline-lines-name.hidden { fill: var(--muted); font-style: italic; }
+.timeline-lines-undated { fill: var(--muted); font-size: 11px; }
+/* The year scale, repeated at the left edge once the chart scrolls sideways
+   (an absolute child of the canvas wrap, so it stays put while the canvas
+   scrolls; it follows the vertical scroll through its transform). */
+.timeline-lines-sticky {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+.timeline-lines-sticky svg { display: block; }
+.timeline-lines-sticky-bg { fill: var(--bg); }
 .timeline-row { cursor: pointer; }
+.tree-canvas.panning .timeline-lines-person { cursor: grabbing; }
 /* Full-width hit/selection strip behind each row. */
 .timeline-row-bg { fill: transparent; }
 .timeline-row:hover .timeline-row-bg { fill: color-mix(in srgb, var(--accent) 7%, transparent); }

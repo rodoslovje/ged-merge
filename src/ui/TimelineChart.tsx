@@ -32,9 +32,8 @@ import { useNodeColorer } from "./useNodeColorer";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { ChartLegend } from "./ChartLegend";
 import { usePublishedSettings } from "./PublishedView";
-import { historyCountries, historyKey, historyPresence, historyYears, pickHistoryEvents } from "../chart/historyEvents";
-import { countryFacetName } from "../geo/placeCountry";
-import { useHomeCountry } from "./DatasetDerivations";
+import { useHistoryEvents } from "./useHistoryEvents";
+import { TimelineLayoutTabs } from "./ChartKindTabs";
 
 // Full-page family Timeline: the root person and their immediate family
 // (parents, siblings, spouses, children) as horizontal lifespan bars on a
@@ -123,6 +122,7 @@ const TAPER_W = 12;
 /** Axis ticks come every decade — at the fixed year scale they're always
  *  140px apart, so density never needs to adapt to the span. */
 const TICK_STEP = 10;
+const NO_ROWS: TimelineRow[] = [];
 
 /** Historical-event labels: lanes between the year ruler and the first row.
  *  A label that fits no lane is dropped; its rule keeps the tooltip. */
@@ -149,7 +149,7 @@ interface Props {
 }
 
 export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { settings } = useChartSettings();
   const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
@@ -190,23 +190,14 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const rowH = ROW_H + (photosOn ? PHOTO_SHIFT : 0) + (stripOn ? STRIP_H + STRIP_GAP : 0);
   const laneY = barY + BAR_H + 10 + (stripOn ? STRIP_H + STRIP_GAP : 0);
 
-  // Historical events, picked by where and when the people on the chart lived
-  // (a bare village stands in the file's home country).
-  const historyOn = settings.timelineHistory;
-  const homeCountry = useHomeCountry();
-  const history = useMemo(() => {
-    if (!historyOn || !data || data.minYear === undefined || data.maxYear === undefined) return [];
-    const x0 = Math.floor(data.minYear / TICK_STEP) * TICK_STEP;
-    const x1 = Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP;
-    const presence = historyPresence(mainDs, data.rows, homeCountry);
-    // An event shared by several countries names the ones the people lived in.
-    return pickHistoryEvents(presence, x0, x1).map((e) => {
-      const countries = e.namesCountries
-        ? historyCountries(e, presence).map((c) => countryFacetName(c, i18n.language)).join(", ")
-        : "";
-      return { ...e, key: historyKey(e), text: `${historyYears(e)} ${t(`history.${e.id}`, { countries })}` };
-    });
-  }, [historyOn, data, mainDs, homeCountry, t, i18n.language]);
+  // Historical events over the axis, picked by where and when the people on
+  // the chart lived.
+  const history = useHistoryEvents(
+    mainDs,
+    data?.rows ?? NO_ROWS,
+    data?.minYear === undefined ? undefined : Math.floor(data.minYear / TICK_STEP) * TICK_STEP,
+    data?.maxYear === undefined ? undefined : Math.ceil(data.maxYear / TICK_STEP) * TICK_STEP,
+  );
 
   // Axis domain: the data range rounded outward to whole decades, so the chart
   // always opens and closes on a labelled gridline (e.g. 1930 … 2030).
@@ -473,7 +464,12 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
           />
         </>
       }
-      controlsLeft={kindSwitcher}
+      controlsLeft={
+        <>
+          {kindSwitcher}
+          <TimelineLayoutTabs />
+        </>
+      }
       controlsRight={<ChartFindBox find={find} />}
     >
       <div className="tree-canvas-wrap">
