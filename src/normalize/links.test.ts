@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { familySearchPageUrl, linkKey, parseFamilySearchUrl, rewriteLinkLang, withMatriculaLang } from "./links";
 
+describe("linkKey — Slovenian Genealogical Index", () => {
+  it("keys a person link by contributor and id, not by view or search hints", () => {
+    const a = linkKey("https://indeks.rodoslovje.si/?t=descendants&n=Matija&sn=Slobodnik&dob=21%20SEP%201726&c=Renko&id=@@60899836@@");
+    expect(linkKey("https://indeks.rodoslovje.si/?t=tree&c=Renko&id=%4060899836%40")).toBe(a);
+    expect(linkKey("https://indeks.rodoslovje.si/?t=tree&c=Renko&id=@60899837@")).not.toBe(a);
+    expect(linkKey("https://indeks.rodoslovje.si/?t=tree&c=Hawlina&id=@60899836@")).not.toBe(a);
+  });
+});
+
 describe("withMatriculaLang", () => {
   it("rewrites the language even when the stored URL's host is uppercase", () => {
     // Detection lowercases first, but the rewrite runs on the URL as stored —
