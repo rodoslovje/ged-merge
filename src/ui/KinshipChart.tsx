@@ -186,7 +186,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     for (const w of wheel.wedges) {
       if (w.key === OWN_BRANCH || w.side === "own") continue;
       const i = (w.side === "father" ? 0 : 2) + Math.min(seen[w.side]++, 1);
-      map.set(w.key, { label: wedgeLabel(w.key, w.ancestorId), color: lineColor(i, 4, "ancestors") });
+      map.set(w.key, { label: wedgeLabel(w.key, w.ancestorId), color: lineColor(i, "ancestors") });
     }
     return map;
   }, [wheel.wedges, wedgeLabel]);
