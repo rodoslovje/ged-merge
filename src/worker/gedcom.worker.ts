@@ -10,8 +10,8 @@ import type { NameLayout, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { Dataset } from "../gedcom/types";
 import { annotateCounts } from "./annotateCounts";
 import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
-import { normalizeDataset } from "../normalize/normalize";
-import { diffNormalized } from "../normalize/normPatch";
+import { ALL_PASSES, normalizeDataset } from "../normalize/normalize";
+import { diffNormalized, diffNormalizedFromBytes } from "../normalize/normPatch";
 import { applyRecordsPatch } from "../state/mainSync";
 import type { MainProfile } from "../normalize/types";
 import { matchDatasetsExplained, pairExplainer, type PairExplainer } from "../match/engine";
@@ -224,7 +224,7 @@ function handle(req: WorkerRequest): void {
       compareGeneration++;
       compareRaw = { fileName: req.fileName, buffer: req.buffer };
       compareCsvPairs = undefined;
-      emitCompare(req.fileName, dataset, false);
+      emitCompare(req.fileName, dataset, false, req.buffer);
     }
   } catch (err) {
     post({
@@ -244,7 +244,7 @@ function handle(req: WorkerRequest): void {
     const { fileName } = compareRaw;
     try {
       const raw = "dataset" in compareRaw ? compareRaw.dataset : buildDataset(parseGedcom(compareRaw.buffer));
-      emitCompare(fileName, raw, compareCsvPairs !== undefined);
+      emitCompare(fileName, raw, compareCsvPairs !== undefined, "buffer" in compareRaw ? compareRaw.buffer : undefined);
     } catch (err) {
       compareRaw = undefined;
       post({ type: "error", role: "compare", fileName, message: errorMessage(err) });
@@ -301,8 +301,11 @@ async function loadCompareTable(fileName: string, buffer: ArrayBuffer, generatio
 /** Emit the compare slot, normalized to the main profile when available.
  *  `withDataset` sends the dataset itself — only for a table-built compare,
  *  which the main thread cannot build; a GEDCOM compare is rebuilt there
- *  from the file's bytes (see ParseSuccess.dataset). */
-function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean): void {
+ *  from the file's bytes (see ParseSuccess.dataset). `bytes`, for a GEDCOM,
+ *  are what `rawDataset` was just parsed from: the dataset is then normalized
+ *  in place and must not be used again, and what changed is found by parsing
+ *  the bytes a second time, record by record — never two whole trees at once. */
+function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean, bytes?: ArrayBuffer): void {
   // One walk collects DATE and PLAC/ADDR values together, shared below by the
   // place/date layout reports and (when normalizing) the source date order —
   // instead of each walking the record tree on its own.
@@ -331,7 +334,8 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
     post({ type: "parsed", role: "compare", ...(withDataset ? { dataset: rawDataset } : {}), ...lastCompareMeta });
     return;
   }
-  const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
+  const heads = bytes && rawDataset.records.map((r) => ({ tag: r.tag, xref: r.xref }));
+  const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues, bytes ? { ...ALL_PASSES, inPlace: true } : undefined);
   compareNormalized = dataset;
   // The profile travels with the compare: a silent main re-feed changes it
   // without announcing the main, and should the edits below be missing, the
@@ -345,7 +349,9 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   // of the bytes instead of normalizing them a second time. Kept out of
   // `lastCompareMeta`: its buffers are transferred, and the re-announcement
   // after consolidation has nothing to replay.
-  const normalized = diffNormalized(rawDataset.records, dataset.records);
+  const normalized = bytes && heads
+    ? diffNormalizedFromBytes(bytes, heads, dataset.records)
+    : diffNormalized(rawDataset.records, dataset.records);
   post(
     { type: "parsed", role: "compare", ...lastCompareMeta, ...(normalized ? { normalized } : {}) },
     normalized ? [normalized.ops.buffer, normalized.lens.buffer] : undefined,

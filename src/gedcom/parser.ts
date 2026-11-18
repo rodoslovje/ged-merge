@@ -28,8 +28,20 @@ export const NOT_GEDCOM = "not-gedcom";
  * Steps: decode bytes → split into lines → match each line → assemble the tree
  * by tracking a stack indexed by level → fold CONT/CONC into parent values.
  */
-export function parseGedcom(buffer: ArrayBuffer): ParseResult {
-  return parseGedcomText(decodeGedcom(buffer));
+export function parseGedcom(buffer: ArrayBuffer, options?: ParseOptions): ParseResult {
+  return parseGedcomText(decodeGedcom(buffer), options);
+}
+
+export interface ParseOptions {
+  /**
+   * Called each time the records before `settled` are final — no later line
+   * can reach them — with the record list being built. A caller that wants
+   * each record once and no more (comparing a second parse against a tree it
+   * already holds) may replace a settled entry with a stub that keeps its
+   * `tag` and `xref`, so the whole tree never exists at once. The `HEAD`
+   * record must stay: the version is read from it at the end.
+   */
+  onSettled?: (records: GedNode[], settled: number) => void;
 }
 
 /**
@@ -37,8 +49,8 @@ export function parseGedcom(buffer: ArrayBuffer): ParseResult {
  * serialized itself (a worker handed the main file as text), which `charset`
  * and `bom` then describe as the file it came from.
  */
-export function parseGedcomText(decoded: DecodeResult): ParseResult {
-  return runSteps(parseGedcomSteps(decoded));
+export function parseGedcomText(decoded: DecodeResult, options?: ParseOptions): ParseResult {
+  return runSteps(parseGedcomSteps(decoded, options));
 }
 
 /** Text split into lines at a time by {@link parseGedcomSteps}, which yields
@@ -64,7 +76,7 @@ function nextLines(text: string, pos: number): [string[], number, boolean] {
 
 /** {@link parseGedcomText} as a stepped pass (see `steps.ts`), yielding after
  *  every {@link CHUNK_CHARS} of text — what the main thread runs in slices. */
-export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
+export function* parseGedcomSteps(decoded: DecodeResult, options?: ParseOptions): Steps<ParseResult> {
   const { text, charset, warnings: decodeWarnings, bom } = decoded;
   const warnings: ParseWarning[] = [...decodeWarnings];
 
@@ -263,7 +275,12 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     else if (atStyle === "doubled") atMixed.add(node);
 
     if (level === 0) {
-      if (roots.length) trimChildren(roots[roots.length - 1]);
+      // A new record closes every one before it: the open-line stack and the
+      // text being continued now point into this one.
+      if (roots.length) {
+        trimChildren(roots[roots.length - 1]);
+        options?.onSettled?.(roots, roots.length);
+      }
       roots.push(node);
     } else {
       const parent = stack[level - 1];
@@ -312,7 +329,10 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   if (!roots.some((r) => r.tag === "HEAD" || r.tag === "TRLR" || r.tag === "INDI" || r.tag === "FAM" || r.xref)) {
     throw new Error(NOT_GEDCOM);
   }
-  if (roots.length) trimChildren(roots[roots.length - 1]);
+  if (roots.length) {
+    trimChildren(roots[roots.length - 1]);
+    options?.onSettled?.(roots, roots.length);
+  }
   const version = detectVersion(roots, warnings);
   return { version, charset, records: roots, warnings, eol, finalNewline, bom };
 }

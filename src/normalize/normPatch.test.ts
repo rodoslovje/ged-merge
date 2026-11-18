@@ -6,8 +6,8 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { applyFormatOverrides } from "./formatOverrides";
 import { forestDiff } from "./forestDiff.testutil";
-import { normalizeDataset } from "./normalize";
-import { applyNormPatch, diffNormalized, type NormPatch } from "./normPatch";
+import { ALL_PASSES, normalizeDataset } from "./normalize";
+import { applyNormPatch, diffNormalized, diffNormalizedFromBytes, type NormPatch } from "./normPatch";
 import { collectLayoutValues, inferMainProfile } from "./profile";
 
 const enc = (text: string): ArrayBuffer => new TextEncoder().encode(text).buffer as ArrayBuffer;
@@ -51,6 +51,32 @@ describe("normalization edits", () => {
     }
     // The corpus does exercise the edits: most pairs normalize something.
     expect(changedPairs).toBeGreaterThan(corpusFiles.length);
+  }, 60_000);
+
+  it("normalized in place and diffed against a second parse, the patch is the one a copy gives", () => {
+    // The worker's low-memory path: no clone of the forest, and the "before"
+    // side streamed from the bytes record by record.
+    const inPlacePatch = (main: ArrayBuffer, compare: ArrayBuffer) => {
+      const profile = applyFormatOverrides(inferMainProfile(buildDataset(parseGedcom(main))), undefined);
+      const raw = buildDataset(parseGedcom(compare));
+      const heads = raw.records.map((r) => ({ tag: r.tag, xref: r.xref }));
+      const { dataset } = normalizeDataset(raw, profile, collectLayoutValues(raw).dateValues, { ...ALL_PASSES, inPlace: true });
+      expect(dataset.records).toBe(raw.records);
+      return { dataset, patch: diffNormalizedFromBytes(compare, heads, dataset.records) };
+    };
+    const mains = ["geneanet-5.5.1-utf8.ged", "synium-7.0-utf8.ged", "familyhistorian-5.5.1-w1250.ged"];
+    const duplicates = enc(wrap(
+      "0 @I1@ INDI\n1 NAME Ana /Kos/\n1 BIRT\n2 DATE 3 MAR 1801\n2 PLAC Kranj\n" +
+        "0 @I1@ INDI\n1 NAME Ana /Kos/\n1 BIRT\n2 DATE ABT 1801\n",
+    ));
+    for (const mainFile of mains) {
+      for (const [name, compare] of [...corpusFiles.map((f) => [f, bytesOf(f)] as const), ["duplicates", duplicates] as const]) {
+        const { normalized, patch } = roundTrip(bytesOf(mainFile), compare);
+        const streamed = inPlacePatch(bytesOf(mainFile), compare);
+        expect(streamed.patch, `${name} into ${mainFile}`).toEqual(patch);
+        expect(forestDiff(streamed.dataset.records, normalized.records), `${name} into ${mainFile}`).toBeUndefined();
+      }
+    }
   }, 60_000);
 
   it("dropped, added and renamed lines, reshaped places and stripped placeholders", () => {
