@@ -6079,6 +6079,9 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
+/* The percentage is a field: type a value, Enter applies it. */
+input.tree-zoom-pct { font-family: inherit; text-align: center; cursor: text; border-left: 0; border-right: 0; border-radius: 0; }
+input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(--bg); }
 .tree-zoom-btn:hover,
 .tree-zoom-pct:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tree-minimap-viewport {
