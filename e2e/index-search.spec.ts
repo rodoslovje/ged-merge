@@ -124,6 +124,13 @@ test("index hits are ranked against the person and compared with them one by one
   await expect(hits.first()).toContainText("Already in your tree");
   await expect(hits.first().locator(".person-search-also")).toHaveText("Also in: Mamić ×2 · Hawlina");
   await expect(page.locator(".edit-wider-count")).toHaveText("312");
+  // What agrees stays plain (the same birth; "Petelinje" and "Petelinje,
+  // Vojvodina Kranjska" name one village; the father); what the person lacks
+  // is marked new.
+  const first = hits.first();
+  await expect(first.locator(".person-search-mark.differs")).toHaveCount(0);
+  await expect(first.locator(".person-search-mark.adds")).toHaveText(["5 APR 1927", "Petelinje", "Jožefa Čelhar", "Marija Penko"]);
+  await expect(first.locator(".person-search-mark.adds").first()).toHaveAttribute("title", "Not in your file yet");
   // A register transcription shows as the genealogist with the register's icon.
   const register = hits.nth(1).locator(".person-search-contributor");
   await expect(register).toHaveText("⛪Markovič");

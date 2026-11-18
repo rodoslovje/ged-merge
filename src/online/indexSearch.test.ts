@@ -81,6 +81,21 @@ describe("personQuery", () => {
       given: "Janez", surname: "Penko", birthFrom: 1860, birthTo: 1864, birthPlace: "Petelinje",
     });
   });
+  it("takes both windows when birth and death are both dated", () => {
+    const both = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NAME Marija /Simončič/\n1 BIRT\n2 DATE 1883\n1 BURI\n2 DATE 20 OCT 1953\n0 TRLR\n");
+    const q = personQuery(both.individuals.get("@I1@")!, both)!;
+    expect(q).toMatchObject({ birthFrom: 1881, birthTo: 1885, deathFrom: 1951, deathTo: 1955 });
+    // The API keeps records without a year in either field…
+    const api = new URL(indexApiUrl(q)).searchParams;
+    expect(api.get("include_undated")).toBe("true");
+    expect(api.get("date_of_death")).toBe("1951");
+    // …the website would drop them, so its link narrows by birth alone.
+    const site = new URL(searchUrl("index", q)).searchParams;
+    expect(site.get("dob")).toBe("1881");
+    expect(site.has("dod")).toBe(false);
+    // A name alone asks for nothing undated.
+    expect(new URL(indexApiUrl({ given: "Marija", surname: "Simončič" })).searchParams.has("include_undated")).toBe(false);
+  });
   it("falls back to a wider death window for an approximate death", () => {
     expect(personQuery(ds.individuals.get("@I2@")!, ds)).toMatchObject({ deathFrom: 1895, deathTo: 1905 });
   });

@@ -2127,6 +2127,8 @@ export const sl = {
   "indexSearch.kind.military": "Vojaški viri",
   "indexSearch.contributorPage": "Odpri stran rodoslovca v indeksu",
   "indexSearch.records": "Zapisov iz tega drevesa: {{n}}",
+  "indexSearch.differs": "V vaši datoteki: {{value}}",
+  "indexSearch.adds": "Tega v vaši datoteki še ni",
   "indexSearch.pickNew": "Označi vse novo",
   "indexSearch.pickRow": "Prevzemi: {{field}}",
   "indexSearch.pickAdd": "Dodaj k tej osebi",

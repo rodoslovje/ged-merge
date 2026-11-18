@@ -19,10 +19,12 @@ import {
   type HitCluster,
   type IndexAnswer,
   type IndexHit,
+  type IndexRelative,
   type RankedHit,
   type RankedHits,
 } from "../../online/indexSearch";
 import { individualFieldRows } from "../../review/fields";
+import { foldToken } from "../../match/text";
 import { SITE_ICON } from "../../tools/sourceReshape/urls";
 import type { FieldChoice, FieldRow } from "../../review/types";
 import { useSetSettings, useSettingsSlice } from "../SettingsContext";
@@ -81,15 +83,89 @@ function settle(person: Individual, dataset: Dataset, answer: IndexAnswer, own: 
   return { ...ranked, clusters, flat: clusters.flatMap((c) => c.members), total: answer.total };
 }
 
-function vital(symbol: string, date: string | undefined, place: string | undefined): string | undefined {
-  const parts = [date ? displayDateText(date) : "", place ?? ""].filter(Boolean);
-  return parts.length ? `${symbol} ${parts.join(", ")}` : undefined;
+/** A hit's comparison rows by key — the rows Compare shows, so the list marks
+ *  what the table colours. */
+type HitRows = Map<string, FieldRow>;
+
+/** The village or town of a place: two files naming the same village to a
+ *  different depth ("Petelinje" / "Petelinje, Kranjska") agree. */
+function locality(place: string): string {
+  return foldToken(place.split(",")[0] ?? "");
 }
 
-function relativesLine(hit: IndexHit): string {
-  const names = (list: IndexHit["parents_list"]) =>
-    (list ?? []).map((r) => [r.name, r.surname].filter(Boolean).join(" ")).filter(Boolean);
-  return [...names(hit.parents_list), ...names(hit.partners_list)].join(" · ");
+/** A relative's name without the years a line appends ("Jožef Plut 1871–1920"):
+ *  the list compares who, not when. */
+function relativeName(line: string): string {
+  return foldToken(line.replace(/[\s\d–—\-~?().,/]+$/u, ""));
+}
+
+type Mark = { mark: "differs"; mine: string } | { mark: "adds" } | undefined;
+
+function markOf(row: FieldRow | undefined, compare?: (s: string) => string): Mark {
+  if (!row) return undefined;
+  if (row.state === "incoming-only") return { mark: "adds" };
+  if (row.state !== "conflict") return undefined;
+  if (compare && compare(row.main) === compare(row.incoming)) return undefined;
+  return { mark: "differs", mine: row.main };
+}
+
+/** One part of a hit's summary, underlined when it differs from the person
+ *  (dotted, the comparison's amber) or is new to them (solid, its green);
+ *  agreement stays plain. */
+function Marked({ text, mark, shown = (s: string) => s }: { text: string; mark: Mark; shown?: (s: string) => string }) {
+  const { t } = useTranslation();
+  if (!mark) return <>{text}</>;
+  return (
+    <span
+      className={`person-search-mark ${mark.mark}`}
+      title={mark.mark === "differs" ? t("indexSearch.differs", { value: shown(mark.mine) }) : t("indexSearch.adds")}
+    >
+      {text}
+    </span>
+  );
+}
+
+/** One life event of a hit: symbol, date and place, each part marked. */
+function Vital({ symbol, tag, date, place, rows }: { symbol: string; tag: string; date?: string; place?: string; rows?: HitRows }) {
+  if (!date && !place) return null;
+  return (
+    <div className="person-search-hit-fact">
+      {symbol}{" "}
+      {date && <Marked text={displayDateText(date)} mark={markOf(rows?.get(`${tag}.date`))} shown={displayDateText} />}
+      {date && place && ", "}
+      {place && <Marked text={place} mark={markOf(rows?.get(`${tag}.place`), locality)} />}
+    </div>
+  );
+}
+
+/** A hit's parents and partners, each name marked against the person's. */
+function Relatives({ hit, rows }: { hit: IndexHit; rows?: HitRows }) {
+  const named = (r: IndexRelative) => [r.name, r.surname].filter(Boolean).join(" ");
+  const parents = (hit.parents_list ?? []).filter((r) => named(r));
+  const partners = (hit.partners_list ?? []).filter((r) => named(r));
+  if (!parents.length && !partners.length) return null;
+  const partnerRows = rows ? [...rows.values()].filter((r) => r.key.startsWith("fam.") && r.key.endsWith(".partner")) : [];
+  const parts = [
+    ...parents.map((r, i) => {
+      // The index lists the father first; its sex column settles it when given.
+      const slot = r.sex?.toLowerCase() === "f" || (r.sex?.toLowerCase() !== "m" && i === 1) ? "mother" : "father";
+      return { name: named(r), row: rows?.get(slot) };
+    }),
+    ...partners.map((r) => ({
+      name: named(r),
+      row: partnerRows.find((p) => relativeName(p.incoming).includes(foldToken(named(r)))),
+    })),
+  ];
+  return (
+    <div className="person-search-hit-relatives">
+      {parts.map(({ name, row }, i) => (
+        <span key={i}>
+          {i > 0 && " · "}
+          <Marked text={name} mark={markOf(row, relativeName)} />
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /** The icon of each non-tree source — the one the app shows for that site's links. */
@@ -489,6 +565,18 @@ export function PersonSearch({
   };
 
   const flat = search.state === "done" ? search.flat : [];
+  /** Each listed person's comparison rows, by hit id: the marks in the list
+   *  are what Compare colours. */
+  const listRows = useMemo(() => {
+    const out = new Map<number, HitRows>();
+    if (search.state !== "done" || !search.clusters.length) return out;
+    const hits = hitsForComparison(search.ds, dataset);
+    for (const { members } of search.clusters) {
+      const indi = hits.individuals.get(members[0].id);
+      if (indi) out.set(members[0].hit.id, new Map(individualFieldRows(t, person, indi, dataset, hits).map((r) => [r.key, r])));
+    }
+    return out;
+  }, [search, dataset, person, t]);
   const open = search.state === "done" && searchable && comparing !== null && comparing < flat.length;
 
   return (
@@ -566,12 +654,9 @@ export function PersonSearch({
                 {search.clusters.map((cluster) => {
                   const [{ hit, score }, ...others] = cluster.members;
                   const at = (r: RankedHit) => flat.indexOf(r);
-                  const facts = [
-                    vital("*", hit.date_of_birth || hit.date_of_baptism, hit.place_of_birth || hit.place_of_baptism),
-                    vital("†", hit.date_of_death, hit.place_of_death),
-                    vital("⚰", hit.date_of_burial, hit.place_of_burial),
-                  ].filter((f): f is string => !!f);
-                  const relatives = relativesLine(hit);
+                  const rows = listRows.get(hit.id);
+                  // A birth the index gives as a baptism alone shows (and compares) as one.
+                  const born = hit.date_of_birth || hit.place_of_birth;
                   return (
                     <li key={hit.id} className="person-search-hit">
                       <div className="person-search-hit-name">
@@ -581,8 +666,16 @@ export function PersonSearch({
                         </button>
                       </div>
                       {cluster.inOwnTree && <div className="person-search-own">{t("indexSearch.inOwnTree")}</div>}
-                      {facts.map((f) => <div key={f} className="person-search-hit-fact">{f}</div>)}
-                      {relatives && <div className="person-search-hit-relatives">{relatives}</div>}
+                      <Vital
+                        symbol="*"
+                        tag={born ? "BIRT" : "CHR"}
+                        date={born ? hit.date_of_birth : hit.date_of_baptism}
+                        place={born ? hit.place_of_birth : hit.place_of_baptism}
+                        rows={rows}
+                      />
+                      <Vital symbol="†" tag="DEAT" date={hit.date_of_death} place={hit.place_of_death} rows={rows} />
+                      <Vital symbol="⚰" tag="BURI" date={hit.date_of_burial} place={hit.place_of_burial} rows={rows} />
+                      <Relatives hit={hit} rows={rows} />
                       {(others.length > 0 || cluster.alsoIn.length > 0) && (
                         <div className="person-search-also">
                           {t("indexSearch.alsoIn")}{" "}

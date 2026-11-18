@@ -107,8 +107,10 @@ export function contributorList(names: string): string[] {
 
 /** The API address for a query. The place is left out on purpose: the index
  *  spells places as each contributor did, and a mismatch there would hide the
- *  right person — the ranking weighs places instead. `exclude` names the
- *  reader's own tree(s), left out of the hits. */
+ *  right person — the ranking weighs places instead. A year window keeps the
+ *  records that give no year in that field (`include_undated`): a grave with
+ *  only a death year still answers a search by birth and death, after the
+ *  dated hits. `exclude` names the reader's own tree(s), left out of the hits. */
 export function indexApiUrl(q: PersonQuery, exclude: readonly string[] = []): string {
   const p = new URLSearchParams();
   if (q.given) p.set("name", q.given);
@@ -117,6 +119,8 @@ export function indexApiUrl(q: PersonQuery, exclude: readonly string[] = []): st
   if (q.birthTo !== undefined) p.set("date_of_birth_to", String(q.birthTo));
   if (q.deathFrom !== undefined) p.set("date_of_death", String(q.deathFrom));
   if (q.deathTo !== undefined) p.set("date_of_death_to", String(q.deathTo));
+  const dated = q.birthFrom !== undefined || q.birthTo !== undefined || q.deathFrom !== undefined || q.deathTo !== undefined;
+  if (dated) p.set("include_undated", "true");
   if (exclude.length) p.set("exclude_contributor", exclude.join(","));
   if (q.exact) p.set("exact", "true");
   p.set("same_as", "true");

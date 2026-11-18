@@ -1887,6 +1887,8 @@ export const en = {
   "indexSearch.kind.military": "Military records",
   "indexSearch.contributorPage": "Open the genealogist's page on the index",
   "indexSearch.records": "{{n}} records from this tree",
+  "indexSearch.differs": "In your file: {{value}}",
+  "indexSearch.adds": "Not in your file yet",
   "indexSearch.pickNew": "Tick everything new",
   "indexSearch.pickRow": "Take {{field}}",
   "indexSearch.pickAdd": "Add to this person",
