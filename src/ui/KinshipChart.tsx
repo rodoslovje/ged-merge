@@ -386,7 +386,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       : { root: { ...rootNode, x: 0 }, width: bars.width + 2 * PAD, height: bars.height + 2 * PAD };
   }, [layout, nodesByKey, currentRootId, wheel, bars, surnames]);
 
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, setZoomTo, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", layout === "wheel" || layout === "surnames", 24, `${currentRootId}:${layout}:${scope}:${settings.maxGenerations ?? "all"}`);
 
   // On the map only the placed can be found; a hit elsewhere is a miss with
@@ -963,7 +963,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         {/* Outside the canvas: an absolute child of a scroller scrolls away with
             the content, and the zoom toolbar has to stay put. */}
         {laid && !onMap && (
-          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} onFit={fitToScreen} />
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomTo} onFit={fitToScreen} />
         )}
         {/* The year ruler and the root's own row ride above the scrolling body:
             every other bar is read against that life, and losing it two thousand

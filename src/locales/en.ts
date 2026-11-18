@@ -2325,7 +2325,7 @@ export const en = {
   "tree.zoom.label": "Zoom",
   "tree.zoom.in": "Zoom in (+)",
   "tree.zoom.out": "Zoom out (−)",
-  "tree.zoom.reset": "Reset zoom to 100% (0)",
+  "tree.zoom.pct": "Type a zoom percentage and press Enter",
   "tree.zoom.fit": "Fit to screen",
   "tree.export.tooltip": "Download this diagram as an SVG image",
   "tree.exportPdf.tooltip": "Print this diagram to PDF (choose \"Save as PDF\")",

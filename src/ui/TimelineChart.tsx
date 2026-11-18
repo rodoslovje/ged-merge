@@ -322,7 +322,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
     return { root, width: geom.contentW + 2 * PAD, height: geom.contentH + 2 * PAD };
   }, [geom, rows, nodesByKey]);
 
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, setZoomTo, fitToScreen } =
     useTreeCanvas(laid, nodesByKey, "lr", false, rowH, `${currentRootId}:${limit ?? "all"}`);
 
   // Find-in-chart. The timeline only draws the root's immediate family, so a
@@ -749,7 +749,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
         </div>
 
         {laid && (
-          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onSetZoom={setZoomTo} />
         )}
         {/* The year ruler and the event labels ride above the scrolling rows —
             scrolled away, a label no longer says which band is which. Same

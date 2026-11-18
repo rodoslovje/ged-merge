@@ -17,7 +17,10 @@ import { usePublishedView } from "./PublishedView";
  *  range; "fit" never magnifies past 1× so a small chart keeps its natural size. */
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 3;
-const ZOOM_STEP = 1.5;
+const ZOOM_STEP = 1.25;
+/** What one wheel notch or a double-click may do: the old, coarser button step,
+ *  kept for them when the buttons took a finer one. */
+const WHEEL_STEP = 1.5;
 
 const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
@@ -31,9 +34,9 @@ const WHEEL_PX_PER_DOUBLING = 60;
 const WHEEL_RATE = Math.LN2 / WHEEL_PX_PER_DOUBLING;
 /** Ceiling on what a single event may do. At the rate above, one mouse notch
  *  (±120px) would otherwise quadruple the scale in one click; capped, a notch
- *  lands on the same step the +/− buttons take, while a trackpad's small, fast
+ *  lands on one ×1.5 step, while a trackpad's small, fast
  *  ticks stay well under the cap and accumulate at the full rate. */
-const WHEEL_MAX_FACTOR = ZOOM_STEP;
+const WHEEL_MAX_FACTOR = WHEEL_STEP;
 
 /** An in-flight pinch / wheel-zoom run, tracked in the canvas's own terms. */
 interface Gesture {
@@ -98,6 +101,8 @@ export interface TreeCanvas {
   zoomOut: () => void;
   /** Reset to 1× (native size), centred on the viewport's current centre. */
   resetZoom: () => void;
+  /** Zoom to a given factor (clamped to the range), around the viewport centre. */
+  setZoomTo: (zoom: number) => void;
   /** Scale so the whole chart fits the viewport (never past 1×) and centre it. */
   fitToScreen: () => void;
 }
@@ -360,6 +365,7 @@ export function useTreeCanvas(
   const zoomIn = useCallback(() => zoomCentre(zoomRef.current * ZOOM_STEP), [zoomCentre]);
   const zoomOut = useCallback(() => zoomCentre(zoomRef.current / ZOOM_STEP), [zoomCentre]);
   const resetZoom = useCallback(() => zoomCentre(1), [zoomCentre]);
+  const setZoomTo = useCallback((z: number) => zoomCentre(z), [zoomCentre]);
 
   const fitToScreen = useCallback(() => {
     const el = canvasRef.current;
@@ -714,7 +720,7 @@ export function useTreeCanvas(
       if (target?.closest?.("g.tree-node, .timeline-row, .kin-dot, .kin-bar, a, button, input, select")) return;
       const rect = el.getBoundingClientRect();
       zoomAround(
-        zoomRef.current * (e.shiftKey ? 1 / (ZOOM_STEP * ZOOM_STEP) : ZOOM_STEP * ZOOM_STEP),
+        zoomRef.current * (e.shiftKey ? 1 / (WHEEL_STEP * WHEEL_STEP) : WHEEL_STEP * WHEEL_STEP),
         e.clientX - rect.left,
         e.clientY - rect.top,
       );
@@ -747,6 +753,7 @@ export function useTreeCanvas(
     zoomIn,
     zoomOut,
     resetZoom,
+    setZoomTo,
     fitToScreen,
   };
 }

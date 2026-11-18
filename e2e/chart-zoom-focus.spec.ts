@@ -32,7 +32,7 @@ test("ctrl+wheel zoom keeps the point under the cursor, and the commit does not 
   const focus = { x: before.x + before.width / 2, y: before.y + before.height / 2 };
 
   const pct = page.locator(".tree-zoom-pct");
-  const startPct = (await pct.textContent())!.trim();
+  const startPct = await pct.inputValue();
 
   // A run of wheel ticks with ctrl held — how a browser reports a trackpad
   // pinch — aimed at the node's centre.
@@ -57,7 +57,7 @@ test("ctrl+wheel zoom keeps the point under the cursor, and the commit does not 
 
   // The gesture goes idle and hands over to the real zoom — the percentage
   // readout only changes on that commit.
-  await expect(pct).not.toHaveText(startPct);
+  await expect(pct).not.toHaveValue(startPct);
   await painted(page);
 
   // After the hand-over the node sits where the gesture had already put it.
@@ -97,4 +97,27 @@ test("a grab-pan moves the chart and still leaves nodes clickable", async ({ pag
   // still selects — a pan must not disarm the chart.
   await page.locator("svg.tree-svg g.tree-node").first().click();
   await expect(page.getByRole("button", { name: "Root", exact: true })).toBeVisible();
+});
+
+test("the zoom percentage takes a typed value; Escape keeps the old one", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(SAMPLE);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  await page.locator(".charts-open-btn").click();
+  await page.locator("svg.tree-svg").waitFor();
+
+  const pct = page.locator(".tree-zoom-pct");
+  await pct.fill("85");
+  await pct.press("Enter");
+  await expect(pct).toHaveValue("85%");
+
+  await pct.fill("40");
+  await pct.press("Escape");
+  await expect(pct).toHaveValue("85%");
+
+  // The buttons step by a quarter, not by half.
+  await page.getByRole("button", { name: "Zoom in (+)" }).click();
+  await expect(pct).toHaveValue("106%");
 });

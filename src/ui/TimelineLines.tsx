@@ -269,7 +269,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     () => (geom && rootPoint ? { root: rootPoint, width: geom.width + 2 * PAD, height: geom.height + 2 * PAD } : undefined),
     [geom, rootPoint],
   );
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, setZoomTo, fitToScreen } =
     useTreeCanvas(laid, placed, "tb", false, LABEL_H, `lines:${rootId}:${limit ?? "all"}`, true);
 
   const findSources = useMemo(() => points.map((p) => ({ key: p.key, people: [p.node.main] })), [points]);
@@ -488,7 +488,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
           )}
         </div>
 
-        {laid && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />}
+        {laid && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onSetZoom={setZoomTo} />}
         {/* Scrolled sideways, the year scale and the event labels ride along at
             the left edge — without them a dot's height says nothing. */}
         {laid && geom && viewport.left > 1 && (

@@ -2595,7 +2595,7 @@ export const sl = {
   "tree.zoom.label": "Povečava",
   "tree.zoom.in": "Povečaj (+)",
   "tree.zoom.out": "Pomanjšaj (−)",
-  "tree.zoom.reset": "Ponastavi povečavo na 100 % (0)",
+  "tree.zoom.pct": "Vpišite povečavo v odstotkih in pritisnite Enter",
   "tree.zoom.fit": "Prilagodi zaslonu",
   "tree.export.tooltip": "Prenesi ta diagram kot sliko SVG",
   "tree.exportPdf.tooltip": "Natisni ta diagram v PDF (izberite »Shrani kot PDF«)",

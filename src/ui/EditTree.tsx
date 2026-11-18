@@ -355,7 +355,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const activeNodes = radial ? fanNodes : nodesByKey;
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
-  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, fitToScreen } =
+  const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, setZoomTo, fitToScreen } =
     useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${bowtie ? "both" : mode}:${variant}:${alignment}`, bowtie);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
@@ -649,7 +649,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
         )}
 
         {activeLaid && (
-          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onReset={resetZoom} />
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onSetZoom={setZoomTo} />
         )}
 
         {selected && selected.main && (
