@@ -40,7 +40,15 @@ let profile: MainProfile | undefined;
  *  applies, not with the file's bare habit. */
 let mainOverrides: FormatOverrides | undefined;
 let mainDataset: Dataset | undefined;
-let compareRaw: { fileName: string; dataset: Dataset } | undefined;
+/**
+ * The incoming file as loaded, for re-normalizing it when the main changes. A
+ * GEDCOM keeps its bytes, not its parse: the bytes live outside the script
+ * heap, while a second parsed tree beside the normalized one doubled the
+ * worker's memory (~1.5 GB for a 136 MB file, enough to exhaust it). It is
+ * parsed again on the rare main reload. A table keeps the dataset built from
+ * it — tables are small, and reading a workbook again is asynchronous.
+ */
+let compareRaw: { fileName: string; buffer: ArrayBuffer } | { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
 /** Set when the compare slot was loaded from a genealogical index matches CSV rather than a GEDCOM. */
 let compareCsvPairs: GiPair[] | undefined;
@@ -212,9 +220,9 @@ function handle(req: WorkerRequest): void {
         });
       }
     } else {
-      // Keep the raw parse so we can re-normalize if the main changes later.
+      // Keep the bytes so we can re-normalize if the main changes later.
       compareGeneration++;
-      compareRaw = { fileName: req.fileName, dataset };
+      compareRaw = { fileName: req.fileName, buffer: req.buffer };
       compareCsvPairs = undefined;
       emitCompare(req.fileName, dataset, false);
     }
@@ -235,7 +243,8 @@ function handle(req: WorkerRequest): void {
   if (req.role === "main" && compareRaw) {
     const { fileName } = compareRaw;
     try {
-      emitCompare(fileName, compareRaw.dataset, compareCsvPairs !== undefined);
+      const raw = "dataset" in compareRaw ? compareRaw.dataset : buildDataset(parseGedcom(compareRaw.buffer));
+      emitCompare(fileName, raw, compareCsvPairs !== undefined);
     } catch (err) {
       compareRaw = undefined;
       post({ type: "error", role: "compare", fileName, message: errorMessage(err) });

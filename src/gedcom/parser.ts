@@ -174,7 +174,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
 
     const level = Number(m[1]);
     const xref = m[2];
-    const tag = m[3].toUpperCase();
+    const tag = internTag(m[3].toUpperCase());
     const spelling = m[3] !== tag ? m[3] : undefined;
     let value = m[4];
     // GEDCOM writes a literal at-sign as `@@` so text cannot read as a
@@ -251,9 +251,11 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
       continue;
     }
 
-    const node: GedNode = { level, tag, children: [] };
-    if (xref) node.xref = xref;
-    if (value !== undefined) node.value = value;
+    // Every node starts with the same five fields, absent ones undefined:
+    // one hidden class for the whole tree keeps them in the object itself
+    // rather than in a separately allocated property store (~100 MB on a
+    // 6-million-line file). See `cloneNode`, which builds the same shape.
+    const node: GedNode = { level, xref, tag, value, children: [] };
     if (spelling) node.spelling = spelling;
     if (value === "") node.spaced = true;
     if (atText) node.atText = value;
@@ -261,6 +263,7 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
     else if (atStyle === "doubled") atMixed.add(node);
 
     if (level === 0) {
+      if (roots.length) trimChildren(roots[roots.length - 1]);
       roots.push(node);
     } else {
       const parent = stack[level - 1];
@@ -309,8 +312,31 @@ export function* parseGedcomSteps(decoded: DecodeResult): Steps<ParseResult> {
   if (!roots.some((r) => r.tag === "HEAD" || r.tag === "TRLR" || r.tag === "INDI" || r.tag === "FAM" || r.xref)) {
     throw new Error(NOT_GEDCOM);
   }
+  if (roots.length) trimChildren(roots[roots.length - 1]);
   const version = detectVersion(roots, warnings);
   return { version, charset, records: roots, warnings, eol, finalNewline, bom };
+}
+
+/** One string per distinct tag, shared by every node that carries it: a
+ *  file repeats a few dozen tags millions of times, and each `toUpperCase()`
+ *  would otherwise keep its own copy. */
+const TAGS = new Map<string, string>();
+function internTag(tag: string): string {
+  const known = TAGS.get(tag);
+  if (known !== undefined) return known;
+  TAGS.set(tag, tag);
+  return tag;
+}
+
+/**
+ * Re-allocate a finished record's `children` arrays at their exact length.
+ * An array grown by `push` keeps spare capacity (16 slots after the first
+ * push), which across a 6-million-line file came to ~300 MB of empty slots.
+ */
+function trimChildren(node: GedNode): void {
+  if (!node.children.length) return;
+  node.children = node.children.slice();
+  for (const child of node.children) trimChildren(child);
 }
 
 /**

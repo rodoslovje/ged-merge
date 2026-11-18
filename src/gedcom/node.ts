@@ -90,9 +90,9 @@ export function removeChildren(node: GedNode, tag: string | readonly string[]): 
 
 /** Deep-clone a GedNode tree. All string fields are primitives so no reference aliasing occurs. */
 export function cloneNode(n: GedNode): GedNode {
-  const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map(cloneNode) };
-  if (n.xref !== undefined) c.xref = n.xref;
-  if (n.value !== undefined) c.value = n.value;
+  // The parser's node shape (see `parseGedcomSteps`), so a clone stays as
+  // compact as the tree it was taken from.
+  const c: GedNode = { level: n.level, xref: n.xref, tag: n.tag, value: n.value, children: n.children.map(cloneNode) };
   if (n.verbatim !== undefined) c.verbatim = n.verbatim;
   if (n.spelling !== undefined) c.spelling = n.spelling;
   if (n.spaced) c.spaced = true;
