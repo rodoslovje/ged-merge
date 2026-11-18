@@ -25,8 +25,9 @@ const SIDES: LineSide[] = ["paternal", "maternal"];
 /** Ancestors named in a surname row before the rest are counted. */
 const SHOWN_ANCESTORS = 3;
 
-/** A value with a button that puts it on the clipboard, for pasting into a DNA site's form. */
-function CopyField({ label, value }: { label: string; value: string }) {
+/** A labelled value; with `copy`, a button that puts it on the clipboard for
+ *  pasting into a DNA site's form, which splits the one-line form itself. */
+function CopyField({ label, value, copy: copyable }: { label: string; value: string; copy?: boolean }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -42,9 +43,11 @@ function CopyField({ label, value }: { label: string; value: string }) {
     <div className="tools-dna-field">
       <span className="tools-dna-field-label">{label}</span>
       <span className="tools-dna-field-value">{value || "—"}</span>
-      <button type="button" className="nav-btn tools-dna-copy" disabled={!value} onClick={copy}>
-        {copied ? t("tools.dna.copied") : t("tools.dna.copy")}
-      </button>
+      {copyable && (
+        <button type="button" className="nav-btn tools-dna-copy" disabled={!value} onClick={copy}>
+          {copied ? t("tools.dna.copied") : t("tools.dna.copy")}
+        </button>
+      )}
     </div>
   );
 }
@@ -99,7 +102,7 @@ function LineCard({
                 <CopyField label={t("tools.dna.field.birthYear")} value={eka.birthYear !== undefined ? String(eka.birthYear) : ""} />
                 <CopyField label={t("tools.dna.field.place")} value={place} />
                 <CopyField label={t("tools.dna.field.country")} value={country} />
-                <CopyField label={t("tools.dna.field.all")} value={oneLine} />
+                <CopyField label={t("tools.dna.field.all")} value={oneLine} copy />
               </>
             ) : (
               <p className="muted">{t("tools.dna.eka.none")}</p>
