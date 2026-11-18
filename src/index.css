@@ -10592,6 +10592,28 @@ button.stats-decade-cell:hover, .stats-decade-cell.picked { border-color: var(--
 .tools-privacy-text { width: 9rem; padding: 3px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .tools-privacy .tools-norm-summary { margin: 0; }
 
+/* DNA (Tools → DNA) */
+.tools-dna-lines { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+@media (max-width: 880px) { .tools-dna-lines { grid-template-columns: 1fr; } }
+.tools-dna-eka { margin-bottom: 10px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.tools-dna-eka-title { font-weight: 600; font-size: 0.9rem; }
+.tools-dna-eka > .tools-publish-label { margin-bottom: 6px; }
+.tools-dna-field { display: grid; grid-template-columns: 9rem 1fr auto; align-items: center; gap: 8px; padding: 2px 0; font-size: 0.9rem; }
+.tools-dna-field-label { color: var(--muted); }
+.tools-dna-field-value { overflow-wrap: anywhere; }
+.tools-dna-copy { padding: 2px 8px; font-size: 0.8rem; }
+@media (max-width: 560px) { .tools-dna-field { grid-template-columns: 1fr auto; } .tools-dna-field-label { grid-column: 1 / -1; } }
+.tools-dna-steps { list-style: none; margin: 0; padding: 0; font-size: 0.9rem; }
+.tools-dna-steps li { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+.tools-dna-steps li:last-child { border-bottom: none; }
+.tools-dna-step { display: inline-flex; align-items: baseline; gap: 6px; flex: none; cursor: pointer; }
+.tools-dna-gen { min-width: 3.5rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tools-dna-step-body { min-width: 0; }
+.tools-dna-step-place { display: block; font-size: 0.85rem; }
+.tools-dna-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 4px 0 10px; }
+.tools-dna-table-wrap { overflow-x: auto; }
+.tools-dna-table td.tools-dna-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 /* Family website (Tools → Family website) */
 .tools-publish-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .tools-publish-field:last-child { margin-bottom: 0; }
