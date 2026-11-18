@@ -161,6 +161,7 @@
             <li class="guide-toc-sub"><a href="#normalize">↳ Poenoti in paketno uredi</a></li>
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Zasebnost</a></li>
             <li class="guide-toc-sub"><a href="#tool-website">↳ Spletna stran</a></li>
+            <li class="guide-toc-sub"><a href="#tool-dna">↳ DNK</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Viri</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Kraji</a></li>
 
@@ -1408,9 +1409,10 @@
               <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti in jih shranite kot vsako drugo urejanje, prav tako <a href="#normalize">paketna opravila</a> in <strong>Poenoti datoteko</strong>. <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
               pripravijo ločeno datoteko za prenos. Tako ali tako se datoteka <em>.ged</em> na vašem disku nikoli ne
               prepiše: vsako shranjevanje je nova datoteka v mapi s prenosi (<a href="#saving">§14</a>).
-              V izbirniku na vrhu je sedem orodij —
+              V izbirniku na vrhu je devet orodij —
               <strong>Statistika</strong>, <strong>Kraji</strong>, <strong>Viri</strong>, <strong>Pregled</strong>,
-              <strong>Dvojniki</strong>, <strong>Poenoti in paketno uredi</strong> in <strong>Zasebnost</strong> —
+              <strong>Dvojniki</strong>, <strong>Poenoti in paketno uredi</strong>, <strong>Zasebnost</strong>,
+              <strong>Spletna stran</strong> in <strong>DNK</strong> —
               Orodja pa se odprejo na Statistiki, ki datoteko le bere. Še dve orodji se odpreta iz Krajev in Virov:
               <a href="#geocode">Geokodiranje krajev</a> iz Krajev in <a href="#organize">Uredi vire</a> iz Virov.
             </p>
@@ -1927,6 +1929,27 @@
               fotografije, ki jo sprejme vsaka storitev. Povezava do diagrama
               sorodstva navaja obe osebi, zato vsakomur pokaže isti dve. Če delovni prostor hranite v brskalniku, si orodje izbire zapomni za vsako datoteko posebej.
             </p>
+            <h3 id="tool-dna">DNK</h3>
+            <p>
+              Orodje zbere podatke, ki jih o vašem rodovniku sprašujejo portali za testiranje DNK, da vam jih ni treba
+              prepisovati na roko. Izberite <em>Testirano osebo</em>; privzeto je to izhodiščna oseba. Orodje nato
+              sledi samo njenim biološkim staršem: posvojitelji in rejniki so sicer družina, test DNK pa njihove linije ne
+              bere. Datoteka se pri tem ne spremeni.
+            </p>
+            <ul>
+              <li><strong>Očetova linija (Y-DNK)</strong> in <strong>Materina linija (mtDNK)</strong> — oče, njegov oče
+                in naprej ter mati, njena mati in naprej, vsak z letnicami in krajem. Na vrhu vsake linije je njen
+                <em>Najzgodnejši znani prednik</em>: najbolj oddaljen prednik, ki ima zapisano ime in priimek. Če je
+                prababica znana samo kot »Marija«, se zato upošteva rod pod njo. Če želite drugega prednika, ga izberite
+                na seznamu. Vsako polje — ime, priimek, leto rojstva, kraj, država in vse skupaj v eni vrstici — ima gumb
+                »Kopiraj«, s katerim vrednost prilepite v obrazec na portalu.</li>
+              <li><strong>Priimki prednikov</strong> — rojstni priimki vseh prednikov s krajem, ki se vzame iz rojstva,
+                sicer iz krsta, smrti ali pokopa; vsak par priimka in kraja je v svoji vrstici. Izberete lahko število
+                rodov in natančnost kraja: kraj in država, samo kraj, celoten zapis kraja, samo država ali brez kraja.
+                FamilyTreeDNA kraje primerja kot besedilo, zato se manj natančen zapis pogosteje ujema s seznami drugih
+                testiranih. Izklopite vrstice, ki jih ne želite, in kliknite gumb »Prenesi CSV za FamilyTreeDNA«.
+                Datoteko nato naložite na FamilyTreeDNA v razdelku <em>Genealogy → Surnames</em> z gumbom »Upload CSV«.</li>
+            </ul>
             <h3 id="tool-sources">Viri</h3>
             <p>
               Pregledujte vse hrambe, zapise virov in medijske predmete, razvrščene po hrambah. Izbira enega
