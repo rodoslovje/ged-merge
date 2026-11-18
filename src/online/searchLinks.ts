@@ -16,7 +16,7 @@ export interface PersonQuery {
   /** Birth-year window, when the person has a dated birth or one can be estimated. */
   birthFrom?: number;
   birthTo?: number;
-  /** Death-year window — only when no birth window could be set. */
+  /** Death-year window, when the person has a dated death or burial. */
   deathFrom?: number;
   deathTo?: number;
   /** The most specific part of the birth place (the village or town). */
@@ -56,16 +56,15 @@ export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undef
   const surname = (name?.surname ?? "").trim();
   if (!given && !surname) return undefined;
   const q: PersonQuery = { given, surname };
+  // Both windows when both are known: the index keeps the records that give
+  // no year in a field, so a death window drops only a different death.
   const birth = firstDated(indi, BIRTH_TAGS);
-  if (birth) {
-    [q.birthFrom, q.birthTo] = yearWindow(birth);
-  } else {
-    const death = firstDated(indi, DEATH_TAGS);
-    if (death) [q.deathFrom, q.deathTo] = yearWindow(death);
-    else if (ds) {
-      const est = estimateBirthYear(indi, ds);
-      if (est) [q.birthFrom, q.birthTo] = [est.estimatedYear - ESTIMATE_SLACK, est.estimatedYear + ESTIMATE_SLACK];
-    }
+  const death = firstDated(indi, DEATH_TAGS);
+  if (birth) [q.birthFrom, q.birthTo] = yearWindow(birth);
+  if (death) [q.deathFrom, q.deathTo] = yearWindow(death);
+  if (!birth && !death && ds) {
+    const est = estimateBirthYear(indi, ds);
+    if (est) [q.birthFrom, q.birthTo] = [est.estimatedYear - ESTIMATE_SLACK, est.estimatedYear + ESTIMATE_SLACK];
   }
   const place = BIRTH_TAGS.map((tag) => indi.events.find((e) => e.tag === tag)?.place).find(Boolean);
   const locality = place?.parts[0]?.trim();
@@ -105,14 +104,15 @@ export function searchUrl(site: SearchSite, q: PersonQuery): string {
     case "index":
       // The index website's own short parameters (its lib/url.js PARAM_MAP);
       // ex=0 asks for its approximate (fuzzy) search, ex=1 for exact names — as the API call does.
+      // One year window only: the website drops the records with no year in
+      // a filtered field, so a death window would hide graves without a birth.
       return withParams(INDEX_SITE, {
         t: "person",
         n: q.given,
         sn: q.surname,
         dob: q.birthFrom,
         dobt: q.birthTo,
-        dod: q.deathFrom,
-        dodt: q.deathTo,
+        ...(q.birthFrom === undefined ? { dod: q.deathFrom, dodt: q.deathTo } : {}),
         ex: q.exact ? 1 : 0,
       });
     case "familysearchTree":
