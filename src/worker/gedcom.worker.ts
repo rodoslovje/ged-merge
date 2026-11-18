@@ -10,8 +10,8 @@ import type { NameLayout, PlaceLayout, SourceLayout } from "../normalize/types";
 import type { Dataset } from "../gedcom/types";
 import { annotateCounts } from "./annotateCounts";
 import { collectLayoutValues, dateLayoutFromValues, detectCoordUsage, detectDatePlaceholder, detectPlaceLayout, detectUnknownNameToken, inferMainProfile, inferNameLayout } from "../normalize/profile";
-import { normalizeDataset } from "../normalize/normalize";
-import { diffNormalized } from "../normalize/normPatch";
+import { ALL_PASSES, normalizeDataset } from "../normalize/normalize";
+import { diffNormalized, diffNormalizedFromBytes } from "../normalize/normPatch";
 import { applyRecordsPatch } from "../state/mainSync";
 import type { MainProfile } from "../normalize/types";
 import { matchDatasetsExplained, pairExplainer, type PairExplainer } from "../match/engine";
@@ -40,7 +40,15 @@ let profile: MainProfile | undefined;
  *  applies, not with the file's bare habit. */
 let mainOverrides: FormatOverrides | undefined;
 let mainDataset: Dataset | undefined;
-let compareRaw: { fileName: string; dataset: Dataset } | undefined;
+/**
+ * The incoming file as loaded, for re-normalizing it when the main changes. A
+ * GEDCOM keeps its bytes, not its parse: the bytes live outside the script
+ * heap, while a second parsed tree beside the normalized one doubled the
+ * worker's memory (~1.5 GB for a 136 MB file, enough to exhaust it). It is
+ * parsed again on the rare main reload. A table keeps the dataset built from
+ * it — tables are small, and reading a workbook again is asynchronous.
+ */
+let compareRaw: { fileName: string; buffer: ArrayBuffer } | { fileName: string; dataset: Dataset } | undefined;
 let compareNormalized: Dataset | undefined;
 /** Set when the compare slot was loaded from a genealogical index matches CSV rather than a GEDCOM. */
 let compareCsvPairs: GiPair[] | undefined;
@@ -212,11 +220,11 @@ function handle(req: WorkerRequest): void {
         });
       }
     } else {
-      // Keep the raw parse so we can re-normalize if the main changes later.
+      // Keep the bytes so we can re-normalize if the main changes later.
       compareGeneration++;
-      compareRaw = { fileName: req.fileName, dataset };
+      compareRaw = { fileName: req.fileName, buffer: req.buffer };
       compareCsvPairs = undefined;
-      emitCompare(req.fileName, dataset, false);
+      emitCompare(req.fileName, dataset, false, req.buffer);
     }
   } catch (err) {
     post({
@@ -235,7 +243,8 @@ function handle(req: WorkerRequest): void {
   if (req.role === "main" && compareRaw) {
     const { fileName } = compareRaw;
     try {
-      emitCompare(fileName, compareRaw.dataset, compareCsvPairs !== undefined);
+      const raw = "dataset" in compareRaw ? compareRaw.dataset : buildDataset(parseGedcom(compareRaw.buffer));
+      emitCompare(fileName, raw, compareCsvPairs !== undefined, "buffer" in compareRaw ? compareRaw.buffer : undefined);
     } catch (err) {
       compareRaw = undefined;
       post({ type: "error", role: "compare", fileName, message: errorMessage(err) });
@@ -292,8 +301,11 @@ async function loadCompareTable(fileName: string, buffer: ArrayBuffer, generatio
 /** Emit the compare slot, normalized to the main profile when available.
  *  `withDataset` sends the dataset itself — only for a table-built compare,
  *  which the main thread cannot build; a GEDCOM compare is rebuilt there
- *  from the file's bytes (see ParseSuccess.dataset). */
-function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean): void {
+ *  from the file's bytes (see ParseSuccess.dataset). `bytes`, for a GEDCOM,
+ *  are what `rawDataset` was just parsed from: the dataset is then normalized
+ *  in place and must not be used again, and what changed is found by parsing
+ *  the bytes a second time, record by record — never two whole trees at once. */
+function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean, bytes?: ArrayBuffer): void {
   // One walk collects DATE and PLAC/ADDR values together, shared below by the
   // place/date layout reports and (when normalizing) the source date order —
   // instead of each walking the record tree on its own.
@@ -322,7 +334,8 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
     post({ type: "parsed", role: "compare", ...(withDataset ? { dataset: rawDataset } : {}), ...lastCompareMeta });
     return;
   }
-  const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues);
+  const heads = bytes && rawDataset.records.map((r) => ({ tag: r.tag, xref: r.xref }));
+  const { dataset, report } = normalizeDataset(rawDataset, profile, dateValues, bytes ? { ...ALL_PASSES, inPlace: true } : undefined);
   compareNormalized = dataset;
   // The profile travels with the compare: a silent main re-feed changes it
   // without announcing the main, and should the edits below be missing, the
@@ -336,7 +349,9 @@ function emitCompare(fileName: string, rawDataset: Dataset, withDataset: boolean
   // of the bytes instead of normalizing them a second time. Kept out of
   // `lastCompareMeta`: its buffers are transferred, and the re-announcement
   // after consolidation has nothing to replay.
-  const normalized = diffNormalized(rawDataset.records, dataset.records);
+  const normalized = bytes && heads
+    ? diffNormalizedFromBytes(bytes, heads, dataset.records)
+    : diffNormalized(rawDataset.records, dataset.records);
   post(
     { type: "parsed", role: "compare", ...lastCompareMeta, ...(normalized ? { normalized } : {}) },
     normalized ? [normalized.ops.buffer, normalized.lens.buffer] : undefined,

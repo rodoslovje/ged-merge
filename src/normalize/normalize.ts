@@ -21,7 +21,7 @@ import { settleSourceFields } from "../gedcom/edit/sources";
 const MAX_EXAMPLES = 12;
 
 /** Default: every normalization pass runs (load-time behavior). */
-const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true, vendorTags: true };
+export const ALL_PASSES: NormalizeOptions = { dates: true, places: true, links: true, names: true, vendorTags: true };
 
 /**
  * Normalize a compare dataset to the main's conventions.
@@ -44,8 +44,14 @@ export function normalizeDataset(
   sourceDateValues?: string[],
   options: NormalizeOptions = ALL_PASSES,
 ): { dataset: Dataset; report: NormalizationReport } {
-  // Deep clone the record forest so normalization doesn't mutate the input.
-  const records = compare.records.map(cloneNode);
+  // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
+  // D/M or M/D?). Infer its own order so we parse its dates correctly before
+  // re-rendering them in the main's style. Read before any pass runs: in place,
+  // the version migration below would already have rewritten the dates.
+  const sourceOrder = inferSourceOrder(compare, sourceDateValues);
+  // Deep clone the record forest so normalization doesn't mutate the input —
+  // unless the caller is done with it (see `NormalizeOptions.inPlace`).
+  const records = options.inPlace ? compare.records : compare.records.map(cloneNode);
   const report: NormalizationReport = {
     datesChanged: 0,
     dateExamples: [],
@@ -90,11 +96,6 @@ export function normalizeDataset(
     // and "migrated: 0" tells the user that was checked rather than skipped.
     report.versionMigration = { from: compare.version, to: profile.version, changed, examples };
   }
-
-  // The compare file may itself use an ambiguous numeric layout (is "05/06/1989"
-  // D/M or M/D?). Infer its own order so we parse its dates correctly before
-  // re-rendering them in the main's style.
-  const sourceOrder = inferSourceOrder(compare, sourceDateValues);
 
   // Only individuals and families carry the genealogical dates/places/links we
   // reshape. Repositories, sources, the header, etc. are left untouched so their

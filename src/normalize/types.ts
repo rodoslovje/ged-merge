@@ -321,6 +321,14 @@ export interface NormalizeOptions {
    * its `MISE` instead of gaining a `_MILT` that is no more its own. Load-time
    * compare normalization never sets it. */
   preserveVendorTags?: ReadonlySet<string>;
+  /**
+   * Normalize the input's own record tree instead of a deep copy of it. For a
+   * caller that discards the input anyway: the copy is a second tree as large
+   * as the file (over a gigabyte for a 136 MB one), and holding both at once
+   * was the worker's memory peak. The input dataset's typed fields then no
+   * longer match its records, so it must not be read afterwards.
+   */
+  inPlace?: boolean;
   /** Leave the partnership-status encodings as the file writes them, instead of
    * consolidating them into `_MSTAT`. Set by the bulk-normalize tool whenever
    * `_MSTAT` is not the file producer's own tag — the same round-trip doctrine

@@ -1,3 +1,4 @@
+import { parseGedcom } from "../gedcom/parser";
 import type { GedNode } from "../gedcom/types";
 
 /**
@@ -78,29 +79,80 @@ class Writer {
  *  records — not expected of normalization; the caller then has no patch to
  *  offer. */
 export function diffNormalized(before: GedNode[], after: GedNode[]): NormPatch | undefined {
-  const added = addedBlock(before, after);
+  const differ = normDiffer(before, after);
+  if (!differ) return undefined;
+  before.forEach((record, r) => differ.next(record, r));
+  return differ.finish();
+}
+
+/** A record's identity, all {@link normDiffer} needs to line the forests up. */
+export type RecordHead = Pick<GedNode, "tag" | "xref">;
+
+/**
+ * {@link diffNormalized} fed one `before` record at a time, in order, so the
+ * caller need not hold the whole `before` forest — it can stream it from a
+ * second parse of the bytes (see `ParseOptions.onSettled`). `heads` is every
+ * `before` record's tag and xref, known up front. Undefined when the forests
+ * do not line up (see {@link diffNormalized}).
+ */
+export function normDiffer(
+  heads: readonly RecordHead[],
+  after: GedNode[],
+): { next(record: GedNode, r: number): void; finish(): NormPatch } | undefined {
+  const added = addedBlock(heads, after);
   if (!added) return undefined;
   const kept = added.records.length ? [...after.slice(0, added.at), ...after.slice(added.at + added.records.length)] : after;
   const w = new Writer();
   const path: number[] = [];
-  for (let r = 0; r < before.length; r++) diffNode(before[r], kept[r], r, path, w);
   return {
-    count: before.length,
-    ops: Int32Array.from(w.ops),
-    lens: Int32Array.from(w.lens),
-    text: w.parts.join(""),
-    objs: w.objs,
-    ...(added.records.length ? { added } : {}),
+    next: (record, r) => diffNode(record, kept[r], r, path, w),
+    finish: () => ({
+      count: heads.length,
+      ops: Int32Array.from(w.ops),
+      lens: Int32Array.from(w.lens),
+      text: w.parts.join(""),
+      objs: w.objs,
+      ...(added.records.length ? { added } : {}),
+    }),
   };
+}
+
+/**
+ * {@link diffNormalized} against the parse of `bytes` that `after` was
+ * normalized from in place (`NormalizeOptions.inPlace`), parsing the bytes
+ * again rather than keeping a copy: each record is compared as the parser
+ * settles it and then dropped, so the "before" forest never exists whole.
+ * `heads` is every record's tag and xref as built — `buildDataset` re-ids a
+ * duplicate xref, and the parse here has not been built — taken before
+ * normalizing.
+ */
+export function diffNormalizedFromBytes(bytes: ArrayBuffer, heads: readonly RecordHead[], after: GedNode[]): NormPatch | undefined {
+  const differ = normDiffer(heads, after);
+  if (!differ) return undefined;
+  let next = 0;
+  let lined = true;
+  const { records } = parseGedcom(bytes, {
+    onSettled(parsed, settled) {
+      for (; next < settled; next++) {
+        const record = parsed[next];
+        if (next >= heads.length || heads[next].tag !== record.tag) lined = false;
+        if (!lined) continue;
+        record.xref = heads[next].xref;
+        differ.next(record, next);
+        if (record.tag !== "HEAD") parsed[next] = { level: 0, xref: record.xref, tag: record.tag, value: undefined, children: [] };
+      }
+    },
+  });
+  return lined && records.length === heads.length ? differ.finish() : undefined;
 }
 
 /** Where `after` holds records `before` has none of — one block of new xrefs
  *  — or undefined when the two do not line up that way. */
-function addedBlock(before: GedNode[], after: GedNode[]): { at: number; records: GedNode[] } | undefined {
+function addedBlock(before: readonly RecordHead[], after: GedNode[]): { at: number; records: GedNode[] } | undefined {
   const k = after.length - before.length;
   if (k < 0) return undefined;
   if (k === 0) return { at: after.length, records: [] };
-  const same = (a: GedNode, b: GedNode) => a.tag === b.tag && a.xref === b.xref;
+  const same = (a: RecordHead, b: RecordHead) => a.tag === b.tag && a.xref === b.xref;
   let at = 0;
   while (at < before.length && same(before[at], after[at])) at++;
   const old = new Set(before.map((r) => r.xref).filter(Boolean));

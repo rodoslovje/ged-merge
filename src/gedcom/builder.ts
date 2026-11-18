@@ -265,22 +265,22 @@ export function buildIndividual(record: GedNode, media: MediaLinks, sourceCtx: S
     }
   }
 
-  const indi: Individual = { id: record.xref!, names, sex, events, childOf, spouseOf, raw: record };
+  const indi: Individual = { id: record.xref!, names: fit(names), sex, events: fit(events), childOf: fit(childOf), spouseOf: fit(spouseOf), raw: record };
   if (uids.length) indi.uids = dedupe(uids);
   if (fsids.length) indi.fsids = dedupe(fsids);
-  if (exids.length) indi.exids = exids;
+  if (exids.length) indi.exids = fit(exids);
   if (links.length) indi.links = dedupe(links);
   const editableIndiLinks = collectEditableLinks(record);
   if (editableIndiLinks.length) indi.editableLinks = dedupe(editableIndiLinks);
   const indiMediaLinks = collectMediaLinks(record, media);
   if (indiMediaLinks.length) indi.mediaLinks = dedupe(indiMediaLinks);
-  if (notes.length) indi.notes = notes;
-  if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = notesFull;
-  if (noteRefs.length) indi.noteRefs = noteRefs;
-  if (sources.length) indi.sources = sources;
+  if (notes.length) indi.notes = fit(notes);
+  if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) indi.notesWithLinks = fit(notesFull);
+  if (noteRefs.length) indi.noteRefs = fit(noteRefs);
+  if (sources.length) indi.sources = fit(sources);
   if (associations.length) {
     readAssocNotes(associations, noteIndex, media);
-    indi.associations = associations;
+    indi.associations = fit(associations);
   }
   if (isPrivateNode(record)) indi.private = true;
   const noEvents = negativeAssertionsOf(record);
@@ -335,7 +335,7 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
     }
   }
 
-  const fam: Family = { id: record.xref!, children, events, raw: record };
+  const fam: Family = { id: record.xref!, children: fit(children), events: fit(events), raw: record };
   if (husband) fam.husband = husband;
   if (wife) fam.wife = wife;
   if (links.length) fam.links = dedupe(links);
@@ -343,13 +343,13 @@ export function buildFamily(record: GedNode, media: MediaLinks, sourceCtx: Sourc
   if (editableFamLinks.length) fam.editableLinks = dedupe(editableFamLinks);
   const famMediaLinks = collectMediaLinks(record, media);
   if (famMediaLinks.length) fam.mediaLinks = dedupe(famMediaLinks);
-  if (notes.length) fam.notes = notes;
-  if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = notesFull;
-  if (noteRefs.length) fam.noteRefs = noteRefs;
-  if (sources.length) fam.sources = sources;
+  if (notes.length) fam.notes = fit(notes);
+  if (notesFull.length && notesFull.join("\x1f") !== notes.join("\x1f")) fam.notesWithLinks = fit(notesFull);
+  if (noteRefs.length) fam.noteRefs = fit(noteRefs);
+  if (sources.length) fam.sources = fit(sources);
   if (associations.length) {
     readAssocNotes(associations, noteIndex, media);
-    fam.associations = associations;
+    fam.associations = fit(associations);
   }
   if (isPrivateNode(record)) fam.private = true;
   const noEvents = negativeAssertionsOf(record);
@@ -451,7 +451,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
   for (const child of childrenByTag(node, NOTE_TAGS)) {
     collectNote(child, noteIndex, media, [], links, [], eventNoteRefs);
   }
-  if (eventNoteRefs.length) event.noteRefs = eventNoteRefs;
+  if (eventNoteRefs.length) event.noteRefs = fit(eventNoteRefs);
   if (links.length) event.links = dedupe(links);
   const editable = collectEditableLinks(node);
   if (editable.length) event.editableLinks = dedupe(editable);
@@ -470,7 +470,7 @@ function buildEvent(node: GedNode, media: MediaLinks, sourceCtx: SourceContext, 
     .filter((c) => c.tag === "SOUR")
     .map((c) => resolveSourceCitation(c, sourceCtx))
     .filter((s): s is SourceCitation => !!s);
-  if (sources.length) event.sources = sources;
+  if (sources.length) event.sources = fit(sources);
   return event;
 }
 
@@ -729,6 +729,16 @@ function collectLinks(node: GedNode, media: MediaLinks, out: string[] = []): str
 }
 
 /** De-duplicate links case-insensitively while preserving first-seen order. */
+/**
+ * `items` at its exact length. An array filled by `push` keeps spare capacity
+ * (16 slots after the first push); across a quarter of a million people those
+ * empty slots were ~40% of the typed projection's memory. An empty array has
+ * no storage of its own, so it is returned as it is.
+ */
+function fit<T>(items: T[]): T[] {
+  return items.length ? items.slice() : items;
+}
+
 function dedupe(links: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -738,7 +748,7 @@ function dedupe(links: string[]): string[] {
     seen.add(key);
     out.push(l);
   }
-  return out;
+  return fit(out);
 }
 
 function subTagMap(node: GedNode): Map<string, string> {
