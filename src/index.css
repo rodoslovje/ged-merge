@@ -2667,6 +2667,17 @@ button:focus-visible {
 .person-search-hit-fact,
 .person-search-hit-relatives { color: var(--muted); overflow-wrap: anywhere; }
 .person-search-hit-relatives { font-style: italic; }
+/* A hit's parts against the person: plain where they agree, a thin underline
+   where not — dotted in the comparison's "differs" colour, solid in its
+   "new" colour — so the style says it without the colour too. */
+.person-search-mark {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+.person-search-mark.differs { text-decoration-style: dotted; text-decoration-thickness: 2px; text-decoration-color: var(--status-diff); }
+.person-search-mark.adds { text-decoration-style: solid; text-decoration-color: var(--status-new); }
 .person-search-own {
   display: inline-block;
   margin: 2px 0;
