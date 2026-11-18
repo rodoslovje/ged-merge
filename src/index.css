@@ -10612,6 +10612,7 @@ button.stats-decade-cell:hover, .stats-decade-cell.picked { border-color: var(--
 .tools-dna-step-place { display: block; font-size: 0.85rem; }
 .tools-dna-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 4px 0 10px; }
 .tools-dna-table-wrap { overflow-x: auto; }
+.tools-dna-person { white-space: nowrap; }
 .tools-dna-table td.tools-dna-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Family website (Tools → Family website) */

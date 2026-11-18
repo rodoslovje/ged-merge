@@ -17,6 +17,7 @@ import { toCsv } from "../../stats/csv";
 import { downloadText, savedName } from "../download";
 import { PersonLink } from "../PersonLink";
 import { StartPersonSelector } from "../StartPersonSelector";
+import { PickerMenu } from "../PickerMenu";
 import { InfoTip, ToolsIntro } from "./shared";
 
 const GENERATION_CHOICES = [0, 3, 4, 5, 6, 7, 8, 10, 12];
@@ -50,7 +51,8 @@ function CopyField({ label, value }: { label: string; value: string }) {
 
 function stepYears(s: LineStep, t: (k: string, o?: Record<string, unknown>) => string): string {
   const birth = s.birthYear !== undefined ? `${s.birthApprox ? "~" : ""}${s.birthYear}` : "";
-  return birth || s.deathYear !== undefined ? `${birth}–${s.deathYear ?? ""}` : t("tools.dna.noYears");
+  if (s.deathYear !== undefined) return `${birth}–${s.deathYear}`;
+  return birth || t("tools.dna.noYears");
 }
 
 function LineCard({
@@ -231,22 +233,24 @@ export function DnaPanel({
           <section className="tools-privacy-group">
             <div className="tools-privacy-legend">{t("tools.dna.surnames")}</div>
             <div className="tools-privacy-inline">
-              <label className="tools-privacy-inline">
+              <span className="tools-privacy-inline">
                 {t("tools.dna.generations")}
-                <select value={maxGenerations} onChange={(e) => setMaxGenerations(Number(e.target.value))}>
-                  {GENERATION_CHOICES.map((n) => (
-                    <option key={n} value={n}>{n === 0 ? t("tools.dna.generations.all") : n}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="tools-privacy-inline">
+                <PickerMenu
+                  items={GENERATION_CHOICES.map((n) => ({ key: String(n), label: n === 0 ? t("tools.dna.generations.all") : String(n) }))}
+                  value={String(maxGenerations)}
+                  onChange={(k) => setMaxGenerations(Number(k))}
+                  label={t("tools.dna.generations")}
+                />
+              </span>
+              <span className="tools-privacy-inline">
                 {t("tools.dna.placeLevel")}
-                <select value={place} onChange={(e) => setPlace(e.target.value as PlaceLevel)}>
-                  {PLACE_LEVELS.map((p) => (
-                    <option key={p} value={p}>{t(`tools.dna.placeLevel.${p}`)}</option>
-                  ))}
-                </select>
-              </label>
+                <PickerMenu
+                  items={PLACE_LEVELS.map((p) => ({ key: p, label: t(`tools.dna.placeLevel.${p}`) }))}
+                  value={place}
+                  onChange={setPlace}
+                  label={t("tools.dna.placeLevel")}
+                />
+              </span>
               <InfoTip hint={t("tools.dna.placeHint")} />
             </div>
             {rows.length === 0 ? (
@@ -289,7 +293,7 @@ export function DnaPanel({
                           <td>{r.location}</td>
                           <td>
                             {r.personIds.slice(0, SHOWN_ANCESTORS).map((id, i) => (
-                              <span key={id}>
+                              <span key={id} className="tools-dna-person">
                                 {i > 0 && ", "}
                                 <PersonLink dataset={dataset} id={id} fallback={id} onNavigate={onNavigate} noYears />
                               </span>
