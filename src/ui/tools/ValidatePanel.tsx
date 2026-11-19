@@ -653,8 +653,7 @@ export function ValidatePanel({
     });
   }
   const pickedBranches = [...branchPicks.values()];
-  const branchSlug = (issue: ValidationIssue) =>
-    chartSlug(dataset.individuals.get(issue.id)?.names[0]?.full, t("tools.validate.branchFile"));
+  const branchSlug = (issue: ValidationIssue) => branchFileSlug(dataset, issue, t("tools.validate.branchFile"));
   /** The picked branches together, in one GEDCOM file. */
   function exportBranchesOne() {
     const ids = pickedBranches.flatMap((i) => branchOf(dataset, i.id));
@@ -1506,6 +1505,7 @@ export function ValidatePanel({
                       <BranchActions
                         dataset={dataset}
                         personId={row.issue.id}
+                        slug={branchSlug(row.issue)}
                         done={fixedRows.has(rowKey(row.issue))}
                         onRemove={() => askRemoveBranch(row.issue)}
                       />
@@ -1596,13 +1596,27 @@ function PickBox({
   );
 }
 
+/** A branch file's name: its youngest member, the years the branch spans and
+ *  the word for a branch — `Pavel-Kos-1900-1930-branch` — so the files of
+ *  many branches tell apart by name. */
+function branchFileSlug(dataset: Dataset, issue: ValidationIssue, word: string): string {
+  const years = issue.messageVars?.years;
+  return chartSlug(
+    dataset.individuals.get(issue.id)?.names[0]?.full,
+    typeof years === "string" ? years.replace("–", "-") : undefined,
+    word,
+  );
+}
+
 /** A detached branch's own actions, at the end of its row: download the whole
  *  branch as a GEDCOM file, or remove it from the file. The branch's members
  *  are looked up only on click — the scan carries just the youngest member and
  *  the count. */
-function BranchActions({ dataset, personId, done, onRemove }: {
+function BranchActions({ dataset, personId, slug, done, onRemove }: {
   dataset: Dataset;
   personId: string;
+  /** The downloaded file's name, without `.ged`. */
+  slug: string;
   /** Removed: the row waits for the re-run health check to drop it. */
   done: boolean;
   onRemove: () => void;
@@ -1611,10 +1625,7 @@ function BranchActions({ dataset, personId, done, onRemove }: {
   const { target } = useTargetFormat();
   // The author a branch file without a submitter is given, as in the charts.
   const author = submitterOf(useSettingsSlice(SUBMITTER_KEYS));
-  const exportBranch = () => {
-    const name = dataset.individuals.get(personId)?.names[0]?.full;
-    exportChartGedcom(dataset, branchOf(dataset, personId), chartSlug(name, t("tools.validate.branchFile")), target, author);
-  };
+  const exportBranch = () => exportChartGedcom(dataset, branchOf(dataset, personId), slug, target, author);
   if (done) return <span className="tools-issue-fixed">{t("tools.validate.fixOneDone")}</span>;
   return (
     <span className="tools-issue-actions">

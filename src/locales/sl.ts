@@ -713,6 +713,7 @@ export const sl = {
   "tools.validate.issue.orphan_M": "Ni povezan z nobeno družino",
   "tools.validate.issue.orphan_F": "Ni povezana z nobeno družino",
   "tools.validate.issue.island": "Najmlajša oseba v veji, ki ni povezana z glavnim drevesom (oseb v veji: {{count}}).",
+  "tools.validate.issue.islandYears": "Najmlajša oseba v veji, ki ni povezana z glavnim drevesom (oseb v veji: {{count}}, letnice: {{years}}).",
   "tools.validate.branchExport": "Prenesi to vejo kot datoteko GEDCOM",
   "tools.validate.branchFile": "veja",
   "tools.validate.branchesFile": "nepovezane veje",

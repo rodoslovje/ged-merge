@@ -630,6 +630,7 @@ export const en = {
   "tools.validate.issue.undatedMarriage": "Marriage to {{partner}} is recorded without a date",
   "tools.validate.issue.orphan": "Not linked to any family",
   "tools.validate.issue.island": "Youngest person in a branch not connected to the main tree (people in the branch: {{count}}).",
+  "tools.validate.issue.islandYears": "Youngest person in a branch not connected to the main tree (people in the branch: {{count}}, years: {{years}}).",
   "tools.validate.branchExport": "Download this branch as a GEDCOM file",
   "tools.validate.branchFile": "branch",
   "tools.validate.branchesFile": "detached branches",
