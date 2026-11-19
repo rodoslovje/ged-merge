@@ -385,16 +385,23 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       }
       const big = people > BIG;
       ctx.lineWidth = big ? 0.4 : n > 4000 ? 0.6 : 1;
+      // Depth fog: the links in three bands by how near they are, the far
+      // ones faint, so the front of a dense cloud stays readable.
+      const FOG = [0.25, 0.55, 1];
       for (const [col, list] of L.batches.links) {
         ctx.strokeStyle = col;
-        ctx.globalAlpha = (sel === null ? 0.4 : 0.12) * (big ? 0.5 : 1);
-        ctx.beginPath();
-        for (const k of list) {
-          const e = L.graph.edges[k];
-          ctx.moveTo(sx[e.a], sy[e.a]);
-          ctx.lineTo(sx[e.b], sy[e.b]);
+        for (let band = 0; band < 3; band++) {
+          ctx.globalAlpha = (sel === null ? 0.45 : 0.12) * (big ? 0.5 : 1) * FOG[band];
+          ctx.beginPath();
+          for (const k of list) {
+            const e = L.graph.edges[k];
+            const near = ((depth[e.a] + depth[e.b]) / (2 * r) + 1) / 2;
+            if ((near < 0.4 ? 0 : near < 0.6 ? 1 : 2) !== band) continue;
+            ctx.moveTo(sx[e.a], sy[e.a]);
+            ctx.lineTo(sx[e.b], sy[e.b]);
+          }
+          ctx.stroke();
         }
-        ctx.stroke();
       }
       if (sel !== null) {
         ctx.globalAlpha = 0.95;
@@ -415,15 +422,20 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       if (!big) {
         ctx.strokeStyle = L.colors.family;
         ctx.lineWidth = 1.2;
-        ctx.globalAlpha = sel === null ? 0.8 : 0.2;
-        ctx.beginPath();
-        for (let i = people; i < n; i++) {
-          if (!L.shownMask[i]) continue;
-          const rad = base * sr[i] * 0.8;
-          ctx.moveTo(sx[i] + rad, sy[i]);
-          ctx.arc(sx[i], sy[i], rad, 0, Math.PI * 2);
+        // In the fog like the links: a far hub is barely there.
+        for (let band = 0; band < 3; band++) {
+          ctx.globalAlpha = (sel === null ? 0.75 : 0.2) * FOG[band];
+          ctx.beginPath();
+          for (let i = people; i < n; i++) {
+            if (!L.shownMask[i]) continue;
+            const near = (depth[i] / r + 1) / 2;
+            if ((near < 0.4 ? 0 : near < 0.6 ? 1 : 2) !== band) continue;
+            const rad = base * sr[i] * 0.8;
+            ctx.moveTo(sx[i] + rad, sy[i]);
+            ctx.arc(sx[i], sy[i], rad, 0, Math.PI * 2);
+          }
+          ctx.stroke();
         }
-        ctx.stroke();
       }
       if (big) {
         // A big file: square dots in one path per colour, unsorted — sorting
@@ -454,7 +466,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         order.sort((a, b) => depth[a] - depth[b]);
         for (const i of order) {
           const near = Math.min(Math.max((depth[i] / r + 1) / 2, 0), 1);
-          ctx.globalAlpha = (sel === null || focus[i] ? 0.5 + 0.5 * near : 0.15);
+          ctx.globalAlpha = (sel === null || focus[i] ? 0.12 + 0.88 * near * near : 0.15);
           ctx.fillStyle = L.colors.fill[i];
           ctx.beginPath();
           ctx.arc(sx[i], sy[i], base * sr[i], 0, Math.PI * 2);
