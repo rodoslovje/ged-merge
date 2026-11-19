@@ -14,12 +14,13 @@
 
 import type { Dataset, Individual } from "../gedcom/types";
 import type { NodePosition } from "./nodeColor";
-import { OWN_BRANCH } from "./kinshipWheel";
+import { bloodKin, OWN_BRANCH } from "./kinshipWheel";
 
 /** The line of the people reached through the root's partner. */
 export const SPOUSE_LINE = "spouse";
 
-export type GraphScope = "connected" | "file";
+/** Blood relatives only, everyone linked to the root, or the whole file. */
+export type GraphScope = "blood" | "connected" | "file";
 
 export interface GraphNode {
   id: string;
@@ -90,6 +91,10 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
   const near: { id: string; dGen: number; rel: "parent" | "partner" | "child" }[] = [];
   let total = 0;
   let trees = 0;
+  // Blood relatives: the walk only steps onto people of the root's blood — the
+  // ancestors and every descendant of theirs, partners left out. Each of them
+  // is a parent–child chain away from the root, so the walk still reaches all.
+  const blood = scope === "blood" ? new Set(bloodKin(ds, rootId).keys()) : undefined;
 
   // The root's parents in father-then-mother order, for the line indexes.
   const rootIndi = ds.individuals.get(rootId);
@@ -124,7 +129,7 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
       }
       neighbours(ds, indi, near);
       for (const n of near) {
-        if (seen.has(n.id) || index.has(n.id) && tree > 0) continue;
+        if (seen.has(n.id) || index.has(n.id) && tree > 0 || blood && !blood.has(n.id)) continue;
         seen.add(n.id);
         let branch = cur.branch;
         let role: Step["role"] = "other";

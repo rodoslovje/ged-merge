@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildFamilyGraph, SPOUSE_LINE } from "./familyGraph";
-import { createLayout3d, LAYER } from "./forceLayout3d";
+import { createLayout3d, LAYER, treeAnchors } from "./forceLayout3d";
 import { OWN_BRANCH } from "./kinshipWheel";
 
 const dataset = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -47,6 +47,15 @@ describe("buildFamilyGraph", () => {
     expect(g.edges.filter((e) => e.kind === "parent")).toHaveLength(2 + 4 + 2 + 1 + 1);
   });
 
+  it("keeps only blood relatives, partners and their families left out", () => {
+    const g = buildFamilyGraph(ds, "@R@", "blood", 100);
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(["@C@", "@F@", "@FF@", "@FM@", "@M@", "@MF@", "@MM@", "@R@", "@U@"]);
+    expect(byId(g, "C").pos).toEqual({ gen: 0, branch: "@FF@" });
+    expect(g.lines).toHaveLength(4);
+    // The grandparents' couple links stay: both ends are of the root's blood.
+    expect(g.edges.filter((e) => e.kind === "couple")).toHaveLength(3);
+  });
+
   it("adds the file's other trees, without a position", () => {
     const g = buildFamilyGraph(ds, "@R@", "file", 100);
     expect(g.nodes).toHaveLength(13);
@@ -60,6 +69,23 @@ describe("buildFamilyGraph", () => {
     expect(g.nodes.map((n) => n.id)).toEqual(["@R@", "@F@", "@M@", "@S@"]);
     expect(g.total).toBe(11);
     expect(g.edges.every((e) => e.a < 4 && e.b < 4)).toBe(true);
+  });
+});
+
+describe("treeAnchors", () => {
+  it("keeps the root's tree in the middle and the others apart, outside it", () => {
+    // Tree 0 of 200 people, then 30 small trees of 2.
+    const trees = Int32Array.from([...Array(200).fill(0), ...Array.from({ length: 60 }, (_, i) => 1 + (i >> 1))]);
+    const a = treeAnchors(trees);
+    expect([a[0], a[1]]).toEqual([0, 0]);
+    const spots: [number, number][] = [];
+    for (let t = 1; t <= 30; t++) spots.push([a[t * 2], a[t * 2 + 1]]);
+    expect(Math.min(...spots.map(([x, z]) => Math.hypot(x, z)))).toBeGreaterThan(150);
+    let closest = Infinity;
+    for (let i = 0; i < spots.length; i++)
+      for (let j = i + 1; j < spots.length; j++)
+        closest = Math.min(closest, Math.hypot(spots[i][0] - spots[j][0], spots[i][1] - spots[j][1]));
+    expect(closest).toBeGreaterThan(40);
   });
 });
 

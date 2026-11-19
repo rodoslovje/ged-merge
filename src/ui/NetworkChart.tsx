@@ -27,7 +27,9 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 // cluster's family line, country or surname reads at a glance; the colour key
 // hides groups. Layered mode holds each generation to its own height.
 
-const LIMITS = [1000, 3000, 10000] as const;
+/** At most this many people: the layout runs on the main thread, and past
+ *  this it no longer settles smoothly. The nearest are kept (see the count). */
+const LIMIT = 5000;
 const HIT_PX = 9;
 const DOT = 2.6;
 /** The colour key's "other" entry (nodeColor folds the long tail into it). */
@@ -58,7 +60,6 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   const nameOf = useNameOf();
   const theme = useDocTheme();
   const [scope, setScope] = useState<GraphScope>("connected");
-  const [limit, setLimit] = useState<number>(3000);
   const [layered, setLayered] = useState(true);
   const [spin, setSpin] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
@@ -66,7 +67,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
 
   useChartShortcuts({ onLeave: onBack });
 
-  const graph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, limit), [mainDs, rootId, scope, limit]);
+  const graph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, LIMIT), [mainDs, rootId, scope]);
   useEffect(() => setSelected(null), [graph]);
 
   // ─── Colour ───────────────────────────────────────────────────────────────
@@ -137,8 +138,9 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     const n = graph.nodes.length;
     const gen = new Float64Array(n);
     const hops = new Int32Array(n);
-    graph.nodes.forEach((node, i) => { gen[i] = node.pos ? node.pos.gen : NaN; hops[i] = node.hops; });
-    return createLayout3d(n, graph.edges.map((e) => ({ a: e.a, b: e.b, length: linkLength(e.kind) })), gen, hops);
+    const tree = new Int32Array(n);
+    graph.nodes.forEach((node, i) => { gen[i] = node.pos ? node.pos.gen : NaN; hops[i] = node.hops; tree[i] = node.tree; });
+    return createLayout3d(n, graph.edges.map((e) => ({ a: e.a, b: e.b, length: linkLength(e.kind) })), gen, hops, tree);
   }, [graph]);
   useEffect(() => layout.setLayered(layered), [layout, layered]);
 
@@ -433,13 +435,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
             label={t("network.scope")}
             value={scope}
             onChange={setScope}
-            items={(["connected", "file"] as const).map((k) => ({ key: k, label: t(`network.scope.${k}`) }))}
-          />
-          <Segmented
-            label={t("network.limit")}
-            value={String(limit)}
-            onChange={(v) => setLimit(Number(v))}
-            items={LIMITS.map((k) => ({ key: String(k), label: k.toLocaleString() }))}
+            items={(["blood", "connected", "file"] as const).map((k) => ({ key: k, label: t(`network.scope.${k}`) }))}
           />
           <Segmented
             label={t("network.layout")}

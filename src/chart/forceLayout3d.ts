@@ -163,24 +163,27 @@ class Octree {
 /**
  * A layout for `n` nodes. `gen[i]` is a node's generation (up positive), or
  * NaN for a node with none — it floats free even in the layered mode. `hops`
- * seeds the start: nearer people start nearer the middle.
+ * seeds the start: nearer people start nearer the middle. `trees[i]` is the
+ * separate tree a node belongs to (0 the root's): see {@link treeAnchors}.
  */
-export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array, hops: Int32Array, seed = 1): Layout3d {
+export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array, hops: Int32Array, trees?: Int32Array, seed = 1): Layout3d {
   const pos = new Float32Array(n * 3);
   const vel = new Float32Array(n * 3);
   const force = new Float32Array(n * 3);
   const rand = rng(seed);
   const degree = new Int32Array(n);
   for (const e of edges) { degree[e.a]++; degree[e.b]++; }
+  const anchor = treeAnchors(trees ?? new Int32Array(n));
   for (let i = 0; i < n; i++) {
     // A random direction on a shell whose radius grows with the hop count.
     const u = rand() * 2 - 1;
     const th = rand() * Math.PI * 2;
     const s = Math.sqrt(1 - u * u);
     const r = LINK * (0.5 + Math.cbrt(hops[i] + 1) * 2) * (0.6 + rand() * 0.8);
-    pos[i * 3] = r * s * Math.cos(th);
+    const t = trees ? trees[i] : 0;
+    pos[i * 3] = anchor[t * 2] + r * s * Math.cos(th);
     pos[i * 3 + 1] = Number.isNaN(gen[i]) ? r * u : gen[i] * LAYER;
-    pos[i * 3 + 2] = r * s * Math.sin(th);
+    pos[i * 3 + 2] = anchor[t * 2 + 1] + r * s * Math.sin(th);
   }
   let layered = true;
   let alpha = 1;
@@ -234,9 +237,12 @@ export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array
     }
     for (let i = 0; i < n; i++) {
       const j = i * 3;
-      // A weak pull to the middle keeps separate trees in view.
-      force[j] -= pos[j] * 0.002;
-      force[j + 2] -= pos[j + 2] * 0.002;
+      // A pull to the tree's own spot: the root's tree to the middle (weakly),
+      // each separate tree firmly to its place around it.
+      const t = trees ? trees[i] : 0;
+      const pull = t === 0 ? 0.002 : 0.02;
+      force[j] -= (pos[j] - anchor[t * 2]) * pull;
+      force[j + 2] -= (pos[j + 2] - anchor[t * 2 + 1]) * pull;
       const fixed = layered && !Number.isNaN(gen[i]);
       if (!fixed) force[j + 1] -= pos[j + 1] * 0.002;
       for (let d = 0; d < 3; d++) {
@@ -262,6 +268,40 @@ export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array
     reheat: () => { alpha = Math.max(alpha, 0.5); },
     setLayered: (on) => { layered = on; alpha = Math.max(alpha, 0.5); },
   };
+}
+
+/** A tree of this many people takes about this radius once settled. */
+function treeRadius(size: number): number {
+  return LINK * (0.6 + 1.1 * Math.cbrt(size));
+}
+
+/**
+ * Where each separate tree settles, as packed x, z per tree index: the root's
+ * tree (0) in the middle, the others on a sunflower spiral in the floor plane
+ * around it, clear of its edge, the bigger ones first and nearer. A tree in a
+ * separate spot reads as separate; left to the shared centre, the small ones
+ * would sink into the main cloud and never be seen.
+ */
+export function treeAnchors(tree: Int32Array): Float64Array {
+  let count = 0;
+  for (const t of tree) if (t + 1 > count) count = t + 1;
+  const size = new Int32Array(Math.max(count, 1));
+  for (const t of tree) size[t]++;
+  const out = new Float64Array(Math.max(count, 1) * 2);
+  const others = Array.from({ length: Math.max(count - 1, 0) }, (_, k) => k + 1)
+    .sort((a, b) => size[b] - size[a] || a - b);
+  const inner = treeRadius(size[0]) + LINK * 3;
+  // Spiral spacing from the typical tree among the others.
+  const spacing = 2 * treeRadius(others.length ? size[others[Math.floor(others.length / 2)]] : 1) + LINK;
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+  let reach = inner;
+  others.forEach((t, k) => {
+    // Grow outward as the ring fills, and never closer than the tree's own size.
+    reach = Math.max(reach, inner + spacing * Math.sqrt(k + 1) * 0.9, inner + treeRadius(size[t]));
+    out[t * 2] = reach * Math.cos(k * GOLDEN);
+    out[t * 2 + 1] = reach * Math.sin(k * GOLDEN);
+  });
+  return out;
 }
 
 /** Rest length of a link: a couple sits closer than a parent and child. */
