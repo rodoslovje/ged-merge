@@ -4302,6 +4302,7 @@ export const sl = {
   "site.home.photosOn": "Več fotografij",
   "site.home.surnames": "Najpogostejši priimki",
   "site.home.thisWeek": "Ta teden v preteklih letih",
+  "site.home.weekMore": "in še {{count, number}}",
   "site.home.moreStats": "Več statistike",
   "site.search.count": "Najdeno: {{count}}",
   "site.search.more": "Prikazanih je prvih {{shown}} od {{count}} — vpišite več imena.",

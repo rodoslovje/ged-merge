@@ -80,12 +80,20 @@ export function Highlights({ ds, onNavigate, onSurname }: {
         <div className="site-week">
           <h3>{t("site.home.thisWeek")}</h3>
           <ul className="site-week-list">
-            {week.map((a, i) => (
-              <li key={i}>
-                <span className="site-week-date">{displayDate(a.event.date as GedDate)}</span>
-                <span className="site-week-glyph" aria-hidden="true">{eventGlyph(a.event.tag)}</span>
-                <span className="site-week-what">{label(a.event, a.family, t)}</span>
-                {a.family ? couple(a.id) : person(a.id)}
+            {week.map((d) => (
+              <li key={d.inDays}>
+                <span className="site-week-date">{dayMonth(d.month, d.day, i18n.language)}</span>
+                <span className="site-week-people">
+                  {d.items.map((a, i) => (
+                    <span key={i} className="site-week-item">
+                      <span className="site-week-glyph" title={`${label(a.event, a.family, t)} · ${displayDate(a.event.date as GedDate)}`}>
+                        {eventGlyph(a.event.tag)}
+                      </span>
+                      {a.family ? couple(a.id) : person(a.id)}
+                    </span>
+                  ))}
+                  {d.more > 0 && <span className="muted">{t("site.home.weekMore", { count: d.more })}</span>}
+                </span>
               </li>
             ))}
           </ul>
@@ -95,6 +103,11 @@ export function Highlights({ ds, onNavigate, onSurname }: {
       <p><a className="nav-btn site-more" href="#/stats"><StatsIcon size={16} /> {t("site.home.moreStats")}</a></p>
     </section>
   );
+}
+
+/** "19 Nov" in the page's language. */
+function dayMonth(month: number, day: number, lang: string): string {
+  return new Date(2000, month - 1, day).toLocaleDateString(lang, { day: "numeric", month: "short" });
 }
 
 function label(e: GedEvent, family: boolean, t: (k: string) => string): string {

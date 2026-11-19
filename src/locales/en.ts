@@ -3831,6 +3831,7 @@ export const en = {
   "site.home.photosOn": "More photos",
   "site.home.surnames": "Most common surnames",
   "site.home.thisWeek": "This week in years past",
+  "site.home.weekMore": "+{{count, number}} more",
   "site.home.moreStats": "More statistics",
   "site.search.count": "Found: {{count}}",
   "site.search.more": "The first {{shown}} of {{count}} are shown — type more of the name.",
