@@ -118,7 +118,8 @@ describe("createLayout3d", () => {
     const p = layout.pos;
     for (const [i, g] of [[0, 0], [1, 1], [3, -1]] as const) expect(p[i * 3 + 1]).toBeCloseTo(g * LAYER, 0);
     const dist = (a: number, b: number) => Math.hypot(p[a * 3] - p[b * 3], p[a * 3 + 1] - p[b * 3 + 1], p[a * 3 + 2] - p[b * 3 + 2]);
-    expect(dist(0, 1)).toBeLessThan(120);
+    // A generation apart, and not much further sideways.
+    expect(dist(0, 1)).toBeLessThan(LAYER + 60);
     expect(Number.isFinite(p[4 * 3])).toBe(true);
   });
 

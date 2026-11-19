@@ -6575,6 +6575,9 @@ input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(-
   cursor: grab;
 }
 .network-canvas:active { cursor: grabbing; }
+/* The Rotate checkbox fills its line of the controls row, so it sits centred
+   beside the segmented controls rather than at their top edge. */
+.network-spin { align-self: stretch; }
 .network-count,
 .network-help {
   position: absolute;

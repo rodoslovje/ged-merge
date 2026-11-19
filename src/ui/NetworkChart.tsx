@@ -14,6 +14,7 @@ import { ChartSettings } from "./ChartSettings";
 import { ChartLegend } from "./ChartLegend";
 import { ZoomControls } from "./ZoomControls";
 import { ChartFindBox } from "./ChartFindBox";
+import { primaryName } from "../match/relatives";
 import { TreeNodePanel } from "./TreeNodePanel";
 import { individualFieldRows } from "../review/fields";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
@@ -34,6 +35,8 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 // cluster's family line, country or surname reads at a glance; the colour key
 // hides groups. Layered mode holds each generation to its own height.
 
+/** Names without the married surname, for a wife labelled beside her husband. */
+const NO_MARRIED_NAME = { marriedSurname: false };
 /** Past this many people the canvas draws square dots, unsorted by depth. */
 const BIG = 20000;
 const HIT_PX = 9;
@@ -68,10 +71,21 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const [scope, setScope] = useState<GraphScope>("blood");
   const [layered, setLayered] = useState(true);
   const [spin, setSpin] = useState(false);
+  // The selected person, whose family stays lit on the chart, and whether
+  // their panel is open: closing the panel keeps the family lit.
   const [selected, setSelected] = useState<number | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const select = useCallback((i: number | null) => {
+    setSelected(i);
+    setPanelOpen(i !== null);
+  }, []);
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
 
-  useChartShortcuts({ onLeave: onBack });
+  // Esc steps back one thing at a time: the panel, then the highlight, then
+  // the chart itself.
+  useChartShortcuts({
+    onLeave: panelOpen ? () => setPanelOpen(false) : selected !== null ? () => setSelected(null) : onBack,
+  });
 
   // The shared Generations setting limits how far the walk goes up and down
   // from the root. The whole graph is walked once to learn how many there are
@@ -86,7 +100,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     () => (maxGen === null || maxGen >= depth ? fullGraph : buildFamilyGraph(mainDs, rootId, scope, Infinity, maxGen)),
     [fullGraph, depth, maxGen, mainDs, rootId, scope],
   );
-  useEffect(() => setSelected(null), [graph]);
+  useEffect(() => select(null), [graph, select]);
 
   // ─── Colour ───────────────────────────────────────────────────────────────
   const branches = useMemo(() => {
@@ -264,8 +278,8 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     c.panX = -offX * k;
     c.panY = -offY * k;
     zoomTo(target);
-    setSelected(i);
-  }, [nodeIndex, zoomTo]);
+    select(i);
+  }, [nodeIndex, zoomTo, select]);
   const find = useChartFind(findSources, mainDs.individuals, reveal, onRootChange);
 
   // Everything the frame loop reads, kept in a ref so the loop runs once.
@@ -485,8 +499,8 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         ctx.arc(sx[i], sy[i], base * sr[i] + 4, 0, Math.PI * 2);
         ctx.stroke();
       };
-      const label = (i: number) => {
-        const text = labelOf(i);
+      const label = (i: number, short = false) => {
+        const text = (short && shortRef.current.get(i)) || labelOf(i);
         const y = sy[i] - base * sr[i] - 8;
         ctx.lineWidth = 3;
         ctx.strokeStyle = L.colors.panel;
@@ -497,7 +511,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       const rootIdx = L.rootIdx;
       if (sel !== null) {
         ctx.font = "500 11px system-ui, sans-serif";
-        for (let i = 0; i < people; i++) if (focus[i] && i !== sel && i !== rootIdx && L.shownMask[i]) label(i);
+        for (let i = 0; i < people; i++) if (focus[i] && i !== sel && i !== rootIdx && L.shownMask[i]) label(i, true);
       }
       ctx.font = "600 12px system-ui, sans-serif";
       if (rootIdx >= 0) { ring(rootIdx, L.colors.accent); label(rootIdx); }
@@ -518,6 +532,34 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const labelRef = useRef(nameAt);
   labelRef.current = nameAt;
   const labelOf = (i: number) => labelRef.current(i);
+
+  // The selected person's family is labelled tersely, so the names around
+  // them read at a glance: a child who carries their father's surname is
+  // just their given name (the father, labelled beside them, says the rest),
+  // and a wife whose husband is labelled beside her drops her married surname.
+  const plainNameOf = useNameOf(NO_MARRIED_NAME);
+  const shortNames = useMemo(() => {
+    const out = new Map<number, string>();
+    if (selected === null) return out;
+    const surnameOf = (i: number) => primaryName(graph.nodes[i].indi)?.surname?.trim();
+    for (const f of graph.families) {
+      if (!f.partners.includes(selected) && !f.children.includes(selected)) continue;
+      const father = f.partners.find((p) => graph.nodes[p].indi.sex === "M");
+      const mother = f.partners.find((p) => p !== father);
+      const fatherSurname = father !== undefined && !redacted(father) ? surnameOf(father) : undefined;
+      if (fatherSurname) {
+        for (const c of f.children) {
+          const given = primaryName(graph.nodes[c].indi)?.given?.trim();
+          if (!redacted(c) && given && surnameOf(c) === fatherSurname) out.set(c, given);
+        }
+        if (mother !== undefined && !redacted(mother)) out.set(mother, plainNameOf(graph.nodes[mother].indi));
+      }
+    }
+    return out;
+  }, [selected, graph, redacted, plainNameOf]);
+  const shortRef = useRef(shortNames);
+  shortRef.current = shortNames;
+  useEffect(redraw, [shortNames, redraw]);
 
   // ─── Pointer ──────────────────────────────────────────────────────────────
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -583,7 +625,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     drag.current = null;
     if (d && d.moved < 5 && e.button === 0) {
       const { x, y } = local(e);
-      setSelected(hitTest(x, y));
+      select(hitTest(x, y));
     }
   };
   const onDoubleClick = (e: React.MouseEvent) => {
@@ -646,9 +688,9 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const mainNav = useMemo(
     () => ({
       linkable: (id: string) => mainDs.individuals.has(id),
-      onNavigate: (id: string) => { onRootChange(id); setSelected(null); },
+      onNavigate: (id: string) => { onRootChange(id); select(null); },
     }),
-    [mainDs, onRootChange],
+    [mainDs, onRootChange, select],
   );
   const kinship = useMemo(() => (startId ? createKinshipResolver(mainDs, startId, t) : undefined), [mainDs, startId, t]);
   const yearsOf = (i: number) => (redacted(i) ? "" : lifespanOf(graph.nodes[i].indi));
@@ -663,6 +705,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       onBack={onBack}
       title={root ? <ChartRootTitle name={nameOf(root)} sexCls={sexClass(root.sex)} years={lifespanOf(root)} kind={pageKind} /> : pageKind}
       actions={<ChartSettings lockedType="network" availableGenerations={depth} />}
+      controlsRight={<ChartFindBox find={find} />}
       controlsLeft={
         <>
           {kindSwitcher}
@@ -678,8 +721,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             onChange={(v) => setLayered(v === "layered")}
             items={(["layered", "free"] as const).map((k) => ({ key: k, label: t(`network.layout.${k}`) }))}
           />
-          <ChartFindBox find={find} />
-          <label className="kin-year">
+          <label className="kin-year network-spin">
             <input type="checkbox" checked={spin} onChange={(e) => setSpin(e.target.checked)} />
             {t("network.spin")}
           </label>
@@ -709,7 +751,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             {categoryLabel(hover.i) && <div className="network-cat">{categoryLabel(hover.i)}</div>}
           </div>
         )}
-        {sel && selected !== null && (
+        {sel && selected !== null && panelOpen && (
           // The person panel every other chart opens on a click.
           <TreeNodePanel
             node={{ name: nameAt(selected), years: yearsOf(selected), sex: sel.indi.sex }}
@@ -721,8 +763,8 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             singleColumn
             kinship={settings.showKinship && startId && startId !== sel.id ? kinship?.label(sel.id) : undefined}
             kinshipLineage={lineageClass(kinship?.lineage(sel.id), kinship?.direct(sel.id))}
-            onClose={() => setSelected(null)}
-            onSetRoot={() => { onRootChange(sel.id); setSelected(null); }}
+            onClose={() => setPanelOpen(false)}
+            onSetRoot={() => { onRootChange(sel.id); select(null); }}
             extraActions={
               <button className="nav-btn tree-compare-root" onClick={() => onNavigate(sel.id)}>
                 {t("relpath.openInEdit")}

@@ -324,8 +324,9 @@ export function createLayout3d(
         pos[j + d] += v;
       }
       if (fixed) {
-        // Ease the height onto the generation's layer.
-        pos[j + 1] += (gen[i] * LAYER - pos[j + 1]) * 0.3;
+        // Exactly on the generation's layer: only the settled picture is
+        // shown, so there is no move onto it to ease.
+        pos[j + 1] = gen[i] * LAYER;
         vel[j + 1] = 0;
       }
     }
