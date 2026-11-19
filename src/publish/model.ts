@@ -36,8 +36,8 @@ export const PUBLISHED_VERSION = 1;
 /** What a living person keeps on the site: nothing, initials, the given name
  *  alone (which says next to nothing on its own — the youngest generations
  *  carry no surname either), the full name, or everything. */
-export type LivingMode = "hide" | "initials" | "given" | "name" | "all";
-export const LIVING_MODES: LivingMode[] = ["hide", "initials", "given", "name", "all"];
+export type LivingMode = "hide" | "anonymous" | "initials" | "given" | "name" | "all";
+export const LIVING_MODES: LivingMode[] = ["hide", "anonymous", "initials", "given", "name", "all"];
 
 /** Who is published: everyone, the start person's blood relatives, or their
  *  direct line (ancestors and descendants). */
@@ -607,7 +607,9 @@ export function* buildPublishedTreeSteps(
 function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boolean, ctx: Ctx): PubPerson {
   const name = indi.names[0];
   const out: PubPerson = { id };
-  if (mode === "initials") {
+  if (mode === "anonymous") {
+    // No name at all: the site calls them "Living" (or "Deceased") itself.
+  } else if (mode === "initials") {
     const g = initial(name?.given);
     const s = initial(name?.surname);
     if (g) out.given = g;
