@@ -1596,13 +1596,14 @@ function PickBox({
   );
 }
 
-/** A branch file's name: its youngest member, the years the branch spans and
- *  the word for a branch — `Pavel-Kos-1900-1930-branch` — so the files of
- *  many branches tell apart by name. */
+/** A branch file's name: its youngest member, surname first, the years the
+ *  branch spans and the word for a branch — `Kos-Pavel-1900-1930-branch` — so
+ *  the files of many branches sort by family and tell apart by name. */
 function branchFileSlug(dataset: Dataset, issue: ValidationIssue, word: string): string {
   const years = issue.messageVars?.years;
+  const name = dataset.individuals.get(issue.id)?.names[0];
   return chartSlug(
-    dataset.individuals.get(issue.id)?.names[0]?.full,
+    ...(name?.surname || name?.given ? [name.surname, name.given] : [name?.full]),
     typeof years === "string" ? years.replace("–", "-") : undefined,
     word,
   );

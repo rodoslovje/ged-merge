@@ -51,7 +51,7 @@ test("a detached branch downloads as a GEDCOM file of its own", async ({ page })
   const dl = page.waitForEvent("download");
   await row.getByRole("button", { name: "Download this branch as a GEDCOM file" }).click();
   const download = await dl;
-  expect(download.suggestedFilename()).toBe("Pavel-Kos-1900-1930-branch.ged");
+  expect(download.suggestedFilename()).toBe("Kos-Pavel-1900-1930-branch.ged");
   const text = readFileSync((await download.path())!, "utf-8");
   for (const name of ["Franc /Kos/", "Neža /Kos/", "Pavel /Kos/", "Kos letters"]) expect(text).toContain(name);
   expect(text).not.toContain("Novak");
@@ -107,8 +107,8 @@ test("picked branches download together, each in its own file, and go in one rem
   const bytes = readFileSync((await download.path())!);
   const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
   const entries = zipEntries(buffer);
-  expect(entries.map((e) => e.name).sort()).toEqual(["Pavel-Kos-1900-1930-branch.ged", "Rezka-Bizjak-1925-branch.ged"]);
-  const kos = entries.find((e) => e.name.startsWith("Pavel"))!;
+  expect(entries.map((e) => e.name).sort()).toEqual(["Bizjak-Rezka-1925-branch.ged", "Kos-Pavel-1900-1930-branch.ged"]);
+  const kos = entries.find((e) => e.name.startsWith("Kos"))!;
   const kosText = new TextDecoder().decode(new Uint8Array(buffer, kos.dataStart, kos.compressedSize));
   expect(kosText).toContain("Kos letters");
   expect(kosText).not.toContain("Bizjak");
