@@ -13,6 +13,8 @@ import { ChartRootTitle } from "./ChartRootTitle";
 import { ChartSettings } from "./ChartSettings";
 import { ChartLegend } from "./ChartLegend";
 import { ZoomControls } from "./ZoomControls";
+import { ChartFindBox } from "./ChartFindBox";
+import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
 import { useNameOf } from "./SettingsContext";
@@ -226,6 +228,30 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     setZoomShown(cam.current.zoom);
     redraw();
   }, [redraw]);
+
+  // Find: the shared find box over everyone on the chart. A hit is selected
+  // and brought to the middle of the view, zoomed in close enough to make out
+  // its family — the turn of the cloud is left alone.
+  const nodeIndex = useMemo(() => new Map(graph.nodes.map((nd, i) => [nd.id, i])), [graph]);
+  const findSources = useMemo(() => graph.nodes.map((nd) => ({ key: nd.id, people: [nd.indi] })), [graph]);
+  const reveal = useCallback((key: string) => {
+    const i = nodeIndex.get(key);
+    const canvas = canvasRef.current;
+    const { sx, sy } = proj.current;
+    if (i === undefined || !canvas || i >= sx.length) return;
+    const c = cam.current;
+    const target = Math.max(c.zoom, 3);
+    const k = target / c.zoom;
+    // A point's offset from the view's origin grows with the zoom; pan by the
+    // grown offset so it lands on the middle.
+    const offX = sx[i] - (canvas.clientWidth / 2 + c.panX);
+    const offY = sy[i] - (canvas.clientHeight / 2 + c.panY);
+    c.panX = -offX * k;
+    c.panY = -offY * k;
+    zoomTo(target);
+    setSelected(i);
+  }, [nodeIndex, zoomTo]);
+  const find = useChartFind(findSources, mainDs.individuals, reveal, onRootChange);
 
   // Everything the frame loop reads, kept in a ref so the loop runs once.
   // The links grouped by colour (one canvas path each) and the dots likewise,
@@ -577,6 +603,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
             onChange={(v) => setLayered(v === "layered")}
             items={(["layered", "free"] as const).map((k) => ({ key: k, label: t(`network.layout.${k}`) }))}
           />
+          <ChartFindBox find={find} />
           <label className="kin-year">
             <input type="checkbox" checked={spin} onChange={(e) => setSpin(e.target.checked)} />
             {t("network.spin")}
