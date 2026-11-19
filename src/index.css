@@ -7854,6 +7854,11 @@ body:has(.modal-overlay) {
   cursor: pointer;
 }
 .settings-row-toggle input { margin-top: 3px; flex: none; }
+/* An index's switch with the reader's own tree on it beside it, and the ⓘ. */
+.settings-index-row { gap: 8px; flex-wrap: wrap; }
+.settings-fieldset > .settings-index-row:last-child { margin-bottom: 14px; }
+.settings-index-row > .settings-row-toggle { margin: 0; flex: 0 0 11em; }
+.settings-index-row > .settings-text-input { min-width: 0; flex: 1 1 12em; }
 
 .settings-row-text { display: flex; flex-direction: column; gap: 3px; }
 .settings-row-label { font-size: 0.95rem; }

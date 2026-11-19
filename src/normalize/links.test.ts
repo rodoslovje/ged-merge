@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { familySearchPageUrl, linkKey, parseFamilySearchUrl, rewriteLinkLang, withMatriculaLang } from "./links";
+import { familySearchPageUrl, linkKey, parseFamilySearchUrl, parseIndeksUrl, rewriteLinkLang, withMatriculaLang } from "./links";
+
+describe("linkKey — Croatian Genealogical Index", () => {
+  it("reads its links like the Slovenian index's, as records of their own", () => {
+    const hr = "https://indeks.rodoslovlje.hr/?t=person&n=Ivan&c=Emil&id=@I8665@";
+    expect(parseIndeksUrl(hr)).toMatchObject({ index: "hr", contributor: "Emil", id: "I8665" });
+    expect(linkKey(hr)).toBe("https://indeks.rodoslovlje.hr/?c=emil&id=i8665");
+    expect(linkKey(hr.replace("rodoslovlje.hr", "rodoslovje.si"))).not.toBe(linkKey(hr));
+  });
+});
 
 describe("linkKey — Slovenian Genealogical Index", () => {
   it("keys a person link by contributor and id, not by view or search hints", () => {

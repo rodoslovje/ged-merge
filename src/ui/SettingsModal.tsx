@@ -35,6 +35,8 @@ import { AddEventSelect } from "./edit/AddEventSelect";
 import type { SettingsTab } from "./settingsBus";
 import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
 import { TrashIcon } from "./icons/TrashIcon";
+import { SEARCH_SITES, type SearchSite } from "../online/searchLinks";
+import { InfoTip } from "./tools/shared";
 
 // Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
 // the base-map sample is actually shown.
@@ -194,6 +196,13 @@ function GazetteerSection() {
   const gaz = useGazetteer();
   return <GazetteerManager gaz={gaz} />;
 }
+
+/** Each genealogical index's switch, the setting naming the reader's own tree
+ *  on it, and that setting's strings (`.hint`, `.placeholder` beside it). */
+const INDEX_CONTRIBUTOR: readonly { site: SearchSite; key: "indexContributor" | "indexContributorHr"; label: string }[] = [
+  { site: "index", key: "indexContributor", label: "settings.links.indexContributor" },
+  { site: "indexHr", key: "indexContributorHr", label: "settings.links.indexContributorHr" },
+];
 
 /**
  * General settings: name-display preferences, the record-id toggle, and the
@@ -387,6 +396,21 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     }
     return FORMAT_SAMPLES[key]?.[effective];
   };
+
+  /** One search site's switch in Settings → Advanced → Person search. */
+  const siteSwitch = (site: SearchSite) => (
+    <label key={site} className="settings-row settings-row-toggle">
+      <input
+        type="checkbox"
+        checked={settings.searchSites[site]}
+        onChange={(e) => set({ searchSites: { ...settings.searchSites, [site]: e.target.checked } })}
+      />
+      <span className="settings-row-text">
+        <span className="settings-row-label">{t(`indexSearch.site.${site}`)}</span>
+      </span>
+    </label>
+  );
+  const otherSites = SEARCH_SITES.filter((s) => !INDEX_CONTRIBUTOR.some((c) => c.site === s));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -838,19 +862,34 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </span>
               </span>
             </label>
-            <label className="settings-row settings-format-row">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.links.indexContributor")}</span>
-                <span className="settings-hint">{t("settings.links.indexContributor.hint")}</span>
-              </span>
-              <input
-                type="text"
-                className="settings-text-input"
-                value={settings.indexContributor}
-                placeholder={t("settings.links.indexContributor.placeholder")}
-                onChange={(e) => set({ indexContributor: e.target.value })}
-              />
-            </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.searchSites.title")}</h3>
+            <p className="settings-hint">{t("settings.searchSites.hint")}</p>
+            {/* The two indexes are inert until online lookups are allowed:
+                their switches and contributor names govern the index searches. */}
+            <fieldset className="settings-fieldset" disabled={!settings.allowLinkFetch}>
+            {/* Each index's switch with the reader's own tree on it beside it;
+                the explanation waits behind the ⓘ. */}
+            {INDEX_CONTRIBUTOR.map(({ site, key, label }) => (
+              <div key={site} className="settings-row settings-index-row">
+                {siteSwitch(site)}
+                <input
+                  type="text"
+                  className="settings-text-input"
+                  aria-label={t(label)}
+                  disabled={!settings.searchSites[site]}
+                  value={settings[key]}
+                  placeholder={t(`${label}.placeholder`)}
+                  onChange={(e) => set({ [key]: e.target.value })}
+                />
+                <InfoTip hint={t(`${label}.hint`)} heading={t(label)} />
+              </div>
+            ))}
+            </fieldset>
+            {!settings.allowLinkFetch && <p className="settings-note">{t("settings.searchSites.needFetch")}</p>}
+            {otherSites.map(siteSwitch)}
           </section>
 
           </>

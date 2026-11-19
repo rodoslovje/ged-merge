@@ -1,6 +1,7 @@
 import type { GedNode } from "../gedcom/types";
 import { isRecordLinkLine, recordLinkHabit } from "../gedcom/edit/records";
 import type { MainProfile } from "./types";
+import { GEN_INDEX, genIndexOfHost, type GenIndex } from "../online/genIndexes";
 
 /**
  * Recognize and rewrite genealogy-site links whose URL encodes a UI language
@@ -97,12 +98,15 @@ export function canonicalFamilySearchUrl(url: string): string {
   return `${m[1]}www.familysearch.org/ark:/61903/${m[2]}${cat ? `?cat=${cat}` : ""}`;
 }
 
-/** A person page of the Slovenian Genealogical Index (indeks.rodoslovje.si):
+/** A person page of the Slovenian Genealogical Index (indeks.rodoslovje.si),
+ *  or of the Croatian one (indeks.rodoslovlje.hr) — the same software:
  *  `?t=tree&n={given}&sn={surname}&dob={date}&c={contributor}&id=@{xref}@`. The
  *  pair `c` + `id` names the record — the contributor's tree and the person's
  *  GEDCOM id in it; the rest is the view (`t`, `dir`, `gens`) and search
  *  hints that change with how the reader got there. */
 export interface IndeksUrlParts {
+  /** Which index the link is on. */
+  index: GenIndex;
   contributor: string;
   /** The GEDCOM xref without its `@` delimiters ("60899836"). */
   id: string;
@@ -114,32 +118,34 @@ export interface IndeksUrlParts {
   dir?: string;
 }
 
-const INDEKS_RE = /^https?:\/\/(?:www\.)?indeks\.rodoslovje\.si\/?\?(.*)$/i;
+const INDEKS_RE = /^https?:\/\/(?:www\.)?(indeks\.rodoslovje\.si|indeks\.rodoslovlje\.hr)\/?\?(.*)$/i;
 
 /** One query value as the reader means it: percent-decoded, `+` as a space. */
 function queryValue(raw: string): string {
   return decodeUrlSafe(raw.replace(/\+/g, " ")).trim();
 }
 
-/** The query of an index URL, keys lowercased and values decoded. */
-function indeksParams(url: string): Map<string, string> | undefined {
+/** The query of an index URL, keys lowercased and values decoded, and the index it is on. */
+function indeksParams(url: string): { index: GenIndex; params: Map<string, string> } | undefined {
   const m = INDEKS_RE.exec(url.trim());
-  if (!m) return undefined;
+  const index = m && genIndexOfHost(m[1]);
+  if (!m || !index) return undefined;
   const params = new Map<string, string>();
-  for (const pair of m[1].replace(/#.*$/, "").replace(/&amp;/gi, "&").split("&")) {
+  for (const pair of m[2].replace(/#.*$/, "").replace(/&amp;/gi, "&").split("&")) {
     const eq = pair.indexOf("=");
     if (eq > 0) params.set(pair.slice(0, eq).toLowerCase(), queryValue(pair.slice(eq + 1)));
   }
-  return params;
+  return { index, params };
 }
 
 /** The name an index search link looks for (`?n=marija&sn=rakar`) — a query
  *  over every contributor, not one record; undefined when it names nobody. */
-export function indeksSearchName(url: string): { given?: string; surname?: string } | undefined {
-  const params = indeksParams(url);
-  const given = params?.get("n") || undefined;
-  const surname = params?.get("sn") || undefined;
-  return given || surname ? { given, surname } : undefined;
+export function indeksSearchName(url: string): { index: GenIndex; given?: string; surname?: string } | undefined {
+  const parsed = indeksParams(url);
+  if (!parsed) return undefined;
+  const given = parsed.params.get("n") || undefined;
+  const surname = parsed.params.get("sn") || undefined;
+  return given || surname ? { index: parsed.index, given, surname } : undefined;
 }
 
 /**
@@ -150,13 +156,15 @@ export function indeksSearchName(url: string): { given?: string; surname?: strin
  * not a person and reads as undefined.
  */
 export function parseIndeksUrl(url: string): IndeksUrlParts | undefined {
-  const params = indeksParams(url);
-  if (!params) return undefined;
+  const parsed = indeksParams(url);
+  if (!parsed) return undefined;
+  const { index, params } = parsed;
   const contributor = params.get("c");
   const id = params.get("id")?.replace(/@/g, "").trim();
   if (!contributor || !id) return undefined;
   const view = params.get("t")?.toLowerCase();
   return {
+    index,
     contributor,
     id,
     given: params.get("n") || undefined,
@@ -182,7 +190,7 @@ export function indeksPersonUrl(p: IndeksUrlParts): string {
   ]
     .filter(Boolean)
     .join("&");
-  return `https://indeks.rodoslovje.si/?${query}`;
+  return `${GEN_INDEX[p.index].site}?${query}`;
 }
 
 /** An id that is case-sensitive on its own site — a YouTube video, a Google
@@ -199,12 +207,12 @@ const CASE_SENSITIVE_ID_RE =
  * since they link to the same record in different UI languages, and reduce a
  * FamilySearch ark to the page it names. A case-sensitive resource id
  * (YouTube, Google Books) survives the fold, so ids differing only by case
- * stay distinct. A Slovenian Genealogical Index person link reduces to the
+ * stay distinct. A Slovenian or Croatian Genealogical Index person link reduces to the
  * record it names (contributor + id), whatever view or search hints it carries.
  */
 export function linkKey(url: string): string {
   const indeks = parseIndeksUrl(url);
-  if (indeks) return `https://indeks.rodoslovje.si/?c=${indeks.contributor.toLowerCase()}&id=${indeks.id.toLowerCase()}`;
+  if (indeks) return `${GEN_INDEX[indeks.index].site}?c=${indeks.contributor.toLowerCase()}&id=${indeks.id.toLowerCase()}`;
   const caseId = CASE_SENSITIVE_ID_RE.exec(url.trim())?.[1];
   const key = canonicalFamilySearchUrl(url.trim().toLowerCase())
     .replace(/^http:\/\//, "https://")

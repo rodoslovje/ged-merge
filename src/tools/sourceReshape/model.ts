@@ -17,6 +17,7 @@ export const ALL_SITES = [
   "geneanet",
   "geneanettree",
   "indeks",
+  "indekshr",
   "findagrave",
   "billiongraves",
   "legacy",
@@ -43,9 +44,9 @@ export type ReshapeSite = (typeof ALL_SITES)[number];
  *  they can't disagree. */
 export function isFetchableSite(site: ReshapeSite, bookUrl?: string): boolean {
   if (site === "familysearch") return bookUrl !== undefined && isFamilySearchImageArk(bookUrl);
-  // The Slovenian Genealogical Index renders its pages in the browser — a
-  // relay sees an empty shell. Its link already names the person and tree.
-  return site !== "newspapers" && site !== "indeks" && site !== "other";
+  // The Slovenian and Croatian Genealogical Indexes render their pages in the
+  // browser — a relay sees an empty shell. Their links already name the person and tree.
+  return site !== "newspapers" && site !== "indeks" && site !== "indekshr" && site !== "other";
 }
 
 /** A FamilySearch image ark {@link parseFamilySearchArkJson} has something to

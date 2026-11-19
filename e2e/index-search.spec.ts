@@ -56,17 +56,17 @@ const HITS = [
   },
 ];
 
-async function openPerson(page: Page, fetch: boolean): Promise<string[]> {
+async function openPerson(page: Page, fetch: boolean, more: Record<string, unknown> = {}): Promise<string[]> {
   const asked: string[] = [];
-  await page.addInitScript((on) => {
+  await page.addInitScript(([on, extra]) => {
     // The Relatives rail open, as a reader may have left it; the reader's own
     // tree on the index named.
     localStorage.setItem(
       "gedmerge.settings",
-      JSON.stringify({ allowLinkFetch: on, widerFamily: { open: true }, indexContributor: "Penko" }),
+      JSON.stringify({ allowLinkFetch: on, widerFamily: { open: true }, indexContributor: "Penko", ...extra }),
     );
-  }, fetch);
-  await page.route("**/indeks-api.rodoslovje.si/**", async (route) => {
+  }, [fetch, more] as const);
+  await page.route(/indeks-api\.(rodoslovje\.si|rodoslovlje\.hr)\//, async (route) => {
     asked.push(route.request().url());
     await route.fulfill({
       contentType: "application/json",
@@ -108,7 +108,11 @@ test("turning lookups on with the rail open lists the index's hits", async ({ pa
   const asked = await openPerson(page, false);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("tab", { name: "Advanced" }).click();
+  // The index switches wait for lookups to be allowed; the other sites do not.
+  await expect(page.getByRole("checkbox", { name: "Croatian index" })).toBeDisabled();
+  await expect(page.getByRole("checkbox", { name: "Geni" })).toBeEnabled();
   await page.getByRole("checkbox", { name: /Look up details online/ }).check();
+  await expect(page.getByRole("checkbox", { name: "Croatian index" })).toBeEnabled();
   await page.keyboard.press("Escape");
   await expect(page.locator(".person-search-hit")).toHaveCount(2);
   expect(asked).toHaveLength(1);
@@ -183,7 +187,7 @@ test("index hits are ranked against the person and compared with them one by one
   await expect(hits).toHaveCount(2);
   await expect.poll(() => asked.length).toBe(2);
   expect(asked[1]).toContain("exact=true");
-  await expect(page.getByRole("link", { name: "Genealogical index" })).toHaveAttribute("href", /ex=1/);
+  await expect(page.getByRole("link", { name: "Slovenian index" })).toHaveAttribute("href", /ex=1/);
 });
 
 test("ticked rows are copied into the person, citing the hit", async ({ page }) => {
@@ -213,4 +217,34 @@ test("ticked rows are copied into the person, citing the hit", async ({ page }) 
   for (let i = 0; i < 3; i++) await next.click();
   await expect(compare).toContainText("Ivan Benko");
   await expect(compare.locator('a[href*="matricula-online.eu"]')).toHaveCount(1);
+});
+
+test("the search sites follow their switches, the Croatian index with hits of its own", async ({ page }) => {
+  // Croatian index on (off by default), Geni off.
+  const asked = await openPerson(page, true, { searchSites: { indexHr: true, geni: false }, indexContributorHr: "Horvat" });
+  const panel = page.locator("#edit-search");
+  await expect(panel.getByRole("link", { name: "Croatian index" })).toHaveAttribute("href", /^https:\/\/indeks\.rodoslovlje\.hr\/\?t=person&n=Janez&sn=Penko/);
+  await expect(panel.getByRole("link", { name: "Slovenian index" })).toBeVisible();
+  await expect(panel.getByRole("link", { name: "Geni" })).toHaveCount(0);
+  // Each index lists its own hits, under its own heading.
+  await expect(panel.locator(".person-search-index")).toHaveCount(2);
+  await expect(panel.locator(".person-search-hit")).toHaveCount(4);
+  expect(asked.some((u) => u.includes("indeks-api.rodoslovlje.hr") && u.includes("exclude_contributor=Horvat"))).toBe(true);
+  expect(asked.some((u) => u.includes("indeks-api.rodoslovje.si") && u.includes("exclude_contributor=Penko"))).toBe(true);
+  // A Croatian hit's links point to the Croatian index.
+  const hr = panel.locator(".person-search-index").nth(1);
+  await expect(hr.locator(".person-search-contributor").first()).toHaveAttribute("href", /^https:\/\/indeks\.rodoslovlje\.hr\//);
+  // Its comparison takes the rail; the Slovenian list steps aside.
+  await hr.getByRole("button", { name: "Compare" }).first().click();
+  await expect(panel.locator(".person-search-index").first()).toBeHidden();
+  await expect(hr.locator(".person-search-compare thead th").last()).toHaveText("Croatian index");
+
+  // Switched off in Settings: the Croatian index is gone from the rail.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Advanced" }).click();
+  await page.getByRole("checkbox", { name: "Croatian index" }).uncheck();
+  await page.keyboard.press("Escape");
+  await expect(panel.getByRole("link", { name: "Croatian index" })).toHaveCount(0);
+  await expect(panel.locator(".person-search-index")).toHaveCount(1);
+  await expect(panel.locator(".person-search-index").first()).toBeVisible();
 });

@@ -136,6 +136,12 @@ describe("search addresses", () => {
   it("links a hit to its own index page", () => {
     expect(indexPersonUrl(PENKO)).toBe("https://indeks.rodoslovje.si/?t=person&n=Janez&sn=Penko&id=%40I19364%40&c=Bandelj&ex=1");
   });
+  it("searches and links the Croatian index on its own host", () => {
+    const q = { given: "Ivan", surname: "Horvat", birthFrom: 1850, birthTo: 1860 };
+    expect(searchUrl("indexHr", q)).toBe("https://indeks.rodoslovlje.hr/?t=person&n=Ivan&sn=Horvat&dob=1850&dobt=1860&ex=0");
+    expect(indexApiUrl(q, ["Emil"], "hr")).toMatch(/^https:\/\/indeks-api\.rodoslovlje\.hr\/api\/search\/advanced\/persons\?name=Ivan&surname=Horvat&.*exclude_contributor=Emil/);
+    expect(indexPersonUrl(PENKO, "hr")).toBe("https://indeks.rodoslovlje.hr/?t=person&n=Janez&sn=Penko&id=%40I19364%40&c=Bandelj&ex=1");
+  });
 });
 
 describe("hit records", () => {
