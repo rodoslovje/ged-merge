@@ -139,8 +139,8 @@ const scenario: Scenario = {
     en: "GED Merge: family website — your tree for every relative",
   },
   description: {
-    sl: "Kako v GED Merge iz drevesa pripravite spletno stran za sorodnike: naslov in nekaj besed zanje, izhodiščna oseba, koga objavite, žive in nedavno umrle osebe, viri in opombe, fotografije po mapah z naslovno fotografijo, prenos ZIP in stran, kot jo vidijo sorodniki. Podatki: izsek iz avtorjevega rodovnika in njegove družinske fotografije.",
-    en: "How GED Merge turns your tree into a website for relatives: a title and a few words for them, the start person, whom to publish, living and recently deceased people, sources and notes, photos by folder with a cover photo, the ZIP download, and the site as relatives see it. Data: an excerpt of the author's family tree and his family photos.",
+    sl: "Kako v GED Merge iz drevesa pripravite spletno stran za sorodnike: naslov in nekaj besed zanje, izhodiščna oseba, koga objavite, žive in nedavno umrle osebe, viri in opombe, fotografije po mapah z naslovno fotografijo, prenos ZIP in stran, kot jo vidijo sorodniki. Podatki: izsek iz rodovnika družine Renko z družinskimi fotografijami.",
+    en: "How GED Merge turns your tree into a website for relatives: a title and a few words for them, the start person, whom to publish, living and recently deceased people, sources and notes, photos by folder with a cover photo, the ZIP download, and the site as relatives see it. Data: an excerpt of the Renko family tree, with family photos.",
   },
   thumbnail: {
     tag: { sl: "Spletna stran", en: "Family website" },
@@ -163,8 +163,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Orodje Spletna stran", en: "The Family website tool" },
       say: {
-        sl: "Odprimo izsek iz avtorjevega rodovnika. Datoteka se sklicuje na fotografije, zato program vpraša za mapo z mediji, in izberemo jo. Nato v Orodjih izberemo »Spletna stran«.",
-        en: "Let's open the excerpt of the author's tree. The file refers to photos, so the program asks for the media folder, and we choose it. Then, in Tools, we choose Family website.",
+        sl: "Odprimo drevo družine Renko. Datoteka se sklicuje na fotografije, zato program vpraša za mapo z mediji, in izberemo jo. Nato v Orodjih izberemo »Spletna stran«.",
+        en: "Let's open the Renko family tree. The file refers to photos, so the program asks for the media folder, and we choose it. Then, in Tools, we choose Family website.",
       },
       run: async (d) => {
         await prepareFolder(d);
@@ -239,8 +239,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Izhodiščna oseba", en: "The start person" },
       say: {
-        sl: "Izhodiščna oseba strani je lahko druga kot v programu. Avtor je živ in ga na strani ne bo, zato izberemo njegovega deda, Franca Renka. Pri njem se odprejo diagrami, od njega pa se računajo oznake sorodstva.",
-        en: "The site's start person can differ from the program's. The author is living and will not be on the site, so we choose his grandfather, Franc Renko. The charts open on him, and kinship labels are counted from him.",
+        sl: "Izhodiščna oseba strani je lahko druga kot v programu. Izhodiščna oseba v programu je živa, zato za izhodišče strani izberemo Franca Renka. Pri njem se odprejo diagrami, od njega pa se računajo oznake sorodstva.",
+        en: "The site's start person can differ from the program's. The program's start person is living, so for the site we choose Franc Renko. The charts open on him, and kinship labels are counted from him.",
       },
       run: async (d) => {
         const input = group(d, { sl: "Izhodiščna oseba", en: "Start person" }).locator(".start-control input");
@@ -277,14 +277,15 @@ const scenario: Scenario = {
     {
       callout: { sl: "Žive osebe", en: "Living people" },
       say: {
-        sl: "Najpomembnejša izbira so žive osebe. Pokažete jih lahko z vsemi podatki, z imenom in priimkom, samo z imenom ali samo z začetnicami. Za stran, ki jo lahko vidi vsak, je najvarnejše, da jih izpustite.",
-        en: "The most important choice is living people. You can show them with all their details, with their full name, given name only or initials only. For a site anyone can see, the safest is to leave them out.",
+        sl: "Najpomembnejša izbira so žive osebe. Lahko jih izpustite ali pa jih pokažete z vsemi podatki, z imenom in priimkom, samo z imenom ali samo z začetnicami. Izberimo začetnice: povezave med sorodniki ostanejo, imena živih pa se ne objavijo.",
+        en: "The most important choice is living people. You can leave them out, or show them with all their details, with their full name, given name only or initials only. Let's take initials: the links between relatives stay, and living people's names are not published.",
       },
       run: async (d) => {
         const living = group(d, LIVING);
         await d.scrollTo(living);
         await d.highlight(living.locator(".tools-privacy-radios"), 6);
         for (const m of [
+          { sl: "Izpusti", en: "Leave out" },
           { sl: "Vsi podatki", en: "All their details" },
           { sl: "Ime in priimek", en: "Given name and surname" },
           { sl: "Samo ime", en: "Given name only" },
@@ -293,8 +294,8 @@ const scenario: Scenario = {
           await d.point(choice(d, m), 600);
           await d.wait(700);
         }
-        await d.untilSaid(1.5);
-        await d.click(choice(d, { sl: "Izpusti", en: "Leave out" }));
+        await d.untilSaid(3);
+        await d.click(choice(d, { sl: "Samo začetnice", en: "Initials only" }));
         await d.highlight(null);
       },
     },
@@ -312,17 +313,33 @@ const scenario: Scenario = {
     {
       callout: { sl: "Viri, opombe, naslovi", en: "Sources, notes, addresses" },
       say: {
-        sl: "Vire, opombe in naslove objavite le, če jih obkljukate. Brez naslovov se dogodek na hišnem naslovu prikaže pri naselju, tudi na zemljevidu.",
-        en: "Sources, notes and addresses are published only if you tick them. Without addresses, an event at a house is shown at its village, on the map too.",
+        sl: "Vire, opombe in naslove objavite le, če jih obkljukate. Vire vključimo, saj so v njih povezave do matičnih knjig.",
+        en: "Sources, notes and addresses are published only if you tick them. Let's include the sources: they hold the links to the parish registers.",
       },
       run: async (d) => {
         const inc = group(d, INCLUDE);
         await d.scrollTo(inc);
         await d.highlight(inc, 6);
+        await d.untilSaid(2.5);
         await d.click(choice(d, { sl: "Vire", en: "Sources" }));
-        await d.wait(500);
-        await d.click(choice(d, { sl: "Opombe", en: "Notes" }));
-        await d.wait(900);
+      },
+    },
+    {
+      say: {
+        sl: "Opombe raje izpustimo. V njih so lahko zapisane osebne stvari, ki jih ne želite deliti.",
+        en: "The notes we'd rather leave out. They may hold personal things you don't want to share.",
+      },
+      run: async (d) => {
+        await d.point(choice(d, { sl: "Opombe", en: "Notes" }));
+        await d.untilSaid(0.3);
+      },
+    },
+    {
+      say: {
+        sl: "Brez naslovov se dogodek na hišnem naslovu prikaže pri naselju, tudi na zemljevidu.",
+        en: "Without addresses, an event at a house is shown at its village, on the map too.",
+      },
+      run: async (d) => {
         await d.point(choice(d, { sl: "Naslove", en: "Addresses" }));
         await d.untilSaid(0.3);
         await d.highlight(null);
@@ -353,8 +370,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Fotografija, na kateri je skrita oseba, se ne objavi, tudi če je skupinska. Zato poročne fotografije avtorjevih staršev na strani ne bo.",
-        en: "A photo showing someone who is hidden is not published, even a group photo. So the wedding photo of the author's parents will not be on the site.",
+        sl: "Fotografija, na kateri je skrita oseba, se ne objavi, tudi če je skupinska. Zato poročne fotografije Edvarda in Cvetke Renko na strani ne bo.",
+        en: "A photo showing someone who is hidden is not published, even a group photo. So the wedding photo of Edvard and Cvetka Renko will not be on the site.",
       },
       run: async (d) => {
         const line = summary(d).locator(".tools-fix-hint").last();
@@ -495,8 +512,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Stran osebe", en: "A person's page" },
       say: {
-        sl: "Vsaka oseba ima svojo stran z dogodki, viri, fotografijami in sorodniki. Žive osebe so izpuščene, kot smo izbrali.",
-        en: "Every person has a page of their own, with events, sources, photos and relatives. Living people are left out, as we chose.",
+        sl: "Vsaka oseba ima svojo stran z dogodki, viri, fotografijami in sorodniki. Žive osebe so prikazane samo z začetnicami.",
+        en: "Every person has a page of their own, with events, sources, photos and relatives. Living people show by their initials only.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".site-start a, .site-start button").first());

@@ -693,14 +693,14 @@ zadetkov s predogledom ocen.
 
 **Cilj:** iz drevesa pripraviti spletno stran za sorodnike (Orodja → »Spletna stran«): naslov in
 besede za sorodnike, lastna izhodiščna oseba strani, koga objavimo, žive in nedavno umrle osebe,
-viri in opombe, fotografije po mapah z naslovno fotografijo, prenos ZIP in stran, kot jo vidijo
-sorodniki.
+viri (opombe ne), fotografije po mapah z naslovno fotografijo, prenos ZIP in stran, kot jo
+vidijo sorodniki.
 **Podatki:** `rodbina-renko-foto.ged` — `rodbina-renko.ged` s fotografijami iz epizode 12, že
 povezanimi z istimi osebami in z istimi območji obrazov kot v avtorjevi datoteki. Fotografije so
 iz avtorjeve mape medijev (kot v epizodi 12, samo umrli in avtorjeva starša). Žive osebe so
-izpuščene, zato poročna in družinska fotografija ter portret Petra Jekovca (u. 2023) na stran ne
+prikazane z začetnicami; fotografija z živo osebo se ne objavi, zato poročna in družinska fotografija ter portret Petra Jekovca (u. 2023) na stran ne
 pridejo. Številke (preverjeno 19. 11. 2026): krvni sorodniki Franca Renka (1901–1964) z zakonci
-288 oseb in 97 družin; izpuščenih živih 36; fotografij na strani 4, izpuščenih 5.
+288 oseb in 97 družin; živih z začetnicami 36; fotografij na strani 4, izpuščenih 5.
 Izvedba in govor: `scripts/publish.ts` (ZIP se razpakira v `videos/.cache/site` in postreže na
 vratih 5299). · **Trajanje:** ~4 min
 **Naslovna slika:** oznaka »Spletna stran« · »Drevo za *vse* sorodnike« · posnetek začetne strani
@@ -713,13 +713,13 @@ s trakom obrazov in naslovno fotografijo.
 | 3 | »Kako deluje« | Diagrami, zemljevid, statistika in stran vsake osebe; datoteke GEDCOM s strani ni mogoče prenesti. |
 | 4 | »Naslov« → »Rodbina Renko«, »Nekaj besed za sorodnike« | Besedilo lahko napišete v vsakem jeziku posebej. |
 | 5 | »Naslov te strani«, »Iskalniki smejo indeksirati spletno stran« | Iskalnike stran prosi, naj je ne vključijo. |
-| 6 | »Izhodiščna oseba« → Franc Renko (1901) | Avtor je živ in ga na strani ne bo, zato izhodišče postane njegov ded. |
+| 6 | »Izhodiščna oseba« → Franc Renko (1901) | Izhodiščna oseba v programu je živa, zato za izhodišče strani izberemo Franca Renka. |
 | 7 | »Koga objavim« → »Krvne sorodnike« + »Skupaj z zakonci in partnerji«, povzetek | Povzetek sproti pove, koliko oseb in družin bo na strani. |
-| 8 | »Žive osebe«: pregled izbir → »Izpusti« | Za stran, ki jo lahko vidi vsak, je najvarnejše, da žive izpustite. |
+| 8 | »Žive osebe«: pregled izbir → »Samo začetnice« | Povezave med sorodniki ostanejo, imena živih se ne objavijo. |
 | 9 | »Prikrij tudi osebe, umrle v zadnjih 20 letih« | Toliko let zahteva slovenski zakon o varstvu osebnih podatkov; zasebne osebe nikoli. |
-| 10 | »Objavi tudi« → »Vire«, »Opombe«; »Naslove« ne | Brez naslovov se dogodek na hišnem naslovu prikaže pri naselju. |
+| 10 | »Objavi tudi« → »Vire«; »Opombe« in »Naslove« ne | Viri vodijo do matičnih knjig; v opombah so lahko osebne stvari, ki jih ne želite deliti; brez naslovov se dogodek na hišnem naslovu prikaže pri naselju. |
 | 11 | »Fotografije« → »Fotografije po mapah«: family → »Strani oseb« | Pri vsaki mapi določite, kam gredo njene fotografije. |
-| 12 | Vrstica »Fotografije: 4 · izpuščene zaradi skrite osebe na njih: 5« | Poročne fotografije avtorjevih staršev na strani ne bo. |
+| 12 | Vrstica »Fotografije: 4 · izpuščene zaradi skrite osebe na njih: 5« | Poročne fotografije Edvarda in Cvetke Renko na strani ne bo. |
 | 13 | »Naslovna fotografija« → »Izberi…« → `family/Renko-druzina.jpg` | Naslovna fotografija se objavi ne glede na to, kdo je na njej — tudi skupinska z živimi osebami. |
 | 14 | »Zemljevid«, »Prikaz oseb« | Izhodišče so vaše nastavitve v programu. |
 | 15 | »Prenesi spletno stran (.zip)« | Razpakirano mapo naložite na strežnik ali jo pošljete sorodnikom. |
