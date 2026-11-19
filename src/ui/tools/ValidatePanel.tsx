@@ -10,7 +10,7 @@ import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboar
 import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { planBranchRemoval } from "../../tools/removeBranch";
-import { branchOf, type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
+import { branchOf, bySizeOfBranch, type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
 import { branchGedcomText, branchesZip, exportChartGedcom } from "../exportGedcom";
 import { downloadBlob, downloadText } from "../download";
 import { afterPendingAdds } from "../source/pendingAdds";
@@ -579,6 +579,7 @@ export function ValidatePanel({
       const y = b.issue;
       return CATEGORY_ORDER.indexOf(x.category) - CATEGORY_ORDER.indexOf(y.category)
         || tagRank(x.recordTag) - tagRank(y.recordTag)
+        || bySizeOfBranch(x, y)
         || titleOf(x).localeCompare(titleOf(y))
         || (x.line ?? 0) - (y.line ?? 0);
     });

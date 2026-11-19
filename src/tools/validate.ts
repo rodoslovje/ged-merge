@@ -278,7 +278,7 @@ function findPedigreeLoops(ds: Dataset): Set<string> {
 
 /**
  * The file's disconnected groups: each set of people reachable from one another
- * through family links, smallest-first, with the file's main tree left out.
+ * through family links, largest first, with the file's main tree left out.
  *
  * The main tree is the group the start person (`startId`) belongs to. Without
  * one, or when it names nobody in the file, it is the largest group, and when
@@ -308,7 +308,15 @@ function findIslands(ds: Dataset, startId?: string): Individual[][] {
   const isMain = (c: Individual[]) => (mainGroup ? c === mainGroup : c.length >= largest);
   return components
     .filter((c) => c.length > 1 && !isMain(c))
-    .sort((a, b) => a.length - b.length);
+    .sort((a, b) => b.length - a.length);
+}
+
+/** Detached branches list largest first — the biggest missing link is the one
+ *  most worth finding. 0 for any other pair, so the caller's order decides. */
+type Ranked = { category: string; messageVars?: Record<string, string | number> };
+export function bySizeOfBranch(a: Ranked, b: Ranked): number {
+  if (a.category !== "island" || b.category !== "island") return 0;
+  return Number(b.messageVars?.count ?? 0) - Number(a.messageVars?.count ?? 0);
 }
 
 /** The people a person's own family links reach in one step: everyone in the
@@ -1133,7 +1141,7 @@ export function validateDataset(
   issues.sort((a, b) => {
     if (a.severity !== b.severity) return a.severity === "error" ? -1 : 1;
     if (a.category !== b.category) return a.category.localeCompare(b.category);
-    return a.subject.localeCompare(b.subject);
+    return bySizeOfBranch(a, b) || a.subject.localeCompare(b.subject);
   });
 
   return {

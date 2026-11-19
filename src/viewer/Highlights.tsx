@@ -8,7 +8,8 @@ import { StatTile } from "../ui/tools/StatsCharts";
 import { PersonLink } from "../ui/PersonLink";
 import { displayDate } from "../gedcom/dateDisplay";
 import { eventDisplayLabel, eventGlyph, familyEventLabel } from "../gedcom/eventTags";
-import { onThisWeek } from "./anniversaries";
+import { onThisWeek, WEEK_DAY_LIMIT } from "./anniversaries";
+import { computeDistances } from "../match/distance";
 import { useSettingsSlice } from "../ui/SettingsContext";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 
@@ -19,8 +20,10 @@ const DATE_KEYS = ["dateDisplay"] as const;
  * common surnames, and what happened in the family this week in years past —
  * so the first page says something about the family before anyone searches.
  */
-export function Highlights({ ds, onNavigate, onSurname }: {
+export function Highlights({ ds, startId, onNavigate, onSurname }: {
   ds: Dataset;
+  /** The start person: this week's anniversaries list their closest kin first. */
+  startId?: string;
   onNavigate: (id: string) => void;
   /** A surname picked: the front page searches for it. */
   onSurname: (surname: string) => void;
@@ -32,7 +35,10 @@ export function Highlights({ ds, onNavigate, onSurname }: {
     const facts = buildStatsFacts(ds);
     return overview(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
   }, [ds]);
-  const week = useMemo(() => onThisWeek(ds, new Date()), [ds]);
+  const week = useMemo(
+    () => onThisWeek(ds, new Date(), WEEK_DAY_LIMIT, startId ? computeDistances(ds, startId) : undefined),
+    [ds, startId],
+  );
   const num = (n: number) => n.toLocaleString(i18n.language);
   const person = (id: string) => <PersonLink dataset={ds} id={id} fallback={id} onNavigate={onNavigate} />;
   const couple = (famId: string) => {
@@ -80,12 +86,20 @@ export function Highlights({ ds, onNavigate, onSurname }: {
         <div className="site-week">
           <h3>{t("site.home.thisWeek")}</h3>
           <ul className="site-week-list">
-            {week.map((a, i) => (
-              <li key={i}>
-                <span className="site-week-date">{displayDate(a.event.date as GedDate)}</span>
-                <span className="site-week-glyph" aria-hidden="true">{eventGlyph(a.event.tag)}</span>
-                <span className="site-week-what">{label(a.event, a.family, t)}</span>
-                {a.family ? couple(a.id) : person(a.id)}
+            {week.map((d) => (
+              <li key={d.inDays}>
+                <span className="site-week-date">{dayMonth(d.month, d.day, i18n.language)}</span>
+                <span className="site-week-people">
+                  {d.items.map((a, i) => (
+                    <span key={i} className="site-week-item">
+                      <span className="site-week-glyph" title={`${label(a.event, a.family, t)} · ${displayDate(a.event.date as GedDate)}`}>
+                        {eventGlyph(a.event.tag)}
+                      </span>
+                      {a.family ? couple(a.id) : person(a.id)}
+                    </span>
+                  ))}
+                  {d.more > 0 && <span className="muted">{t("site.home.weekMore", { count: d.more })}</span>}
+                </span>
               </li>
             ))}
           </ul>
@@ -95,6 +109,11 @@ export function Highlights({ ds, onNavigate, onSurname }: {
       <p><a className="nav-btn site-more" href="#/stats"><StatsIcon size={16} /> {t("site.home.moreStats")}</a></p>
     </section>
   );
+}
+
+/** "19 Nov" in the page's language. */
+function dayMonth(month: number, day: number, lang: string): string {
+  return new Date(2000, month - 1, day).toLocaleDateString(lang, { day: "numeric", month: "short" });
 }
 
 function label(e: GedEvent, family: boolean, t: (k: string) => string): string {
