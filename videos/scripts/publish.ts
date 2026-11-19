@@ -259,7 +259,7 @@ const scenario: Scenario = {
         en: "Next you choose whom to publish: everyone in the file, blood relatives only, or just ancestors and descendants. Let's take blood relatives, with their spouses and partners. The summary at the bottom tells you, as you go, how many people and families the site will show.",
       },
       run: async (d) => {
-        const scope = group(d, { sl: "Koga objavim", en: "Who to publish" });
+        const scope = group(d, { sl: "Koga objavim", en: "Who is published" });
         await d.scrollTo(scope);
         await d.highlight(scope, 6);
         await d.wait(2500);

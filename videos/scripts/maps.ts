@@ -2,7 +2,7 @@
  * Video 7 (SCENARIJI.md, "Zemljevidi"): the map of places — clusters, finding a
  * place, the event and year filters, life paths, historical borders, free
  * historical maps added in Settings (the Austro-Hungarian Spezialkarte and the
- * Franciscan cadastre of Bitnje, 1826), layer opacity, the side-by-side view and
+ * Franciscan cadastre of Bitnje, 1826), layer opacity, the synchronized view and
  * the PNG export.
  *
  * Data: `rodbina-renko.ged` — an anonymised excerpt of the author's tree (living
@@ -23,7 +23,7 @@ const chip = (d: Director, cls: string) => d.page.locator(`.map-kind-chip.${cls}
 const kindChip = (d: Director, label: Text) => d.page.locator(".map-kind-chip", { hasText: d.t(label) }).first();
 const yearTo = (d: Director) => d.page.locator(".map-year-input").nth(1);
 const findField = (d: Director) =>
-  d.page.locator(`input[placeholder*="${d.t({ sl: "Poišči osebo ali kraj", en: "Find a person or place" })}"]`).first();
+  d.page.locator(`input[placeholder*="${d.t({ sl: "Poišči osebo ali kraj", en: "Find person or place" })}"]`).first();
 const layerPick = (d: Director, name: string) => d.page.locator("label.map-overlay-pick", { hasText: name }).first();
 const BITNJE = { sl: "Bitnje, vsa tri", en: "Bitnje" };
 const GURS_LAYERS: Text[] = [
@@ -194,7 +194,7 @@ const scenario: Scenario = {
   },
   description: {
     sl: "Kako v GED Merge postavite prednike na zemljevid: gruče dogodkov, iskanje kraja, izbira vrst dogodkov in obdobja, življenjske poti, meje v izbranem letu, brezplačne zgodovinske karte (avstrijska specialka, franciscejski kataster), vzporedni pogled in izvoz slike.",
-    en: "How GED Merge puts your ancestors on the map: event clusters, finding a place, choosing event kinds and a period, life paths, borders in a chosen year, free historical maps (the Austrian Spezialkarte, the Franciscan cadastre), the side-by-side view and image export.",
+    en: "How GED Merge puts your ancestors on the map: event clusters, finding a place, choosing event kinds and a period, life paths, borders in a chosen year, free historical maps (the Austrian Spezialkarte, the Franciscan cadastre), the synchronized view and image export.",
   },
   thumbnail: {
     tag: { sl: "Zemljevid", en: "Maps" },
@@ -232,7 +232,7 @@ const scenario: Scenario = {
       callout: { sl: "Osnovni zemljevid", en: "Base map" },
       say: {
         sl: "Najprej si v Nastavitvah na zavihku »Zemljevid« izberite osnovni zemljevid, ki vam je najljubši: enostaven, OpenStreetMap, relief, satelitski ali topografski. Vzorec nad izbiro takoj pokaže, kako je videti.",
-        en: "First, in Settings on the Map tab, choose the base map you like best: plain, OpenStreetMap, relief, satellite or topographic. The sample above the choice shows at once how it looks.",
+        en: "First, in Settings on the Map tab, choose the base map you like best: plain, OpenStreetMap, terrain, satellite or topographic. The sample above the choice shows at once how it looks.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".nav-btn.icon-only:not(.undo-btn):not(.charts-open-btn):not(.shortcuts-btn)").nth(2));
@@ -243,7 +243,7 @@ const scenario: Scenario = {
         await d.wait(800);
         await d.highlight(null);
         for (const label of [
-          { sl: "Relief", en: "Relief" },
+          { sl: "Relief", en: "Terrain" },
           { sl: "Satelitski", en: "Satellite" },
         ]) await pickBase(d, label);
       },
@@ -399,7 +399,7 @@ const scenario: Scenario = {
       callout: { sl: "Zgodovinske karte", en: "Historical maps" },
       say: {
         sl: "Dodatne sloje dodate v Nastavitvah na zavihku »Zemljevid«, pri »Dodaj brezplačen sloj«. Izberimo tri sloje GURS, katastrske občine, parcele in hišne številke, ter dve zgodovinski karti: avstro-ogrsko specialko in franciscejski kataster za Bitnje iz leta 1826. Sloj, ki je na seznamu višje, se izriše na vrhu.",
-        en: "Extra layers are added in Settings, on the Map tab, under Add a free layer. Let's pick three GURS layers, cadastral municipalities, parcels and house numbers, and two historical maps: the Austro-Hungarian Spezialkarte and the Franciscan cadastre of Bitnje from 1826. A layer higher in the list is drawn on top.",
+        en: "Extra layers are added in Settings, on the Map tab, under Add a free preset. Let's pick three GURS layers, cadastral municipalities, parcels and house numbers, and two historical maps: the Austro-Hungarian Spezialkarte and the Franciscan cadastre of Bitnje from 1826. A layer higher in the list is drawn on top.",
       },
       run: async (d) => {
         await d.click(chip(d, "map-borders-chip"));
@@ -421,10 +421,10 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Sloji", en: "Layers" },
+      callout: { sl: "Sloji", en: "Overlays" },
       say: {
         sl: "Na zemljevidu jih vklopite pod »Sloji«. Vklopljenih je lahko več slojev hkrati, sloji, katerih obdobje ustreza izbranim letom, pa so označeni. Vklopimo kataster in poglejmo Bitnje od blizu.",
-        en: "On the map you switch them on under Layers. Several layers can be on at once, and layers whose period suits the chosen years are marked. Let's switch on the cadastre and zoom in on Bitnje.",
+        en: "On the map you switch them on under Overlays. Several layers can be on at once, and layers whose period suits the chosen years are marked. Let's switch on the cadastre and zoom in on Bitnje.",
       },
       run: async (d) => {
         await findOnMap(d, "Srednje Bitnje");
@@ -457,10 +457,10 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Vzporedni pogled", en: "Side by side" },
+      callout: { sl: "Vzporedni pogled", en: "Synchronized view" },
       say: {
         sl: "Prikažimo spet dogodke vseh let. »Vzporedni pogled« razdeli zemljevid na dve polovici. Levo je današnji zemljevid, desno kataster iz leta 1826. Ko približate ali premaknete eno polovico, ji druga sledi, zato na ravni hiš vidite, katere so v vasi stale že takrat.",
-        en: "Let's show the events of every year again. Side by side splits the map into two halves. On the left is today's map, on the right the cadastre of 1826. When you zoom or move one half, the other follows, so at the level of houses you see which of them stood in the village already then.",
+        en: "Let's show the events of every year again. Synchronized view splits the map into two halves. On the left is today's map, on the right the cadastre of 1826. When you zoom or move one half, the other follows, so at the level of houses you see which of them stood in the village already then.",
       },
       run: async (d) => {
         await closePanel(d);
@@ -496,14 +496,14 @@ const scenario: Scenario = {
       callout: { sl: "Izvoz", en: "Export" },
       say: {
         sl: "Pod »Izvoz« pogled shranite kot sliko PNG, z navedbo virov kart. V vzporednem pogledu izvozite obe polovici skupaj ali vsako posebej.",
-        en: "Under Export you save the view as a PNG image, with the maps' credits. Side by side, you export both halves together or each on its own.",
+        en: "Under Export you save the view as a PNG image, with the maps' credits. In the synchronized view, you export both halves together or each on its own.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".tree-export-btn").first());
         await d.wait(1200);
         await d.highlight(d.page.locator(".export-menu-popover").first(), 4);
         await d.wait(1500);
-        await d.click(d.page.locator(".export-menu-item", { hasText: d.t({ sl: "vzporedni pogled", en: "side by side" }) }).first());
+        await d.click(d.page.locator(".export-menu-item", { hasText: d.t({ sl: "vzporedni pogled", en: "synchronized view" }) }).first());
         await d.highlight(null);
         await d.wait(1500);
       },

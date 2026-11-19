@@ -49,7 +49,7 @@ const MEDIA_FILES = [
   "weddings/Renko-Edvard+Jekovec-Cvetka-1962.jpg",
 ];
 
-/** Tools in the tab row: 0 stats, 1 places, 2 sources, 3 validate, 4 duplicates, 5 normalize & batch, 6 privacy. */
+/** Tools in the tab row: 0 stats, 1 places, 2 sources, 3 duplicates, 4 validate, 5 normalize & batch, 6 privacy, 7 website, 8 DNA. */
 const BATCH_TAB = 5;
 
 type Key = keyof typeof en & keyof typeof sl;
@@ -337,7 +337,7 @@ const scenario: Scenario = {
       // name as a wife is added.
       say: {
         sl: "Da bo takih primerov v prihodnje manj, v Nastavitvah na zavihku »Urejanje« vklopite »Poročni priimek po partnerju«. Ko ženo dodate možu, se njen poročni priimek zapiše sam.",
-        en: "To have fewer of these in future, turn on Married name from partner in Settings, on the Editing tab. When you add a wife to her husband, her married name is written for you.",
+        en: "To have fewer of these in future, turn on Married surname from partner in Settings, on the Editing tab. When you add a wife to her husband, her married name is written for you.",
       },
       run: async (d) => {
         await d.highlight(null);

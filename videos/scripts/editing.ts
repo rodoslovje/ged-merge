@@ -258,14 +258,18 @@ const scenario: Scenario = {
     {
       callout: { sl: "Sorodniki", en: "Relatives" },
       say: {
-        sl: "Na desni vidite širše sorodstvo osebe, po očetovi in materini strani: stare starše, strice, tete ter bratrance in sestrične.",
-        en: "On the right you see the wider family, on the father's and the mother's side: grandparents, uncles, aunts and cousins.",
+        sl: "Na desni vidite širše sorodstvo osebe, po očetovi in materini strani: stare starše, strice, tete ter bratrance in sestrične. Gumb s povečevalnim steklom namesto sorodnikov odpre ploščo »Iskanje«, v kateri osebo poiščete v rodoslovnem indeksu in na drugih rodoslovnih straneh.",
+        en: "On the right you see the wider family, on the father's and the mother's side: grandparents, uncles, aunts and cousins. The magnifier button swaps them for the Search panel, where you look the person up in the genealogical index and on other genealogy sites.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.click(d.page.locator(".person-card").filter({ hasText: "Mina" }).filter({ visible: true }).first());
         await d.wait(800);
         await d.highlight(d.page.locator("aside.edit-wider").filter({ visible: true }).first(), 4);
+        await d.wait(5500);
+        const search = d.page.locator(".edit-search-toggle").filter({ visible: true }).first();
+        await d.highlight(search, 6);
+        await d.point(search);
       },
     },
     {

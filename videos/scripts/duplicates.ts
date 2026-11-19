@@ -26,8 +26,8 @@ import type { Scenario } from "../lib/types.ts";
 
 const MAIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo", "rodbina-renko.ged");
 
-/** Tools in the tab row: 0 stats, 1 places, 2 sources, 3 validate, 4 duplicates, … */
-const DUPLICATES_TAB = 4;
+/** Tools in the tab row: 0 stats, 1 places, 2 sources, 3 duplicates, 4 validate, … */
+const DUPLICATES_TAB = 3;
 /** A pair row of the list, by a record id it shows. */
 const pair = (d: Director, id: string) => d.page.locator(".tools-pair", { hasText: id }).first();
 /** A group head (three or more records), by its representative's surname. */
@@ -117,7 +117,7 @@ const scenario: Scenario = {
       callout: { sl: "Orodje Dvojniki", en: "The Duplicates tool" },
       say: {
         sl: "Odprimo spet izsek iz avtorjevega rodovnika z več kot tisoč sedemsto osebami. V Orodjih izberite »Dvojniki«. Orodje primerja vsako osebo z vsako drugo, z istim algoritmom kot Združevanje v prejšnjem videu.",
-        en: "Let's open the excerpt of the author's tree again, more than seventeen hundred people. In Tools, choose Duplicates. The tool compares every person with every other, using the same algorithm as merging in the previous video.",
+        en: "Let's open the excerpt of the author's tree again, more than seventeen hundred people. In Tools, choose Find duplicates. The tool compares every person with every other, using the same algorithm as merging in the previous video.",
       },
       run: async (d) => {
         await d.card(null, null);
@@ -334,8 +334,11 @@ const scenario: Scenario = {
       run: async (d) => {
         const toggle = d.page.locator(".tools-dup-toggle").first();
         await d.click(toggle);
-        await d.wait(1200);
-        await d.highlight(d.page.locator(".tools-pairs").first(), 4);
+        // Ring the rejected list once it is drawn, not the active list it replaces.
+        const rejected = d.page.locator(".tools-pairs", { hasText: "I412647389104" }).first();
+        await rejected.waitFor();
+        await d.wait(800);
+        await d.highlight(rejected, 4);
         await d.wait(3000);
         await d.highlight(null);
         await d.click(toggle);

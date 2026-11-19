@@ -5,7 +5,7 @@
  * distant blood relatives, both great-great-grandchildren of Jakob Prešeren
  * (Šimen through Blaž, Jožef and Jernej; Mina through Marija Prešeren, married
  * Muhovec, Simon Muhovec and Jera Muhovec) — all in Peter Hawlina's pedigree.
- * The map is only mentioned: it needs geocoded places, a video of its own.
+ * The map and the 3D network are only shown: the map needs geocoded places, a video of its own.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,7 +15,7 @@ import type { Scenario } from "../lib/types.ts";
 
 const MAIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "demo", "preseren-hawlina.ged");
 
-/** Chart kind tabs: 0 Drevo, 1 Pahljača, 2 Časovnica, 3 Sorodstvo, 4 Sodobniki, 5 Zemljevid, 6 Poročilo. */
+/** Chart kind tabs: 0 Drevo, 1 Pahljača, 2 Časovnica, 3 Sorodstvo, 4 Sodobniki, 5 Zemljevid, 6 Poročilo, 7 3D omrežje. */
 const kind = (d: Director, i: number) => d.page.locator(".charts-kind button").nth(i);
 /** A chart toolbar button by the start of its label (the direction buttons end in a count). */
 const tool = (d: Director, re: RegExp) => d.page.locator("button").filter({ hasText: re }).filter({ visible: true }).first();
@@ -193,7 +193,7 @@ const scenario: Scenario = {
         await flip(d, place, 0); // the person's places
         await flip(d, d.t({ sl: "Datum", en: "Date" })); // marriage date
         await flip(d, place, 1); // marriage place
-        await flip(d, d.t({ sl: "Družinska veja", en: "Family line" }));
+        await flip(d, d.t({ sl: "Veja", en: "Family line" }));
         await d.wait(1200);
         await flip(d, d.t({ sl: "Kraj rojstva", en: "Birth place" }));
         await d.wait(800);
@@ -205,11 +205,17 @@ const scenario: Scenario = {
     {
       callout: { sl: "Časovnica", en: "Timeline" },
       say: {
-        sl: "Časovnica postavi življenja na skupno os let. Takoj vidite, kdo je živel hkrati in kdo je koga preživel.",
-        en: "The timeline sets lives on a shared axis of years. You see at once who lived at the same time, and who outlived whom.",
+        sl: "Časovnica postavi življenja na skupno os let. Takoj vidite, kdo je živel hkrati in kdo je koga preživel. Z gumbom »Zgodovinski dogodki« v nastavitvah diagrama se označijo še vojne, reforme in selitve v državah, kjer so osebe takrat živele.",
+        en: "The timeline sets lives on a shared axis of years. You see at once who lived at the same time, and who outlived whom. The Historical events button in the chart settings also marks the wars, reforms and migrations of the countries the people lived in at the time.",
       },
       run: async (d) => {
         await d.click(kind(d, 2));
+        await fit(d);
+        await d.wait(3500);
+        await openChartSettings(d);
+        await flip(d, d.t({ sl: "Zgodovinski dogodki", en: "Historical events" }));
+        await d.highlight(null);
+        await d.page.keyboard.press("Escape");
         await fit(d);
       },
     },
@@ -273,15 +279,15 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Izberimo njegovo ženo Mino Svetina in pritisnimo S. Najkrajša pot med njima je seveda zakon. Pod »Razpoložljive poti« pa program najde še krvno sorodstvo.",
-        en: "Now choose his wife Mina Svetina and press S. The shortest path between them is, of course, their marriage. But under Available paths the program also finds a blood relationship.",
+        sl: "Izberimo njegovo ženo Mino Svetina in pritisnimo K. Najkrajša pot med njima je seveda zakon. Pod »Razpoložljive poti« pa program najde še krvno sorodstvo.",
+        en: "Now choose his wife Mina Svetina and press K. The shortest path between them is, of course, their marriage. But under Available paths the program also finds a blood relationship.",
       },
       run: async (d) => {
         await d.wait(600);
         await d.click(d.page.locator(".person-card").filter({ hasText: "Svetina" }).filter({ visible: true }).first());
         await d.wait(900);
         await blur(d);
-        await d.page.keyboard.press("s");
+        await d.page.keyboard.press("k");
         const paths = d.page.locator("button.select-menu").filter({ hasText: /korakov|steps/ }).first();
         await paths.waitFor();
         await fit(d);
@@ -289,7 +295,9 @@ const scenario: Scenario = {
         await d.highlight(paths, 4);
         await d.click(paths);
         await d.wait(1200);
-        await d.click(d.page.locator(".dd-item, [role=option]").filter({ visible: true }).last());
+        // The blood path through Jakob Prešeren (the list puts it first, the
+        // chart opens on the shortest).
+        await d.click(d.page.locator(".dd-item, [role=option]").filter({ visible: true }).filter({ hasText: "Jakob" }).first());
         await d.highlight(null);
         await fit(d);
       },
@@ -311,13 +319,22 @@ const scenario: Scenario = {
     {
       callout: { sl: "Zemljevid", en: "Map" },
       say: {
-        sl: "Zadnji je zemljevid, ki postavi dogodke na kraje. Za to morajo imeti kraji koordinate. Kako jih dobijo z geokodiranjem, pokažemo v posebnem videu.",
-        en: "The last one is the map, which puts events on their places. For that, places need coordinates; how they get them by geocoding is shown in a video of its own.",
+        sl: "Sledi zemljevid, ki postavi dogodke na kraje. Za to morajo imeti kraji koordinate. Kako jih dobijo z geokodiranjem, pokažemo v posebnem videu. Zadnji diagram je »3D omrežje«. Pokaže vso rodbino naenkrat, družine pa visijo pod starši.",
+        en: "Next is the map, which puts events on their places. For that, places need coordinates; how they get them by geocoding is shown in a video of its own. The last chart is the 3D network. It shows the whole family at once, with each family hanging below its parents.",
       },
       run: async (d) => {
         await d.highlight(null);
         await d.click(kind(d, 5));
         await d.wait(1500);
+        // The 3D network: the people are arranged in a worker first.
+        await d.untilSaid(8);
+        await d.click(kind(d, 7));
+        await d.skippable(() => d.page.locator(".network-count").filter({ visible: true }).first().waitFor({ timeout: 30_000 }));
+        // Every branch of the file, turning slowly.
+        await d.click(d.page.locator("button").filter({ hasText: new RegExp(`^${d.t({ sl: "Vse veje", en: "All branches" })}$`) }).filter({ visible: true }).first());
+        await d.skippable(() => d.wait(1500));
+        await d.click(d.page.locator(".network-spin input").first());
+        await d.wait(5000);
       },
     },
     {

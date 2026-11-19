@@ -36,7 +36,7 @@ function settings(lang: Lang): Record<string, unknown> {
   return { ...s, startPersons: { ...(s.startPersons as Record<string, string>), "rodbina-renko": AUTHOR } };
 }
 
-/** Statistics pages: 0 Povzetek, 1 Imena, 2 Življenjska doba, 3 Družine, 4 Rojstvo, 5 Smrt, 6 Poklic, 7 Selitve, 8 Rodovi, 9 Raziskava. */
+/** Statistics pages: 0 Povzetek, 1 Imena, 2 Življenjska doba, 3 Družine, 4 Rojstvo, 5 Smrt, 6 Poklic, 7 Kraji in selitve, 8 Rodovi, 9 Raziskava. */
 const statsPage = (d: Director, i: number) => d.page.locator(".stats-head > .tree-mode button").nth(i);
 /** Whose numbers: 0 Vsi, 1 Krvni sorodniki, 2 Predniki, 3 Potomci. */
 const who = (d: Director, i: number) => d.page.locator(".stats-line .tree-mode button").nth(i);
@@ -106,8 +106,8 @@ const scenario: Scenario = {
     en: "GED Merge: statistics — what your family tree tells in numbers",
   },
   description: {
-    sl: "Statistika je prvo orodje v Orodjih in zajame celotno datoteko: povzetek, popolnost podatkov, imena po stoletjih, življenjska doba in umrljivost otrok, poroke po mesecih, poklici, selitve, rodovi prednikov, ponovljeni predniki, najbližje slepe ulice in dogodki z viri. Za vsakim številom so osebe — klik odpre njihov seznam. Podatki: anonimiziran izsek iz avtorjevega rodovnika.",
-    en: "Statistics is the first of the Tools and covers the whole file: the summary, data completeness, names by century, lifespan and child mortality, marriages by month, occupations, migration, ancestors by generation, pedigree collapse, the nearest brick walls and sourced events. Behind every number are people — a click lists them. Data: an anonymised excerpt of the author's family tree.",
+    sl: "Statistika je prvo orodje v Orodjih in zajame celotno datoteko: povzetek, popolnost podatkov, imena po stoletjih, poroke med priimki, življenjska doba in umrljivost otrok, poroke po mesecih, poklici, kraji rojstva in selitve, rodovi prednikov, ponovljeni predniki, najbližje slepe ulice in dogodki z viri. Za vsakim številom so osebe — klik odpre njihov seznam. Podatki: anonimiziran izsek iz avtorjevega rodovnika.",
+    en: "Statistics is the first of the Tools and covers the whole file: the summary, data completeness, names by century, marriages between surnames, lifespan and child mortality, marriages by month, occupations, birth places and migration, ancestors by generation, pedigree collapse, the nearest brick walls and sourced events. Behind every number are people — a click lists them. Data: an anonymised excerpt of the author's family tree.",
   },
   thumbnail: {
     tag: { sl: "Statistika", en: "Statistics" },
@@ -144,10 +144,10 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Povzetek", en: "Summary" },
+      callout: { sl: "Povzetek", en: "Overview" },
       say: {
         sl: "Povzetek na eni strani pove, koliko je v drevesu oseb, družin in priimkov, katera leta zajema in kdo je dočakal najvišjo starost. Spodaj so najpogostejši priimki, imena in kraji rojstva.",
-        en: "The summary tells on one page how many people, families and surnames the tree holds, which years it spans, and who lived the longest. Below are the most common surnames, given names and birthplaces.",
+        en: "The Overview tells on one page how many people, families and surnames the tree holds, which years it spans, and who lived the longest. Below are the most common surnames, given names and birthplaces.",
       },
       run: async (d) => {
         await d.highlight(d.page.locator(".stats-tiles").first(), 4);
@@ -239,6 +239,15 @@ const scenario: Scenario = {
     },
     {
       say: {
+        sl: "Kartica »Poroke med priimki« pokaže, med katerimi priimki je bilo največ porok.",
+        en: "The Marriages between surnames card shows which surnames married into each other most often.",
+      },
+      run: async (d) => {
+        await showCard(d, "surnameNetwork");
+      },
+    },
+    {
+      say: {
         sl: "Skoraj dvajset odstotkov deklic je dobilo ime po babici, dečki pa so ime po dedu in po očetu dobili približno enako pogosto.",
         en: "Almost one daughter in five was named after her grandmother; sons were named after their grandfather about as often as after their father.",
       },
@@ -265,7 +274,7 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "V osemnajstem stoletju je pred petim letom umrlo šestintrideset odstotkov otrok, v dvajsetem le še petnajst. To vidimo samo zato, ker so v drevesu tudi bratje in sestre prednikov. Predniki so namreč vsi dočakali odraslost.",
+        sl: "V osemnajstem stoletju je pred petim letom umrlo šestintrideset odstotkov otrok, v dvajsetem le še štirinajst. To vidimo samo zato, ker so v drevesu tudi bratje in sestre prednikov. Predniki so namreč vsi dočakali odraslost.",
         en: "In the eighteenth century more than one child in three died before the age of five; in the twentieth, one in seven. We only see this because the ancestors' brothers and sisters are in the tree — every ancestor, after all, grew up.",
       },
       run: async (d) => {
@@ -346,14 +355,18 @@ const scenario: Scenario = {
       },
     },
     {
-      callout: { sl: "Selitve", en: "Migration" },
+      callout: { sl: "Kraji in selitve", en: "Places & migration" },
       say: {
-        sl: "Selitve primerjajo kraj rojstva in kraj smrti. V osemnajstem stoletju je bil kraj smrti povprečno dva kilometra od rojstnega. V devetnajstem se začne izseljevanje, največ v Združene države, in povprečje skoči na več sto kilometrov.",
-        en: "Migration compares the place of birth with the place of death. In the eighteenth century, people died on average two kilometres from where they were born. In the nineteenth, emigration begins, mostly to the United States, and the average jumps to several hundred kilometres.",
+        sl: "Stran »Kraji in selitve« najprej pokaže kraje rojstva po desetletjih. Selitve primerjajo kraj rojstva in kraj smrti. V osemnajstem stoletju je bil kraj smrti povprečno dva kilometra od rojstnega. V drugi polovici devetnajstega stoletja se začne izseljevanje, največ v Združene države, in povprečje skoči na več sto kilometrov.",
+        en: "The Places & migration page starts with the birth places, decade by decade. Migration compares the place of birth with the place of death. In the eighteenth century, people died on average two kilometres from where they were born. In the second half of the nineteenth, emigration begins, mostly to the United States, and the average jumps to several hundred kilometres.",
       },
       run: async (d) => {
         await d.highlight(null);
         await openPage(d, 7);
+        // Off the charts: a pointer left over the place flow shows its tooltip as the page scrolls.
+        await d.overlay("cursor", 60, 450, 500);
+        await d.page.mouse.move(60, 450);
+        await showCard(d, "placeDecades", 3500);
         await showCard(d, "distanceByCentury", 5000);
         await showCard(d, "countryMoves");
       },

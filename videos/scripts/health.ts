@@ -513,14 +513,17 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Vejo lahko prenesete kot datoteko GEDCOM ali pa jo odstranite.",
-        en: "You can download the branch as a GEDCOM file, or remove it.",
+        sl: "Vejo lahko prenesete kot datoteko GEDCOM ali pa jo odstranite. Kadar je vej več, jih označite in prenesete v eni datoteki ali odstranite naenkrat.",
+        en: "You can download the branch as a GEDCOM file, or remove it. When there are several, tick them and download them in one file, or remove them all at once.",
       },
       run: async (d) => {
         const branch = row(d, "Mina Svetina");
         await d.highlight(branch.locator(".tools-issue-icon").first(), 4);
-        await d.untilSaid(1.6);
+        await d.wait(2000);
         await d.highlight(branch.locator(".tools-issue-iconfix").first(), 4);
+        await d.wait(1800);
+        // The bulk bar of the detached branches: download in one file, as a ZIP, or remove.
+        await d.highlight(d.page.locator(".tools-pick-bar").filter({ has: d.page.locator(".nav-btn.danger") }).first(), 4);
         await d.untilSaid();
       },
     },
