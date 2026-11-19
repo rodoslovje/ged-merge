@@ -3890,6 +3890,7 @@ export const sl = {
   "settings.links.indexContributorHr.placeholder": "npr. Horvat",
   "settings.searchSites.title": "Iskanje oseb",
   "settings.searchSites.hint": "Strani, ki jih za osebo ponudi plošča Iskanje v pogledu Urejanje. Rodoslovna indeksa zadetke izpišeta kar na plošči, če je vklopljeno »Poišči podatke na spletu«.",
+  "settings.searchSites.needFetch": "Za iskanje v rodoslovnih indeksih zgoraj vklopite »Poišči podatke na spletu«.",
   "settings.geo.title": "Imeniki krajev",
   "settings.geo.hint": "Geografski imeniki, s katerimi se primerjajo imena krajev — naselja s koordinatami, shranjena v tem brskalniku in v rabi pri vseh poljih krajev, zemljevidih in geokodiranju. Nastavite jih enkrat; ostanejo tudi po zamenjavi datoteke.",
   "settings.geo.empty": "Imenik še ni uvožen. Brez njega imen krajev ni s čim primerjati, zato vam aplikacija ne more predlagati nobene koordinate — vsako lahko še vedno vnesete ročno.",

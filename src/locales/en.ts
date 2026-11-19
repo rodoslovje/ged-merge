@@ -3422,6 +3422,7 @@ export const en = {
   "settings.links.indexContributorHr.placeholder": "e.g. Horvat",
   "settings.searchSites.title": "Person search",
   "settings.searchSites.hint": "The sites the Search panel in Edit offers for a person. The two genealogical indexes also list their matches in the panel itself when “Look up details online” is on.",
+  "settings.searchSites.needFetch": "Turn on “Look up details online” above to search the genealogical indexes.",
   "settings.tab.map": "Map",
   "settings.geo.title": "Place directories",
   "settings.geo.hint": "The gazetteers place names are matched against — settlements with their coordinates, kept in this browser and used by every place field, map and geocoding run. Set up once; they outlive the file you have open.",

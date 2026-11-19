@@ -35,7 +35,7 @@ import { AddEventSelect } from "./edit/AddEventSelect";
 import type { SettingsTab } from "./settingsBus";
 import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
 import { TrashIcon } from "./icons/TrashIcon";
-import { SEARCH_SITES } from "../online/searchLinks";
+import { INDEX_SEARCH_SITE, SEARCH_SITES, type SearchSite } from "../online/searchLinks";
 
 // Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
 // the base-map sample is actually shown.
@@ -388,6 +388,22 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
     }
     return FORMAT_SAMPLES[key]?.[effective];
   };
+
+  /** One search site's switch in Settings → Advanced → Person search. */
+  const siteSwitch = (site: SearchSite) => (
+    <label key={site} className="settings-row settings-row-toggle">
+      <input
+        type="checkbox"
+        checked={settings.searchSites[site]}
+        onChange={(e) => set({ searchSites: { ...settings.searchSites, [site]: e.target.checked } })}
+      />
+      <span className="settings-row-text">
+        <span className="settings-row-label">{t(`indexSearch.site.${site}`)}</span>
+      </span>
+    </label>
+  );
+  const indexSites: SearchSite[] = Object.values(INDEX_SEARCH_SITE);
+  const otherSites = SEARCH_SITES.filter((s) => !indexSites.includes(s));
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -844,18 +860,10 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
           <section className="settings-section">
             <h3>{t("settings.searchSites.title")}</h3>
             <p className="settings-hint">{t("settings.searchSites.hint")}</p>
-            {SEARCH_SITES.map((site) => (
-              <label key={site} className="settings-row settings-row-toggle">
-                <input
-                  type="checkbox"
-                  checked={settings.searchSites[site]}
-                  onChange={(e) => set({ searchSites: { ...settings.searchSites, [site]: e.target.checked } })}
-                />
-                <span className="settings-row-text">
-                  <span className="settings-row-label">{t(`indexSearch.site.${site}`)}</span>
-                </span>
-              </label>
-            ))}
+            {/* The two indexes are inert until online lookups are allowed:
+                their switches and contributor names govern the index searches. */}
+            <fieldset className="settings-fieldset" disabled={!settings.allowLinkFetch}>
+            {indexSites.map(siteSwitch)}
             {settings.searchSites.index && (
               <label className="settings-row settings-format-row">
                 <span className="settings-row-text">
@@ -886,6 +894,9 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 />
               </label>
             )}
+            </fieldset>
+            {!settings.allowLinkFetch && <p className="settings-note">{t("settings.searchSites.needFetch")}</p>}
+            {otherSites.map(siteSwitch)}
           </section>
 
           </>

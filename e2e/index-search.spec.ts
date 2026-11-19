@@ -108,7 +108,11 @@ test("turning lookups on with the rail open lists the index's hits", async ({ pa
   const asked = await openPerson(page, false);
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("tab", { name: "Advanced" }).click();
+  // The index switches wait for lookups to be allowed; the other sites do not.
+  await expect(page.getByRole("checkbox", { name: "Croatian index" })).toBeDisabled();
+  await expect(page.getByRole("checkbox", { name: "Geni" })).toBeEnabled();
   await page.getByRole("checkbox", { name: /Look up details online/ }).check();
+  await expect(page.getByRole("checkbox", { name: "Croatian index" })).toBeEnabled();
   await page.keyboard.press("Escape");
   await expect(page.locator(".person-search-hit")).toHaveCount(2);
   expect(asked).toHaveLength(1);
