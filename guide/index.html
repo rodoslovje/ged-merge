@@ -1504,10 +1504,15 @@
               usually an import that never got attached, a duplicate of a branch you already have, or a branch whose
               link to the main tree is missing. One finding per branch, on its youngest member, so you can open them and
               walk their relatives. The main tree is the one your start person belongs to, or the largest one when no
-              start person is set; it is never reported. On a branch's row, <strong>GEDCOM</strong> downloads the whole
+              start person is set; it is never reported. Each finding also gives the years from the branch's earliest to
+              its latest dated event. On a branch's row, <strong>GEDCOM</strong> downloads the whole
               branch as a file of its own and <strong>Remove branch</strong> deletes it from the file, after a
               confirmation that lists the people, families, sources, notes and media that go with it; a disconnected
-              person's row has <strong>Remove person</strong> for the same. <strong>Associations</strong> checks the people a record or an event names
+              person's row has <strong>Remove person</strong> for the same. With the Detached branches filter on, every
+              branch has a checkbox: <strong>Download in one file</strong> puts the ticked branches in one GEDCOM file,
+              <strong>Download each branch as its own file</strong> packs one file per branch into a single ZIP, each
+              named by its youngest member's surname, given name and the branch's years, and <strong>Remove
+              selected</strong> deletes them all in one step after one confirmation. <strong>Associations</strong> checks the people a record or an event names
               (<a href="#associates">§8</a>): one named without any role, one named as their own witness, and one who
               was born after — or died before — the event they are recorded at. A separate <strong>GEDCOM structure</strong> pass
               flags encoding, bad lines and levels, stray CONT/CONC, version, unknown or custom tags and unparseable
