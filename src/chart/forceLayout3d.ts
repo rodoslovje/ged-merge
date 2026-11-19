@@ -103,7 +103,7 @@ class Octree {
     const h = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1) / 2 + 1;
     const root = this.cell((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2, h);
     for (let i = 0; i < n; i++) this.insert(root, i, p, 0);
-    this.finish(root, p);
+    this.finish(p);
   }
 
   private octant(c: number, x: number, y: number, z: number): number {
@@ -145,23 +145,27 @@ class Octree {
     }
   }
 
-  /** Centres of mass, bottom up. */
-  private finish(c: number, p: Float32Array): [number, number, number, number] {
-    const b = this.body[c];
-    if (b >= 0) {
-      this.cx[c] = p[b * 3]; this.cy[c] = p[b * 3 + 1]; this.cz[c] = p[b * 3 + 2];
-      return [this.cx[c], this.cy[c], this.cz[c], this.mass[c]];
+  /** Centres of mass, bottom up. A cell is always made after its parent, so
+   *  walking the cells from the last made to the first visits every child
+   *  before its parent — no recursion, nothing allocated. */
+  private finish(p: Float32Array) {
+    const { cx, cy, cz, mass, kids, body } = this;
+    for (let c = this.count - 1; c >= 0; c--) {
+      const b = body[c];
+      if (b >= 0) {
+        cx[c] = p[b * 3]; cy[c] = p[b * 3 + 1]; cz[c] = p[b * 3 + 2];
+        continue;
+      }
+      let sx = 0, sy = 0, sz = 0, m = 0;
+      for (let o = 0; o < 8; o++) {
+        const k = kids[c * 8 + o];
+        if (k < 0) continue;
+        const km = mass[k];
+        sx += cx[k] * km; sy += cy[k] * km; sz += cz[k] * km; m += km;
+      }
+      if (m > 0) { cx[c] = sx / m; cy[c] = sy / m; cz[c] = sz / m; }
+      else { cx[c] = this.ox[c]; cy[c] = this.oy[c]; cz[c] = this.oz[c]; }
     }
-    let sx = 0, sy = 0, sz = 0, m = 0;
-    for (let o = 0; o < 8; o++) {
-      const k = this.kids[c * 8 + o];
-      if (k < 0) continue;
-      const [x, y, z, km] = this.finish(k, p);
-      sx += x * km; sy += y * km; sz += z * km; m += km;
-    }
-    if (m > 0) { this.cx[c] = sx / m; this.cy[c] = sy / m; this.cz[c] = sz / m; }
-    else { this.cx[c] = this.ox[c]; this.cy[c] = this.oy[c]; this.cz[c] = this.oz[c]; }
-    return [this.cx[c], this.cy[c], this.cz[c], this.mass[c]];
   }
 }
 
@@ -230,22 +234,27 @@ export function createLayout3d(
   let alpha = 1;
   const tree = new Octree();
 
-  const stack: number[] = [];
+  // The repulsion of each node, kept apart from the other forces: on a big
+  // graph it is recomputed only every other step — it changes slowly, and it is
+  // nearly all the cost — while the springs and the moves run every step.
+  const rep = new Float32Array(n * 3);
+  const stack = new Int32Array(64 * 8);
   const repel = (i: number) => {
+    const { cx, cy, cz, mass, half, kids, body } = tree;
     const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
     let fx = 0, fy = 0, fz = 0;
-    stack.length = 0;
-    stack.push(0);
-    while (stack.length) {
-      const c = stack.pop()!;
-      const m = tree.mass[c];
+    let top = 0;
+    stack[top++] = 0;
+    while (top) {
+      const c = stack[--top];
+      const m = mass[c];
       if (!m) continue;
-      if (tree.body[c] === i) continue;
-      let dx = x - tree.cx[c], dy = y - tree.cy[c], dz = z - tree.cz[c];
+      const b = body[c];
+      if (b === i) continue;
+      let dx = x - cx[c], dy = y - cy[c], dz = z - cz[c];
       let d2 = dx * dx + dy * dy + dz * dz;
-      const size = tree.half[c] * 2;
-      const leaf = tree.body[c] >= 0;
-      if (leaf || size * size < theta2 * d2) {
+      const size = half[c] * 2;
+      if (b >= 0 || size * size < theta2 * d2) {
         if (d2 < 1) {
           // Coincident: nudge apart in a direction of their own.
           dx = (i % 7) - 3 + 0.5; dy = (i % 5) - 2 + 0.5; dz = (i % 3) - 1 + 0.5;
@@ -255,30 +264,45 @@ export function createLayout3d(
         fx += dx * f; fy += dy * f; fz += dz * f;
         continue;
       }
+      const k0 = c * 8;
       for (let o = 0; o < 8; o++) {
-        const k = tree.kids[c * 8 + o];
-        if (k >= 0) stack.push(k);
+        const k = kids[k0 + o];
+        if (k >= 0) stack[top++] = k;
       }
     }
     // Sideways the push is stronger than up and down: the generations are
     // already a layer apart, and the families of one generation need the room.
-    force[i * 3] += fx * SPREAD; force[i * 3 + 1] += fy; force[i * 3 + 2] += fz * SPREAD;
+    rep[i * 3] = fx * SPREAD; rep[i * 3 + 1] = fy; rep[i * 3 + 2] = fz * SPREAD;
   };
+
+  // The springs as flat arrays, each end's share of the pull split by degree
+  // up front, so a hub with many children is not yanked about.
+  const m = edges.length;
+  const ea = new Int32Array(m), eb = new Int32Array(m);
+  const elen = new Float32Array(m), ewa = new Float32Array(m), ewb = new Float32Array(m);
+  edges.forEach((e, k) => {
+    ea[k] = e.a; eb[k] = e.b; elen[k] = e.length;
+    ewa[k] = 1 / Math.max(degree[e.a], 1);
+    ewb[k] = 1 / Math.max(degree[e.b], 1);
+  });
+  const every = n > BIG ? 2 : 1;
+  let steps = 0;
 
   const step = (): boolean => {
     if (alpha < ALPHA_MIN || n === 0) return false;
-    force.fill(0);
-    tree.build(pos, n);
-    for (let i = 0; i < n; i++) repel(i);
-    for (const e of edges) {
-      const a = e.a * 3, b = e.b * 3;
+    if (steps++ % every === 0) {
+      tree.build(pos, n);
+      for (let i = 0; i < n; i++) repel(i);
+    }
+    force.set(rep);
+    for (let k = 0; k < m; k++) {
+      const a = ea[k] * 3, b = eb[k] * 3;
       const dx = pos[b] - pos[a], dy = pos[b + 1] - pos[a + 1], dz = pos[b + 2] - pos[a + 2];
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-      // Split the pull by degree, so a hub with many children is not yanked about.
-      const k = ((d - e.length) / d) * 0.5;
-      const wa = 1 / Math.max(degree[e.a], 1), wb = 1 / Math.max(degree[e.b], 1);
-      force[a] += dx * k * wa * 2; force[a + 1] += dy * k * wa * 2; force[a + 2] += dz * k * wa * 2;
-      force[b] -= dx * k * wb * 2; force[b + 1] -= dy * k * wb * 2; force[b + 2] -= dz * k * wb * 2;
+      const f = (d - elen[k]) / d;
+      const fa = f * ewa[k], fb = f * ewb[k];
+      force[a] += dx * fa; force[a + 1] += dy * fa; force[a + 2] += dz * fa;
+      force[b] -= dx * fb; force[b + 1] -= dy * fb; force[b + 2] -= dz * fb;
     }
     for (let i = 0; i < n; i++) {
       const j = i * 3;
@@ -318,7 +342,8 @@ export function createLayout3d(
 
 /** A tree of this many people takes about this radius once settled. */
 function treeRadius(size: number): number {
-  return LINK * (1 + 1.6 * Math.cbrt(size));
+  // The sideways push widens a tree with it, by about its cube root.
+  return LINK * (1 + 1.6 * Math.cbrt(size)) * Math.cbrt(SPREAD);
 }
 
 /**

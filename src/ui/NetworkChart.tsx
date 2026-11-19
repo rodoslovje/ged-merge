@@ -65,7 +65,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const { settings } = useChartSettings();
   const nameOf = useNameOf();
   const theme = useDocTheme();
-  const [scope, setScope] = useState<GraphScope>("connected");
+  const [scope, setScope] = useState<GraphScope>("blood");
   const [layered, setLayered] = useState(true);
   const [spin, setSpin] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
