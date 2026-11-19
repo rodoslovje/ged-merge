@@ -2688,7 +2688,7 @@ export const en = {
   "network.reroot": "Centre on this person",
   "network.open": "Open in Edit",
   "network.line.spouse": "Partner's family",
-  "network.count": "People: {{shown}} of {{total}} · links: {{links}}",
+  "network.count": "People: {{shown}} · links: {{links}}",
   "network.trees_one": "{{count}} tree",
   "network.trees_other": "{{count}} trees",
   "network.help": "Drag to turn · wheel to zoom · right-drag to move · double-click to centre",

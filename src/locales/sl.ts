@@ -2970,7 +2970,7 @@ export const sl = {
   "network.reroot": "Postavi to osebo v središče",
   "network.open": "Odpri v Urejanju",
   "network.line.spouse": "Partnerjeva družina",
-  "network.count": "Osebe: {{shown}} od {{total}} · povezave: {{links}}",
+  "network.count": "Osebe: {{shown}} · povezave: {{links}}",
   "network.trees_one": "{{count}} drevo",
   "network.trees_two": "{{count}} drevesi",
   "network.trees_few": "{{count}} drevesa",

@@ -272,7 +272,7 @@ export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array
 
 /** A tree of this many people takes about this radius once settled. */
 function treeRadius(size: number): number {
-  return LINK * (0.6 + 1.1 * Math.cbrt(size));
+  return LINK * (1 + 1.6 * Math.cbrt(size));
 }
 
 /**

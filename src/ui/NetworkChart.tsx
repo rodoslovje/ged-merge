@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildFamilyGraph, SPOUSE_LINE, type GraphScope } from "../chart/familyGraph";
-import { createLayout3d, linkLength } from "../chart/forceLayout3d";
+import { linkLength } from "../chart/forceLayout3d";
+import type { Layout3dPositions, Layout3dRequest } from "../worker/layout3dMessages";
 import { lineColor, paletteColor, type BranchInfo } from "../chart/nodeColor";
 import { livingLabelFor } from "../chart/nodeDisplay";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
@@ -27,9 +28,8 @@ import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 // cluster's family line, country or surname reads at a glance; the colour key
 // hides groups. Layered mode holds each generation to its own height.
 
-/** At most this many people: the layout runs on the main thread, and past
- *  this it no longer settles smoothly. The nearest are kept (see the count). */
-const LIMIT = 5000;
+/** Past this many people the canvas draws square dots, unsorted by depth. */
+const BIG = 20000;
 const HIT_PX = 9;
 const DOT = 2.6;
 /** The colour key's "other" entry (nodeColor folds the long tail into it). */
@@ -67,7 +67,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
 
   useChartShortcuts({ onLeave: onBack });
 
-  const graph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, LIMIT), [mainDs, rootId, scope]);
+  const graph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, Infinity), [mainDs, rootId, scope]);
   useEffect(() => setSelected(null), [graph]);
 
   // ─── Colour ───────────────────────────────────────────────────────────────
@@ -134,15 +134,39 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   }, [graph, categories, hidden, legendKeys]);
 
   // ─── Layout ───────────────────────────────────────────────────────────────
-  const layout = useMemo(() => {
+  // The simulation runs in a worker (layout3d.worker.ts) and posts positions
+  // about every frame; the frame loop draws whatever arrived last. Until the
+  // first positions come, there is nothing to draw.
+  const positions = useRef<{ pos: Float32Array | null; fresh: boolean; settling: boolean }>({ pos: null, fresh: false, settling: false });
+  const workerRef = useRef<Worker | null>(null);
+  const layeredRef = useRef(layered);
+  layeredRef.current = layered;
+  useEffect(() => {
     const n = graph.nodes.length;
     const gen = new Float64Array(n);
     const hops = new Int32Array(n);
-    const tree = new Int32Array(n);
-    graph.nodes.forEach((node, i) => { gen[i] = node.pos ? node.pos.gen : NaN; hops[i] = node.hops; tree[i] = node.tree; });
-    return createLayout3d(n, graph.edges.map((e) => ({ a: e.a, b: e.b, length: linkLength(e.kind) })), gen, hops, tree);
+    const trees = new Int32Array(n);
+    graph.nodes.forEach((node, i) => { gen[i] = node.pos ? node.pos.gen : NaN; hops[i] = node.hops; trees[i] = node.tree; });
+    const m = graph.edges.length;
+    const ea = new Int32Array(m), eb = new Int32Array(m), len = new Float32Array(m);
+    graph.edges.forEach((e, k) => { ea[k] = e.a; eb[k] = e.b; len[k] = linkLength(e.kind); });
+    positions.current = { pos: null, fresh: false, settling: true };
+    const worker = new Worker(new URL("../worker/layout3d.worker.ts", import.meta.url), { type: "module" });
+    workerRef.current = worker;
+    worker.onmessage = (e: MessageEvent<Layout3dPositions>) => {
+      positions.current = { pos: e.data.pos, fresh: true, settling: !e.data.done };
+    };
+    const init: Layout3dRequest = { type: "init", n, ea, eb, len, gen, hops, trees, layered: layeredRef.current };
+    worker.postMessage(init, [ea.buffer, eb.buffer, len.buffer, gen.buffer, hops.buffer, trees.buffer]);
+    return () => {
+      worker.terminate();
+      if (workerRef.current === worker) workerRef.current = null;
+    };
   }, [graph]);
-  useEffect(() => layout.setLayered(layered), [layout, layered]);
+  useEffect(() => {
+    const msg: Layout3dRequest = { type: "layered", on: layered };
+    workerRef.current?.postMessage(msg);
+  }, [layered]);
 
   // ─── Drawing ──────────────────────────────────────────────────────────────
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -154,9 +178,31 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   const redraw = useCallback(() => { dirty.current = true; }, []);
 
   // Everything the frame loop reads, kept in a ref so the loop runs once.
-  const live = useRef({ graph, colors, shownMask, selected, hover: hover?.i ?? null, spin, layout, rootId });
-  live.current = { graph, colors, shownMask, selected, hover: hover?.i ?? null, spin, layout, rootId };
-  useEffect(redraw, [graph, colors, shownMask, selected, hover, spin, layout, redraw]);
+  // The links grouped by colour (one canvas path each) and the dots likewise,
+  // built once per colouring rather than on every frame.
+  const batches = useMemo(() => {
+    const links = new Map<string, number[]>();
+    graph.edges.forEach((e, k) => {
+      if (!shownMask[e.a] || !shownMask[e.b]) return;
+      const col = e.kind === "couple" ? colors.line : colors.fill[e.b];
+      let list = links.get(col);
+      if (!list) links.set(col, (list = []));
+      list.push(k);
+    });
+    const dots = new Map<string, number[]>();
+    graph.nodes.forEach((_, i) => {
+      if (!shownMask[i]) return;
+      let list = dots.get(colors.fill[i]);
+      if (!list) dots.set(colors.fill[i], (list = []));
+      list.push(i);
+    });
+    return { links, dots };
+  }, [graph, colors, shownMask]);
+  const rootIdx = useMemo(() => graph.nodes.findIndex((nd) => nd.id === rootId), [graph, rootId]);
+
+  const live = useRef({ graph, colors, shownMask, batches, selected, hover: hover?.i ?? null, spin, rootIdx });
+  live.current = { graph, colors, shownMask, batches, selected, hover: hover?.i ?? null, spin, rootIdx };
+  useEffect(redraw, [graph, colors, shownMask, batches, selected, hover, spin, redraw]);
 
   useEffect(() => {
     let raf = 0;
@@ -166,11 +212,14 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
       const L = live.current;
       const canvas = canvasRef.current;
       if (!canvas) return;
-      // A few steps a frame while the layout is warm; small graphs settle faster.
       const n = L.graph.nodes.length;
-      const steps = n < 1500 ? 3 : 1;
-      let moving = false;
-      for (let s = 0; s < steps; s++) moving = L.layout.step() || moving;
+      const P = positions.current;
+      const p = P.pos;
+      if (!p || p.length !== n * 3) return;
+      // New positions from the worker move the picture; so does the spin.
+      let moving = P.fresh;
+      const refit = P.fresh;
+      P.fresh = false;
       if (L.spin) { cam.current.yaw += 0.004; moving = true; }
       if (!moving && !dirty.current) return;
       dirty.current = false;
@@ -186,10 +235,9 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
-      const p = L.layout.pos;
 
       // Refit the frame now and then while the cloud is still spreading.
-      if (moving && (frames % 10 === 1 || frames < 5)) {
+      if (refit && (frames % 10 === 1 || frames < 5 || !P.settling)) {
         let cx = 0, cy = 0, cz = 0;
         for (let i = 0; i < n; i++) { cx += p[i * 3]; cy += p[i * 3 + 1]; cz += p[i * 3 + 2]; }
         cx /= n || 1; cy /= n || 1; cz /= n || 1;
@@ -230,19 +278,11 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         focus[sel] = 1;
         for (const e of L.graph.edges) if (e.a === sel || e.b === sel) { focus[e.a] = 1; focus[e.b] = 1; }
       }
-      const byColor = new Map<string, number[]>();
-      for (let k = 0; k < L.graph.edges.length; k++) {
-        const e = L.graph.edges[k];
-        if (!L.shownMask[e.a] || !L.shownMask[e.b]) continue;
-        const col = e.kind === "couple" ? L.colors.line : L.colors.fill[e.b];
-        let list = byColor.get(col);
-        if (!list) byColor.set(col, (list = []));
-        list.push(k);
-      }
-      ctx.lineWidth = n > 4000 ? 0.6 : 1;
-      for (const [col, list] of byColor) {
+      const big = n > BIG;
+      ctx.lineWidth = big ? 0.4 : n > 4000 ? 0.6 : 1;
+      for (const [col, list] of L.batches.links) {
         ctx.strokeStyle = col;
-        ctx.globalAlpha = sel === null ? 0.4 : 0.12;
+        ctx.globalAlpha = (sel === null ? 0.4 : 0.12) * (big ? 0.5 : 1);
         ctx.beginPath();
         for (const k of list) {
           const e = L.graph.edges[k];
@@ -264,18 +304,42 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         }
       }
 
-      // Dots back to front, the far ones fainter.
-      const order = Array.from({ length: n }, (_, i) => i).filter((i) => L.shownMask[i]);
-      order.sort((a, b) => depth[a] - depth[b]);
       const base = DOT * Math.min(Math.max(Math.sqrt(c.zoom), 0.7), 2.5) * (n > 4000 ? 0.8 : 1);
-      for (const i of order) {
-        const near = Math.min(Math.max((depth[i] / r + 1) / 2, 0), 1);
-        ctx.globalAlpha = (sel === null || focus[i] ? 0.5 + 0.5 * near : 0.15);
-        ctx.fillStyle = L.colors.fill[i];
-        const rad = base * sr[i];
-        ctx.beginPath();
-        ctx.arc(sx[i], sy[i], rad, 0, Math.PI * 2);
-        ctx.fill();
+      if (big) {
+        // A big file: square dots in one path per colour, unsorted — sorting
+        // and a circle each would cost more than a frame.
+        ctx.globalAlpha = sel === null ? 0.75 : 0.15;
+        for (const [col, list] of L.batches.dots) {
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          for (const i of list) {
+            const s = Math.max(base * sr[i] * 0.8, 1);
+            ctx.rect(sx[i] - s / 2, sy[i] - s / 2, s, s);
+          }
+          ctx.fill();
+        }
+        if (sel !== null) {
+          ctx.globalAlpha = 1;
+          for (let i = 0; i < n; i++) {
+            if (!focus[i] || !L.shownMask[i]) continue;
+            ctx.fillStyle = L.colors.fill[i];
+            ctx.beginPath();
+            ctx.arc(sx[i], sy[i], base * sr[i], 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else {
+        // Dots back to front, the far ones fainter.
+        const order = Array.from({ length: n }, (_, i) => i).filter((i) => L.shownMask[i]);
+        order.sort((a, b) => depth[a] - depth[b]);
+        for (const i of order) {
+          const near = Math.min(Math.max((depth[i] / r + 1) / 2, 0), 1);
+          ctx.globalAlpha = (sel === null || focus[i] ? 0.5 + 0.5 * near : 0.15);
+          ctx.fillStyle = L.colors.fill[i];
+          ctx.beginPath();
+          ctx.arc(sx[i], sy[i], base * sr[i], 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       // The root and the selected person get a ring and their name.
       ctx.globalAlpha = 1;
@@ -297,7 +361,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         ctx.fillStyle = L.colors.text;
         ctx.fillText(text, sx[i], y);
       };
-      const rootIdx = L.graph.nodes.findIndex((nd) => nd.id === L.rootId);
+      const rootIdx = L.rootIdx;
       if (rootIdx >= 0) { ring(rootIdx, L.colors.accent); label(rootIdx); }
       if (sel !== null && sel !== rootIdx) { ring(sel, L.colors.text); label(sel); }
     };
@@ -464,7 +528,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
           onContextMenu={(e) => e.preventDefault()}
         />
         <div className="network-count">
-          {t("network.count", { shown: graph.nodes.length.toLocaleString(), total: graph.total.toLocaleString(), links: graph.edges.length.toLocaleString() })}
+          {t("network.count", { shown: graph.nodes.length.toLocaleString(), links: graph.edges.length.toLocaleString() })}
           {scope === "file" && graph.trees > 1 && ` · ${t("network.trees", { count: graph.trees })}`}
         </div>
         {hover && hover.i !== selected && (
