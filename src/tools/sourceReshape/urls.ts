@@ -11,13 +11,13 @@ import {
   parseIndeksUrl,
 } from "../../normalize/links";
 import { SITE_REPO } from "./apply";
+import { GEN_INDEX, type GenIndex } from "../../online/genIndexes";
 import { withScheme } from "../../gedcom/uri";
 import { parseSourceInput } from "../../gedcom/citationParse";
 import { parsePastedFsCitation } from "./enrich";
 
-/** The society that publishes the Slovenian Genealogical Index — the agency
- *  responsible for every source taken from it. */
-export const INDEKS_AGENCY = "Slovensko rodoslovno društvo";
+/** The reshape site of each genealogical index. */
+const INDEKS_SITE: Record<GenIndex, ReshapeSite> = { si: "indeks", hr: "indekshr" };
 
 // ---------------------------------------------------------------------------
 // URL recognition (offline)
@@ -351,7 +351,9 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
 
   const indeks = parseIndeksUrl(url);
   if (indeks) {
-    if (!sites.has("indeks")) return undefined;
+    const site = INDEKS_SITE[indeks.index];
+    const { name, agency } = GEN_INDEX[indeks.index];
+    if (!sites.has(site)) return undefined;
     // A person in one contributor's tree (or their -matricula / -geneanet /
     // -military transcriptions): the contributor is the source's author, as a
     // Geneanet tree's owner is — `{person} - {contributor} - Slovenski
@@ -359,20 +361,22 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
     // and all, so nothing is left for an online lookup to add.
     const who = [indeks.given, indeks.surname].filter(Boolean).join(" ");
     return {
-      site: "indeks",
-      groupKey: `ri:${indeks.contributor.toLowerCase()}:${indeks.id.toLowerCase()}`,
+      site,
+      groupKey: `ri:${indeks.index === "si" ? "" : `${indeks.index}:`}${indeks.contributor.toLowerCase()}:${indeks.id.toLowerCase()}`,
       bookUrl: indeksPersonUrl(indeks),
       proposed: {
-        title: siteTitle(who || undefined, indeks.contributor, "Slovenski rodoslovni indeks"),
+        title: siteTitle(who || undefined, indeks.contributor, name),
         author: indeks.contributor,
-        agency: INDEKS_AGENCY,
+        agency,
       },
       titleRank: who ? 2 : 0,
     };
   }
   const indeksSearch = indeksSearchName(url);
   if (indeksSearch) {
-    if (!sites.has("indeks")) return undefined;
+    const site = INDEKS_SITE[indeksSearch.index];
+    const { name, agency } = GEN_INDEX[indeksSearch.index];
+    if (!sites.has(site)) return undefined;
     // A search over every contributor (`?n=marija&sn=rakar`) names no record
     // or author — only whom it looks for, capitalized as a name is written.
     const who = [indeksSearch.given, indeksSearch.surname]
@@ -380,10 +384,10 @@ export function recognize(rawUrl: string, contextText: string | undefined, sites
       .join(" ")
       .replace(/\p{L}+/gu, (w) => w.charAt(0).toUpperCase() + w.slice(1));
     return {
-      site: "indeks",
+      site,
       groupKey: `ri:q:${linkKey(url)}`,
       bookUrl: cleanUrl(url),
-      proposed: { title: siteTitle(who, undefined, "Slovenski rodoslovni indeks"), agency: INDEKS_AGENCY },
+      proposed: { title: siteTitle(who, undefined, name), agency },
       titleRank: 1,
     };
   }
@@ -704,6 +708,7 @@ export const SITE_ICON: Record<ReshapeSite, string> = {
   geneanet: "🪦",
   geneanettree: "🌲",
   indeks: "📇",
+  indekshr: "📇",
   findagrave: "🪦",
   billiongraves: "🪦",
   legacy: "📰",
@@ -752,7 +757,7 @@ const SITE_QUAY: Partial<Record<ReshapeSite, string>> = {
  *  is the register page itself, a `1:1` ark is one indexed entry read off such
  *  a page, and a tree page is somebody's conclusions. */
 export function siteQuay(site: ReshapeSite, url: string | undefined): string | undefined {
-  if (site === "indeks") return indeksQuay(url);
+  if (site === "indeks" || site === "indekshr") return indeksQuay(url);
   if (site !== "familysearch") return SITE_QUAY[site];
   const kind = url ? parseFamilySearchUrl(url)?.kind : undefined;
   if (kind === "image") return "3";

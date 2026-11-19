@@ -9,6 +9,7 @@
 import type { Dataset, GedEvent, Individual } from "../gedcom/types";
 import { BIRTH_TAGS, DEATH_TAGS, estimateBirthYear, isApproximate } from "../gedcom/lifespan";
 import { primaryName } from "../match/relatives";
+import { GEN_INDEX, type GenIndex } from "./genIndexes";
 
 export interface PersonQuery {
   given: string;
@@ -72,12 +73,23 @@ export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undef
   return q;
 }
 
-export type SearchSite = "index" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree";
+/** The search sites; `index` is the Slovenian genealogical index, `indexHr` the Croatian one. */
+export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree";
 
-export const SEARCH_SITES: readonly SearchSite[] = ["index", "familysearchTree", "familysearchRecords", "geni", "wikitree"];
+export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree"];
 
-/** The public website of the Slovenian genealogical index. */
-export const INDEX_SITE = "https://indeks.rodoslovje.si/";
+/** The site of each genealogical index. */
+export const INDEX_SEARCH_SITE: Record<GenIndex, SearchSite> = { si: "index", hr: "indexHr" };
+
+/** Which sites are on unless the reader says otherwise: all but the Croatian index. */
+export const DEFAULT_SEARCH_SITES: Record<SearchSite, boolean> = {
+  index: true,
+  indexHr: false,
+  familysearchTree: true,
+  familysearchRecords: true,
+  geni: true,
+  wikitree: true,
+};
 
 function withParams(base: string, params: Record<string, string | number | undefined>): string {
   const p = new URLSearchParams();
@@ -102,11 +114,12 @@ function familySearch(kind: "tree" | "record", q: PersonQuery): string {
 export function searchUrl(site: SearchSite, q: PersonQuery): string {
   switch (site) {
     case "index":
+    case "indexHr":
       // The index website's own short parameters (its lib/url.js PARAM_MAP);
       // ex=0 asks for its approximate (fuzzy) search, ex=1 for exact names — as the API call does.
       // One year window only: the website drops the records with no year in
       // a filtered field, so a death window would hide graves without a birth.
-      return withParams(INDEX_SITE, {
+      return withParams(GEN_INDEX[site === "index" ? "si" : "hr"].site, {
         t: "person",
         n: q.given,
         sn: q.surname,

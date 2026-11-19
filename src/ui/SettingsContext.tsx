@@ -31,6 +31,7 @@ import i18n from "i18next";
 import type { WiderFamilyDepth } from "../chart/widerFamily";
 import type { NativePyramid } from "./map/tilePlan";
 import { CUSTOM_BASEMAP, isKnownBasemap } from "./map/basemapPresets";
+import { DEFAULT_SEARCH_SITES, SEARCH_SITES, type SearchSite } from "../online/searchLinks";
 
 // App-wide user preferences, persisted to localStorage so they stick across
 // sessions. Follows the same shape as ChartSettingsContext: one provider near
@@ -139,6 +140,11 @@ export interface AppSettings extends NameDisplayOptions {
   /** The reader's own contributor name(s) on the genealogical index, comma
    *  separated: their own tree is left out of index search hits. */
   indexContributor: string;
+  /** The same for the Croatian genealogical index (indeks.rodoslovlje.hr). */
+  indexContributorHr: string;
+  /** Which sites the Edit view's search rail offers — the external search
+   *  links and, for the two genealogical indexes, their own hit lists. */
+  searchSites: Record<SearchSite, boolean>;
   /** Index searches match names exactly instead of the index's fuzzy match. */
   indexExact: boolean;
   /** Allow the Map chart to load base-map tiles from the tile provider
@@ -219,6 +225,8 @@ const DEFAULTS: AppSettings = {
   dateDisplay: "",
   allowLinkFetch: false,
   indexContributor: "",
+  indexContributorHr: "",
+  searchSites: DEFAULT_SEARCH_SITES,
   indexExact: false,
   allowMapTiles: false,
   showEditMap: true,
@@ -451,6 +459,19 @@ export function sanitizeOverlays(v: unknown): MapOverlay[] {
   return out;
 }
 
+/** The stored site switches over the defaults: a site added later starts at
+ *  its default rather than off. */
+function sanitizeSearchSites(v: unknown): Record<SearchSite, boolean> {
+  const out = { ...DEFAULT_SEARCH_SITES };
+  if (v && typeof v === "object") {
+    for (const site of SEARCH_SITES) {
+      const on = (v as Record<string, unknown>)[site];
+      if (typeof on === "boolean") out[site] = on;
+    }
+  }
+  return out;
+}
+
 function load(): AppSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -473,6 +494,8 @@ function load(): AppSettings {
           : DEFAULTS.dateDisplay,
       allowLinkFetch: bool(parsed.allowLinkFetch, DEFAULTS.allowLinkFetch),
       indexContributor: typeof parsed.indexContributor === "string" ? parsed.indexContributor : DEFAULTS.indexContributor,
+      indexContributorHr: typeof parsed.indexContributorHr === "string" ? parsed.indexContributorHr : DEFAULTS.indexContributorHr,
+      searchSites: sanitizeSearchSites(parsed.searchSites),
       indexExact: bool(parsed.indexExact, DEFAULTS.indexExact),
       allowMapTiles: bool(parsed.allowMapTiles, DEFAULTS.allowMapTiles),
       // Legacy home of this preference (before it moved into Settings).

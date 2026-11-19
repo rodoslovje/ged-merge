@@ -1918,6 +1918,19 @@ describe("reshapeSources — citation placement", () => {
     expect(recognizeSourceUrl("https://indeks.rodoslovje.si/?t=contributors")?.site).not.toBe("indeks");
   });
 
+  it("recognizes Croatian Genealogical Index pages as their own site", () => {
+    const rec = recognizeSourceUrl("https://indeks.rodoslovlje.hr/?t=person&n=Ivan&sn=Horvat&id=%40I8665%40&c=Emil&ex=1")!;
+    expect(rec.site).toBe("indekshr");
+    expect(rec.bookUrl).toBe("https://indeks.rodoslovlje.hr/?t=tree&n=Ivan&sn=Horvat&c=Emil&id=@I8665@");
+    expect(rec.proposed.title).toBe("Ivan Horvat - Emil - Hrvatski rodoslovni indeks");
+    expect(rec.proposed.author).toBe("Emil");
+    expect(rec.proposed.agency).toBe("Hrvatsko rodoslovno društvo „Pavao Ritter Vitezović”");
+    expect(siteQuay("indekshr", rec.bookUrl)).toBe("1");
+    const search = recognizeSourceUrl("https://indeks.rodoslovlje.hr/?n=ivan&sn=horvat")!;
+    expect(search.site).toBe("indekshr");
+    expect(search.proposed.title).toBe("Ivan Horvat - Hrvatski rodoslovni indeks");
+  });
+
   it("files every view of one index person under one source", () => {
     const { text, counts, report } = applyAll(`0 HEAD
 1 GEDC

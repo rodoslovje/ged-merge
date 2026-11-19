@@ -1,6 +1,6 @@
 /**
- * Search the Slovenian genealogical index (indeks.rodoslovje.si) for one
- * person, straight from the browser: the public REST search answers any
+ * Search a genealogical index — the Slovenian (indeks.rodoslovje.si) or the
+ * Croatian one (indeks.rodoslovlje.hr), the same software — for one person, straight from the browser: the public REST search answers any
  * origin, needs no login, and returns the same fields as the website's CSV
  * search export.
  *
@@ -14,9 +14,8 @@ import { normalizeDataset } from "../normalize/normalize";
 import { addChild, addPerson, coupleFam, inferSexFromNames, newPeople, node, pushEvent, settleGuessedRoles, type People } from "../csv/people";
 import { DEFAULT_CONFIG } from "../match/types";
 import { scoreIndividualPair } from "../match/scoreIndividual";
-import { INDEX_SITE, type PersonQuery } from "./searchLinks";
-
-export const INDEX_API = "https://indeks-api.rodoslovje.si/api/search/advanced/persons";
+import type { PersonQuery } from "./searchLinks";
+import { GEN_INDEX, type GenIndex } from "./genIndexes";
 
 /** How many hits to ask for. The index ranks its own hits before cutting the
  *  list (exact fields first, then name similarity, then year distance), so
@@ -96,8 +95,8 @@ export function contributorSource(contributor: string): { name: string; kind: Co
 
 /** The genealogist's own page on the index website (one page for their tree
  *  and their other sources alike, as the index links it). */
-export function contributorUrl(contributor: string): string {
-  return `${INDEX_SITE}?${new URLSearchParams({ t: "contributors", c: contributorSource(contributor).name }).toString()}`;
+export function contributorUrl(contributor: string, index: GenIndex = "si"): string {
+  return `${GEN_INDEX[index].site}?${new URLSearchParams({ t: "contributors", c: contributorSource(contributor).name }).toString()}`;
 }
 
 /** Contributor names as the index takes them: trimmed, comma-separated, no blanks. */
@@ -111,7 +110,7 @@ export function contributorList(names: string): string[] {
  *  records that give no year in that field (`include_undated`): a grave with
  *  only a death year still answers a search by birth and death, after the
  *  dated hits. `exclude` names the reader's own tree(s), left out of the hits. */
-export function indexApiUrl(q: PersonQuery, exclude: readonly string[] = []): string {
+export function indexApiUrl(q: PersonQuery, exclude: readonly string[] = [], index: GenIndex = "si"): string {
   const p = new URLSearchParams();
   if (q.given) p.set("name", q.given);
   if (q.surname) p.set("surname", q.surname);
@@ -125,7 +124,7 @@ export function indexApiUrl(q: PersonQuery, exclude: readonly string[] = []): st
   if (q.exact) p.set("exact", "true");
   p.set("same_as", "true");
   p.set("limit", String(HIT_LIMIT));
-  return `${INDEX_API}?${p.toString()}`;
+  return `${GEN_INDEX[index].api}?${p.toString()}`;
 }
 
 /** Fetch the hits for a query. Throws on a network failure or a non-OK answer. */
@@ -133,8 +132,9 @@ export async function fetchIndexHits(
   q: PersonQuery,
   exclude: readonly string[] = [],
   signal?: AbortSignal,
+  index: GenIndex = "si",
 ): Promise<IndexAnswer> {
-  const res = await fetch(indexApiUrl(q, exclude), { signal, headers: { Accept: "application/json" } });
+  const res = await fetch(indexApiUrl(q, exclude, index), { signal, headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`index search: HTTP ${res.status}`);
   const body: unknown = await res.json();
   const hits = Array.isArray(body) ? (body as IndexHit[]) : [];
@@ -143,7 +143,7 @@ export async function fetchIndexHits(
 }
 
 /** The hit's own page on the index website. */
-export function indexPersonUrl(hit: IndexHit): string {
+export function indexPersonUrl(hit: IndexHit, index: GenIndex = "si"): string {
   const p = new URLSearchParams({ t: "person" });
   if (hit.name) p.set("n", hit.name);
   if (hit.surname) p.set("sn", hit.surname);
@@ -152,14 +152,14 @@ export function indexPersonUrl(hit: IndexHit): string {
     p.set("c", hit.contributor);
   }
   p.set("ex", "1");
-  return `${INDEX_SITE}?${p.toString()}`;
+  return `${GEN_INDEX[index].site}?${p.toString()}`;
 }
 
 /** What a hit is best cited by: a register transcription or a grave by its
  *  own page (the Matricula scan, the grave), anything else by its index page. */
-export function hitCiteUrl(hit: IndexHit): string {
+export function hitCiteUrl(hit: IndexHit, index: GenIndex = "si"): string {
   const kind = contributorSource(hit.contributor).kind;
-  return (kind !== "tree" && hit.links?.[0]) || indexPersonUrl(hit);
+  return (kind !== "tree" && hit.links?.[0]) || indexPersonUrl(hit, index);
 }
 
 function sexOf(value: string | undefined): Sex | undefined {

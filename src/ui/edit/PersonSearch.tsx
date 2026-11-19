@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Individual } from "../../gedcom/types";
 import { displayDateText } from "../../gedcom/dateDisplay";
 import { defaultPrivacyOptions, livingReason } from "../../tools/privacy";
-import { personQuery, searchUrl, SEARCH_SITES, type PersonQuery } from "../../online/searchLinks";
+import { INDEX_SEARCH_SITE, personQuery, searchUrl, SEARCH_SITES, type PersonQuery } from "../../online/searchLinks";
+import { GEN_INDEXES, type GenIndex } from "../../online/genIndexes";
 import {
   clusterHits,
   contributorList,
@@ -33,7 +34,10 @@ import { SourceRefs } from "../SourceRef";
 import { ExternalIcon } from "../icons/ExternalIcon";
 import { ChevronIcon } from "../icons/ChevronIcon";
 
-const SETTINGS_KEYS = ["allowLinkFetch", "indexContributor", "indexExact"] as const;
+const SETTINGS_KEYS = ["allowLinkFetch", "indexContributor", "indexContributorHr", "indexExact", "searchSites"] as const;
+
+/** The index the hits on show come from — their links and contributor pages point there. */
+const IndexSite = createContext<GenIndex>("si");
 
 /** How many people (groups of matched hits) the rail lists. */
 const SHOWN = 10;
@@ -46,11 +50,11 @@ const ANSWERED_CAP = 100;
  *  answer arrives waits for the same request instead of sending another. */
 const inflight = new Map<string, Promise<IndexAnswer>>();
 
-function askIndex(query: PersonQuery, own: readonly string[]): Promise<IndexAnswer> {
-  const url = indexApiUrl(query, own);
+function askIndex(query: PersonQuery, own: readonly string[], site: GenIndex): Promise<IndexAnswer> {
+  const url = indexApiUrl(query, own, site);
   let pending = inflight.get(url);
   if (!pending) {
-    pending = fetchIndexHits(query, own, AbortSignal.timeout(20000))
+    pending = fetchIndexHits(query, own, AbortSignal.timeout(20000), site)
       .then((answer) => {
         if (answered.size >= ANSWERED_CAP) answered.delete(answered.keys().next().value!);
         answered.set(url, answer);
@@ -180,6 +184,7 @@ const KIND_ICON: Record<Exclude<ContributorKind, "tree">, string> = {
  *  shows as ⛪ Markovič. With `link`, the name opens their page on the index. */
 function Contributor({ contributor, className, link }: { contributor: string; className?: string; link?: boolean }) {
   const { t } = useTranslation();
+  const site = useContext(IndexSite);
   const { name, kind } = contributorSource(contributor);
   const label = kind === "tree" ? undefined : t(`indexSearch.kind.${kind}`);
   const title = [label && `${label} — ${name}`, link && t("indexSearch.contributorPage")].filter(Boolean).join("\n") || undefined;
@@ -190,7 +195,7 @@ function Contributor({ contributor, className, link }: { contributor: string; cl
     </>
   );
   return link ? (
-    <a className={`${className ?? ""} person-search-contributor-link`} href={contributorUrl(contributor)} target="_blank" rel="noopener noreferrer" title={title}>
+    <a className={`${className ?? ""} person-search-contributor-link`} href={contributorUrl(contributor, site)} target="_blank" rel="noopener noreferrer" title={title}>
       {body}
     </a>
   ) : (
@@ -345,8 +350,9 @@ function HitComparison({
   // Another hit, or the rows read again after a copy: nothing stays ticked.
   useEffect(() => setPicked(new Set()), [id, copies]);
 
-  const url = indexPersonUrl(hit);
-  const citeUrl = hitCiteUrl(hit);
+  const site = useContext(IndexSite);
+  const url = indexPersonUrl(hit, site);
+  const citeUrl = hitCiteUrl(hit, site);
   const toggle = (keys: string[], on: boolean) =>
     setPicked((p) => {
       const next = new Set(p);
@@ -412,7 +418,7 @@ function HitComparison({
             <th className="person-search-pick" />
             <th />
             <th>{t("indexSearch.thisPerson")}</th>
-            <th>{t("indexSearch.site.index")}</th>
+            <th>{t(`indexSearch.site.${INDEX_SEARCH_SITE[site]}`)}</th>
           </tr>
         </thead>
         <tbody>
@@ -484,57 +490,56 @@ function HitComparison({
 }
 
 /**
- * The Edit view's search rail, in the Relatives rail's place: prefilled
- * search pages of the index, FamilySearch, Geni and WikiTree for the person
- * open in Edit, and — behind the "Look up details online" switch — the
- * index's own hits, asked for as soon as the rail shows the person, ranked
- * by the match score against them. A hit opens into a field-by-field
- * comparison with the person, stepping from hit to hit, and its index page
- * can be cited as a source.
- *
- * Keyed by person, so moving to another person starts a fresh search.
+ * One genealogical index's own hits for the person, asked for as soon as the
+ * rail shows them, ranked by the match score against them. A hit opens into
+ * a field-by-field comparison with the person, stepping from hit to hit, and
+ * its index page can be cited as a source.
  */
-export function PersonSearch({
+function IndexResults({
+  site,
   person,
   dataset,
+  query,
+  living,
+  hidden,
+  onOpen,
   onCite,
   onCopy,
 }: {
+  site: GenIndex;
   person: Individual;
   dataset: Dataset;
-  /** Open Add source for this person with the hit's index link in it. */
+  query: PersonQuery;
+  living: boolean;
+  /** Another index's comparison has the rail. */
+  hidden: boolean;
+  /** Whether this index's comparison is open, as it changes. */
+  onOpen: (open: boolean) => void;
   onCite: (url: string) => void;
-  /** Take a hit's ticked rows into this person. */
   onCopy: CopyFromHit;
 }) {
   const { t } = useTranslation();
-  const { allowLinkFetch, indexContributor, indexExact } = useSettingsSlice(SETTINGS_KEYS);
+  const settings = useSettingsSlice(SETTINGS_KEYS);
+  const { allowLinkFetch, indexExact } = settings;
+  const contributors = site === "hr" ? settings.indexContributorHr : settings.indexContributor;
   const setSettings = useSetSettings();
-  const own = useMemo(() => contributorList(indexContributor), [indexContributor]);
+  const own = useMemo(() => contributorList(contributors), [contributors]);
   const ownKey = own.join(",");
-  const query = useMemo(() => {
-    const q = personQuery(person, dataset);
-    return q && indexExact ? { ...q, exact: true } : q;
-  }, [person, dataset, indexExact]);
-  const living = useMemo(
-    () => !!livingReason(person, dataset, defaultPrivacyOptions(), new Date().getFullYear()),
-    [person, dataset],
-  );
   const [search, setSearch] = useState<SearchState>(() => {
-    const cached = query && answered.get(indexApiUrl(query, own));
+    const cached = answered.get(indexApiUrl(query, own, site));
     return cached ? { state: "done", ...settle(person, dataset, cached, own) } : { state: "idle" };
   });
   const [attempt, setAttempt] = useState(0);
   /** The hit open in the comparison, by its place in `flat`. */
   const [comparing, setComparing] = useState<number | null>(null);
 
-  const searchable = !!query && allowLinkFetch && !living;
+  const searchable = allowLinkFetch && !living;
   // Ask the index as soon as it may be asked: on showing the person, on the
   // switch being turned on, on a changed own-tree name or exact choice, and
   // again on "Try again". An answer already held (the cache) leaves nothing to ask.
   useEffect(() => {
-    if (!searchable || !query) return;
-    const cached = answered.get(indexApiUrl(query, own));
+    if (!searchable) return;
+    const cached = answered.get(indexApiUrl(query, own, site));
     if (cached) {
       setSearch({ state: "done", ...settle(person, dataset, cached, own) });
       return;
@@ -542,7 +547,7 @@ export function PersonSearch({
     let cancelled = false;
     setSearch({ state: "loading" });
     setComparing(null);
-    askIndex(query, own)
+    askIndex(query, own, site)
       .then((answer) => {
         if (!cancelled) setSearch({ state: "done", ...settle(person, dataset, answer, own) });
       })
@@ -555,7 +560,8 @@ export function PersonSearch({
       setSearch((s) => (s.state === "loading" ? { state: "idle" } : s));
     };
     // Person and dataset are fixed per mount (the rail is keyed by person);
-    // `attempt` re-runs the search after an error.
+    // the query changes only with the exact choice; `attempt` re-runs the
+    // search after an error.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchable, attempt, ownKey, indexExact]);
 
@@ -578,6 +584,178 @@ export function PersonSearch({
     return out;
   }, [search, dataset, person, t]);
   const open = search.state === "done" && searchable && comparing !== null && comparing < flat.length;
+  useEffect(() => onOpen(open), [open, onOpen]);
+
+  return (
+    <IndexSite.Provider value={site}>
+      <section className="person-search-index" hidden={hidden}>
+        <div className="person-search-index-head">
+          <h3 className="person-search-index-title">
+            {t(`indexSearch.site.${INDEX_SEARCH_SITE[site]}`)}
+            {search.state === "done" && searchable && <>{" "}<span className="edit-wider-count gm-data">{search.total}</span></>}
+          </h3>
+          {searchable && (
+            // The index's own "Exact / Approximate" choice, as its readers know
+            // it; approximate is this search's default, so it is the box.
+            <label className="person-search-exact" title={t("indexSearch.approximate.hint")}>
+              <input
+                type="checkbox"
+                checked={!indexExact}
+                onChange={(e) => {
+                  setComparing(null);
+                  setSettings({ indexExact: !e.target.checked });
+                }}
+              />
+              {t("indexSearch.approximate")}
+            </label>
+          )}
+        </div>
+        {living ? (
+          <p className="person-search-note">{t("indexSearch.living")}</p>
+        ) : !allowLinkFetch ? (
+          <p className="person-search-note">{t("indexSearch.fetchOff", { setting: t("settings.links.fetch") })}</p>
+        ) : search.state === "loading" || search.state === "idle" ? (
+          <p className="person-search-note">{t("indexSearch.searching")}</p>
+        ) : search.state === "error" ? (
+          <p className="person-search-note">
+            {t("indexSearch.error")}{" "}
+            <button type="button" className="tools-issue-link" onClick={retry}>{t("indexSearch.retry")}</button>
+          </p>
+        ) : !flat.length ? (
+          <p className="person-search-note">{t("indexSearch.none")}</p>
+        ) : open ? (
+          <HitComparison
+            person={person}
+            dataset={dataset}
+            hitsDs={search.ds}
+            ranked={flat}
+            index={comparing}
+            onIndex={setComparing}
+            onBack={() => setComparing(null)}
+            onCite={onCite}
+            onCopy={onCopy}
+          />
+        ) : (
+          <>
+            <ol className="person-search-hits">
+              {search.clusters.map((cluster) => {
+                const [{ hit, score }, ...others] = cluster.members;
+                const at = (r: RankedHit) => flat.indexOf(r);
+                const rows = listRows.get(hit.id);
+                // A birth the index gives as a baptism alone shows (and compares) as one.
+                const born = hit.date_of_birth || hit.place_of_birth;
+                return (
+                  <li key={hit.id} className="person-search-hit">
+                    <div className="person-search-hit-name">
+                      <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
+                      <button type="button" className="person-search-hit-open" onClick={() => setComparing(at(cluster.members[0]))}>
+                        {hitName(hit)}
+                      </button>
+                    </div>
+                    {cluster.inOwnTree && <div className="person-search-own">{t("indexSearch.inOwnTree")}</div>}
+                    <Vital
+                      symbol="*"
+                      tag={born ? "BIRT" : "CHR"}
+                      date={born ? hit.date_of_birth : hit.date_of_baptism}
+                      place={born ? hit.place_of_birth : hit.place_of_baptism}
+                      rows={rows}
+                    />
+                    <Vital symbol="†" tag="DEAT" date={hit.date_of_death} place={hit.place_of_death} rows={rows} />
+                    <Vital symbol="⚰" tag="BURI" date={hit.date_of_burial} place={hit.place_of_burial} rows={rows} />
+                    <Relatives hit={hit} rows={rows} />
+                    {(others.length > 0 || cluster.alsoIn.length > 0) && (
+                      <div className="person-search-also">
+                        {t("indexSearch.alsoIn")}{" "}
+                        {byContributor(others).map(([contributor, records], j) => (
+                          <span key={contributor}>
+                            {j > 0 && " · "}
+                            <button
+                              type="button"
+                              className="tools-issue-link"
+                              title={t("indexSearch.compareThis")}
+                              onClick={() => setComparing(at(records[0]))}
+                            >
+                              <Contributor contributor={contributor} />
+                              {records.length > 1 && (
+                                <span className="person-search-times" title={t("indexSearch.records", { n: records.length })}>
+                                  {` ×${records.length}`}
+                                </span>
+                              )}
+                            </button>
+                          </span>
+                        ))}
+                        {cluster.alsoIn.map((c, j) => (
+                          <span key={c}>
+                            {(others.length > 0 || j > 0) && " · "}
+                            <Contributor contributor={c} link />
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="person-search-hit-foot">
+                      <Contributor contributor={hit.contributor} className="person-search-contributor" link />
+                      <button type="button" className="tools-issue-link" onClick={() => setComparing(at(cluster.members[0]))}>
+                        {t("indexSearch.compare")}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+            {search.total > search.ranked.length && (
+              <p className="person-search-note">{t("indexSearch.more", { total: search.total, shown: search.ranked.length })}</p>
+            )}
+          </>
+        )}
+      </section>
+    </IndexSite.Provider>
+  );
+}
+
+/**
+ * The Edit view's search rail, in the Relatives rail's place: prefilled
+ * search pages of the sites switched on in Settings (the Slovenian and
+ * Croatian indexes, FamilySearch, Geni, WikiTree) for the person open in
+ * Edit, and — behind the "Look up details online" switch — each switched-on
+ * index's own hits ({@link IndexResults}).
+ *
+ * Keyed by person, so moving to another person starts a fresh search.
+ */
+export function PersonSearch({
+  person,
+  dataset,
+  onCite,
+  onCopy,
+}: {
+  person: Individual;
+  dataset: Dataset;
+  /** Open Add source for this person with the hit's index link in it. */
+  onCite: (url: string) => void;
+  /** Take a hit's ticked rows into this person. */
+  onCopy: CopyFromHit;
+}) {
+  const { t } = useTranslation();
+  const { indexExact, searchSites } = useSettingsSlice(SETTINGS_KEYS);
+  const query = useMemo(() => {
+    const q = personQuery(person, dataset);
+    return q && indexExact ? { ...q, exact: true } : q;
+  }, [person, dataset, indexExact]);
+  const living = useMemo(
+    () => !!livingReason(person, dataset, defaultPrivacyOptions(), new Date().getFullYear()),
+    [person, dataset],
+  );
+  const sites = SEARCH_SITES.filter((s) => searchSites[s]);
+  const indexes = GEN_INDEXES.filter((i) => searchSites[INDEX_SEARCH_SITE[i]]);
+  /** The index whose comparison has the rail, if any. */
+  const [comparingIn, setComparingIn] = useState<GenIndex | null>(null);
+  const onOpen = useMemo(
+    () =>
+      Object.fromEntries(
+        GEN_INDEXES.map((i) => [i, (open: boolean) => setComparingIn((c) => (open ? i : c === i ? null : c))]),
+      ) as Record<GenIndex, (open: boolean) => void>,
+    [],
+  );
+  const open = comparingIn !== null && indexes.includes(comparingIn);
 
   return (
     <aside
@@ -588,138 +766,38 @@ export function PersonSearch({
       <div className="edit-wider-head">
         <div className="edit-wider-title">
           <strong id="edit-search-title">{t("indexSearch.title")}</strong>
-          {search.state === "done" && <span className="edit-wider-count gm-data">{search.total}</span>}
         </div>
-        {query ? (
+        {!query ? (
+          <p className="person-search-note">{t("indexSearch.noName")}</p>
+        ) : sites.length > 0 ? (
           <div className="person-search-sites">
             <span className="person-search-label">{t("indexSearch.searchOn")}</span>
-            {SEARCH_SITES.map((site) => (
+            {sites.map((site) => (
               <a key={site} className="person-search-site" href={searchUrl(site, query)} target="_blank" rel="noopener noreferrer">
                 {t(`indexSearch.site.${site}`)} <ExternalIcon size={11} />
               </a>
             ))}
           </div>
         ) : (
-          <p className="person-search-note">{t("indexSearch.noName")}</p>
+          <p className="person-search-note">{t("indexSearch.noSites")}</p>
         )}
       </div>
-      {query && (
-        <div className="edit-wider-body person-search-index">
-          <div className="person-search-index-head">
-            <h3 className="person-search-index-title">{t("indexSearch.site.index")}</h3>
-            {searchable && (
-              // The index's own "Exact / Approximate" choice, as its readers know
-              // it; approximate is this search's default, so it is the box.
-              <label className="person-search-exact" title={t("indexSearch.approximate.hint")}>
-                <input
-                  type="checkbox"
-                  checked={!indexExact}
-                  onChange={(e) => {
-                    setComparing(null);
-                    setSettings({ indexExact: !e.target.checked });
-                  }}
-                />
-                {t("indexSearch.approximate")}
-              </label>
-            )}
-          </div>
-          {living ? (
-            <p className="person-search-note">{t("indexSearch.living")}</p>
-          ) : !allowLinkFetch ? (
-            <p className="person-search-note">{t("indexSearch.fetchOff", { setting: t("settings.links.fetch") })}</p>
-          ) : search.state === "loading" || search.state === "idle" ? (
-            <p className="person-search-note">{t("indexSearch.searching")}</p>
-          ) : search.state === "error" ? (
-            <p className="person-search-note">
-              {t("indexSearch.error")}{" "}
-              <button type="button" className="tools-issue-link" onClick={retry}>{t("indexSearch.retry")}</button>
-            </p>
-          ) : !flat.length ? (
-            <p className="person-search-note">{t("indexSearch.none")}</p>
-          ) : open ? (
-            <HitComparison
+      {query && indexes.length > 0 && (
+        <div className="edit-wider-body">
+          {indexes.map((i) => (
+            <IndexResults
+              key={i}
+              site={i}
               person={person}
               dataset={dataset}
-              hitsDs={search.ds}
-              ranked={flat}
-              index={comparing}
-              onIndex={setComparing}
-              onBack={() => setComparing(null)}
+              query={query}
+              living={living}
+              hidden={open && comparingIn !== i}
+              onOpen={onOpen[i]}
               onCite={onCite}
               onCopy={onCopy}
             />
-          ) : (
-            <>
-              <ol className="person-search-hits">
-                {search.clusters.map((cluster) => {
-                  const [{ hit, score }, ...others] = cluster.members;
-                  const at = (r: RankedHit) => flat.indexOf(r);
-                  const rows = listRows.get(hit.id);
-                  // A birth the index gives as a baptism alone shows (and compares) as one.
-                  const born = hit.date_of_birth || hit.place_of_birth;
-                  return (
-                    <li key={hit.id} className="person-search-hit">
-                      <div className="person-search-hit-name">
-                        <span className="person-search-score" title={t("indexSearch.scoreTip")}>{Math.round(score)}</span>
-                        <button type="button" className="person-search-hit-open" onClick={() => setComparing(at(cluster.members[0]))}>
-                          {hitName(hit)}
-                        </button>
-                      </div>
-                      {cluster.inOwnTree && <div className="person-search-own">{t("indexSearch.inOwnTree")}</div>}
-                      <Vital
-                        symbol="*"
-                        tag={born ? "BIRT" : "CHR"}
-                        date={born ? hit.date_of_birth : hit.date_of_baptism}
-                        place={born ? hit.place_of_birth : hit.place_of_baptism}
-                        rows={rows}
-                      />
-                      <Vital symbol="†" tag="DEAT" date={hit.date_of_death} place={hit.place_of_death} rows={rows} />
-                      <Vital symbol="⚰" tag="BURI" date={hit.date_of_burial} place={hit.place_of_burial} rows={rows} />
-                      <Relatives hit={hit} rows={rows} />
-                      {(others.length > 0 || cluster.alsoIn.length > 0) && (
-                        <div className="person-search-also">
-                          {t("indexSearch.alsoIn")}{" "}
-                          {byContributor(others).map(([contributor, records], j) => (
-                            <span key={contributor}>
-                              {j > 0 && " · "}
-                              <button
-                                type="button"
-                                className="tools-issue-link"
-                                title={t("indexSearch.compareThis")}
-                                onClick={() => setComparing(at(records[0]))}
-                              >
-                                <Contributor contributor={contributor} />
-                                {records.length > 1 && (
-                                  <span className="person-search-times" title={t("indexSearch.records", { n: records.length })}>
-                                    {` ×${records.length}`}
-                                  </span>
-                                )}
-                              </button>
-                            </span>
-                          ))}
-                          {cluster.alsoIn.map((c, j) => (
-                            <span key={c}>
-                              {(others.length > 0 || j > 0) && " · "}
-                              <Contributor contributor={c} link />
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className="person-search-hit-foot">
-                        <Contributor contributor={hit.contributor} className="person-search-contributor" link />
-                        <button type="button" className="tools-issue-link" onClick={() => setComparing(at(cluster.members[0]))}>
-                          {t("indexSearch.compare")}
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-              {search.total > search.ranked.length && (
-                <p className="person-search-note">{t("indexSearch.more", { total: search.total, shown: search.ranked.length })}</p>
-              )}
-            </>
-          )}
+          ))}
         </div>
       )}
     </aside>

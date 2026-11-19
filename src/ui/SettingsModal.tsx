@@ -35,6 +35,7 @@ import { AddEventSelect } from "./edit/AddEventSelect";
 import type { SettingsTab } from "./settingsBus";
 import { GazetteerManager, useGazetteer } from "./tools/GazetteerManager";
 import { TrashIcon } from "./icons/TrashIcon";
+import { SEARCH_SITES } from "../online/searchLinks";
 
 // Leaflet is a lazy chunk everywhere else too — the Map tab loads it only when
 // the base-map sample is actually shown.
@@ -838,19 +839,53 @@ export function SettingsModal({ isOpen, onClose, themeMode, onThemeMode, onClear
                 </span>
               </span>
             </label>
-            <label className="settings-row settings-format-row">
-              <span className="settings-row-text">
-                <span className="settings-row-label">{t("settings.links.indexContributor")}</span>
-                <span className="settings-hint">{t("settings.links.indexContributor.hint")}</span>
-              </span>
-              <input
-                type="text"
-                className="settings-text-input"
-                value={settings.indexContributor}
-                placeholder={t("settings.links.indexContributor.placeholder")}
-                onChange={(e) => set({ indexContributor: e.target.value })}
-              />
-            </label>
+          </section>
+
+          <section className="settings-section">
+            <h3>{t("settings.searchSites.title")}</h3>
+            <p className="settings-hint">{t("settings.searchSites.hint")}</p>
+            {SEARCH_SITES.map((site) => (
+              <label key={site} className="settings-row settings-row-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.searchSites[site]}
+                  onChange={(e) => set({ searchSites: { ...settings.searchSites, [site]: e.target.checked } })}
+                />
+                <span className="settings-row-text">
+                  <span className="settings-row-label">{t(`indexSearch.site.${site}`)}</span>
+                </span>
+              </label>
+            ))}
+            {settings.searchSites.index && (
+              <label className="settings-row settings-format-row">
+                <span className="settings-row-text">
+                  <span className="settings-row-label">{t("settings.links.indexContributor")}</span>
+                  <span className="settings-hint">{t("settings.links.indexContributor.hint")}</span>
+                </span>
+                <input
+                  type="text"
+                  className="settings-text-input"
+                  value={settings.indexContributor}
+                  placeholder={t("settings.links.indexContributor.placeholder")}
+                  onChange={(e) => set({ indexContributor: e.target.value })}
+                />
+              </label>
+            )}
+            {settings.searchSites.indexHr && (
+              <label className="settings-row settings-format-row">
+                <span className="settings-row-text">
+                  <span className="settings-row-label">{t("settings.links.indexContributorHr")}</span>
+                  <span className="settings-hint">{t("settings.links.indexContributorHr.hint")}</span>
+                </span>
+                <input
+                  type="text"
+                  className="settings-text-input"
+                  value={settings.indexContributorHr}
+                  placeholder={t("settings.links.indexContributorHr.placeholder")}
+                  onChange={(e) => set({ indexContributorHr: e.target.value })}
+                />
+              </label>
+            )}
           </section>
 
           </>
