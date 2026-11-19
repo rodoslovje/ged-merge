@@ -25,15 +25,18 @@ export interface Layout3d {
   /** Warm the layout up again (after a mode change). */
   reheat(): void;
   setLayered(layered: boolean): void;
+  /** How far the layout has cooled, 0 to 1. */
+  progress(): number;
 }
 
 /** Vertical distance between generations in the layered mode. */
-export const LAYER = 40;
+export const LAYER = 60;
 const LINK = 30;
 const CHARGE = 900;
-const THETA2 = 0.81; // θ = 0.9
 const ALPHA_MIN = 0.004;
-const ALPHA_DECAY = 0.985;
+/** Past this many nodes the layout trades some precision for time: a coarser
+ *  Barnes–Hut cut and fewer steps (it starts near its end anyway, see `via`). */
+const BIG = 20000;
 const DAMPING = 0.6;
 
 /** A small seeded generator (mulberry32). */
@@ -165,8 +168,21 @@ class Octree {
  * NaN for a node with none — it floats free even in the layered mode. `hops`
  * seeds the start: nearer people start nearer the middle. `trees[i]` is the
  * separate tree a node belongs to (0 the root's): see {@link treeAnchors}.
+ * `via[i]`, an earlier node (or -1), is where node `i` starts beside: a child
+ * next to their family, a family next to its partner — so the start is already
+ * shaped like the tree and the layout has little left to do.
  */
-export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array, hops: Int32Array, trees?: Int32Array, seed = 1): Layout3d {
+export function createLayout3d(
+  n: number,
+  edges: LayoutEdge[],
+  gen: Float64Array,
+  hops: Int32Array,
+  trees?: Int32Array,
+  via?: Int32Array,
+  seed = 1,
+): Layout3d {
+  const theta2 = n > BIG ? 1.44 : 0.81;
+  const decay = Math.pow(ALPHA_MIN, 1 / (n > BIG ? 150 : n > 5000 ? 220 : 300));
   const pos = new Float32Array(n * 3);
   const vel = new Float32Array(n * 3);
   const force = new Float32Array(n * 3);
@@ -174,25 +190,50 @@ export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array
   const degree = new Int32Array(n);
   for (const e of edges) { degree[e.a]++; degree[e.b]++; }
   const anchor = treeAnchors(trees ?? new Int32Array(n));
-  for (let i = 0; i < n; i++) {
-    // A random direction on a shell whose radius grows with the hop count.
+  // Start positions. A node with a `via` waits for that one to be placed (the
+  // chain is followed with a stack, not recursion: it can run thousands deep).
+  // `via` must not loop; a loop is cut where it closes.
+  const placed = new Uint8Array(n); // 0 not yet, 1 on the stack, 2 placed
+  const chain: number[] = [];
+  const placeOne = (i: number) => {
     const u = rand() * 2 - 1;
     const th = rand() * Math.PI * 2;
-    const s = Math.sqrt(1 - u * u);
-    const r = LINK * (0.5 + Math.cbrt(hops[i] + 1) * 2) * (0.6 + rand() * 0.8);
-    const t = trees ? trees[i] : 0;
-    pos[i * 3] = anchor[t * 2] + r * s * Math.cos(th);
-    pos[i * 3 + 1] = Number.isNaN(gen[i]) ? r * u : gen[i] * LAYER;
-    pos[i * 3 + 2] = anchor[t * 2 + 1] + r * s * Math.sin(th);
+    const from = via ? via[i] : -1;
+    if (from >= 0 && placed[from] === 2) {
+      // Beside the node it hangs from, about a link's length away.
+      const d = LINK * (0.6 + rand() * 0.6);
+      pos[i * 3] = pos[from * 3] + d * Math.cos(th);
+      pos[i * 3 + 1] = Number.isNaN(gen[i]) ? pos[from * 3 + 1] + d * u : gen[i] * LAYER;
+      pos[i * 3 + 2] = pos[from * 3 + 2] + d * Math.sin(th);
+    } else {
+      // A random direction on a shell round its tree's spot, wider with the hops.
+      const s = Math.sqrt(1 - u * u);
+      const r = LINK * (0.5 + Math.cbrt(hops[i] + 1) * 2) * (0.6 + rand() * 0.8);
+      const t = trees ? trees[i] : 0;
+      pos[i * 3] = anchor[t * 2] + r * s * Math.cos(th);
+      pos[i * 3 + 1] = Number.isNaN(gen[i]) ? r * u : gen[i] * LAYER;
+      pos[i * 3 + 2] = anchor[t * 2 + 1] + r * s * Math.sin(th);
+    }
+    placed[i] = 2;
+  };
+  for (let i = 0; i < n; i++) {
+    if (placed[i]) continue;
+    for (let j = i; j >= 0 && !placed[j]; j = via ? via[j] : -1) {
+      placed[j] = 1;
+      chain.push(j);
+    }
+    while (chain.length) placeOne(chain.pop()!);
   }
   let layered = true;
   let alpha = 1;
   const tree = new Octree();
 
+  const stack: number[] = [];
   const repel = (i: number) => {
     const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
     let fx = 0, fy = 0, fz = 0;
-    const stack: number[] = [0];
+    stack.length = 0;
+    stack.push(0);
     while (stack.length) {
       const c = stack.pop()!;
       const m = tree.mass[c];
@@ -202,7 +243,7 @@ export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array
       let d2 = dx * dx + dy * dy + dz * dz;
       const size = tree.half[c] * 2;
       const leaf = tree.body[c] >= 0;
-      if (leaf || size * size < THETA2 * d2) {
+      if (leaf || size * size < theta2 * d2) {
         if (d2 < 1) {
           // Coincident: nudge apart in a direction of their own.
           dx = (i % 7) - 3 + 0.5; dy = (i % 5) - 2 + 0.5; dz = (i % 3) - 1 + 0.5;
@@ -258,7 +299,7 @@ export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array
         vel[j + 1] = 0;
       }
     }
-    alpha *= ALPHA_DECAY;
+    alpha *= decay;
     return true;
   };
 
@@ -267,6 +308,7 @@ export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array
     step,
     reheat: () => { alpha = Math.max(alpha, 0.5); },
     setLayered: (on) => { layered = on; alpha = Math.max(alpha, 0.5); },
+    progress: () => Math.min(Math.log(alpha) / Math.log(ALPHA_MIN), 1),
   };
 }
 
@@ -304,7 +346,8 @@ export function treeAnchors(tree: Int32Array): Float64Array {
   return out;
 }
 
-/** Rest length of a link: a couple sits closer than a parent and child. */
-export function linkLength(kind: "parent" | "couple"): number {
-  return kind === "couple" ? LINK * 0.5 : LINK;
+/** Rest length of a link: partners sit close beside their family's hub, the
+ *  children a little more than a generation below, so they fan out under it. */
+export function linkLength(kind: "partner" | "child"): number {
+  return kind === "partner" ? LINK * 0.35 : LAYER * 1.1;
 }

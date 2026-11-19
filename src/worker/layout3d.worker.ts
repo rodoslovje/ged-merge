@@ -1,26 +1,24 @@
 /// <reference lib="webworker" />
 // The 3D network chart's force layout, off the main thread: steps the
-// simulation (src/chart/forceLayout3d.ts) as fast as it goes and posts a copy
-// of the positions about every frame, so the page stays responsive however
-// many people the file holds. One worker per laid-out graph; the chart
-// terminates it when the graph changes or the chart closes.
+// simulation (src/chart/forceLayout3d.ts) in slices, reports how far it has
+// got after each, and posts the positions once it has settled — so the page
+// stays responsive however many people the file holds, and the chart never
+// shows the cloud mid-way. One worker per laid-out graph; the chart terminates
+// it when the graph changes or the chart closes.
 
 import { createLayout3d, type Layout3d } from "../chart/forceLayout3d";
-import type { Layout3dPositions, Layout3dRequest } from "./layout3dMessages";
+import type { Layout3dReply, Layout3dRequest } from "./layout3dMessages";
 
 declare const self: DedicatedWorkerGlobalScope;
 
-/** Post the positions after this much stepping, in ms. */
-const SLICE_MS = 30;
+/** Report progress (and take messages) after this much stepping, in ms. */
+const SLICE_MS = 100;
 
 let layout: Layout3d | undefined;
 let running = false;
 
-function post(done: boolean) {
-  if (!layout) return;
-  const pos = layout.pos.slice();
-  const msg: Layout3dPositions = { type: "pos", pos, done };
-  self.postMessage(msg, [pos.buffer]);
+function reply(msg: Layout3dReply, transfer: Transferable[] = []) {
+  self.postMessage(msg, transfer);
 }
 
 function run() {
@@ -30,9 +28,14 @@ function run() {
   // At least one step a slice, even when one step takes longer than a slice.
   do warm = layout.step();
   while (warm && performance.now() < until);
-  post(!warm);
-  if (warm) setTimeout(run, 0);
-  else running = false;
+  if (warm) {
+    reply({ type: "progress", share: layout.progress() });
+    setTimeout(run, 0);
+  } else {
+    running = false;
+    const pos = layout.pos.slice();
+    reply({ type: "pos", pos }, [pos.buffer]);
+  }
 }
 
 function start() {
@@ -45,10 +48,8 @@ self.onmessage = (e: MessageEvent<Layout3dRequest>) => {
   const m = e.data;
   if (m.type === "init") {
     const edges = Array.from({ length: m.ea.length }, (_, k) => ({ a: m.ea[k], b: m.eb[k], length: m.len[k] }));
-    layout = createLayout3d(m.n, edges, m.gen, m.hops, m.trees);
+    layout = createLayout3d(m.n, edges, m.gen, m.hops, m.trees, m.via);
     layout.setLayered(m.layered);
-    // The start positions at once, so the chart has something to draw.
-    post(false);
     start();
   } else if (m.type === "layered") {
     layout?.setLayered(m.on);

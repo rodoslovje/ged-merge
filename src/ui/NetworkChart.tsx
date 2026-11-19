@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildFamilyGraph, SPOUSE_LINE, type GraphScope } from "../chart/familyGraph";
 import { linkLength } from "../chart/forceLayout3d";
-import type { Layout3dPositions, Layout3dRequest } from "../worker/layout3dMessages";
+import type { Layout3dReply, Layout3dRequest } from "../worker/layout3dMessages";
 import { lineColor, paletteColor, type BranchInfo } from "../chart/nodeColor";
 import { livingLabelFor } from "../chart/nodeDisplay";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
@@ -12,6 +12,7 @@ import { ChartPage } from "./ChartPage";
 import { ChartRootTitle } from "./ChartRootTitle";
 import { ChartSettings } from "./ChartSettings";
 import { ChartLegend } from "./ChartLegend";
+import { ZoomControls } from "./ZoomControls";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
 import { useNameOf } from "./SettingsContext";
@@ -118,46 +119,85 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     });
     // theme is a dependency: the variables change with it.
     void theme;
-    const out = { fill, line: resolve("var(--muted)"), accent: resolve("var(--accent)"), text: resolve("var(--text)"), panel: resolve("var(--panel)") };
+    const out = { fill, family: resolve("var(--map-marriage)"), accent: resolve("var(--accent)"), text: resolve("var(--text)"), panel: resolve("var(--panel)") };
     probe.remove();
     return out;
   }, [graph, colorer, categories, theme]);
 
+  // Who is drawn: people per the colour key; a family hub while any of its
+  // partners is. Indexed like the layout — the people, then the hubs.
   const shownMask = useMemo(() => {
-    const mask = new Uint8Array(graph.nodes.length);
+    const n = graph.nodes.length;
+    const mask = new Uint8Array(n + graph.families.length);
     graph.nodes.forEach((_, i) => {
       const c = categories[i];
       const key = c && !legendKeys.has(c) && legendKeys.has(OTHER_KEY) ? OTHER_KEY : c;
       mask[i] = hidden.has(key) ? 0 : 1;
     });
+    graph.families.forEach((f, k) => { mask[n + k] = f.partners.some((p) => mask[p]) ? 1 : 0; });
     return mask;
   }, [graph, categories, hidden, legendKeys]);
 
   // ─── Layout ───────────────────────────────────────────────────────────────
-  // The simulation runs in a worker (layout3d.worker.ts) and posts positions
-  // about every frame; the frame loop draws whatever arrived last. Until the
-  // first positions come, there is nothing to draw.
-  const positions = useRef<{ pos: Float32Array | null; fresh: boolean; settling: boolean }>({ pos: null, fresh: false, settling: false });
+  // The simulation runs in a worker (layout3d.worker.ts), which reports its
+  // progress and posts the positions once they have settled; the frame loop
+  // draws those. Until the first come there is nothing to draw, only the
+  // progress; a switch of layout keeps the old picture up until the new one.
+  const positions = useRef<{ pos: Float32Array | null; fresh: boolean }>({ pos: null, fresh: false });
+  const [progress, setProgress] = useState<number | null>(0);
   const workerRef = useRef<Worker | null>(null);
   const layeredRef = useRef(layered);
   layeredRef.current = layered;
   useEffect(() => {
-    const n = graph.nodes.length;
+    // The layout's nodes: the people, then a hub per family, which stands at its
+    // partners' generation, in their tree, and starts beside its first partner.
+    const people = graph.nodes.length;
+    const n = people + graph.families.length;
     const gen = new Float64Array(n);
     const hops = new Int32Array(n);
     const trees = new Int32Array(n);
-    graph.nodes.forEach((node, i) => { gen[i] = node.pos ? node.pos.gen : NaN; hops[i] = node.hops; trees[i] = node.tree; });
+    const via = new Int32Array(n);
+    graph.nodes.forEach((node, i) => {
+      gen[i] = node.pos ? node.pos.gen : NaN;
+      hops[i] = node.hops;
+      trees[i] = node.tree;
+      via[i] = node.via;
+    });
+    graph.families.forEach((f, k) => {
+      const i = people + k;
+      const p = f.partners[0];
+      gen[i] = gen[p];
+      hops[i] = hops[p];
+      trees[i] = trees[p];
+      via[i] = p;
+    });
+    // A child starts beside their family's hub, so a couple's children start
+    // together — when the walk reached the parent first. (Reached the other way,
+    // the parent starts beside the child, and the hub beside the parent: the
+    // child beside the hub would close a loop.)
+    graph.edges.forEach((e) => {
+      if (e.kind === "child" && graph.families[e.a - people].partners[0] < e.b) via[e.b] = e.a;
+    });
     const m = graph.edges.length;
     const ea = new Int32Array(m), eb = new Int32Array(m), len = new Float32Array(m);
     graph.edges.forEach((e, k) => { ea[k] = e.a; eb[k] = e.b; len[k] = linkLength(e.kind); });
-    positions.current = { pos: null, fresh: false, settling: true };
+    positions.current = { pos: null, fresh: false };
+    setProgress(0);
+    // The last graph's picture goes; the new one shows once it has settled.
+    const canvas = canvasRef.current;
+    if (canvas) canvas.width = canvas.width;
     const worker = new Worker(new URL("../worker/layout3d.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
-    worker.onmessage = (e: MessageEvent<Layout3dPositions>) => {
-      positions.current = { pos: e.data.pos, fresh: true, settling: !e.data.done };
+    worker.onmessage = (e: MessageEvent<Layout3dReply>) => {
+      const r = e.data;
+      if (r.type === "progress") setProgress(r.share);
+      else {
+        positions.current = { pos: r.pos, fresh: true };
+        setProgress(null);
+      }
     };
-    const init: Layout3dRequest = { type: "init", n, ea, eb, len, gen, hops, trees, layered: layeredRef.current };
-    worker.postMessage(init, [ea.buffer, eb.buffer, len.buffer, gen.buffer, hops.buffer, trees.buffer]);
+    const init: Layout3dRequest = { type: "init", n, ea, eb, len, gen, hops, trees, via, layered: layeredRef.current };
+    worker.postMessage(init, [ea.buffer, eb.buffer, len.buffer, gen.buffer, hops.buffer, trees.buffer, via.buffer]);
     return () => {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
@@ -166,6 +206,8 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   useEffect(() => {
     const msg: Layout3dRequest = { type: "layered", on: layered };
     workerRef.current?.postMessage(msg);
+    // The current picture stays up under the progress until the new one.
+    setProgress((p) => p ?? 0);
   }, [layered]);
 
   // ─── Drawing ──────────────────────────────────────────────────────────────
@@ -176,6 +218,14 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   const dirty = useRef(true);
   const fit = useRef({ cx: 0, cy: 0, cz: 0, r: 1 });
   const redraw = useCallback(() => { dirty.current = true; }, []);
+  // The camera's zoom lives in the ref (the frame loop reads it); the zoom
+  // controls show a copy.
+  const [zoomShown, setZoomShown] = useState(1);
+  const zoomTo = useCallback((z: number) => {
+    cam.current.zoom = Math.min(Math.max(z, 0.2), 40);
+    setZoomShown(cam.current.zoom);
+    redraw();
+  }, [redraw]);
 
   // Everything the frame loop reads, kept in a ref so the loop runs once.
   // The links grouped by colour (one canvas path each) and the dots likewise,
@@ -184,7 +234,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     const links = new Map<string, number[]>();
     graph.edges.forEach((e, k) => {
       if (!shownMask[e.a] || !shownMask[e.b]) return;
-      const col = e.kind === "couple" ? colors.line : colors.fill[e.b];
+      const col = e.kind === "partner" ? colors.family : colors.fill[e.b];
       let list = links.get(col);
       if (!list) links.set(col, (list = []));
       list.push(k);
@@ -206,24 +256,23 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
 
   useEffect(() => {
     let raf = 0;
-    let frames = 0;
     const frame = () => {
       raf = requestAnimationFrame(frame);
       const L = live.current;
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const n = L.graph.nodes.length;
+      // The layout's nodes: the people (0 … people−1), then the family hubs.
+      const people = L.graph.nodes.length;
+      const n = people + L.graph.families.length;
       const P = positions.current;
       const p = P.pos;
       if (!p || p.length !== n * 3) return;
-      // New positions from the worker move the picture; so does the spin.
-      let moving = P.fresh;
+      // Settled positions from the worker change the picture; so does the spin.
       const refit = P.fresh;
       P.fresh = false;
-      if (L.spin) { cam.current.yaw += 0.004; moving = true; }
-      if (!moving && !dirty.current) return;
+      if (L.spin) cam.current.yaw += 0.004;
+      if (!refit && !L.spin && !dirty.current) return;
       dirty.current = false;
-      frames++;
 
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -236,8 +285,8 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      // Refit the frame now and then while the cloud is still spreading.
-      if (refit && (frames % 10 === 1 || frames < 5 || !P.settling)) {
+      // Frame the settled cloud as it arrives.
+      if (refit) {
         let cx = 0, cy = 0, cz = 0;
         for (let i = 0; i < n; i++) { cx += p[i * 3]; cy += p[i * 3 + 1]; cz += p[i * 3 + 2]; }
         cx /= n || 1; cy /= n || 1; cz /= n || 1;
@@ -272,13 +321,19 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
       }
 
       // Links first, in one path per colour; a selection fades the rest.
+      // A selected person lights up their families: the hubs they hang on, and
+      // everyone else on those hubs — partner, parents, children, siblings.
       const sel = L.selected;
       const focus = new Uint8Array(n);
       if (sel !== null) {
         focus[sel] = 1;
         for (const e of L.graph.edges) if (e.a === sel || e.b === sel) { focus[e.a] = 1; focus[e.b] = 1; }
+        for (const e of L.graph.edges) {
+          const hub = e.a >= people ? e.a : e.b;
+          if (focus[hub] && hub !== sel) { focus[e.a] = 1; focus[e.b] = 1; }
+        }
       }
-      const big = n > BIG;
+      const big = people > BIG;
       ctx.lineWidth = big ? 0.4 : n > 4000 ? 0.6 : 1;
       for (const [col, list] of L.batches.links) {
         ctx.strokeStyle = col;
@@ -295,8 +350,8 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         ctx.globalAlpha = 0.95;
         ctx.lineWidth = 2;
         for (const e of L.graph.edges) {
-          if (e.a !== sel && e.b !== sel) continue;
-          ctx.strokeStyle = e.kind === "couple" ? L.colors.text : L.colors.fill[e.b];
+          if (!focus[e.a] || !focus[e.b]) continue;
+          ctx.strokeStyle = e.kind === "partner" ? L.colors.family : L.colors.fill[e.b];
           ctx.beginPath();
           ctx.moveTo(sx[e.a], sy[e.a]);
           ctx.lineTo(sx[e.b], sy[e.b]);
@@ -304,7 +359,22 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         }
       }
 
-      const base = DOT * Math.min(Math.max(Math.sqrt(c.zoom), 0.7), 2.5) * (n > 4000 ? 0.8 : 1);
+      const base = DOT * Math.min(Math.max(Math.sqrt(c.zoom), 0.7), 2.5) * (people > 4000 ? 0.8 : 1);
+      // The family hubs: small rings where the partners meet and the children
+      // hang from (left out on a big file, where they would be specks).
+      if (!big) {
+        ctx.strokeStyle = L.colors.family;
+        ctx.lineWidth = 1.2;
+        ctx.globalAlpha = sel === null ? 0.8 : 0.2;
+        ctx.beginPath();
+        for (let i = people; i < n; i++) {
+          if (!L.shownMask[i]) continue;
+          const rad = base * sr[i] * 0.8;
+          ctx.moveTo(sx[i] + rad, sy[i]);
+          ctx.arc(sx[i], sy[i], rad, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+      }
       if (big) {
         // A big file: square dots in one path per colour, unsorted — sorting
         // and a circle each would cost more than a frame.
@@ -320,7 +390,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         }
         if (sel !== null) {
           ctx.globalAlpha = 1;
-          for (let i = 0; i < n; i++) {
+          for (let i = 0; i < people; i++) {
             if (!focus[i] || !L.shownMask[i]) continue;
             ctx.fillStyle = L.colors.fill[i];
             ctx.beginPath();
@@ -330,7 +400,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         }
       } else {
         // Dots back to front, the far ones fainter.
-        const order = Array.from({ length: n }, (_, i) => i).filter((i) => L.shownMask[i]);
+        const order = Array.from({ length: people }, (_, i) => i).filter((i) => L.shownMask[i]);
         order.sort((a, b) => depth[a] - depth[b]);
         for (const i of order) {
           const near = Math.min(Math.max((depth[i] / r + 1) / 2, 0), 1);
@@ -389,7 +459,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   const hitTest = (x: number, y: number): number | null => {
     const { sx, sy } = proj.current;
     let best = -1, bestD = HIT_PX * HIT_PX;
-    for (let i = 0; i < sx.length; i++) {
+    for (let i = 0; i < Math.min(sx.length, graph.nodes.length); i++) {
       if (!shownMask[i]) continue;
       const dx = sx[i] - x, dy = sy[i] - y;
       const d = dx * dx + dy * dy;
@@ -425,7 +495,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     if (pointers.current.size === 2 && pinch.current) {
       const [a, b] = [...pointers.current.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      c.zoom = Math.min(Math.max(c.zoom * (d / pinch.current), 0.2), 40);
+      zoomTo(c.zoom * (d / pinch.current));
       pinch.current = d;
     } else if (drag.current) {
       drag.current.moved += Math.abs(dx) + Math.abs(dy);
@@ -460,15 +530,15 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     if (!canvas) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const c = cam.current;
-      c.zoom = Math.min(Math.max(c.zoom * Math.exp(-e.deltaY * 0.0015), 0.2), 40);
-      dirty.current = true;
+      zoomTo(cam.current.zoom * Math.exp(-e.deltaY * 0.0015));
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
-  }, []);
-  const resetView = () => {
+  }, [zoomTo]);
+  // Fit: back to the starting angle, the whole cloud in view.
+  const fitView = () => {
     cam.current = { yaw: 0.6, pitch: 0.25, zoom: 1, panX: 0, panY: 0 };
+    setZoomShown(1);
     redraw();
   };
   useEffect(() => {
@@ -511,7 +581,6 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
             <input type="checkbox" checked={spin} onChange={(e) => setSpin(e.target.checked)} />
             {t("network.spin")}
           </label>
-          <button type="button" className="tree-open-btn" onClick={resetView}>{t("network.reset")}</button>
         </>
       }
     >
@@ -553,7 +622,13 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
             </div>
           </div>
         )}
+        {progress !== null && (
+          <div className="network-progress" role="status">{t("network.progress", { pct: Math.round(progress * 100) })}</div>
+        )}
         <div className="network-help">{t("network.help")}</div>
+        {positions.current.pos && (
+          <ZoomControls zoom={zoomShown} onZoomIn={() => zoomTo(zoomShown * 1.25)} onZoomOut={() => zoomTo(zoomShown / 1.25)} onSetZoom={zoomTo} onFit={fitView} />
+        )}
         <ChartLegend entries={colorer.legend} hidden={hidden} onToggle={toggle} />
       </div>
     </ChartPage>

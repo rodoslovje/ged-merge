@@ -12,14 +12,15 @@ export type Layout3dRequest =
       gen: Float64Array;
       hops: Int32Array;
       trees: Int32Array;
+      /** The node each one starts beside, or -1 (see createLayout3d). */
+      via: Int32Array;
       layered: boolean;
     }
   | { type: "layered"; on: boolean };
 
-/** The positions after some steps: x, y, z per node, packed. `done` once the
- *  layout has cooled — no more messages until it is warmed again. */
-export interface Layout3dPositions {
-  type: "pos";
-  pos: Float32Array;
-  done: boolean;
-}
+/** While the layout settles: how far it has got, 0 to 1. Then, once, the
+ *  settled positions — x, y, z per node, packed. The chart shows only those:
+ *  watching the cloud unfold says nothing about the family. */
+export type Layout3dReply =
+  | { type: "progress"; share: number }
+  | { type: "pos"; pos: Float32Array };

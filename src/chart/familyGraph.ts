@@ -1,5 +1,6 @@
-// The 3D network chart's data: people as nodes, parent–child and couple links
-// as edges. Walked breadth-first from the root, so a size limit keeps the
+// The 3D network chart's data: people as nodes, plus one hub node per family
+// (a couple and their children) — the partners hang on the hub side by side,
+// the children below it, so each family reads as one cluster. Walked breadth-first from the root, so a size limit keeps the
 // people nearest them; with the whole-file scope the other trees in the file
 // follow, each walked from its first person, until the limit is reached.
 //
@@ -31,13 +32,22 @@ export interface GraphNode {
   hops: number;
   /** 0 for the root's tree, then 1, 2, … for the others in walk order. */
   tree: number;
+  /** The node the walk reached them from; -1 for where a walk started. */
+  via: number;
+}
+
+/** A family hub. Its layout index is `nodes.length` + its index in `families`. */
+export interface GraphFamily {
+  /** Node indexes of the partners on the chart (one may be missing). */
+  partners: number[];
+  children: number[];
 }
 
 export interface GraphEdge {
-  /** Indexes into the nodes: the parent (or the husband) first. */
+  /** Layout indexes: a partner and their family's hub, or a hub and a child. */
   a: number;
   b: number;
-  kind: "parent" | "couple";
+  kind: "partner" | "child";
 }
 
 /** One of the root's grandparent lines. */
@@ -50,6 +60,7 @@ export interface GraphLine {
 
 export interface FamilyGraph {
   nodes: GraphNode[];
+  families: GraphFamily[];
   edges: GraphEdge[];
   lines: GraphLine[];
   /** People the scope holds in all; more than `nodes.length` when cut by the limit. */
@@ -108,8 +119,8 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
   }
 
   const walk = (startId: string, tree: number) => {
-    const queue: (Step & { branch: string; hops: number })[] = [
-      { id: startId, gen: 0, role: tree === 0 ? "root" : "other", branch: OWN_BRANCH, hops: 0 },
+    const queue: (Step & { branch: string; hops: number; via: number })[] = [
+      { id: startId, gen: 0, role: tree === 0 ? "root" : "other", branch: OWN_BRANCH, hops: 0, via: -1 },
     ];
     const seen = new Set<string>([startId]);
     for (let q = 0; q < queue.length; q++) {
@@ -125,8 +136,10 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
           pos: tree === 0 ? { gen: cur.gen, branch: cur.branch } : undefined,
           hops: cur.hops,
           tree,
+          via: cur.via,
         });
       }
+      const here = index.get(cur.id) ?? -1;
       neighbours(ds, indi, near);
       for (const n of near) {
         if (seen.has(n.id) || index.has(n.id) && tree > 0 || blood && !blood.has(n.id)) continue;
@@ -144,7 +157,7 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
             branch = line.key;
           } else if (cur.role === "spouse" && n.rel === "parent") branch = SPOUSE_LINE;
         }
-        queue.push({ id: n.id, gen: cur.gen + n.dGen, role, branch, hops: cur.hops + 1 });
+        queue.push({ id: n.id, gen: cur.gen + n.dGen, role, branch, hops: cur.hops + 1, via: here });
       }
     }
   };
@@ -164,8 +177,9 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
     }
   }
 
-  // Edges among the included people, each family once.
-  const edges: GraphEdge[] = [];
+  // A hub per family with at least two of its people on the chart, each once;
+  // the edges join its partners and its children to it.
+  const families: GraphFamily[] = [];
   const doneFams = new Set<string>();
   for (const node of nodes) {
     for (const famId of node.indi.spouseOf) {
@@ -173,16 +187,24 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
       doneFams.add(famId);
       const fam = ds.families.get(famId);
       if (!fam) continue;
-      const h = fam.husband !== undefined ? index.get(fam.husband) : undefined;
-      const w = fam.wife !== undefined ? index.get(fam.wife) : undefined;
-      if (h !== undefined && w !== undefined) edges.push({ a: h, b: w, kind: "couple" });
+      const partners: number[] = [];
+      for (const p of [fam.husband, fam.wife]) {
+        const pi = p !== undefined ? index.get(p) : undefined;
+        if (pi !== undefined) partners.push(pi);
+      }
+      const children: number[] = [];
       for (const c of fam.children) {
         const ci = index.get(c);
-        if (ci === undefined) continue;
-        if (h !== undefined) edges.push({ a: h, b: ci, kind: "parent" });
-        if (w !== undefined) edges.push({ a: w, b: ci, kind: "parent" });
+        if (ci !== undefined) children.push(ci);
       }
+      if (partners.length + children.length >= 2 && partners.length) families.push({ partners, children });
     }
   }
-  return { nodes, edges, lines, total: Math.max(total, nodes.length), trees };
+  const edges: GraphEdge[] = [];
+  families.forEach((f, k) => {
+    const hub = nodes.length + k;
+    for (const p of f.partners) edges.push({ a: p, b: hub, kind: "partner" });
+    for (const c of f.children) edges.push({ a: hub, b: c, kind: "child" });
+  });
+  return { nodes, families, edges, lines, total: Math.max(total, nodes.length), trees };
 }

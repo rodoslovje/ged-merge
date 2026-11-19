@@ -42,9 +42,15 @@ describe("buildFamilyGraph", () => {
     expect(byId(g, "MM").pos?.branch).toBe("@MM@");
     expect(byId(g, "SF").pos).toEqual({ gen: 1, branch: SPOUSE_LINE });
     expect(g.lines.map((l) => [l.ancestorId, l.index])).toEqual([["@FF@", 0], ["@FM@", 1], ["@MF@", 2], ["@MM@", 3]]);
-    // 7 families' links: couples F1 F2 F3 F9 + 9 parent links.
-    expect(g.edges.filter((e) => e.kind === "couple")).toHaveLength(4);
-    expect(g.edges.filter((e) => e.kind === "parent")).toHaveLength(2 + 4 + 2 + 1 + 1);
+    // A hub for each of the six families; partners and children hang on it.
+    expect(g.families).toHaveLength(6);
+    expect(g.edges.filter((e) => e.kind === "partner")).toHaveLength(2 + 2 + 2 + 1 + 1 + 2);
+    expect(g.edges.filter((e) => e.kind === "child")).toHaveLength(1 + 2 + 1 + 1 + 1);
+    const f2 = g.families.find((f) => f.partners.includes(g.nodes.indexOf(byId(g, "FF"))))!;
+    expect(f2.children.map((c) => g.nodes[c].id).sort()).toEqual(["@F@", "@U@"]);
+    // Each person keeps the node the walk came from: the cousin via the uncle.
+    expect(g.nodes[byId(g, "C").via].id).toBe("@U@");
+    expect(byId(g, "R").via).toBe(-1);
   });
 
   it("keeps only blood relatives, partners and their families left out", () => {
@@ -52,8 +58,9 @@ describe("buildFamilyGraph", () => {
     expect(g.nodes.map((n) => n.id).sort()).toEqual(["@C@", "@F@", "@FF@", "@FM@", "@M@", "@MF@", "@MM@", "@R@", "@U@"]);
     expect(byId(g, "C").pos).toEqual({ gen: 0, branch: "@FF@" });
     expect(g.lines).toHaveLength(4);
-    // The grandparents' couple links stay: both ends are of the root's blood.
-    expect(g.edges.filter((e) => e.kind === "couple")).toHaveLength(3);
+    // The partner's family is gone, and so is the root's marriage: one person
+    // of it is left, no family to show.
+    expect(g.families).toHaveLength(4);
   });
 
   it("adds the file's other trees, without a position", () => {
@@ -68,7 +75,7 @@ describe("buildFamilyGraph", () => {
     const g = buildFamilyGraph(ds, "@R@", "connected", 4);
     expect(g.nodes.map((n) => n.id)).toEqual(["@R@", "@F@", "@M@", "@S@"]);
     expect(g.total).toBe(11);
-    expect(g.edges.every((e) => e.a < 4 && e.b < 4)).toBe(true);
+    expect(g.edges.every((e) => e.a < 4 + g.families.length && e.b < 4 + g.families.length)).toBe(true);
   });
 });
 
@@ -103,6 +110,14 @@ describe("createLayout3d", () => {
     const dist = (a: number, b: number) => Math.hypot(p[a * 3] - p[b * 3], p[a * 3 + 1] - p[b * 3 + 1], p[a * 3 + 2] - p[b * 3 + 2]);
     expect(dist(0, 1)).toBeLessThan(120);
     expect(Number.isFinite(p[4 * 3])).toBe(true);
+  });
+
+  it("starts a node beside its via, in any index order, and survives a loop", () => {
+    // 2 hangs from 3 (a later index), 0 and 1 hang from each other.
+    const l = createLayout3d(4, [], Float64Array.from([NaN, NaN, NaN, NaN]), new Int32Array(4), undefined, Int32Array.from([1, 0, 3, -1]));
+    const p = l.pos;
+    expect(Math.hypot(p[6] - p[9], p[7] - p[10], p[8] - p[11])).toBeLessThan(40);
+    expect([...p].every(Number.isFinite)).toBe(true);
   });
 
   it("is deterministic", () => {
