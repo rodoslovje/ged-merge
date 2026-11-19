@@ -218,7 +218,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   const cam = useRef<Camera>({ yaw: 0.6, pitch: 0.25, zoom: 1, panX: 0, panY: 0 });
   const proj = useRef<{ sx: Float32Array; sy: Float32Array; sr: Float32Array }>({ sx: new Float32Array(0), sy: new Float32Array(0), sr: new Float32Array(0) });
   const dirty = useRef(true);
-  const fit = useRef({ cx: 0, cy: 0, cz: 0, r: 1 });
+  const fit = useRef({ cx: 0, cy: 0, cz: 0, rh: 1, rv: 1 });
   const redraw = useCallback(() => { dirty.current = true; }, []);
   // The camera's zoom lives in the ref (the frame loop reads it); the zoom
   // controls show a copy.
@@ -316,18 +316,27 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         let cx = 0, cy = 0, cz = 0;
         for (let i = 0; i < n; i++) { cx += p[i * 3]; cy += p[i * 3 + 1]; cz += p[i * 3 + 2]; }
         cx /= n || 1; cy /= n || 1; cz /= n || 1;
-        let r2 = 0;
+        let h2 = 0, v2 = 0;
         for (let i = 0; i < n; i++) {
           const dx = p[i * 3] - cx, dy = p[i * 3 + 1] - cy, dz = p[i * 3 + 2] - cz;
-          r2 += dx * dx + dy * dy + dz * dz;
+          h2 += dx * dx + dz * dz;
+          v2 += dy * dy;
         }
-        // Twice the RMS radius: a few stragglers do not shrink everyone else.
-        fit.current = { cx, cy, cz, r: Math.max(2 * Math.sqrt(r2 / (n || 1)), 40) };
+        // Twice the RMS radius, sideways and up-down apart: a few stragglers do
+        // not shrink everyone else, and a wide, low cloud fills a wide canvas.
+        fit.current = {
+          cx, cy, cz,
+          rh: Math.max(2 * Math.sqrt(h2 / (n || 1)), 40),
+          rv: Math.max(2 * Math.sqrt(v2 / (n || 1)), 40),
+        };
       }
-      const { cx, cy, cz, r } = fit.current;
+      const { cx, cy, cz, rh, rv } = fit.current;
+      const r = Math.max(rh, rv);
       const c = cam.current;
       const cyw = Math.cos(c.yaw), syw = Math.sin(c.yaw), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
-      const scale = (Math.min(w, h) / (1.7 * r)) * c.zoom;
+      // Seen from this pitch the cloud is about rh wide and rv·cos + rh·sin tall.
+      const tall = rv * Math.abs(cp) + rh * Math.abs(sp);
+      const scale = Math.min(w / (2.3 * rh), h / (2.3 * tall)) * c.zoom;
       const D = r * 3;
       const ox = w / 2 + c.panX, oy = h / 2 + c.panY;
       if (proj.current.sx.length !== n) proj.current = { sx: new Float32Array(n), sy: new Float32Array(n), sr: new Float32Array(n) };
@@ -437,9 +446,10 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
           ctx.fill();
         }
       }
-      // The root and the selected person get a ring and their name.
+      // The root and the selected person get a ring and their name; the family
+      // the selection lights up — partners, parents, children, siblings — gets
+      // its names too, a size smaller.
       ctx.globalAlpha = 1;
-      ctx.font = "600 12px system-ui, sans-serif";
       ctx.textAlign = "center";
       const ring = (i: number, color: string) => {
         ctx.strokeStyle = color;
@@ -458,6 +468,11 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
         ctx.fillText(text, sx[i], y);
       };
       const rootIdx = L.rootIdx;
+      if (sel !== null) {
+        ctx.font = "500 11px system-ui, sans-serif";
+        for (let i = 0; i < people; i++) if (focus[i] && i !== sel && i !== rootIdx && L.shownMask[i]) label(i);
+      }
+      ctx.font = "600 12px system-ui, sans-serif";
       if (rootIdx >= 0) { ring(rootIdx, L.colors.accent); label(rootIdx); }
       if (sel !== null && sel !== rootIdx) { ring(sel, L.colors.text); label(sel); }
     };

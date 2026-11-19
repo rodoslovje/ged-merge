@@ -33,6 +33,8 @@ export interface Layout3d {
 export const LAYER = 60;
 const LINK = 30;
 const CHARGE = 900;
+/** How much harder people push apart sideways than up and down. */
+const SPREAD = 4;
 const ALPHA_MIN = 0.004;
 /** Past this many nodes the layout trades some precision for time: a coarser
  *  Barnes–Hut cut and fewer steps (it starts near its end anyway, see `via`). */
@@ -258,7 +260,9 @@ export function createLayout3d(
         if (k >= 0) stack.push(k);
       }
     }
-    force[i * 3] += fx; force[i * 3 + 1] += fy; force[i * 3 + 2] += fz;
+    // Sideways the push is stronger than up and down: the generations are
+    // already a layer apart, and the families of one generation need the room.
+    force[i * 3] += fx * SPREAD; force[i * 3 + 1] += fy; force[i * 3 + 2] += fz * SPREAD;
   };
 
   const step = (): boolean => {
@@ -349,5 +353,5 @@ export function treeAnchors(tree: Int32Array): Float64Array {
 /** Rest length of a link: partners sit close beside their family's hub, the
  *  children a little more than a generation below, so they fan out under it. */
 export function linkLength(kind: "partner" | "child"): number {
-  return kind === "partner" ? LINK * 0.35 : LAYER * 1.1;
+  return kind === "partner" ? LINK * 0.35 : LAYER * 1.7;
 }
