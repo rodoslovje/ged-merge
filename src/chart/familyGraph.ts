@@ -28,6 +28,9 @@ export interface GraphNode {
   indi: Individual;
   /** Absent for people in another tree than the root's. */
   pos?: NodePosition;
+  /** Generations above (+) or below (−) where their walk started — the root,
+   *  or their own tree's first person. */
+  gen: number;
   /** Links walked from the root (or from their own tree's first person). */
   hops: number;
   /** 0 for the root's tree, then 1, 2, … for the others in walk order. */
@@ -75,15 +78,23 @@ interface Step {
   role: "root" | "parent" | "spouse" | "other";
 }
 
+interface Near {
+  id: string;
+  dGen: number;
+  rel: "parent" | "partner" | "child";
+  /** A parent who is the family's wife: the mother's side of a line. */
+  mother?: boolean;
+}
+
 /** The people one link away from `indi`, with the generation step and the
  *  role of each (the role only matters next to the root). */
-function neighbours(ds: Dataset, indi: Individual, out: { id: string; dGen: number; rel: "parent" | "partner" | "child" }[]): void {
+function neighbours(ds: Dataset, indi: Individual, out: Near[]): void {
   out.length = 0;
   for (const famId of indi.childOf) {
     const fam = ds.families.get(famId);
     if (!fam) continue;
     if (fam.husband) out.push({ id: fam.husband, dGen: 1, rel: "parent" });
-    if (fam.wife) out.push({ id: fam.wife, dGen: 1, rel: "parent" });
+    if (fam.wife) out.push({ id: fam.wife, dGen: 1, rel: "parent", mother: true });
   }
   for (const famId of indi.spouseOf) {
     const fam = ds.families.get(famId);
@@ -100,7 +111,7 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
   const index = new Map<string, number>();
   const nodes: GraphNode[] = [];
   const lines: GraphLine[] = [];
-  const near: { id: string; dGen: number; rel: "parent" | "partner" | "child" }[] = [];
+  const near: Near[] = [];
   let total = 0;
   let trees = 0;
   // Blood relatives: the walk only steps onto people of the root's blood — the
@@ -135,6 +146,7 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
           id: cur.id,
           indi,
           pos: tree === 0 ? { gen: cur.gen, branch: cur.branch } : undefined,
+          gen: cur.gen,
           hops: cur.hops,
           tree,
           via: cur.via,
@@ -153,10 +165,11 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
         if (tree === 0) {
           if (cur.role === "root") role = n.rel === "parent" ? "parent" : n.rel === "partner" ? "spouse" : "other";
           else if (cur.role === "parent" && n.rel === "parent") {
-            // A grandparent opens a line of their own.
+            // A grandparent opens a line of their own, its colour by who they
+            // are — the father's or the mother's, father or mother — so a missing
+            // grandparent does not shift the others' colours.
             const side = parentSide.get(cur.id) ?? 0;
-            const taken = lines.filter((l) => l.index >= side && l.index < side + 2).length;
-            const line = { key: n.id, ancestorId: n.id, index: side + Math.min(taken, 1) };
+            const line = { key: n.id, ancestorId: n.id, index: side + (n.mother ? 1 : 0) };
             lines.push(line);
             branch = line.key;
           } else if (cur.role === "spouse" && n.rel === "parent") branch = SPOUSE_LINE;
@@ -166,10 +179,32 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
     }
   };
 
+  // Everyone in the trees walked so far, whether the walk drew them or the
+  // generation limit cut them off: a person the limit cut off belongs to a
+  // tree already on the chart and must not start a "new" one of their own.
+  const covered = new Set<string>();
+  const cover = (startId: string) => {
+    if (maxGen === Infinity) return; // the walk itself drew every one of them
+    const queue = [startId];
+    covered.add(startId);
+    for (let q = 0; q < queue.length; q++) {
+      const indi = ds.individuals.get(queue[q]);
+      if (!indi) continue;
+      neighbours(ds, indi, near);
+      for (const n of near) {
+        if (covered.has(n.id)) continue;
+        covered.add(n.id);
+        queue.push(n.id);
+      }
+    }
+  };
+
   if (rootIndi) walk(rootId, trees++);
   if (scope === "file") {
+    if (rootIndi) cover(rootId);
     for (const id of ds.individuals.keys()) {
-      if (index.has(id)) continue;
+      if (index.has(id) || covered.has(id)) continue;
+      cover(id);
       // Count the trees past the limit too, so the total stays honest — but a
       // walk that can add no one is cheap: only the counting runs.
       walk(id, trees++);

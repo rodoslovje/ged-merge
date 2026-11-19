@@ -73,6 +73,25 @@ describe("buildFamilyGraph", () => {
     expect(two.nodes.some((n) => n.id === "@C@")).toBe(true);
   });
 
+  it("keeps people the generation limit cut off out of the other branches", () => {
+    // All branches, one generation: the grandparents and the cousin's side are
+    // part of the root's tree, cut off — not new branches of their own.
+    const g = buildFamilyGraph(ds, "@R@", "file", 100, 1);
+    expect(g.trees).toBe(2);
+    expect(g.nodes.some((n) => n.id === "@FF@" || n.id === "@C@")).toBe(false);
+    expect(byId(g, "A").gen).toBe(0);
+  });
+
+  it("colours a grandparent's line by who they are, not by who else is there", () => {
+    // The father's father is missing: his mother's line keeps index 1.
+    const lone = dataset(wrap(
+      indi("R", ["F1"], []) + indi("F", ["F2"], ["F1"]) + indi("FM", [], ["F2"]) +
+        fam("F1", "F", undefined, ["R"]) + fam("F2", undefined, "FM", ["F"]),
+    ));
+    const g = buildFamilyGraph(lone, "@R@", "connected", 100);
+    expect(g.lines.map((l) => [l.ancestorId, l.index])).toEqual([["@FM@", 1]]);
+  });
+
   it("adds the file's other trees, without a position", () => {
     const g = buildFamilyGraph(ds, "@R@", "file", 100);
     expect(g.nodes).toHaveLength(13);

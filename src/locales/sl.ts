@@ -2969,6 +2969,7 @@ export const sl = {
   "network.line.spouse": "Partnerjeva družina",
   "network.count": "Osebe: {{shown}} · povezave: {{links}}",
   "network.progress": "Razporejanje oseb … {{pct}} %",
+  "network.failed": "Osebe ni bilo mogoče razporediti. Znova naložite stran in poskusite še enkrat.",
   "network.trees_one": "{{count}} veja",
   "network.trees_two": "{{count}} veji",
   "network.trees_few": "{{count}} veje",

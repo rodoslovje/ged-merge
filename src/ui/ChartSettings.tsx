@@ -152,9 +152,9 @@ export function ChartSettings({
             </div>
           )}
           {/* Per-person fields — each independent (multi-select). The report
-              always prints its facts, and the map and the Contemporaries wheel
-              draw no node boxes, so only the generation + privacy groups apply
-              to those three. */}
+              always prints its facts, and the map, the Contemporaries wheel and
+              the 3D network draw no node boxes, so only the generation + privacy
+              groups apply to those four. */}
           {effectiveType !== "report" && effectiveType !== "map" && effectiveType !== "kin" && effectiveType !== "network" && (<>
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.person")}</span>

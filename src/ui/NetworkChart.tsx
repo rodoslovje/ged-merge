@@ -92,7 +92,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   // (the stepper's "of N"); a limit below that walks again, stopping there.
   const fullGraph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, Infinity), [mainDs, rootId, scope]);
   const depth = useMemo(
-    () => fullGraph.nodes.reduce((m, nd) => (nd.pos ? Math.max(m, Math.abs(nd.pos.gen)) : m), 0),
+    () => fullGraph.nodes.reduce((m, nd) => Math.max(m, Math.abs(nd.gen)), 0),
     [fullGraph],
   );
   const maxGen = settings.maxGenerations;
@@ -100,7 +100,12 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     () => (maxGen === null || maxGen >= depth ? fullGraph : buildFamilyGraph(mainDs, rootId, scope, Infinity, maxGen)),
     [fullGraph, depth, maxGen, mainDs, rootId, scope],
   );
-  useEffect(() => select(null), [graph, select]);
+  // A new graph: nobody of the old one stays selected or hovered (their
+  // indexes now name other people, or nobody).
+  useEffect(() => {
+    select(null);
+    setHover(null);
+  }, [graph, select]);
 
   // ─── Colour ───────────────────────────────────────────────────────────────
   const branches = useMemo(() => {
@@ -176,6 +181,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   // progress; a switch of layout keeps the old picture up until the new one.
   const positions = useRef<{ pos: Float32Array | null; fresh: boolean }>({ pos: null, fresh: false });
   const [progress, setProgress] = useState<number | null>(0);
+  const [failed, setFailed] = useState(false);
   const workerRef = useRef<Worker | null>(null);
   const layeredRef = useRef(layered);
   layeredRef.current = layered;
@@ -213,19 +219,31 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     const ea = new Int32Array(m), eb = new Int32Array(m), len = new Float32Array(m);
     graph.edges.forEach((e, k) => { ea[k] = e.a; eb[k] = e.b; len[k] = linkLength(e.kind); });
     positions.current = { pos: null, fresh: false };
+    // The old picture's screen positions go with it: until the new layout
+    // arrives, clicks, hovers and Find must hit nobody.
+    proj.current = { sx: new Float32Array(0), sy: new Float32Array(0), sr: new Float32Array(0) };
     setProgress(0);
+    setFailed(false);
     // The last graph's picture goes; the new one shows once it has settled.
     const canvas = canvasRef.current;
     if (canvas) canvas.width = canvas.width;
     const worker = new Worker(new URL("../worker/layout3d.worker.ts", import.meta.url), { type: "module" });
     workerRef.current = worker;
     worker.onmessage = (e: MessageEvent<Layout3dReply>) => {
+      // A reply queued before this worker was replaced is for another graph.
+      if (workerRef.current !== worker) return;
       const r = e.data;
       if (r.type === "progress") setProgress(r.share);
       else {
         positions.current = { pos: r.pos, fresh: true };
         setProgress(null);
       }
+    };
+    // A worker that cannot load or throws would leave the progress up for good.
+    worker.onerror = () => {
+      if (workerRef.current !== worker) return;
+      setProgress(null);
+      setFailed(true);
     };
     const init: Layout3dRequest = { type: "init", n, ea, eb, len, gen, hops, trees, via, layered: layeredRef.current };
     worker.postMessage(init, [ea.buffer, eb.buffer, len.buffer, gen.buffer, hops.buffer, trees.buffer, via.buffer]);
@@ -252,9 +270,22 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   // The camera's zoom lives in the ref (the frame loop reads it); the zoom
   // controls show a copy.
   const [zoomShown, setZoomShown] = useState(1);
-  const zoomTo = useCallback((z: number) => {
-    cam.current.zoom = Math.min(Math.max(z, 0.2), 40);
-    setZoomShown(cam.current.zoom);
+  // Zoom about a point of the canvas — the middle of the view unless given —
+  // so that point stays put: a point's offset from the view's origin grows
+  // with the zoom, so the pan grows with it.
+  const zoomTo = useCallback((z: number, px?: number, py?: number) => {
+    const c = cam.current;
+    const target = Math.min(Math.max(z, 0.2), 40);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const f = target / c.zoom;
+      const ax = (px ?? canvas.clientWidth / 2) - canvas.clientWidth / 2;
+      const ay = (py ?? canvas.clientHeight / 2) - canvas.clientHeight / 2;
+      c.panX = ax - (ax - c.panX) * f;
+      c.panY = ay - (ay - c.panY) * f;
+    }
+    c.zoom = target;
+    setZoomShown(target);
     redraw();
   }, [redraw]);
 
@@ -268,16 +299,11 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     const canvas = canvasRef.current;
     const { sx, sy } = proj.current;
     if (i === undefined || !canvas || i >= sx.length) return;
+    // Bring the person to the middle of the view, then zoom about the middle.
     const c = cam.current;
-    const target = Math.max(c.zoom, 3);
-    const k = target / c.zoom;
-    // A point's offset from the view's origin grows with the zoom; pan by the
-    // grown offset so it lands on the middle.
-    const offX = sx[i] - (canvas.clientWidth / 2 + c.panX);
-    const offY = sy[i] - (canvas.clientHeight / 2 + c.panY);
-    c.panX = -offX * k;
-    c.panY = -offY * k;
-    zoomTo(target);
+    c.panX -= sx[i] - canvas.clientWidth / 2;
+    c.panY -= sy[i] - canvas.clientHeight / 2;
+    zoomTo(Math.max(c.zoom, 3));
     select(i);
   }, [nodeIndex, zoomTo, select]);
   const find = useChartFind(findSources, mainDs.individuals, reveal, onRootChange);
@@ -585,7 +611,9 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const onPointerDown = (e: React.PointerEvent) => {
     (e.target as Element).setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    drag.current = { moved: 0, pan: e.button === 2 || e.shiftKey };
+    // A second finger makes the gesture a pinch: lifting a finger after it
+    // must not count as a tap that selects whoever is under it.
+    drag.current = { moved: pointers.current.size > 1 ? Infinity : 0, pan: e.button === 2 || e.shiftKey };
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       pinch.current = Math.hypot(a.x - b.x, a.y - b.y);
@@ -605,7 +633,8 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     if (pointers.current.size === 2 && pinch.current) {
       const [a, b] = [...pointers.current.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      zoomTo(c.zoom * (d / pinch.current));
+      const rect = canvasRef.current!.getBoundingClientRect();
+      zoomTo(c.zoom * (d / pinch.current), (a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top);
       pinch.current = d;
     } else if (drag.current) {
       drag.current.moved += Math.abs(dx) + Math.abs(dy);
@@ -647,15 +676,8 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       const c = cam.current;
       if (e.ctrlKey || e.metaKey) {
         const k = Math.min(Math.max(Math.exp(-e.deltaY * unit * 0.01), 0.5), 2);
-        const target = Math.min(Math.max(c.zoom * k, 0.2), 40);
-        // A point's offset from the view's origin grows with the zoom: pan so
-        // the point under the pointer stays under it.
         const rect = canvas.getBoundingClientRect();
-        const px = e.clientX - rect.left, py = e.clientY - rect.top;
-        const f = target / c.zoom;
-        c.panX = px - canvas.clientWidth / 2 - (px - canvas.clientWidth / 2 - c.panX) * f;
-        c.panY = py - canvas.clientHeight / 2 - (py - canvas.clientHeight / 2 - c.panY) * f;
-        zoomTo(target);
+        zoomTo(c.zoom * k, e.clientX - rect.left, e.clientY - rect.top);
       } else {
         c.panX -= e.deltaX * unit;
         c.panY -= e.deltaY * unit;
@@ -746,7 +768,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         </div>
         {hover && hover.i !== selected && (
           <div className="network-hover" style={{ left: hover.x + 14, top: hover.y + 10 }}>
-            <span className={`person-name ${sexClass(graph.nodes[hover.i].indi.sex)}`}>{nameAt(hover.i)}</span>
+            <span className={`person-name ${sexClass(redacted(hover.i) ? undefined : graph.nodes[hover.i].indi.sex)}`}>{nameAt(hover.i)}</span>
             {yearsOf(hover.i) && <span className="network-years"> {yearsOf(hover.i)}</span>}
             {categoryLabel(hover.i) && <div className="network-cat">{categoryLabel(hover.i)}</div>}
           </div>
@@ -754,7 +776,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         {sel && selected !== null && panelOpen && (
           // The person panel every other chart opens on a click.
           <TreeNodePanel
-            node={{ name: nameAt(selected), years: yearsOf(selected), sex: sel.indi.sex }}
+            node={{ name: nameAt(selected), years: yearsOf(selected), sex: redacted(selected) ? undefined : sel.indi.sex }}
             personId={sel.id}
             swatch={colors.fill[selected]}
             rows={selectedRows}
@@ -772,6 +794,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             }
           />
         )}
+        {failed && <div className="network-progress" role="alert">{t("network.failed")}</div>}
         {progress !== null && (
           <div className="network-progress" role="status">{t("network.progress", { pct: Math.round(progress * 100) })}</div>
         )}

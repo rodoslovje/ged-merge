@@ -2687,6 +2687,7 @@ export const en = {
   "network.line.spouse": "Partner's family",
   "network.count": "People: {{shown}} · links: {{links}}",
   "network.progress": "Arranging the people… {{pct}}%",
+  "network.failed": "The people could not be arranged. Reload the page and try again.",
   "network.trees_one": "{{count}} branch",
   "network.trees_other": "{{count}} branches",
   "network.help": "Drag to turn · scroll or right-drag to move · Ctrl + scroll or pinch to zoom · double-click to centre",
