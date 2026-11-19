@@ -6561,6 +6561,66 @@ input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(-
   z-index: 3;
   margin: 0;
 }
+
+/* 3D network chart (NetworkChart): one canvas filling the wrap above the
+   colour key, with small overlays for the count, hover card, selected person
+   and the controls hint. */
+.network-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(100% - var(--chart-legend-h, 0px));
+  touch-action: none;
+  cursor: grab;
+}
+.network-canvas:active { cursor: grabbing; }
+/* The Rotate checkbox fills its line of the controls row, so it sits centred
+   beside the segmented controls rather than at their top edge. */
+.network-spin { align-self: stretch; }
+.network-count,
+.network-help {
+  position: absolute;
+  left: 10px;
+  z-index: 2;
+  font-size: 0.78rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+.network-count { top: 8px; }
+.network-help { bottom: calc(var(--chart-legend-h, 0px) + 8px); }
+.network-hover {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  max-width: 300px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+  font-size: 0.85rem;
+}
+.network-progress {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.network-years { color: var(--muted); font-size: 0.85em; }
+.network-cat { color: var(--muted); font-size: 0.8rem; }
+@media (max-width: 720px) {
+  .network-help { display: none; }
+}
 .tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
 /* While a key shows, the canvas ends above the band — at its measured height
    (ChartLegend sets --chart-legend-h on the wrap); the frame is the wrap's

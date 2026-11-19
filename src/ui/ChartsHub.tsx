@@ -13,6 +13,7 @@ import { TimelineChart } from "./TimelineChart";
 import { TimelineLines } from "./TimelineLines";
 import { KinshipChart } from "./KinshipChart";
 import { ReportView } from "./ReportView";
+import { NetworkChart } from "./NetworkChart";
 import { StartPersonSelector } from "./StartPersonSelector";
 
 // The Map is the one kind with a heavyweight dependency (Leaflet + the offline
@@ -29,7 +30,7 @@ const MapChart = lazy(() => import("./map/MapChart"));
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
  *  (pedigrees, then the timeline) first, then the two-person relationship, then
  *  the contemporaries wheel, then the places map, then the text reports. */
-export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report"];
+export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report", "network"];
 
 interface Props {
   mainDs: Dataset;
@@ -113,6 +114,21 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
         kindSwitcher={kindSwitcher}
         mode={direction}
         onModeChange={setDirection}
+      />
+    );
+  }
+
+  if (settings.kind === "network") {
+    return (
+      <NetworkChart
+        mainDs={mainDs}
+        rootId={rootId}
+        startId={startId}
+        backLabel={backLabel}
+        onBack={onBack}
+        onNavigate={onNavigate}
+        onRootChange={onRootChange}
+        kindSwitcher={kindSwitcher}
       />
     );
   }
