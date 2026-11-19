@@ -92,8 +92,9 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\b([Uu])krep\b/g, "$1krêp"],
   ],
   en: [
-    [/gedmerge\.com/g, "GED Merge dot com"],
-    [/GED Merge/g, "Ged Merge"],
+    // "GED" as in "Jed", not a hard G (chosen by ear, Soniox Nina).
+    [/gedmerge\.com/g, "Jed Merge dot com"],
+    [/GED Merge/g, "Jed Merge"],
     [/GEDCOM/g, "ged-com"],
     [/\.ged\b/g, " dot ged"],
   ],
