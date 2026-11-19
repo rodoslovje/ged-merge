@@ -46,7 +46,7 @@ export function ChartSettings({
   availableGenerations,
   colorAxes = "all",
 }: {
-  lockedType?: PedigreeType | "timeline" | "report" | "map" | "kin";
+  lockedType?: PedigreeType | "timeline" | "report" | "map" | "kin" | "network";
   /** How many generations the current view actually has to offer. Passing it
    *  opts the view into the generation limit — the stepper only shows for the
    *  views that honour it, and reads "of N" against the real depth. */
@@ -155,7 +155,7 @@ export function ChartSettings({
               always prints its facts, and the map and the Contemporaries wheel
               draw no node boxes, so only the generation + privacy groups apply
               to those three. */}
-          {effectiveType !== "report" && effectiveType !== "map" && effectiveType !== "kin" && (<>
+          {effectiveType !== "report" && effectiveType !== "map" && effectiveType !== "kin" && effectiveType !== "network" && (<>
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.person")}</span>
             <div className="chart-settings-segmented chart-settings-toggles">

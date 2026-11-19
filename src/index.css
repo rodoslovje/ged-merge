@@ -6561,6 +6561,62 @@ input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(-
   z-index: 3;
   margin: 0;
 }
+
+/* 3D network chart (NetworkChart): one canvas filling the wrap above the
+   colour key, with small overlays for the count, hover card, selected person
+   and the controls hint. */
+.network-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(100% - var(--chart-legend-h, 0px));
+  touch-action: none;
+  cursor: grab;
+}
+.network-canvas:active { cursor: grabbing; }
+.network-count,
+.network-help {
+  position: absolute;
+  left: 10px;
+  z-index: 2;
+  font-size: 0.78rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+.network-count { top: 8px; }
+.network-help { bottom: calc(var(--chart-legend-h, 0px) + 8px); }
+.network-hover,
+.network-panel {
+  position: absolute;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+}
+.network-hover {
+  z-index: 4;
+  pointer-events: none;
+  max-width: 300px;
+  font-size: 0.85rem;
+}
+.network-panel {
+  top: 8px;
+  right: 10px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 280px;
+  font-size: 0.9rem;
+}
+.network-panel-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.network-years { color: var(--muted); font-size: 0.85em; }
+.network-cat { color: var(--muted); font-size: 0.8rem; }
+@media (max-width: 720px) {
+  .network-help { display: none; }
+}
 .tree-canvas-wrap > .chart-legend .map-kind-chip { flex: 0 0 auto; white-space: nowrap; }
 /* While a key shows, the canvas ends above the band — at its measured height
    (ChartLegend sets --chart-legend-h on the wrap); the frame is the wrap's

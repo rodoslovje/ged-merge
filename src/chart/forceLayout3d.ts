@@ -1,0 +1,270 @@
+// A 3D force-directed layout for the network chart, stepped a frame at a time
+// so the picture settles in front of the user. Linked people pull to a set
+// distance, everyone pushes everyone apart (Barnes–Hut over an octree, so a
+// few thousand people stay interactive), and a weak pull keeps the cloud
+// centred. In the layered mode each person's height is held to their
+// generation, so the trees stand upright: ancestors above, descendants below.
+//
+// Deterministic: the start positions come from a seeded generator, so the
+// same graph settles the same way every time.
+//
+// Pure: no React, no DOM.
+
+export interface LayoutEdge {
+  a: number;
+  b: number;
+  /** Rest length, in layout units. */
+  length: number;
+}
+
+export interface Layout3d {
+  /** x, y, z per node, packed. */
+  pos: Float32Array;
+  /** One simulation step; false once the layout has cooled. */
+  step(): boolean;
+  /** Warm the layout up again (after a mode change). */
+  reheat(): void;
+  setLayered(layered: boolean): void;
+}
+
+/** Vertical distance between generations in the layered mode. */
+export const LAYER = 40;
+const LINK = 30;
+const CHARGE = 900;
+const THETA2 = 0.81; // θ = 0.9
+const ALPHA_MIN = 0.004;
+const ALPHA_DECAY = 0.985;
+const DAMPING = 0.6;
+
+/** A small seeded generator (mulberry32). */
+function rng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ─── Octree ───────────────────────────────────────────────────────────────────
+// Flat arrays, rebuilt each step: per cell its centre of mass, mass, half size
+// and eight children (−1 none). A leaf holds one body.
+
+class Octree {
+  cx = new Float32Array(0);
+  cy = new Float32Array(0);
+  cz = new Float32Array(0);
+  mass = new Float32Array(0);
+  half = new Float32Array(0);
+  ox = new Float32Array(0);
+  oy = new Float32Array(0);
+  oz = new Float32Array(0);
+  kids = new Int32Array(0);
+  body = new Int32Array(0);
+  count = 0;
+
+  private grow(n: number) {
+    if (n <= this.mass.length) return;
+    const cap = Math.max(n, this.mass.length * 2, 64);
+    const f = (a: Float32Array) => { const b = new Float32Array(cap); b.set(a); return b; };
+    this.cx = f(this.cx); this.cy = f(this.cy); this.cz = f(this.cz);
+    this.mass = f(this.mass); this.half = f(this.half);
+    this.ox = f(this.ox); this.oy = f(this.oy); this.oz = f(this.oz);
+    const k = new Int32Array(cap * 8); k.set(this.kids); this.kids = k;
+    const b = new Int32Array(cap); b.set(this.body); this.body = b;
+  }
+
+  private cell(x: number, y: number, z: number, h: number): number {
+    const i = this.count++;
+    this.grow(this.count);
+    this.ox[i] = x; this.oy[i] = y; this.oz[i] = z; this.half[i] = h;
+    this.cx[i] = 0; this.cy[i] = 0; this.cz[i] = 0; this.mass[i] = 0;
+    this.kids.fill(-1, i * 8, i * 8 + 8);
+    this.body[i] = -1;
+    return i;
+  }
+
+  build(p: Float32Array, n: number) {
+    this.count = 0;
+    let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (let i = 0; i < n; i++) {
+      const x = p[i * 3], y = p[i * 3 + 1], z = p[i * 3 + 2];
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+      if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    }
+    const h = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1) / 2 + 1;
+    const root = this.cell((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2, h);
+    for (let i = 0; i < n; i++) this.insert(root, i, p, 0);
+    this.finish(root, p);
+  }
+
+  private octant(c: number, x: number, y: number, z: number): number {
+    return (x > this.ox[c] ? 1 : 0) | (y > this.oy[c] ? 2 : 0) | (z > this.oz[c] ? 4 : 0);
+  }
+
+  private child(c: number, o: number): number {
+    const h = this.half[c] / 2;
+    return this.cell(
+      this.ox[c] + (o & 1 ? h : -h),
+      this.oy[c] + (o & 2 ? h : -h),
+      this.oz[c] + (o & 4 ? h : -h),
+      h,
+    );
+  }
+
+  private insert(c: number, i: number, p: Float32Array, depth: number) {
+    const x = p[i * 3], y = p[i * 3 + 1], z = p[i * 3 + 2];
+    for (;;) {
+      const m = this.mass[c];
+      this.mass[c] = m + 1;
+      if (m === 0) { this.body[c] = i; return; }
+      // Bodies at (almost) one spot stop splitting: a cell this small keeps them all.
+      if (depth > 24) return;
+      if (this.body[c] >= 0) {
+        const j = this.body[c];
+        this.body[c] = -1;
+        const oj = this.octant(c, p[j * 3], p[j * 3 + 1], p[j * 3 + 2]);
+        const kj = this.child(c, oj);
+        this.kids[c * 8 + oj] = kj;
+        this.mass[kj] = 1;
+        this.body[kj] = j;
+      }
+      const o = this.octant(c, x, y, z);
+      let k = this.kids[c * 8 + o];
+      if (k < 0) { k = this.child(c, o); this.kids[c * 8 + o] = k; }
+      c = k;
+      depth++;
+    }
+  }
+
+  /** Centres of mass, bottom up. */
+  private finish(c: number, p: Float32Array): [number, number, number, number] {
+    const b = this.body[c];
+    if (b >= 0) {
+      this.cx[c] = p[b * 3]; this.cy[c] = p[b * 3 + 1]; this.cz[c] = p[b * 3 + 2];
+      return [this.cx[c], this.cy[c], this.cz[c], this.mass[c]];
+    }
+    let sx = 0, sy = 0, sz = 0, m = 0;
+    for (let o = 0; o < 8; o++) {
+      const k = this.kids[c * 8 + o];
+      if (k < 0) continue;
+      const [x, y, z, km] = this.finish(k, p);
+      sx += x * km; sy += y * km; sz += z * km; m += km;
+    }
+    if (m > 0) { this.cx[c] = sx / m; this.cy[c] = sy / m; this.cz[c] = sz / m; }
+    else { this.cx[c] = this.ox[c]; this.cy[c] = this.oy[c]; this.cz[c] = this.oz[c]; }
+    return [this.cx[c], this.cy[c], this.cz[c], this.mass[c]];
+  }
+}
+
+/**
+ * A layout for `n` nodes. `gen[i]` is a node's generation (up positive), or
+ * NaN for a node with none — it floats free even in the layered mode. `hops`
+ * seeds the start: nearer people start nearer the middle.
+ */
+export function createLayout3d(n: number, edges: LayoutEdge[], gen: Float64Array, hops: Int32Array, seed = 1): Layout3d {
+  const pos = new Float32Array(n * 3);
+  const vel = new Float32Array(n * 3);
+  const force = new Float32Array(n * 3);
+  const rand = rng(seed);
+  const degree = new Int32Array(n);
+  for (const e of edges) { degree[e.a]++; degree[e.b]++; }
+  for (let i = 0; i < n; i++) {
+    // A random direction on a shell whose radius grows with the hop count.
+    const u = rand() * 2 - 1;
+    const th = rand() * Math.PI * 2;
+    const s = Math.sqrt(1 - u * u);
+    const r = LINK * (0.5 + Math.cbrt(hops[i] + 1) * 2) * (0.6 + rand() * 0.8);
+    pos[i * 3] = r * s * Math.cos(th);
+    pos[i * 3 + 1] = Number.isNaN(gen[i]) ? r * u : gen[i] * LAYER;
+    pos[i * 3 + 2] = r * s * Math.sin(th);
+  }
+  let layered = true;
+  let alpha = 1;
+  const tree = new Octree();
+
+  const repel = (i: number) => {
+    const x = pos[i * 3], y = pos[i * 3 + 1], z = pos[i * 3 + 2];
+    let fx = 0, fy = 0, fz = 0;
+    const stack: number[] = [0];
+    while (stack.length) {
+      const c = stack.pop()!;
+      const m = tree.mass[c];
+      if (!m) continue;
+      if (tree.body[c] === i) continue;
+      let dx = x - tree.cx[c], dy = y - tree.cy[c], dz = z - tree.cz[c];
+      let d2 = dx * dx + dy * dy + dz * dz;
+      const size = tree.half[c] * 2;
+      const leaf = tree.body[c] >= 0;
+      if (leaf || size * size < THETA2 * d2) {
+        if (d2 < 1) {
+          // Coincident: nudge apart in a direction of their own.
+          dx = (i % 7) - 3 + 0.5; dy = (i % 5) - 2 + 0.5; dz = (i % 3) - 1 + 0.5;
+          d2 = dx * dx + dy * dy + dz * dz;
+        }
+        const f = (CHARGE * m) / (d2 * Math.sqrt(d2));
+        fx += dx * f; fy += dy * f; fz += dz * f;
+        continue;
+      }
+      for (let o = 0; o < 8; o++) {
+        const k = tree.kids[c * 8 + o];
+        if (k >= 0) stack.push(k);
+      }
+    }
+    force[i * 3] += fx; force[i * 3 + 1] += fy; force[i * 3 + 2] += fz;
+  };
+
+  const step = (): boolean => {
+    if (alpha < ALPHA_MIN || n === 0) return false;
+    force.fill(0);
+    tree.build(pos, n);
+    for (let i = 0; i < n; i++) repel(i);
+    for (const e of edges) {
+      const a = e.a * 3, b = e.b * 3;
+      const dx = pos[b] - pos[a], dy = pos[b + 1] - pos[a + 1], dz = pos[b + 2] - pos[a + 2];
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+      // Split the pull by degree, so a hub with many children is not yanked about.
+      const k = ((d - e.length) / d) * 0.5;
+      const wa = 1 / Math.max(degree[e.a], 1), wb = 1 / Math.max(degree[e.b], 1);
+      force[a] += dx * k * wa * 2; force[a + 1] += dy * k * wa * 2; force[a + 2] += dz * k * wa * 2;
+      force[b] -= dx * k * wb * 2; force[b + 1] -= dy * k * wb * 2; force[b + 2] -= dz * k * wb * 2;
+    }
+    for (let i = 0; i < n; i++) {
+      const j = i * 3;
+      // A weak pull to the middle keeps separate trees in view.
+      force[j] -= pos[j] * 0.002;
+      force[j + 2] -= pos[j + 2] * 0.002;
+      const fixed = layered && !Number.isNaN(gen[i]);
+      if (!fixed) force[j + 1] -= pos[j + 1] * 0.002;
+      for (let d = 0; d < 3; d++) {
+        let v = (vel[j + d] + force[j + d] * alpha) * DAMPING;
+        // Cap the speed, so a far-flung start cannot fling anyone off.
+        if (v > 20) v = 20; else if (v < -20) v = -20;
+        vel[j + d] = v;
+        pos[j + d] += v;
+      }
+      if (fixed) {
+        // Ease the height onto the generation's layer.
+        pos[j + 1] += (gen[i] * LAYER - pos[j + 1]) * 0.3;
+        vel[j + 1] = 0;
+      }
+    }
+    alpha *= ALPHA_DECAY;
+    return true;
+  };
+
+  return {
+    pos,
+    step,
+    reheat: () => { alpha = Math.max(alpha, 0.5); },
+    setLayered: (on) => { layered = on; alpha = Math.max(alpha, 0.5); },
+  };
+}
+
+/** Rest length of a link: a couple sits closer than a parent and child. */
+export function linkLength(kind: "parent" | "couple"): number {
+  return kind === "couple" ? LINK * 0.5 : LINK;
+}
