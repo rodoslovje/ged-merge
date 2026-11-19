@@ -33,7 +33,12 @@ function eventNode(e: PubEvent): GedNode {
   return node(1, e.tag, e.value, sub);
 }
 
-export function hydrateTree(tree: PublishedTree): Dataset {
+/** The name the site gives a person published without one (see the
+ *  `anonymous` living mode): "Living" or "Deceased", in the reader's language
+ *  and, where the language has it, the person's gender. */
+export type NamelessName = (deceased: boolean, sex: string | undefined) => string;
+
+export function hydrateTree(tree: PublishedTree, nameless?: NamelessName): Dataset {
   const famc = new Map<string, string[]>();
   const fams = new Map<string, string[]>();
   const push = (m: Map<string, string[]>, k: string, v: string) => {
@@ -49,9 +54,10 @@ export function hydrateTree(tree: PublishedTree): Dataset {
 
   const records: GedNode[] = [node(0, "HEAD", undefined, [node(1, "GEDC", undefined, [node(2, "VERS", "7.0")])])];
   for (const p of tree.people) {
-    const nameParts = [p.given ?? "", p.surname ? `/${p.surname}/` : ""].filter(Boolean).join(" ");
+    const given = p.given ?? (p.living && !p.surname && nameless ? nameless(!!p.deceased, p.sex) : undefined);
+    const nameParts = [given ?? "", p.surname ? `/${p.surname}/` : ""].filter(Boolean).join(" ");
     const nameSub: GedNode[] = [];
-    if (p.given) nameSub.push(node(2, "GIVN", p.given));
+    if (given) nameSub.push(node(2, "GIVN", given));
     if (p.surname) nameSub.push(node(2, "SURN", p.surname));
     const children: GedNode[] = [node(1, "NAME", nameParts, nameSub)];
     for (const m of p.married ?? []) children.push(node(1, "NAME", `/${m}/`, [node(2, "TYPE", "married"), node(2, "SURN", m)]));
