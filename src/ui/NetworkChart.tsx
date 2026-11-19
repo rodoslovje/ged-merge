@@ -549,18 +549,38 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     const i = hitTest(x, y);
     if (i !== null && graph.nodes[i].id !== rootId) onRootChange(graph.nodes[i].id);
   };
-  // Wheel zoom toward the pointer would need the inverse projection; the
-  // centre is enough for a prototype. Bound natively: React's wheel is passive.
+  // The wheel as on the other charts: a plain wheel or a touchpad's two-finger
+  // scroll moves the chart, Ctrl/⌘ + wheel and a touchpad pinch (which the
+  // browser sends as ctrl + wheel) zoom toward the pointer. Bound natively:
+  // React's wheel is passive, and the page must not zoom or scroll instead.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      zoomTo(cam.current.zoom * Math.exp(-e.deltaY * 0.0015));
+      // Lines and pages to pixels, so a mouse notch and a touchpad tick agree.
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? canvas.clientHeight : 1;
+      const c = cam.current;
+      if (e.ctrlKey || e.metaKey) {
+        const k = Math.min(Math.max(Math.exp(-e.deltaY * unit * 0.01), 0.5), 2);
+        const target = Math.min(Math.max(c.zoom * k, 0.2), 40);
+        // A point's offset from the view's origin grows with the zoom: pan so
+        // the point under the pointer stays under it.
+        const rect = canvas.getBoundingClientRect();
+        const px = e.clientX - rect.left, py = e.clientY - rect.top;
+        const f = target / c.zoom;
+        c.panX = px - canvas.clientWidth / 2 - (px - canvas.clientWidth / 2 - c.panX) * f;
+        c.panY = py - canvas.clientHeight / 2 - (py - canvas.clientHeight / 2 - c.panY) * f;
+        zoomTo(target);
+      } else {
+        c.panX -= e.deltaX * unit;
+        c.panY -= e.deltaY * unit;
+        redraw();
+      }
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
-  }, [zoomTo]);
+  }, [zoomTo, redraw]);
   // Fit: back to the starting angle, the whole cloud in view.
   const fitView = () => {
     cam.current = { yaw: 0.6, pitch: 0.25, zoom: 1, panX: 0, panY: 0 };
