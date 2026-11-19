@@ -698,9 +698,9 @@ vidijo sorodniki.
 **Podatki:** `rodbina-renko-foto.ged` — `rodbina-renko.ged` s fotografijami iz epizode 12, že
 povezanimi z istimi osebami in z istimi območji obrazov kot v avtorjevi datoteki. Fotografije so
 iz avtorjeve mape medijev (kot v epizodi 12, samo umrli in avtorjeva starša). Žive osebe so
-prikazane z začetnicami; fotografija z živo osebo se ne objavi, zato poročna in družinska fotografija ter portret Petra Jekovca (u. 2023) na stran ne
+objavljene samo kot »živ« ali »živa«; fotografija z živo osebo se ne objavi, zato poročna in družinska fotografija ter portret Petra Jekovca (u. 2023) na stran ne
 pridejo. Številke (preverjeno 19. 11. 2026): krvni sorodniki Franca Renka (1901–1964) z zakonci
-288 oseb in 97 družin; živih z začetnicami 36; fotografij na strani 4, izpuščenih 5.
+288 oseb in 97 družin; živih, objavljenih kot »živ«/»živa«, 36; fotografij na strani 4, izpuščenih 5.
 Izvedba in govor: `scripts/publish.ts` (ZIP se razpakira v `videos/.cache/site` in postreže na
 vratih 5299). · **Trajanje:** ~4 min
 **Naslovna slika:** oznaka »Spletna stran« · »Drevo za *vse* sorodnike« · posnetek začetne strani
@@ -715,8 +715,8 @@ s trakom obrazov in naslovno fotografijo.
 | 5 | »Naslov te strani«, »Iskalniki smejo indeksirati spletno stran« | Iskalnike stran prosi, naj je ne vključijo. |
 | 6 | »Izhodiščna oseba« → Franc Renko (1901) | Izhodiščna oseba v programu je živa, zato za izhodišče strani izberemo Franca Renka. |
 | 7 | »Koga objavim« → »Krvne sorodnike« + »Skupaj z zakonci in partnerji«, povzetek | Povzetek sproti pove, koliko oseb in družin bo na strani. |
-| 8 | »Žive osebe«: pregled izbir → »Samo začetnice« | Povezave med sorodniki ostanejo, imena živih se ne objavijo. |
-| 9 | »Prikrij tudi osebe, umrle v zadnjih 20 letih« | Toliko let zahteva slovenski zakon o varstvu osebnih podatkov; zasebne osebe nikoli. |
+| 8 | »Žive osebe«: pregled izbir → »Samo to, da obstaja (»živ«, »živa«)« | Na strani je živa oseba zapisana kot »živ« ali »živa«, povezave med sorodniki ostanejo. |
+| 9 | »Prikrij tudi osebe, umrle v zadnjih 20 letih« | Na strani so zapisane kot »pokojen« ali »pokojna«; toliko let zahteva slovenski zakon o varstvu osebnih podatkov; zasebne osebe nikoli. |
 | 10 | »Objavi tudi« → »Vire«; »Opombe« in »Naslove« ne | Viri vodijo do matičnih knjig; v opombah so lahko osebne stvari, ki jih ne želite deliti; brez naslovov se dogodek na hišnem naslovu prikaže pri naselju. |
 | 11 | »Fotografije« → »Fotografije po mapah«: family → »Strani oseb« | Pri vsaki mapi določite, kam gredo njene fotografije. |
 | 12 | Vrstica »Fotografije: 4 · izpuščene zaradi skrite osebe na njih: 5« | Poročne fotografije Edvarda in Cvetke Renko na strani ne bo. |

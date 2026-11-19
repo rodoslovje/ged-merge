@@ -117,7 +117,7 @@ const group = (d: Director, legend: Text) =>
   panel(d).locator(".tools-privacy-group").filter({ has: d.page.locator(".tools-privacy-legend", { hasText: d.t(legend) }) }).first();
 /** A radio or checkbox of the panel by its label. */
 const choice = (d: Director, label: Text) =>
-  panel(d).locator(".tools-norm-check").filter({ hasText: new RegExp(`^${d.t(label)}$`) }).first();
+  panel(d).locator(".tools-norm-check").filter({ hasText: new RegExp("^" + d.t(label).replace(/[.*+?^$(){}|[\]\\]/g, "\\$&") + "$") }).first();
 const summary = (d: Director) => panel(d).locator(".tools-privacy-group").filter({ has: d.page.locator(".tools-summary") }).last();
 
 const LIVING: Text = { sl: "Žive osebe", en: "Living people" };
@@ -277,8 +277,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Žive osebe", en: "Living people" },
       say: {
-        sl: "Najpomembnejša izbira so žive osebe. Lahko jih izpustite ali pa jih pokažete z vsemi podatki, z imenom in priimkom, samo z imenom ali samo z začetnicami. Izberimo začetnice: povezave med sorodniki ostanejo, imena živih pa se ne objavijo.",
-        en: "The most important choice is living people. You can leave them out, or show them with all their details, with their full name, given name only or initials only. Let's take initials: the links between relatives stay, and living people's names are not published.",
+        sl: "Najpomembnejša izbira so žive osebe. Lahko jih izpustite ali pa jih pokažete z vsemi podatki, z imenom in priimkom, samo z imenom ali samo z začetnicami. Najmanj o njih pove izbira, ki objavi samo to, da oseba obstaja. Na strani je taka oseba zapisana kot »živ« ali »živa«, povezave med sorodniki pa ostanejo.",
+        en: "The most important choice is living people. You can leave them out, or show them with all their details, with their full name, given name only or initials only. The least is told by the choice that publishes only that the person exists. On the site, such a person reads as Living, and the links between relatives stay.",
       },
       run: async (d) => {
         const living = group(d, LIVING);
@@ -294,15 +294,15 @@ const scenario: Scenario = {
           await d.point(choice(d, m), 600);
           await d.wait(700);
         }
-        await d.untilSaid(3);
-        await d.click(choice(d, { sl: "Samo začetnice", en: "Initials only" }));
+        await d.untilSaid(5.5);
+        await d.click(choice(d, { sl: "Samo to, da obstaja (»živ«, »živa«)", en: "Only that they exist (“Living”)" }));
         await d.highlight(null);
       },
     },
     {
       say: {
-        sl: "Osebe, ki so umrle v zadnjih 20 letih, štejejo enako kot žive. Toliko let zahteva slovenski zakon o varstvu osebnih podatkov, število pa lahko spremenite. Osebe, označene kot zasebne, se ne objavijo nikoli.",
-        en: "People who died in the last 20 years count as living. That is what Slovenia's data protection act requires, and you can change the number. People marked private are never published.",
+        sl: "Osebe, ki so umrle v zadnjih 20 letih, štejejo enako kot žive, na strani pa so zapisane kot »pokojen« ali »pokojna«. Toliko let zahteva slovenski zakon o varstvu osebnih podatkov, število pa lahko spremenite. Osebe, označene kot zasebne, se ne objavijo nikoli.",
+        en: "People who died in the last 20 years count as living, and the site shows them as Deceased. That is what Slovenia's data protection act requires, and you can change the number. People marked private are never published.",
       },
       run: async (d) => {
         await d.highlight(group(d, LIVING).locator(".tools-publish-recent"), 6);
@@ -512,8 +512,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Stran osebe", en: "A person's page" },
       say: {
-        sl: "Vsaka oseba ima svojo stran z dogodki, viri, fotografijami in sorodniki. Žive osebe so prikazane samo z začetnicami.",
-        en: "Every person has a page of their own, with events, sources, photos and relatives. Living people show by their initials only.",
+        sl: "Vsaka oseba ima svojo stran z dogodki, viri, fotografijami in sorodniki. Žive osebe so zapisane samo kot »živ« ali »živa«.",
+        en: "Every person has a page of their own, with events, sources, photos and relatives. Living people show only as Living.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".site-start a, .site-start button").first());
