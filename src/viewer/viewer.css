@@ -567,7 +567,7 @@
 }
 .site-week-list li {
   display: grid;
-  grid-template-columns: minmax(12ch, max-content) 1.25em max-content minmax(0, 1fr);
+  grid-template-columns: 7ch minmax(0, 1fr);
   align-items: baseline;
   gap: 0 10px;
   padding: 6px 0;
@@ -581,20 +581,20 @@
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
+.site-week-people {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+}
+.site-week-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
 .site-week-glyph {
   color: var(--muted);
-  text-align: center;
-}
-.site-week-what {
-  color: var(--muted);
-}
-@media (max-width: 560px) {
-  .site-week-list li {
-    grid-template-columns: 1.25em max-content minmax(0, 1fr);
-  }
-  .site-week-date {
-    grid-column: 1 / -1;
-  }
+  cursor: help;
 }
 /* More statistics: a quiet pill button. */
 .app.site .site-more {
