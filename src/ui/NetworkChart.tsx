@@ -14,6 +14,9 @@ import { ChartSettings } from "./ChartSettings";
 import { ChartLegend } from "./ChartLegend";
 import { ZoomControls } from "./ZoomControls";
 import { ChartFindBox } from "./ChartFindBox";
+import { TreeNodePanel } from "./TreeNodePanel";
+import { individualFieldRows } from "../review/fields";
+import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useNodeColorer } from "./useNodeColorer";
@@ -57,7 +60,7 @@ interface Camera {
   panY: number;
 }
 
-export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, onRootChange, kindSwitcher }: Props) {
+export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNavigate, onRootChange, kindSwitcher }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
   const nameOf = useNameOf();
@@ -70,7 +73,19 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
 
   useChartShortcuts({ onLeave: onBack });
 
-  const graph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, Infinity), [mainDs, rootId, scope]);
+  // The shared Generations setting limits how far the walk goes up and down
+  // from the root. The whole graph is walked once to learn how many there are
+  // (the stepper's "of N"); a limit below that walks again, stopping there.
+  const fullGraph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, Infinity), [mainDs, rootId, scope]);
+  const depth = useMemo(
+    () => fullGraph.nodes.reduce((m, nd) => (nd.pos ? Math.max(m, Math.abs(nd.pos.gen)) : m), 0),
+    [fullGraph],
+  );
+  const maxGen = settings.maxGenerations;
+  const graph = useMemo(
+    () => (maxGen === null || maxGen >= depth ? fullGraph : buildFamilyGraph(mainDs, rootId, scope, Infinity, maxGen)),
+    [fullGraph, depth, maxGen, mainDs, rootId, scope],
+  );
   useEffect(() => setSelected(null), [graph]);
 
   // ─── Colour ───────────────────────────────────────────────────────────────
@@ -611,6 +626,19 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   const root = mainDs.individuals.get(rootId);
   const pageKind = t("network.title");
   const sel = selected !== null ? graph.nodes[selected] : undefined;
+  const selectedRows = useMemo(
+    () => (sel ? individualFieldRows(t, sel.indi, undefined, mainDs) : []),
+    [t, sel, mainDs],
+  );
+  // A relative's link in the panel re-roots the chart on them, as elsewhere.
+  const mainNav = useMemo(
+    () => ({
+      linkable: (id: string) => mainDs.individuals.has(id),
+      onNavigate: (id: string) => { onRootChange(id); setSelected(null); },
+    }),
+    [mainDs, onRootChange],
+  );
+  const kinship = useMemo(() => (startId ? createKinshipResolver(mainDs, startId, t) : undefined), [mainDs, startId, t]);
   const yearsOf = (i: number) => (redacted(i) ? "" : lifespanOf(graph.nodes[i].indi));
   const categoryLabel = (i: number) => {
     const c = categories[i];
@@ -622,7 +650,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
       backLabel={backLabel}
       onBack={onBack}
       title={root ? <ChartRootTitle name={nameOf(root)} sexCls={sexClass(root.sex)} years={lifespanOf(root)} kind={pageKind} /> : pageKind}
-      actions={<ChartSettings lockedType="network" />}
+      actions={<ChartSettings lockedType="network" availableGenerations={depth} />}
       controlsLeft={
         <>
           {kindSwitcher}
@@ -670,19 +698,25 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
           </div>
         )}
         {sel && selected !== null && (
-          <div className="network-panel">
-            <div>
-              <span className={`person-name ${sexClass(sel.indi.sex)}`}>{nameAt(selected)}</span>
-              {yearsOf(selected) && <span className="network-years"> {yearsOf(selected)}</span>}
-            </div>
-            {categoryLabel(selected) && <div className="network-cat">{categoryLabel(selected)}</div>}
-            <div className="network-panel-actions">
-              {sel.id !== rootId && (
-                <button type="button" className="tree-open-btn" onClick={() => onRootChange(sel.id)}>{t("network.reroot")}</button>
-              )}
-              <button type="button" className="tree-open-btn" onClick={() => onNavigate(sel.id)}>{t("network.open")}</button>
-            </div>
-          </div>
+          // The person panel every other chart opens on a click.
+          <TreeNodePanel
+            node={{ name: nameAt(selected), years: yearsOf(selected), sex: sel.indi.sex }}
+            personId={sel.id}
+            swatch={colors.fill[selected]}
+            rows={selectedRows}
+            mainPerson={mainNav}
+            mainLabel={t("tree.main")}
+            singleColumn
+            kinship={settings.showKinship && startId && startId !== sel.id ? kinship?.label(sel.id) : undefined}
+            kinshipLineage={lineageClass(kinship?.lineage(sel.id), kinship?.direct(sel.id))}
+            onClose={() => setSelected(null)}
+            onSetRoot={() => { onRootChange(sel.id); setSelected(null); }}
+            extraActions={
+              <button className="nav-btn tree-compare-root" onClick={() => onNavigate(sel.id)}>
+                {t("relpath.openInEdit")}
+              </button>
+            }
+          />
         )}
         {progress !== null && (
           <div className="network-progress" role="status">{t("network.progress", { pct: Math.round(progress * 100) })}</div>

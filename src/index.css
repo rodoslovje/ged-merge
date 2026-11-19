@@ -6586,32 +6586,18 @@ input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(-
 }
 .network-count { top: 8px; }
 .network-help { bottom: calc(var(--chart-legend-h, 0px) + 8px); }
-.network-hover,
-.network-panel {
+.network-hover {
   position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  max-width: 300px;
   padding: 6px 10px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
-}
-.network-hover {
-  z-index: 4;
-  pointer-events: none;
-  max-width: 300px;
   font-size: 0.85rem;
 }
-.network-panel {
-  top: 8px;
-  right: 10px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 280px;
-  font-size: 0.9rem;
-}
-.network-panel-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .network-progress {
   position: absolute;
   top: 50%;

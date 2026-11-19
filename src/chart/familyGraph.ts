@@ -94,8 +94,9 @@ function neighbours(ds: Dataset, indi: Individual, out: { id: string; dGen: numb
   }
 }
 
-/** The people around `rootId`, at most `limit` of them. */
-export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope, limit: number): FamilyGraph {
+/** The people around `rootId`, at most `limit` of them, none more than
+ *  `maxGen` generations above or below where their walk started. */
+export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope, limit: number, maxGen = Infinity): FamilyGraph {
   const index = new Map<string, number>();
   const nodes: GraphNode[] = [];
   const lines: GraphLine[] = [];
@@ -143,6 +144,9 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
       neighbours(ds, indi, near);
       for (const n of near) {
         if (seen.has(n.id) || index.has(n.id) && tree > 0 || blood && !blood.has(n.id)) continue;
+        // Past the generation limit the walk stops: no one beyond it is drawn,
+        // and no one is reached through them.
+        if (Math.abs(cur.gen + n.dGen) > maxGen) continue;
         seen.add(n.id);
         let branch = cur.branch;
         let role: Step["role"] = "other";

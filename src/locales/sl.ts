@@ -2966,8 +2966,6 @@ export const sl = {
   "network.layout.layered": "Po rodovih",
   "network.layout.free": "Prosta",
   "network.spin": "Vrti",
-  "network.reroot": "Postavi to osebo v središče",
-  "network.open": "Odpri v Urejanju",
   "network.line.spouse": "Partnerjeva družina",
   "network.count": "Osebe: {{shown}} · povezave: {{links}}",
   "network.progress": "Razporejanje oseb … {{pct}} %",

@@ -2684,8 +2684,6 @@ export const en = {
   "network.layout.layered": "By generation",
   "network.layout.free": "Free",
   "network.spin": "Rotate",
-  "network.reroot": "Centre on this person",
-  "network.open": "Open in Edit",
   "network.line.spouse": "Partner's family",
   "network.count": "People: {{shown}} · links: {{links}}",
   "network.progress": "Arranging the people… {{pct}}%",

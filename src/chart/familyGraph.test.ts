@@ -63,6 +63,16 @@ describe("buildFamilyGraph", () => {
     expect(g.families).toHaveLength(4);
   });
 
+  it("stops the walk at the generation limit", () => {
+    // One generation: parents, partner, partner's father — no grandparents,
+    // so no uncle or cousin either.
+    const g = buildFamilyGraph(ds, "@R@", "connected", 100, 1);
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(["@F@", "@M@", "@R@", "@S@", "@SF@"]);
+    // Two: the grandparents, and the cousin through them (generation 0).
+    const two = buildFamilyGraph(ds, "@R@", "connected", 100, 2);
+    expect(two.nodes.some((n) => n.id === "@C@")).toBe(true);
+  });
+
   it("adds the file's other trees, without a position", () => {
     const g = buildFamilyGraph(ds, "@R@", "file", 100);
     expect(g.nodes).toHaveLength(13);
