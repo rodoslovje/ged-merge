@@ -779,7 +779,7 @@ describe("validateDataset", () => {
 
   it("reports every detached group, however large, on its youngest", () => {
     // Main tree of 14 (I1–I14), a detached branch of 11 (I101–I111) and a
-    // stray group of 3 (I201–I203) — smallest first.
+    // stray group of 3 (I201–I203) — largest first.
     const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(2, 101, 9)}${family(3, 201, 1)}0 TRLR`);
     const report = validateDataset(ds, 2026);
     const found = report.issues.filter((i) => i.category === "island");
@@ -792,6 +792,13 @@ describe("validateDataset", () => {
     const bare = validateDataset(undated, 2026).issues.find((i) => i.category === "island");
     expect(bare?.messageKey).toBe("tools.validate.issue.island");
     expect(bare?.messageVars?.years).toBeUndefined();
+  });
+
+  it("lists detached branches largest first, whatever their names", () => {
+    // By name the 3-person group (P203) would come before the 11-person one (P311).
+    const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(3, 201, 1)}${family(2, 301, 9)}0 TRLR`);
+    const found = validateDataset(ds, 2026).issues.filter((i) => i.category === "island");
+    expect(found.map((i) => [i.id, i.messageVars?.count])).toEqual([["@I311@", 11], ["@I203@", 3]]);
   });
 
   it("takes the start person's group as the main tree", () => {
