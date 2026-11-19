@@ -357,6 +357,42 @@ export function branchOf(ds: Dataset, personId: string): string[] {
   return start ? groupOf(ds, start, new Set()).map((indi) => indi.id) : [];
 }
 
+/** A dated event's year, in a calendar whose years count like ours. */
+function eventYear(e: GedEvent): number | undefined {
+  const d = e.date;
+  if (d?.year === undefined) return undefined;
+  return !d.calendar || d.calendar === "GREGORIAN" || d.calendar === "JULIAN" ? d.year : undefined;
+}
+
+/**
+ * The years a group's records span — its earliest and latest dated event,
+ * the people's own and their families' — as `1618–1736`, a single year when
+ * they agree, or undefined when nothing in it is dated.
+ */
+export function groupYears(ds: Dataset, group: Individual[]): string | undefined {
+  let min = Infinity;
+  let max = -Infinity;
+  const see = (events: GedEvent[]) => {
+    for (const e of events) {
+      const y = eventYear(e);
+      if (y === undefined) continue;
+      if (y < min) min = y;
+      if (y > max) max = y;
+    }
+  };
+  const fams = new Set<string>();
+  for (const indi of group) {
+    see(indi.events);
+    for (const id of indi.spouseOf) fams.add(id);
+  }
+  for (const id of fams) {
+    const fam = ds.families.get(id);
+    if (fam) see(fam.events);
+  }
+  if (min > max) return undefined;
+  return min === max ? String(min) : `${min}–${max}`;
+}
+
 /**
  * The island member to report the finding on: the youngest, by birth year —
  * the one most likely to reach a living branch, and so the best place to start
@@ -1003,10 +1039,12 @@ export function validateDataset(
   // where the search for the missing link starts.
   for (const group of findIslands(ds, startId)) {
     const person = youngestOf(group);
+    const years = groupYears(ds, group);
     push({
       scope: "individual", id: person.id, category: "island", severity: "warning",
-      subject: subjectOf(person), sexContext: sexOf(person), messageKey: "tools.validate.issue.island",
-      messageVars: { count: group.length },
+      subject: subjectOf(person), sexContext: sexOf(person),
+      messageKey: years ? "tools.validate.issue.islandYears" : "tools.validate.issue.island",
+      messageVars: { count: group.length, ...(years ? { years } : {}) },
     });
   }
 

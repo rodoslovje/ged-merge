@@ -709,6 +709,9 @@ describe("validateDataset", () => {
     expect(report.counts.island).toBe(1);
     expect(issue?.id).toBe("@I7@"); // the youngest of the detached three
     expect(issue?.messageVars?.count).toBe(3);
+    // The branch's dated events span 1900–1930.
+    expect(issue?.messageKey).toBe("tools.validate.issue.islandYears");
+    expect(issue?.messageVars?.years).toBe("1900–1930");
     // The lone individual stays an orphan; the main tree is nobody's island.
     expect(report.issues.filter((i) => i.category === "orphan").map((i) => i.id)).toEqual(["@I8@"]);
   });
@@ -780,10 +783,15 @@ describe("validateDataset", () => {
     const ds = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}${family(2, 101, 9)}${family(3, 201, 1)}0 TRLR`);
     const report = validateDataset(ds, 2026);
     const found = report.issues.filter((i) => i.category === "island");
-    expect(found.map((i) => [i.id, i.severity, i.messageVars?.count])).toEqual([
-      ["@I111@", "warning", 11],
-      ["@I203@", "warning", 3],
+    expect(found.map((i) => [i.id, i.severity, i.messageVars?.count, i.messageVars?.years])).toEqual([
+      ["@I111@", "warning", 11, "1950–1958"],
+      ["@I203@", "warning", 3, "1950"],
     ]);
+    // A branch with no dated event says so by leaving the years out.
+    const undated = dataset(`0 HEAD\n1 CHAR UTF-8\n${family(1, 1, 12)}0 @I301@ INDI\n1 FAMS @F9@\n0 @I302@ INDI\n1 FAMC @F9@\n0 @F9@ FAM\n1 HUSB @I301@\n1 CHIL @I302@\n0 TRLR`);
+    const bare = validateDataset(undated, 2026).issues.find((i) => i.category === "island");
+    expect(bare?.messageKey).toBe("tools.validate.issue.island");
+    expect(bare?.messageVars?.years).toBeUndefined();
   });
 
   it("takes the start person's group as the main tree", () => {

@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
+import { zipEntries } from "../src/geo/zip";
 
 // Tools → Health check → Detached branches: a branch's row downloads the whole
 // branch as a GEDCOM file, and removes it from the file after a confirmation
@@ -19,10 +20,14 @@ writeFileSync(FILE, [
   "0 @I5@ INDI", "1 NAME Franc /Kos/", "1 SEX M", "1 BIRT", "2 DATE 1900", "2 SOUR @S1@", "1 FAMS @F2@",
   "0 @I6@ INDI", "1 NAME Neža /Kos/", "1 SEX F", "1 BIRT", "2 DATE 1902", "1 FAMS @F2@",
   "0 @I7@ INDI", "1 NAME Pavel /Kos/", "1 SEX M", "1 BIRT", "2 DATE 1930", "1 FAMC @F2@",
+  // A second detached branch.
+  "0 @I9@ INDI", "1 NAME Lojze /Bizjak/", "1 SEX M", "1 FAMS @F3@",
+  "0 @I10@ INDI", "1 NAME Rezka /Bizjak/", "1 SEX F", "1 BIRT", "2 DATE 1925", "1 FAMC @F3@",
   // A person linked to nobody, with a note of their own.
   "0 @I8@ INDI", "1 NAME Sam /Samec/", "1 NOTE @N1@",
   "0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@", "1 CHIL @I3@", "1 CHIL @I4@",
   "0 @F2@ FAM", "1 HUSB @I5@", "1 WIFE @I6@", "1 CHIL @I7@",
+  "0 @F3@ FAM", "1 HUSB @I9@", "1 CHIL @I10@",
   "0 @S1@ SOUR", "1 TITL Kos letters",
   "0 @N1@ NOTE Sam's note",
   "0 TRLR", "",
@@ -42,10 +47,11 @@ async function openBranches(page: Page) {
 
 test("a detached branch downloads as a GEDCOM file of its own", async ({ page }) => {
   const row = await openBranches(page);
+  await expect(row).toContainText("people in the branch: 3, years: 1900–1930");
   const dl = page.waitForEvent("download");
   await row.getByRole("button", { name: "Download this branch as a GEDCOM file" }).click();
   const download = await dl;
-  expect(download.suggestedFilename()).toMatch(/^Pavel-Kos-branch\.ged$/);
+  expect(download.suggestedFilename()).toBe("Kos-Pavel-1900-1930-branch.ged");
   const text = readFileSync((await download.path())!, "utf-8");
   for (const name of ["Franc /Kos/", "Neža /Kos/", "Pavel /Kos/", "Kos letters"]) expect(text).toContain(name);
   expect(text).not.toContain("Novak");
@@ -59,7 +65,8 @@ test("removing a detached branch says what goes and takes it out of the file", a
   await expect(dialog).toContainText("families: 1");
   await expect(dialog).toContainText("sources cited nowhere else: 1");
   await dialog.getByRole("button", { name: "Remove branch" }).click();
-  await expect(chip(page, "Detached branches")).toHaveCount(0);
+  await expect(page.locator(".tools-issue", { hasText: "Pavel" })).toHaveCount(0);
+  await expect(page.locator(".tools-issue", { hasText: "Rezka" })).toBeVisible();
 
   await page.locator(".app-head-actions .export-btn").click();
   const ged = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
@@ -81,4 +88,37 @@ test("a disconnected person is deleted from their row, with the note only they u
   await dialog.getByRole("button", { name: "Delete" }).click();
   await expect(chip(page, "Disconnected people")).toHaveCount(0);
   await expect(chip(page, "Detached branches")).toBeVisible();
+});
+
+test("picked branches download together, each in its own file, and go in one removal", async ({ page }) => {
+  await openBranches(page);
+  await page.getByRole("button", { name: "Select all (2)" }).click();
+
+  const one = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download in one file (2)" }).click();
+  const merged = readFileSync((await (await one).path())!, "utf-8");
+  for (const name of ["Pavel /Kos/", "Rezka /Bizjak/", "Kos letters"]) expect(merged).toContain(name);
+  expect(merged).not.toContain("Novak");
+
+  const zip = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download each branch as its own file (ZIP, 2)" }).click();
+  const download = await zip;
+  expect(download.suggestedFilename()).toBe("detached-branches.zip");
+  const bytes = readFileSync((await download.path())!);
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const entries = zipEntries(buffer);
+  expect(entries.map((e) => e.name).sort()).toEqual(["Bizjak-Rezka-1925-branch.ged", "Kos-Pavel-1900-1930-branch.ged"]);
+  const kos = entries.find((e) => e.name.startsWith("Kos"))!;
+  const kosText = new TextDecoder().decode(new Uint8Array(buffer, kos.dataStart, kos.compressedSize));
+  expect(kosText).toContain("Kos letters");
+  expect(kosText).not.toContain("Bizjak");
+
+  await page.getByRole("button", { name: "Remove selected (2)" }).click();
+  const dialog = page.locator(".confirm-dialog");
+  await expect(dialog).toContainText("Remove all selected branches (2)?");
+  await expect(dialog).toContainText("people: 5");
+  await expect(dialog).toContainText("families: 2");
+  await dialog.getByRole("button", { name: "Remove selected (2)" }).click();
+  await expect(chip(page, "Detached branches")).toHaveCount(0);
+  await expect(chip(page, "Disconnected people")).toBeVisible();
 });

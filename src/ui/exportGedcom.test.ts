@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { validateConformance } from "../tools/conformance/conformance";
-import { branchGedcomText } from "./exportGedcom";
+import { zipEntries } from "../geo/zip";
+import { branchGedcomText, branchesZip } from "./exportGedcom";
 
 const load = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
 
@@ -52,4 +53,23 @@ describe("branchGedcomText — a chart's branch file", () => {
       expect(load(out).version).toBe(from);
     });
   }
+});
+
+describe("branchesZip — every branch in its own file", () => {
+  it("packs one valid GEDCOM per branch, with clashing names numbered", () => {
+    const ds = load(FILE("5.5.1"));
+    const zip = branchesZip(ds, [
+      { ids: ["@I1@", "@I2@"], slug: "novak" },
+      { ids: ["@I1@", "@I3@"], slug: "novak" },
+    ], { strict: true, version: "7.0" });
+    const entries = zipEntries(zip.buffer);
+    expect(entries.map((e) => e.name)).toEqual(["novak.ged", "novak-2.ged"]);
+    for (const e of entries) {
+      expect(e.method).toBe(0);
+      const text = new TextDecoder().decode(zip.subarray(e.dataStart, e.dataStart + e.compressedSize));
+      const back = load(text);
+      expect(back.individuals.size).toBe(2);
+      expect(validateConformance(back)).toEqual([]);
+    }
+  });
 });
