@@ -24,6 +24,7 @@ import { ChangeJournal } from "../state/mainSync";
 import { DATA_ELEMENT_ID, DATA_GLOBAL } from "../publish/page";
 import { unpackTree, type PackedTree } from "../publish/pack";
 import { PUBLISHED_FORMAT, type PublishedTree } from "../publish/model";
+import { useTranslation } from "react-i18next";
 import { hydrateTree, pubId, xrefOf } from "../publish/hydrate";
 import { routeHash } from "./route";
 import { ViewerApp } from "./ViewerApp";
@@ -55,7 +56,14 @@ function startLanguage(tree: PublishedTree): string {
 }
 
 function Site({ tree }: { tree: PublishedTree }) {
-  const ds = useMemo(() => hydrateTree(tree), [tree]);
+  const { t, i18n } = useTranslation();
+  // Rebuilt when the reader switches language: the nameless are named in it.
+  const ds = useMemo(
+    () => hydrateTree(tree, (deceased, sex) =>
+      t(deceased ? "site.deceasedPerson" : "site.livingPerson", { context: sex === "M" || sex === "F" ? sex : undefined })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t follows i18n.language
+    [tree, i18n.language],
+  );
   const changes = useMemo(() => new ChangeJournal(), []);
   const view = useMemo<PublishedView>(() => ({
     exports: !!tree.exports,

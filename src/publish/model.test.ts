@@ -168,6 +168,19 @@ describe("buildPublishedTree", () => {
     expect(back.events).toEqual([{ tag: "DEAT", value: "Y" }]);
   });
 
+  it("keeps only that a living person exists, and their sex", () => {
+    const { tree } = build({ living: "anonymous" });
+    const living = tree.people.filter((p) => p.living);
+    expect(living).toHaveLength(2);
+    for (const p of living) expect(p).toEqual({ id: p.id, sex: p.sex, living: true });
+    // The site names them itself, by gender and whether they are known dead.
+    const recent = dataset(SAMPLE.replace("1 DEAT\n2 DATE 1999", "1 DEAT\n2 DATE 2010"));
+    const named = buildPublishedTree(recent, opts({ living: "anonymous", recentDeathYears: 20 }), "@I1@", NOW).tree;
+    const back = hydrateTree(named, (dead, sex) => `${dead ? "dead" : "alive"}-${sex}`);
+    const given = [...back.individuals.values()].map((i) => i.names[0]?.given).filter((g) => g?.includes("-")).sort();
+    expect(given).toEqual(["alive-F", "alive-F", "dead-F"]);
+  });
+
   it("keeps a living person's given name only", () => {
     const { tree } = build({ living: "given" });
     expect(byName(tree, "Ana")).toEqual({ id: byName(tree, "Ana")!.id, given: "Ana", sex: "F", living: true });
