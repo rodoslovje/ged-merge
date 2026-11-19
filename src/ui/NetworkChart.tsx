@@ -5,9 +5,10 @@ import { buildFamilyGraph, SPOUSE_LINE, type GraphScope } from "../chart/familyG
 import { createLayout3d, linkLength } from "../chart/forceLayout3d";
 import { lineColor, paletteColor, type BranchInfo } from "../chart/nodeColor";
 import { livingLabelFor } from "../chart/nodeDisplay";
-import { isPresumedLiving } from "../gedcom/lifespan";
-import { lifespanLabel } from "../match/relatives";
+import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
+
 import { ChartPage } from "./ChartPage";
+import { ChartRootTitle } from "./ChartRootTitle";
 import { ChartSettings } from "./ChartSettings";
 import { ChartLegend } from "./ChartLegend";
 import { useChartSettings } from "./ChartSettingsContext";
@@ -92,16 +93,20 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     });
 
   // The colours are CSS (theme variables, oklch); the canvas needs them
-  // resolved. A hidden probe element computes each one once per theme.
-  const probeRef = useRef<HTMLSpanElement>(null);
+  // resolved. A probe element in the document computes each one once per theme
+  // (made here, not rendered: a rendered ref is not attached yet on the first
+  // pass, and every colour would come out unresolved).
   const colors = useMemo(() => {
-    const probe = probeRef.current;
+    const probe = document.createElement("span");
+    probe.hidden = true;
+    document.body.appendChild(probe);
     const cache = new Map<string, string>();
     const resolve = (css: string) => {
       let c = cache.get(css);
       if (c === undefined) {
-        if (probe) { probe.style.color = ""; probe.style.color = css; c = getComputedStyle(probe).color; }
-        else c = "#888";
+        probe.style.color = "";
+        probe.style.color = css;
+        c = getComputedStyle(probe).color;
         cache.set(css, c);
       }
       return c;
@@ -112,7 +117,9 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     });
     // theme is a dependency: the variables change with it.
     void theme;
-    return { fill, line: resolve("var(--muted)"), accent: resolve("var(--accent)"), text: resolve("var(--text)"), panel: resolve("var(--panel)") };
+    const out = { fill, line: resolve("var(--muted)"), accent: resolve("var(--accent)"), text: resolve("var(--text)"), panel: resolve("var(--panel)") };
+    probe.remove();
+    return out;
   }, [graph, colorer, categories, theme]);
 
   const shownMask = useMemo(() => {
@@ -195,7 +202,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
       const { cx, cy, cz, r } = fit.current;
       const c = cam.current;
       const cyw = Math.cos(c.yaw), syw = Math.sin(c.yaw), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
-      const scale = (Math.min(w, h) / (2.2 * r)) * c.zoom;
+      const scale = (Math.min(w, h) / (1.7 * r)) * c.zoom;
       const D = r * 3;
       const ox = w / 2 + c.panX, oy = h / 2 + c.panY;
       if (proj.current.sx.length !== n) proj.current = { sx: new Float32Array(n), sy: new Float32Array(n), sr: new Float32Array(n) };
@@ -407,7 +414,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
   const root = mainDs.individuals.get(rootId);
   const pageKind = t("network.title");
   const sel = selected !== null ? graph.nodes[selected] : undefined;
-  const yearsOf = (i: number) => (redacted(i) ? "" : lifespanLabel(graph.nodes[i].indi));
+  const yearsOf = (i: number) => (redacted(i) ? "" : lifespanOf(graph.nodes[i].indi));
   const categoryLabel = (i: number) => {
     const c = categories[i];
     return colorer.legend.find((e) => e.key === c)?.label;
@@ -417,12 +424,7 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
     <ChartPage
       backLabel={backLabel}
       onBack={onBack}
-      title={
-        <>
-          {root && <span className={`person-name ${sexClass(root.sex)}`}>{nameOf(root)}</span>}
-          <span className="tree-title-kind"> — {pageKind}</span>
-        </>
-      }
+      title={root ? <ChartRootTitle name={nameOf(root)} sexCls={sexClass(root.sex)} years={lifespanOf(root)} kind={pageKind} /> : pageKind}
       actions={<ChartSettings lockedType="network" />}
       controlsLeft={
         <>
@@ -454,7 +456,6 @@ export function NetworkChart({ mainDs, rootId, backLabel, onBack, onNavigate, on
       }
     >
       <div className="tree-canvas-wrap network-wrap" ref={wrapRef}>
-        <span ref={probeRef} hidden />
         <canvas
           ref={canvasRef}
           className="network-canvas"
