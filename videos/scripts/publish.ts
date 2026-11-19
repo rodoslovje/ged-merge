@@ -35,10 +35,17 @@ const MEDIA_DIR = process.env.VIDEO_MEDIA_DIR ?? path.join(os.homedir(), "Work",
 const SITE_DIR = path.join(HERE, "..", ".cache", "site");
 const SITE_PORT = 5299;
 
-const COVER = "portraits/Renko-Franc-1901.jpg";
-/** The episode-12 folder: deceased people only, plus the author's parents (with permission). */
+/**
+ * The cover: Franc Renko with his family in the 1960s, living people among
+ * them — a cover is the author's own choice and is published whoever is on it
+ * (the author's family photo, chosen by him for this episode). Not linked in
+ * the file; it is only in the folder.
+ */
+const COVER = "family/Renko-druzina.jpg";
+/** The episode-12 folder (deceased people only, plus the author's parents, with permission) and the cover. */
 const MEDIA_FILES = [
   COVER,
+  "portraits/Renko-Franc-1901.jpg",
   "portraits/Renko-Franc-1901-2.jpg",
   "portraits/Starasinic-Neza-1906.jpg",
   "portraits/Rakar-Alojzija-1903.jpg",
@@ -142,7 +149,7 @@ const scenario: Scenario = {
   steps: [
     {
       say: {
-        sl: "Drevo lahko pokažete tudi sorodnikom, ki programa nimajo: kot spletno stran, ki jo odprejo v brskalniku. Pokažimo, kako jo pripravite.",
+        sl: "Tudi sorodnikom, ki programa nimajo, lahko pokažete svoje drevo: kot spletno stran, ki jo odprejo v brskalniku. Pokažimo, kako jo pripravite.",
         en: "You can show your tree to relatives who don't have the program, too: as a website they open in their browser. Let's see how to make one.",
       },
       run: async (d) => {
@@ -324,7 +331,7 @@ const scenario: Scenario = {
     {
       callout: { sl: "Fotografije", en: "Photos" },
       say: {
-        sl: "Fotografije se preberejo iz mape z mediji. Za vsako njeno podmapo določite, kam gredo fotografije iz nje: samo na strani oseb ali tudi v trak na začetni strani. Družinske fotografije naj bodo samo na straneh oseb.",
+        sl: "Fotografije se preberejo iz mape z mediji. Pri vsaki mapi v njej določite, kam gredo njene fotografije: samo na strani oseb ali tudi v trak na začetni strani. Družinske fotografije naj bodo samo na straneh oseb.",
         en: "Photos are read from the media folder. For each of its subfolders you decide where its photos go: on the people's pages only, or in the strip on the front page as well. Let the family photos stay on the people's pages.",
       },
       run: async (d) => {
@@ -360,8 +367,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Naslovna fotografija", en: "The cover photo" },
       say: {
-        sl: "Naslovno fotografijo izberete sami. Stoji ob naslovu na začetni strani in se pokaže tudi ob deljeni povezavi. Izberimo Frančev portret.",
-        en: "You choose the cover photo yourself. It stands beside the title on the front page, and shows with a shared link too. Let's choose Franc's portrait.",
+        sl: "Naslovno fotografijo izberete sami, zato se objavi ne glede na to, kdo je na njej. Izberimo skupinsko fotografijo družine Renko, na kateri so tudi žive osebe. Stoji ob naslovu na začetni strani in se pokaže tudi ob deljeni povezavi.",
+        en: "You choose the cover photo yourself, so it is published whoever is on it. Let's choose a group photo of the Renko family, with living people on it too. It stands beside the title on the front page, and shows with a shared link too.",
       },
       run: async (d) => {
         const cover = panel(d).locator(".tools-publish-cover");
@@ -439,8 +446,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Stran, kot jo vidijo sorodniki", en: "The site as relatives see it" },
       say: {
-        sl: "Tako stran vidijo sorodniki: naslov z naslovno fotografijo, besede za sorodnike in iskanje. Nad njimi je trak obrazov iz družinskih fotografij.",
-        en: "This is the site as relatives see it: the title with the cover photo, your words for them, and the search. Above them is a strip of faces from the family photos.",
+        sl: "Tako stran vidijo sorodniki: naslov z naslovno fotografijo, besede za sorodnike in iskanje.",
+        en: "This is the site as relatives see it: the title with the cover photo, your words for them, and the search.",
       },
       run: async (d) => {
         const url = await serveSite();
@@ -453,14 +460,21 @@ const scenario: Scenario = {
         await d.overlay("callout", "11", d.t({ sl: "Stran, kot jo vidijo sorodniki", en: "The site as relatives see it" }));
         await d.wait(600);
         await d.highlight(d.page.locator(".site-hero").first(), 6);
-        await d.wait(3000);
-        const tray = d.page.locator(".site-tray-wrap").first();
-        if (await tray.count()) {
-          await d.highlight(tray, 6);
-          await d.wait(1500);
-        }
+        await d.untilSaid(0.3);
         await d.highlight(null);
+      },
+    },
+    {
+      say: {
+        sl: "Nad njimi je trak obrazov iz družinskih fotografij. S klikom na obraz se odpre stran te osebe.",
+        en: "Above them is a strip of faces from the family photos. Click a face to open that person's page.",
+      },
+      run: async (d) => {
+        await d.highlight(d.page.locator(".site-tray-wrap").first(), 6);
+        await d.wait(1200);
         await d.snapshot();
+        await d.untilSaid(0.3);
+        await d.highlight(null);
       },
     },
     {

@@ -708,7 +708,7 @@ s trakom obrazov in naslovno fotografijo.
 
 | # | Kader | Govor |
 |---|-------|-------|
-| 1 | Naslovna kartica | Drevo lahko pokažete tudi sorodnikom, ki programa nimajo: kot spletno stran. |
+| 1 | Naslovna kartica | Tudi sorodnikom, ki programa nimajo, lahko pokažete svoje drevo: kot spletno stran. |
 | 2 | Odpri `rodbina-renko-foto.ged` → pas »Izberi mapo« → Orodja → »Spletna stran« | Datoteka se sklicuje na fotografije, zato izberemo mapo z mediji. |
 | 3 | »Kako deluje« | Diagrami, zemljevid, statistika in stran vsake osebe; datoteke GEDCOM s strani ni mogoče prenesti. |
 | 4 | »Naslov« → »Rodbina Renko«, »Nekaj besed za sorodnike« | Besedilo lahko napišete v vsakem jeziku posebej. |
@@ -718,12 +718,13 @@ s trakom obrazov in naslovno fotografijo.
 | 8 | »Žive osebe«: pregled izbir → »Izpusti« | Za stran, ki jo lahko vidi vsak, je najvarnejše, da žive izpustite. |
 | 9 | »Prikrij tudi osebe, umrle v zadnjih 20 letih« | Toliko let zahteva slovenski zakon o varstvu osebnih podatkov; zasebne osebe nikoli. |
 | 10 | »Objavi tudi« → »Vire«, »Opombe«; »Naslove« ne | Brez naslovov se dogodek na hišnem naslovu prikaže pri naselju. |
-| 11 | »Fotografije« → »Fotografije po mapah«: family → »Strani oseb« | Za vsako podmapo določite, kam gredo njene fotografije. |
+| 11 | »Fotografije« → »Fotografije po mapah«: family → »Strani oseb« | Pri vsaki mapi določite, kam gredo njene fotografije. |
 | 12 | Vrstica »Fotografije: 4 · izpuščene zaradi skrite osebe na njih: 5« | Poročne fotografije avtorjevih staršev na strani ne bo. |
-| 13 | »Naslovna fotografija« → »Izberi…« → Frančev portret | Stoji ob naslovu in se pokaže ob deljeni povezavi. |
+| 13 | »Naslovna fotografija« → »Izberi…« → `family/Renko-druzina.jpg` | Naslovna fotografija se objavi ne glede na to, kdo je na njej — tudi skupinska z živimi osebami. |
 | 14 | »Zemljevid«, »Prikaz oseb« | Izhodišče so vaše nastavitve v programu. |
 | 15 | »Prenesi spletno stran (.zip)« | Razpakirano mapo naložite na strežnik ali jo pošljete sorodnikom. |
-| 16 | Začetna stran: naslov, naslovna fotografija, iskanje, trak obrazov | Tako stran vidijo sorodniki. |
+| 16 | Začetna stran: naslov, naslovna fotografija, iskanje | Tako stran vidijo sorodniki. |
+| 16a | Trak obrazov | Klik na obraz odpre stran osebe. |
 | 17 | »Zanimivosti« | Številke, najpogostejši priimki, obletnice tega tedna. |
 | 18 | Stran Franca Renka: dogodki, družina | Vsaka oseba ima svojo stran. |
 | 19 | »Diagrami« → »Statistika« | Sorodniki potrebujejo samo brskalnik. |
