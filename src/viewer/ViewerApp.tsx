@@ -620,7 +620,7 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
           </section>
         </div>
       </section>
-      <Highlights ds={ds} onNavigate={onNavigate} onSurname={searchSurname} />
+      <Highlights ds={ds} startId={startId} onNavigate={onNavigate} onSurname={searchSurname} />
     </div>
   );
 }

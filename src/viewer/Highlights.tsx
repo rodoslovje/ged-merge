@@ -8,7 +8,8 @@ import { StatTile } from "../ui/tools/StatsCharts";
 import { PersonLink } from "../ui/PersonLink";
 import { displayDate } from "../gedcom/dateDisplay";
 import { eventDisplayLabel, eventGlyph, familyEventLabel } from "../gedcom/eventTags";
-import { onThisWeek } from "./anniversaries";
+import { onThisWeek, WEEK_DAY_LIMIT } from "./anniversaries";
+import { computeDistances } from "../match/distance";
 import { useSettingsSlice } from "../ui/SettingsContext";
 import { StatsIcon } from "../ui/icons/StatsIcon";
 
@@ -19,8 +20,10 @@ const DATE_KEYS = ["dateDisplay"] as const;
  * common surnames, and what happened in the family this week in years past —
  * so the first page says something about the family before anyone searches.
  */
-export function Highlights({ ds, onNavigate, onSurname }: {
+export function Highlights({ ds, startId, onNavigate, onSurname }: {
   ds: Dataset;
+  /** The start person: this week's anniversaries list their closest kin first. */
+  startId?: string;
   onNavigate: (id: string) => void;
   /** A surname picked: the front page searches for it. */
   onSurname: (surname: string) => void;
@@ -32,7 +35,10 @@ export function Highlights({ ds, onNavigate, onSurname }: {
     const facts = buildStatsFacts(ds);
     return overview(applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE));
   }, [ds]);
-  const week = useMemo(() => onThisWeek(ds, new Date()), [ds]);
+  const week = useMemo(
+    () => onThisWeek(ds, new Date(), WEEK_DAY_LIMIT, startId ? computeDistances(ds, startId) : undefined),
+    [ds, startId],
+  );
   const num = (n: number) => n.toLocaleString(i18n.language);
   const person = (id: string) => <PersonLink dataset={ds} id={id} fallback={id} onNavigate={onNavigate} />;
   const couple = (famId: string) => {
