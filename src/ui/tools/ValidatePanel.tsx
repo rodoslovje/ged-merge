@@ -11,7 +11,9 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, Sex } from "../../gedcom/types";
 import { planBranchRemoval } from "../../tools/removeBranch";
 import { branchOf, type ValidationReport, type ValidationIssue, type IssueCategory, type MarriageDateFix } from "../../tools/validate";
-import { exportChartGedcom } from "../exportGedcom";
+import { branchGedcomText, branchesZip, exportChartGedcom } from "../exportGedcom";
+import { downloadBlob, downloadText } from "../download";
+import { afterPendingAdds } from "../source/pendingAdds";
 import { chartSlug } from "../exportSvg";
 import { DownloadIcon } from "../icons/DownloadIcon";
 import { TrashIcon } from "../icons/TrashIcon";
@@ -271,10 +273,15 @@ export function ValidatePanel({
   const [batchPending, setBatchPending] = useState(false);
   // A detached branch's (or a disconnected person's) removal, asked about: who
   // goes and the message counting everything that goes with them.
-  const [removeAsk, setRemoveAsk] = useState<{ issue: ValidationIssue; ids: string[]; message: string } | null>(null);
+  const [removeAsk, setRemoveAsk] = useState<{ issues: ValidationIssue[]; branch: boolean; ids: string[]; message: string } | null>(null);
   function askRemoveBranch(issue: ValidationIssue) {
-    const branch = issue.category === "island";
-    const plan = planBranchRemoval(dataset, branch ? branchOf(dataset, issue.id) : [issue.id]);
+    askRemove([issue], issue.category === "island");
+  }
+  /** Ask about removing these findings' people — each one's whole branch, or
+   *  the lone people themselves — as one deletion. */
+  function askRemove(issues: ValidationIssue[], branch: boolean) {
+    const ids = branch ? issues.flatMap((i) => branchOf(dataset, i.id)) : issues.map((i) => i.id);
+    const plan = planBranchRemoval(dataset, ids);
     const shared = (tags: string[]) => plan.leftBehind.filter((r) => tags.includes(r.tag)).length;
     const lines: [string, number][] = [
       ["people", branch ? plan.people.length : 0],
@@ -288,10 +295,12 @@ export function ValidatePanel({
       .filter(([, count]) => count > 0)
       .map(([key, count]) => `• ${t(`tools.validate.branchGone.${key}`, { count })}`)
       .join("\n");
-    const name = issue.subject;
-    const title = t(branch ? "tools.validate.branchRemoveConfirm" : "tools.validate.personRemoveConfirm", { name });
+    const title = issues.length > 1
+      ? t("tools.validate.branchesRemoveConfirm", { count: issues.length })
+      : t(branch ? "tools.validate.branchRemoveConfirm" : "tools.validate.personRemoveConfirm", { name: issues[0].subject });
     setRemoveAsk({
-      issue,
+      issues,
+      branch,
       ids: plan.people,
       // A lone person with nothing of their own to take along needs no list.
       message: body ? `${title}\n\n${t(branch ? "tools.validate.branchRemoveDeleted" : "tools.validate.personRemoveDeleted")}\n${body}` : title,
@@ -622,6 +631,43 @@ export function ValidatePanel({
       const next = new Map(prev);
       for (const r of shownPickable) next.set(rowKey(r.issue), r);
       return next;
+    });
+  }
+  // The detached branches picked for a bulk download or removal, by row key —
+  // a selection of its own, offered while the list shows only the branches.
+  const [branchPicks, setBranchPicks] = useState<Map<string, ValidationIssue>>(() => new Map());
+  const author = submitterOf(useSettingsSlice(SUBMITTER_KEYS));
+  const shownBranches = useMemo(
+    () => (filter === "island" ? shown : [])
+      .filter((r) => r.kind === "record" && r.issue.category === "island" && !fixedRows.has(rowKey(r.issue)))
+      .map((r) => r.issue as ValidationIssue),
+    [shown, filter, fixedRows],
+  );
+  function toggleBranch(issue: ValidationIssue) {
+    setBranchPicks((prev) => {
+      const next = new Map(prev);
+      const k = rowKey(issue);
+      if (next.has(k)) next.delete(k);
+      else next.set(k, issue);
+      return next;
+    });
+  }
+  const pickedBranches = [...branchPicks.values()];
+  const branchSlug = (issue: ValidationIssue) =>
+    chartSlug(dataset.individuals.get(issue.id)?.names[0]?.full, t("tools.validate.branchFile"));
+  /** The picked branches together, in one GEDCOM file. */
+  function exportBranchesOne() {
+    const ids = pickedBranches.flatMap((i) => branchOf(dataset, i.id));
+    afterPendingAdds(() => {
+      downloadText(`${chartSlug(t("tools.validate.branchesFile"))}.ged`, branchGedcomText(dataset, ids, target, author));
+    });
+  }
+  /** Each picked branch in a file of its own, all of them in one ZIP. */
+  function exportBranchesZip() {
+    const branches = pickedBranches.map((i) => ({ ids: branchOf(dataset, i.id), slug: branchSlug(i) }));
+    afterPendingAdds(() => {
+      const zip = branchesZip(dataset, branches, target, author);
+      downloadBlob(`${chartSlug(t("tools.validate.branchesFile"))}.zip`, new Blob([zip], { type: "application/zip" }));
     });
   }
   /** The picked rows by the fix kind that settles them. */
@@ -1279,13 +1325,18 @@ export function ValidatePanel({
       {removeAsk && (
         <ConfirmDialog
           message={removeAsk.message}
-          confirmLabel={t(removeAsk.issue.category === "island" ? "tools.validate.branchRemove" : "confirm.delete")}
+          confirmLabel={removeAsk.issues.length > 1
+            ? t("tools.validate.branchesRemove", { count: removeAsk.issues.length })
+            : t(removeAsk.branch ? "tools.validate.branchRemove" : "confirm.delete")}
           danger
           busy
           onConfirm={() => {
-            const { issue, ids } = removeAsk;
+            const { issues, ids } = removeAsk;
             setRemoveAsk(null);
-            runRowFix(issue, () => onRemoveBranch(ids));
+            onRemoveBranch(ids);
+            setFixedRows((prev) => new Set([...prev, ...issues.map(rowKey)]));
+            setBranchPicks(new Map());
+            scans.refresh("validate");
           }}
           onCancel={() => setRemoveAsk(null)}
         />
@@ -1377,6 +1428,34 @@ export function ValidatePanel({
           {/* The per-name language worklist, with its two buttons, above the
               findings it answers. */}
           {filter === "tranLang" && <>{tranLang.actions}{tranLang.list}</>}
+          {/* The detached branches, picked for one download or one removal. */}
+          {shownBranches.length > 0 && (
+            <div className="tools-pick-bar">
+              <button type="button" className="nav-btn primary tools-run" data-busy-cursor onClick={exportBranchesOne} disabled={!pickedBranches.length}>
+                <DownloadIcon size={13} />
+                {t("tools.validate.branchesExportOne", { count: pickedBranches.length })}
+              </button>
+              <button type="button" className="nav-btn tools-run" data-busy-cursor onClick={exportBranchesZip} disabled={!pickedBranches.length}>
+                <DownloadIcon size={13} />
+                {t("tools.validate.branchesExportZip", { count: pickedBranches.length })}
+              </button>
+              <button type="button" className="nav-btn danger tools-run" onClick={() => askRemove(pickedBranches, true)} disabled={!pickedBranches.length}>
+                <TrashIcon size={13} />
+                {t("tools.validate.branchesRemove", { count: pickedBranches.length })}
+              </button>
+              <button
+                type="button"
+                className="tools-issue-link"
+                onClick={() => setBranchPicks(new Map(shownBranches.map((i) => [rowKey(i), i])))}
+                disabled={pickedBranches.length === shownBranches.length}
+              >
+                {t("tools.validate.branchesPickAll", { count: shownBranches.length })}
+              </button>
+              <button type="button" className="tools-issue-link" onClick={() => setBranchPicks(new Map())} disabled={!pickedBranches.length}>
+                {t("tools.sources.dupSelectNone")}
+              </button>
+            </div>
+          )}
           {/* Picking rows for one batch: all fixable rows of the view, or some. */}
           {shownPickable.length > 0 && (
             <div className="tools-pick-bar">
@@ -1403,6 +1482,19 @@ export function ValidatePanel({
                 return row.kind === "record" ? (
                   <li key={`r-${row.issue.id}-${row.issue.category}-${i}`} className={`tools-issue sev-${row.issue.severity}${zebra}`} aria-current={current}>
                     <PickBox row={row} pickable={pickable(row)} column={pickColumn} picked={picked.has(rowKey(row.issue))} onToggle={togglePick} />
+                    {filter === "island" && row.issue.category === "island" && (
+                      fixedRows.has(rowKey(row.issue))
+                        ? <input type="checkbox" className="tools-pick tools-pick--blank" checked={false} readOnly disabled tabIndex={-1} aria-hidden />
+                        : (
+                          <input
+                            type="checkbox"
+                            className="tools-pick"
+                            checked={branchPicks.has(rowKey(row.issue))}
+                            onChange={() => toggleBranch(row.issue)}
+                            aria-label={t("tools.validate.branchPick")}
+                          />
+                        )
+                    )}
                     <PersonLink dataset={dataset} id={row.issue.id} fallback={row.issue.subject} onNavigate={onNavigate} />
                     <span className="tools-issue-msg"><LinkedTags text={t(row.issue.messageKey, issueVars(row.issue))} headSour={headSour} /></span>
                     <RowFixButton
