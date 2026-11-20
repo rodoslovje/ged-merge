@@ -128,6 +128,24 @@ describe("buildSourXrefMap", () => {
     expect(given[399]).toBe("@N800@");
   });
 
+  it("replaces an incoming id the target version does not take", () => {
+    const main = records("0 @S1@ SOUR\n1 TITL Krstna knjiga\n");
+    const compare = records(
+      "0 @src-krstna.knjiga@ SOUR\n1 TITL Mrliška knjiga\n" +
+        "0 @n1@ NOTE opomba\n" +
+        "0 @S_A_VERY_LONG_SOURCE_IDENTIFIER@ SOUR\n1 TITL Poročna knjiga\n",
+    );
+    const v70 = buildSourXrefMap(compare, main, "7.0");
+    expect(v70.get("@src-krstna.knjiga@")).toBe("@SRC_KRSTNA_KNJIGA@");
+    expect(v70.get("@n1@")).toBe("@N1@");
+    expect(v70.get("@S_A_VERY_LONG_SOURCE_IDENTIFIER@")).toBe("@S_A_VERY_LONG_SOURCE_IDENTIFIER@");
+    const v551 = buildSourXrefMap(compare, main, "5.5.1");
+    expect(v551.get("@n1@")).toBe("@n1@");
+    expect(v551.get("@S_A_VERY_LONG_SOURCE_IDENTIFIER@")!.length).toBeLessThanOrEqual(22);
+    // With no target named, ids pass as they are.
+    expect(buildSourXrefMap(compare, main).get("@src-krstna.knjiga@")).toBe("@src-krstna.knjiga@");
+  });
+
   it("leaves the choice open when two main sources of that title both cover it", () => {
     const main = records(
       "0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 REPO @R1@\n2 CALN 1\n" +

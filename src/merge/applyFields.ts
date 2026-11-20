@@ -31,6 +31,7 @@ import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
 import { writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
+import { conformingXref, xrefConforms } from "../gedcom/xrefShape";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, incomingPageObje, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
@@ -1380,6 +1381,12 @@ export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
   return set;
 }
 
+/** The version a merge into `main` writes in: the strict target's when the
+ *  overrides name one, else the main file's own. */
+export function mergeTargetVersion(main: Pick<Dataset, "version">, overrides?: FormatOverrides): "5.5.1" | "7.0" {
+  return overrides?.standard ?? overrides?.writeVersion ?? (main.version === "7.0" ? "7.0" : "5.5.1");
+}
+
 /**
  * Pre-compute the xref translation table for all compare shared records
  * (SOUR/REPO/NOTE/SNOTE/OBJE). A compare record describing the same content as an
@@ -1392,7 +1399,15 @@ export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
  * compare file could silently resolve to an unrelated main record that
  * happens to share the xref.
  */
-export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode[]): Map<string, string> {
+export function buildSourXrefMap(
+  compareRecords: GedNode[],
+  mainRecords: GedNode[],
+  /** The version the merged file is written in. An incoming id its rules do
+   *  not take (`@src-krstna.knjiga@` in 7.0, one past 22 characters in 5.5.1)
+   *  is replaced on the way in: only a save that converts versions renames
+   *  ids, so a merge into a file kept in its version left such a one in it. */
+  target?: "5.5.1" | "7.0",
+): Map<string, string> {
   const map = new Map<string, string>();
   const used = new Set(mainRecords.filter((r) => r.xref).map((r) => r.xref as string));
   // A shared-record pointer the main already writes is taken too, even when
@@ -1431,8 +1446,9 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
       continue;
     }
     if (!used.has(rec.xref)) {
-      map.set(rec.xref, rec.xref);
-      used.add(rec.xref);
+      const own = target && !xrefConforms(rec.xref, target === "7.0") ? conformingXref(rec.xref, target === "7.0", used) : rec.xref;
+      map.set(rec.xref, own);
+      used.add(own);
     } else {
       const prefix = SHARED_XREF_PREFIX[rec.tag];
       let n = nextFree.get(prefix) ?? 1;
@@ -1766,7 +1782,7 @@ export function materializeEventSources(
   const incLinks = eventLinkUrls(incomingEventNode);
   if (!incSours.length && !incLinks.length) return [];
   const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
-  const sourMap = buildSourXrefMap(compare.records, dataset.records);
+  const sourMap = buildSourXrefMap(compare.records, dataset.records, mergeTargetVersion(dataset));
   for (const s of incSours) copyCitation(eventNode, s, EVENT_CHILD_ORDER, sourMap, dataset.records, placement, {});
   importSourRecords(dataset.records, compare, sourMap, {});
   if (incLinks.length) {
@@ -1848,7 +1864,7 @@ export function materializeRecordField(
   order: string[],
 ): GedNode[] {
   const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
-  const sourMap = buildSourXrefMap(compare.records, dataset.records);
+  const sourMap = buildSourXrefMap(compare.records, dataset.records, mergeTargetVersion(dataset));
   if (!applyRecordField(target, incoming, field, choice, sourMap, dataset.records, order, {})) return [];
   importSourRecords(dataset.records, compare, sourMap, {});
   const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));
