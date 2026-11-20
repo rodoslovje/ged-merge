@@ -93,6 +93,9 @@ describe("gedcomDate", () => {
     expect(gedcomDate("1873-06-11")).toBe("11 JUN 1873");
     expect(gedcomDate("1873-06")).toBe("JUN 1873");
     expect(gedcomDate("1873")).toBe("1873");
+    // Four digits that cannot be a year: a date cell read as its serial number.
+    expect(gedcomDate("3774")).toBe("");
+    expect(gedcomDate("0999")).toBe("");
   });
 
   it("reads what a Slovenian spreadsheet writes instead", () => {

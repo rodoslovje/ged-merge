@@ -111,6 +111,42 @@ describe("looksLikeWorkbook", () => {
   });
 });
 
+describe("readWorkbook: date cells", () => {
+  // Styles: 0 General, 1 the built-in date (14), 2 a custom date, 3 a custom
+  // format that is no date.
+  const STYLES = `<?xml version="1.0"?><styleSheet>` +
+    `<numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy\\-mm\\-dd"/><numFmt numFmtId="165" formatCode="0.00 &quot;dni&quot;"/></numFmts>` +
+    `<cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="164"/><xf numFmtId="165"/></cellXfs>` +
+    `</styleSheet>`;
+  const ONE = `<?xml version="1.0"?><workbook><sheets><sheet name="K" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const ONE_REL = `<?xml version="1.0"?><Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`;
+  const cells = (workbook: string, row: string) =>
+    readWorkbook(zip([
+      { name: "xl/workbook.xml", text: workbook },
+      { name: "xl/_rels/workbook.xml.rels", text: ONE_REL },
+      { name: "xl/styles.xml", text: STYLES },
+      { name: "xl/worksheets/sheet1.xml", text: sheet([row]) },
+    ])).then((sheets) => sheets[0].rows[0]);
+
+  it("reads a number its cell shows as a date as that date", async () => {
+    // 1 May 1910 is stored as 3774 — which, unread, imported as the year 3774.
+    const row = await cells(ONE,
+      `<row><c r="A1" s="1"><v>3774</v></c><c r="B1" s="2"><v>3774</v></c><c r="C1" s="0"><v>3774</v></c><c r="D1" s="3"><v>3774</v></c><c r="E1"><v>12</v></c></row>`);
+    expect(row).toEqual(["1910-05-01", "1910-05-01", "3774", "3774", "12"]);
+  });
+
+  it("counts from the right day either side of the 29 February 1900 that never was", async () => {
+    const row = await cells(ONE,
+      `<row><c r="A1" s="1"><v>1</v></c><c r="B1" s="1"><v>59</v></c><c r="C1" s="1"><v>61</v></c><c r="D1" s="1"><v>45000.75</v></c></row>`);
+    expect(row).toEqual(["1900-01-01", "1900-02-28", "1900-03-01", "2023-03-15"]);
+  });
+
+  it("counts from 1904 where the workbook says so", async () => {
+    const mac = `<?xml version="1.0"?><workbook><workbookPr date1904="1"/><sheets><sheet name="K" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+    expect(await cells(mac, `<row><c r="A1" s="1"><v>0</v></c><c r="B1" s="1"><v>366</v></c></row>`)).toEqual(["1904-01-01", "1905-01-01"]);
+  });
+});
+
 describe("readWorkbook", () => {
   it("reads sheets in tab order, not in file-number order", async () => {
     const sheets = await readWorkbook(
