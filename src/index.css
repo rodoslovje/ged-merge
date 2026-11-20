@@ -2834,7 +2834,8 @@ button:focus-visible {
 .edit-sibling.half { border-style: dashed; }
 /* "+ Add Sibling": the empty dashed box an add-child card is. */
 .edit-sibling.add {
-  justify-content: center;
+  align-self: center;
+  padding-block: 6px;
   border-style: dashed;
   color: var(--muted);
 }
