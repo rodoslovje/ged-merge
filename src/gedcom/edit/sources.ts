@@ -1,4 +1,4 @@
-import { filingNumberOf, isPointer, looksLikeUrl, periodicalOf, resolveSourceCitation, writesCallNumbers } from "../source";
+import { clearObjeNodeCache, filingNumberOf, isPointer, looksLikeUrl, periodicalOf, resolveSourceCitation, writesCallNumbers } from "../source";
 import { VOID_XREF } from "../assoc";
 import { writeVersionOf, type FormatOverrides } from "../../normalize/formatOverrides";
 import { linkKey } from "../../normalize/links";
@@ -585,10 +585,14 @@ export function setSourceRecordFields(
     } else if (urlFile) {
       // Cleared: unlink this page's OBJE from the source, prune it if it's now orphaned.
       sourceNode.children = sourceNode.children.filter((c) => !(c.tag === "OBJE" && c.value?.trim() === objeXref));
-      const stillReferenced = records.some((r) => r.tag === "SOUR" && r.children.some((c) => c.tag === "OBJE" && c.value?.trim() === objeXref));
+      // Referenced from anywhere, not only from another source: a file that
+      // hangs its page links on events (`2 OBJE @O1@` beside the citation)
+      // points at this record from people and families too.
+      const stillReferenced = referencedObjeXrefs(records, new Set([objeXref!])).size > 0;
       if (!stillReferenced) {
         const oi = records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
         if (oi !== -1) records.splice(oi, 1);
+        clearObjeNodeCache(records);
       }
       bumpSourceCacheVersion(records);
     }
@@ -825,7 +829,10 @@ export function removeSourceCitationAtIndex(dataset: Dataset, record: GedNode, i
       pruned = true;
     }
   }
-  if (pruned) bumpSourceCacheVersion(dataset.records);
+  if (pruned) {
+    bumpSourceCacheVersion(dataset.records);
+    clearObjeNodeCache(dataset.records);
+  }
 }
 
 /**
@@ -855,7 +862,10 @@ export function pruneUnreferencedSource(dataset: Dataset, sourceXref: string): v
   for (const objeXref of objeXrefs) {
     if (stillReferenced.has(objeXref)) continue;
     const oi = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
-    if (oi !== -1) dataset.records.splice(oi, 1);
+    if (oi !== -1) {
+      dataset.records.splice(oi, 1);
+      clearObjeNodeCache(dataset.records);
+    }
   }
   bumpSourceCacheVersion(dataset.records);
 }

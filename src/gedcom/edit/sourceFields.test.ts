@@ -139,3 +139,25 @@ describe("a source's date range in the source editor", () => {
     expect(lines(rec)).toEqual(["TITL Book 2", "DATE 1768"]);
   });
 });
+
+describe("clearing a source's URL", () => {
+  const body = (eventLink: string) =>
+    "0 @I1@ INDI\n1 NAME Ana /Kos/\n1 BIRT\n2 DATE 1900\n2 SOUR @S1@\n" + eventLink +
+    "0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 OBJE @O1@\n" +
+    "0 @O1@ OBJE\n1 FILE https://example.org/page/1\n2 FORM url\n";
+
+  it("keeps the page record an event still points at", () => {
+    const ds = dataset(wrap(body("2 OBJE @O1@\n")));
+    const rec = ds.records.find((r) => r.xref === "@S1@")!;
+    setSourceRecordFields(ds.records, rec, { title: "Krstna knjiga", url: "" });
+    expect(lines(rec)).toEqual(["TITL Krstna knjiga"]);
+    expect(ds.records.some((r) => r.xref === "@O1@")).toBe(true);
+  });
+
+  it("removes the page record nothing else points at", () => {
+    const ds = dataset(wrap(body("")));
+    const rec = ds.records.find((r) => r.xref === "@S1@")!;
+    setSourceRecordFields(ds.records, rec, { title: "Krstna knjiga", url: "" });
+    expect(ds.records.some((r) => r.xref === "@O1@")).toBe(false);
+  });
+});
