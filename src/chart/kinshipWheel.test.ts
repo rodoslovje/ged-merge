@@ -499,3 +499,14 @@ describe("a branch larger than a call takes arguments", () => {
     expect(bars.maxYear).toBe(2026);
   });
 });
+
+describe("the bars with nobody to draw", () => {
+  it("keep a finite year axis when the only person has no dates", () => {
+    // Nobody dated meant a minimum of Infinity — the year slider's `min`.
+    const ds = dataset(wrap("0 @I1@ INDI\n1 NAME Brez /Datuma/\n"));
+    const bars = buildKinBars({ ds, rootId: "@I1@", nameOf, now: 2026, width: 1200 });
+    expect(Number.isFinite(bars.minYear)).toBe(true);
+    expect(bars.minYear).toBeLessThan(bars.maxYear);
+    expect(Number.isNaN(bars.xOf(1950))).toBe(false);
+  });
+});
