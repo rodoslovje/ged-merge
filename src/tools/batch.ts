@@ -29,7 +29,8 @@ import {
 import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref, removeRecordsByXref } from "../gedcom/edit/shared";
 import { carriesLineValue, isNonStandardTag, isOccurrenceFlag } from "../gedcom/eventTags";
 import { marriedSurnamesOf } from "../match/relatives";
-import { buildSearchRows, foldSearch, matchesTerms, queryTerms, type SearchRow } from "../ui/globalSearch";
+import { foldSearch, matchesTerms, queryTerms, startSearchIndex, type SearchRow } from "../ui/globalSearch";
+import { finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
 import { patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
 
 /**
@@ -206,6 +207,31 @@ export function buildBatchRows(
   nameOf: (indi: Individual) => string,
   now: Date = new Date(),
 ): BatchRow[] {
+  return finish(batchRowSteps(dataset, nameOf, now));
+}
+
+/** {@link buildBatchRows} in slices, for the panel: on a file of half a
+ *  million people the rows take seconds, which the page must not stand still for. */
+export function startBatchRows(
+  dataset: Dataset,
+  nameOf: (indi: Individual) => string,
+  now: Date = new Date(),
+): SlicedBuild<BatchRow[]> {
+  return sliced(batchRowSteps(dataset, nameOf, now));
+}
+
+/** Rows finished between two points the build can pause at. */
+const ROW_CHUNK = 256;
+/** Share of the whole build the search rows beneath the batch rows take. */
+const SEARCH_SHARE = 0.35;
+/** Work the search index does between two pauses, in ms. */
+const SEARCH_SLICE_MS = 4;
+
+function* batchRowSteps(
+  dataset: Dataset,
+  nameOf: (indi: Individual) => string,
+  now: Date,
+): BuildSteps<BatchRow[]> {
   // Which shared NOTE records are private, so a pointer note can be judged
   // without re-scanning the records for every person that names one.
   const privateNoteXrefs = new Set(
@@ -223,12 +249,18 @@ export function buildBatchRows(
     }
     return false;
   };
-  return buildSearchRows(dataset.individuals, nameOf).map((row) => {
+  const index = startSearchIndex(dataset.individuals, nameOf);
+  while (!index.step(SEARCH_SLICE_MS)) yield index.progress * SEARCH_SHARE;
+  const searchRows = index.rows;
+  const rows: BatchRow[] = [];
+  for (let i = 0; i < searchRows.length; i++) {
+    if (i > 0 && i % ROW_CHUNK === 0) yield SEARCH_SHARE + (1 - SEARCH_SHARE) * (i / searchRows.length);
+    const row = searchRows[i];
     const indi = dataset.individuals.get(row.id)!;
     const refs = collectMediaRefs(indi.raw, dataset.records);
     const d = deathDateOf(indi);
     const unions = indi.spouseOf.map((id) => dataset.families.get(id)).filter((f) => f !== undefined);
-    return {
+    rows.push({
       ...row,
       deathYear: d?.year,
       age: ageOf(indi, now),
@@ -264,8 +296,9 @@ export function buildBatchRows(
       mediaXrefs: refs.filter((r) => r.xref).map((r) => r.xref!),
       mediaFiles: refs.map((r) => r.file.toLowerCase()),
       mediaCount: refs.length,
-    };
-  });
+    });
+  }
+  return rows;
 }
 
 /** Cross-cutting lookups the rows can't carry themselves. */

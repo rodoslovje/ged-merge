@@ -13,7 +13,8 @@ import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
   applyBatchAction,
-  buildBatchRows,
+  startBatchRows,
+  type BatchRow,
   computeKinship,
   computeLineSides,
   matchesBatch,
@@ -42,7 +43,8 @@ import { useConfirmDialog } from "../useConfirmDialog";
 import { SearchSelect } from "../SearchSelect";
 import { useMediaFolder } from "../MediaFolderContext";
 import { basename, sameMediaFile } from "../mediaPath";
-import { ToolsIntro } from "./shared";
+import { ToolsIntro, ToolsLoading } from "./shared";
+import { useSlicedBuild } from "../useSlicedBuild";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -103,6 +105,9 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
   return ref.xref || ref.file ? NEW_KEY : "";
 }
 
+/** Stable empty rows for the renders before the build has finished. */
+const NO_ROWS: BatchRow[] = [];
+
 export function BatchSection({ dataset, editVersionRef, active, onNavigate, onApplyPatches, startId }: Props) {
   const { t } = useTranslation();
   const formatOverrides = useFormatOverrides();
@@ -119,8 +124,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const [ver, setVer] = useState(() => editVersionRef.current);
   if (active && ver !== editVersionRef.current) setVer(editVersionRef.current);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  const rows = useMemo(() => buildBatchRows(dataset, nameOf), [dataset, nameOf, ver]);
+  // Built in slices: seconds of work on a file of half a million people, with
+  // the page painting in between. `ver` stands in for in-place dataset edits.
+  const rowsBuild = useSlicedBuild(() => startBatchRows(dataset, nameOf), [dataset, nameOf, ver]);
+  const rows = rowsBuild.result ?? NO_ROWS;
   const lineSides = useMemo(
     () => (startId ? computeLineSides(dataset, startId) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
@@ -456,6 +463,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const needsStart =
     (criteria.some((c) => c.kind === "line") && !lineSides) ||
     (criteria.some((c) => c.kind === "kinship") && !kinship);
+
+  if (!rowsBuild.result) {
+    return <ToolsLoading label={t("tools.running")} progress={{ done: Math.round(rowsBuild.progress * 100), total: 100 }} />;
+  }
 
   return (
     <div className="batch-section">

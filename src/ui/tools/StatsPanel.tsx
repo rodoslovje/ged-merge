@@ -2,7 +2,9 @@ import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { computeKinship, computeLineSides } from "../../tools/batch";
-import { buildStatsFacts, type StatsFacts } from "../../stats/facts";
+import { startStatsFacts, type StatsFacts } from "../../stats/facts";
+import { built } from "../../tools/sliced";
+import { useSlicedBuild } from "../useSlicedBuild";
 import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, STATS_WHO, type StatsScope } from "../../stats/scope";
 import {
   ADULT_AGE,
@@ -177,15 +179,18 @@ export function StatsPanel({
   // returns — and only then, so a return without an edit walks nothing.
   const [seenVersion, setSeenVersion] = useState(editVersion);
   useEffect(() => { if (active) setSeenVersion(editVersion); }, [active, editVersion]);
-  // seenVersion keys the rows: the dataset is mutated in place.
-  const facts = useMemo(() => {
-    if (!ready) return undefined;
+  // seenVersion keys the rows: the dataset is mutated in place. Built in
+  // slices — seconds of work on a file of half a million people — and kept,
+  // so a return with the file unchanged walks nothing.
+  const factsBuild = useSlicedBuild<StatsFacts | null>(() => {
+    if (!ready) return built(null);
     const hit = cachedFacts(dataset, seenVersion, home);
-    if (hit) return hit;
-    const built = buildStatsFacts(dataset, home);
-    factsCache.set(dataset, { version: seenVersion, home, facts: built });
-    return built;
+    return hit ? built(hit) : startStatsFacts(dataset, home);
   }, [ready, dataset, seenVersion, home]);
+  const facts = factsBuild.result ?? undefined;
+  useEffect(() => {
+    if (facts && !cachedFacts(dataset, seenVersion, home)) factsCache.set(dataset, { version: seenVersion, home, facts });
+  }, [facts, dataset, seenVersion, home]);
   const lined = scope.who !== "all";
   // Whose line the statistics follow: the app's start person until another is
   // picked here. The choice is the statistics' own and moves nothing else.
@@ -242,7 +247,10 @@ export function StatsPanel({
   // A list belongs to the numbers it was picked from.
   useEffect(() => setPick(null), [scope, page, facts]);
 
-  if (!facts || !scoped) return <ToolsLoading label={t("stats.running")} />;
+  if (!facts || !scoped) {
+    const percent = Math.round(factsBuild.progress * 100);
+    return <ToolsLoading label={t("stats.running")} progress={factsBuild.result === undefined && percent > 0 ? { done: percent, total: 100 } : undefined} />;
+  }
 
   const num = (n: number) => n.toLocaleString(lang);
   const dec = (n: number) => n.toLocaleString(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 });

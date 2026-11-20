@@ -1,3 +1,4 @@
+import { finish, sliced, type BuildSteps, type SlicedBuild } from "../tools/sliced";
 import type { Dataset, GedDate, GedEvent, GedNode, GeoCoord, Individual } from "../gedcom/types";
 import { distanceKm } from "../geo/points";
 import { BIRTH_TAGS, birthDateOf, DEATH_TAGS, deathDateOf, isApproximate, isDeceased, isPresumedLiving } from "../gedcom/lifespan";
@@ -231,6 +232,23 @@ function monthsBetween(from: GedDate | undefined, to: GedDate | undefined): numb
 const onlyInitials = (s: string | undefined) => !!s && /^(\p{L}\.\s*)+$/u.test(s.trim());
 
 export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date().getFullYear()): StatsFacts {
+  return finish(statsFactSteps(ds, home, now));
+}
+
+/** {@link buildStatsFacts} in slices, for the panel: the walk takes seconds on
+ *  a file of half a million people, which the page must not stand still for. */
+export function startStatsFacts(ds: Dataset, home = "", now: number = new Date().getFullYear()): SlicedBuild<StatsFacts> {
+  return sliced(statsFactSteps(ds, home, now));
+}
+
+/** Records walked between two points the build can pause at. */
+const FACT_CHUNK = 256;
+/** Shares of the whole build: the places with coordinates, then the people;
+ *  the families take the rest. */
+const PLACED_SHARE = 0.05;
+const PEOPLE_SHARE = 0.75;
+
+function* statsFactSteps(ds: Dataset, home: string, now: number): BuildSteps<StatsFacts> {
   const people: PersonFacts[] = [];
   const byId = new Map<string, PersonFacts>();
   const birthDates = new Map<string, GedDate | undefined>();
@@ -253,9 +271,19 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
       if (raw && e.place?.coord && !placed.has(raw)) placed.set(raw, e.place.coord);
     }
   };
-  for (const indi of ds.individuals.values()) notePlaced(indi.events);
-  for (const fam of ds.families.values()) notePlaced(fam.events);
+  const records = Math.max(1, ds.individuals.size + ds.families.size);
+  let walked = 0;
   for (const indi of ds.individuals.values()) {
+    if (++walked % (FACT_CHUNK * 16) === 0) yield PLACED_SHARE * (walked / records);
+    notePlaced(indi.events);
+  }
+  for (const fam of ds.families.values()) {
+    if (++walked % (FACT_CHUNK * 16) === 0) yield PLACED_SHARE * (walked / records);
+    notePlaced(fam.events);
+  }
+  const peopleTotal = Math.max(1, ds.individuals.size);
+  for (const indi of ds.individuals.values()) {
+    if (people.length > 0 && people.length % FACT_CHUNK === 0) yield PLACED_SHARE + PEOPLE_SHARE * (people.length / peopleTotal);
     const name = indi.names[0];
     // A stand-in for an unknown name (NN, ???, neznano) is no name: it is
     // neither ranked nor counted as known. Nor are bare initials (`A.`), what a
@@ -340,7 +368,10 @@ export function buildStatsFacts(ds: Dataset, home = "", now: number = new Date()
   }
 
   const families: FamilyFacts[] = [];
+  const familyShare = 1 - PLACED_SHARE - PEOPLE_SHARE;
+  const familiesTotal = Math.max(1, ds.families.size);
   for (const fam of ds.families.values()) {
+    if (families.length > 0 && families.length % FACT_CHUNK === 0) yield PLACED_SHARE + PEOPLE_SHARE + familyShare * (families.length / familiesTotal);
     const marr = fam.events.find((e) => e.tag === "MARR" && e.date?.year !== undefined)?.date;
     const kids = fam.children
       .map((id) => ({ id, date: birthDates.get(id) }))
