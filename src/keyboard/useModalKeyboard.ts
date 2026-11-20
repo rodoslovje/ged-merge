@@ -33,6 +33,21 @@ export interface ModalKeyboardOptions {
  * shortcuts elsewhere. While active the dialog is a registered layer, so
  * `isModalOpen()` holds the bare keys off the page behind it.
  */
+/** How to close each open modal, the topmost last. */
+const openModals: (() => void)[] = [];
+
+/**
+ * Close the topmost open modal, as its Escape would. False when none is open.
+ * For the browser's Back button: a dialog works on the page it was opened
+ * over, so Back puts the dialog away rather than changing that page under it.
+ */
+export function closeTopModal(): boolean {
+  const close = openModals[openModals.length - 1];
+  if (!close) return false;
+  close();
+  return true;
+}
+
 export function useModalKeyboard<T extends HTMLElement = HTMLDivElement>(
   active: boolean,
   onClose: () => void,
@@ -109,10 +124,15 @@ export function useModalKeyboard<T extends HTMLElement = HTMLDivElement>(
       }
     }
 
+    const close = () => onCloseRef.current();
+    openModals.push(close);
+
     node?.addEventListener("keydown", onKey);
     return () => {
       node?.removeEventListener("keydown", onKey);
       release();
+      const at = openModals.indexOf(close);
+      if (at !== -1) openModals.splice(at, 1);
       // Restore focus to wherever it was before the dialog opened — if that
       // control is still on the page (the button that opened a merge
       // confirmation is often gone by the time it closes).

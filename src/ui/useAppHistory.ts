@@ -4,6 +4,7 @@ import type { Mode } from "./useMode";
 import type { ChartKind } from "./ChartSettingsContext";
 import type { TreeMode } from "../chart/personTree";
 import { markFreshStart } from "../persist/idb";
+import { closeTopModal } from "../keyboard/useModalKeyboard";
 
 /** Which candidate pair the full-page compare tree is showing, and how. */
 export interface TreeView {
@@ -145,6 +146,18 @@ export function useAppHistory(opts: AppHistoryOptions) {
   const [canGoBack, setCanGoBack] = useState(false);
   const canGoBackRef = useRef(false);
   canGoBackRef.current = canGoBack;
+  // Where the entry on screen stands among the ones we pushed (`gedSeq`), so a
+  // traversal can be told Back from Forward — and undone (see onPop).
+  const seqRef = useRef<number>((window.history.state as { gedSeq?: number } | null)?.gedSeq ?? 0);
+  // A traversal of our own making is on its way (a view's Back button, a step
+  // past an entry with nothing to show), as opposed to the browser's button.
+  const ownPopRef = useRef(false);
+  // The next popstate is our own undoing of a Back pressed under a dialog.
+  const skipPopRef = useRef(false);
+  function stepBack() {
+    ownPopRef.current = true;
+    window.history.back();
+  }
 
   /** Push one history entry of the app's own, and remember that Back now has
    *  somewhere in-app to go. Every push but the leave-guard's own goes through
@@ -168,7 +181,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     // only when it changes, so without this the entry would name none, and
     // Back returning to it after a later step would leave the app wherever
     // that step had gone.
-    window.history.pushState({ gedMode: opts.mode, gedTool: opts.tool, gedToolView: opts.toolView, ...rest }, "");
+    window.history.pushState({ gedMode: opts.mode, gedTool: opts.tool, gedToolView: opts.toolView, ...rest, gedSeq: ++seqRef.current }, "");
     setCanGoBack(true);
   }
 
@@ -211,8 +224,26 @@ export function useAppHistory(opts: AppHistoryOptions) {
         gedChartsFrom?: string; gedChartsTrail?: ChartsTrail;
         gedEditTreeId?: string; gedRelId?: string;
         gedMode?: Mode; gedTool?: string; gedToolView?: string;
-        gedNavigateTo?: string; gedEditPerson?: string;
+        gedNavigateTo?: string; gedEditPerson?: string; gedSeq?: number;
       };
+      if (skipPopRef.current) {
+        skipPopRef.current = false;
+        return;
+      }
+      const own = ownPopRef.current;
+      ownPopRef.current = false;
+      const seq = st.gedSeq ?? 0;
+      // The browser's Back (or Forward) pressed with a dialog open: the dialog
+      // was opened over the page on screen and writes to it — a source being
+      // added, a photo being cropped — so the page must not change under it.
+      // The dialog is put away, as Back does everywhere else, and the step is
+      // taken back so the entry we stand on is still the page on screen.
+      if (!own && closeTopModal()) {
+        skipPopRef.current = true;
+        window.history.go(seq > seqRef.current ? -1 : 1);
+        return;
+      }
+      seqRef.current = seq;
       // Landing on the leave-guard = the user pressed Back from the app's main
       // entry and is about to leave the app. Intercept it.
       if (st.gedPage === "leave-guard") {
@@ -229,7 +260,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
           });
         } else {
           // No unsaved changes: continue past the guard to the previous page.
-          window.history.back();
+          stepBack();
         }
         return;
       }
@@ -264,7 +295,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
         if (!optsRef.current.hasPerson(st.gedEditPerson)) {
           // The record is gone (deleted, or absorbed by a duplicate merge) —
           // this entry has nothing to open, so keep going the way we were.
-          window.history.back();
+          stepBack();
           return;
         }
         editEntryPersonRef.current = st.gedEditPerson;
@@ -465,7 +496,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
    */
   function goBackPage() {
     if (!canGoBackRef.current) return;
-    window.history.back();
+    stepBack();
   }
 
   /** Record the current compare selection in the current history entry so the
@@ -496,7 +527,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     const st = (window.history.state ?? {}) as { gedSel?: SelRef; gedSelFollowed?: boolean };
     if (!st.gedSelFollowed || !canGoBackRef.current) return false;
     if (st.gedSel?.mainId !== sel.mainId || st.gedSel?.compareId !== sel.compareId) return false;
-    window.history.back();
+    stepBack();
     return true;
   }
 
