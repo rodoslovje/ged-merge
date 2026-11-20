@@ -130,6 +130,13 @@ set in one place.
   gate reads), the incoming record looking up every block within `maxYearGap`
   of its own. Every same-initial pair the gate can accept is reached, however
   far apart the birth years; records without an era year meet all blocks.
+  A record with no era year is keyed the same way by its given name's
+  **variant group** as well, so an undated `Ivan` meets a dated `Janez` — one
+  name in the variant table, two initials. Two dated records get no variant
+  key: across initials they still meet within the decade window only.
+- **A name soundex cannot code** — Cyrillic, Greek, Hebrew — is keyed by its
+  first letters instead (`blockingCode`, `src/match/text.ts`, a `~` code).
+  Soundex is defined on A–Z, and such a record used to be in no bucket at all.
 - **Crowded decade buckets** (more than `BUCKET_CAP`, 32, main records — a
   common surname in one decade) are walked only through `BX:` sub-buckets
   that also require one given-name token to agree: its cross-language group
@@ -167,7 +174,13 @@ Pairs failing any gate are never scored:
   the same-named woman who married sixteen years later; it retires a whole
   class of false positive (the dead infant paired with its adult namesake)
   that names and birth years alone score in the 90s. A same-year marriage is
-  allowed: a widow's wedding and a spouse's death can share a year.
+  allowed: a widow's wedding and a spouse's death can share a year. A date
+  that states a **bound** is read as the years it allows (`yearBounds`,
+  `src/gedcom/lifespan.ts`): a death `AFT 1800` does not precede a wedding in
+  1805, nor a birth `BEF 1850` follow a death in 1845. An `ABT` date stays a
+  point on purpose — slack there was measured (2026-11-20) and let a father
+  whose birth is estimated `ABT 1850` meet an infant who died in 1849, as a
+  strong match.
 - **Two people**: no given name in common — not even two forms of one name
   from the variant table — *and* births that are not one birth: years more
   than 3 apart (`birthYearsApart`, the same veto the merge applies before
