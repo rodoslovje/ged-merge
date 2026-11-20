@@ -1101,6 +1101,10 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function resolveSourceFields(
     fields: AddSourceResult,
   ): { sourceXref: string; page?: string; pageObjeXref?: string; extraPatches: RecordPatch[] } {
+    // A source the reader picked by name is cited as it stands.
+    if (fields.sourceXref && getSourceLookup(dataset.records).sourceNodes.has(fields.sourceXref)) {
+      return { sourceXref: fields.sourceXref, page: fields.page, extraPatches: [] };
+    }
     if (fields.url) {
       // The film, collection and page about to be written are what decide
       // which source this citation joins — a FamilySearch link says none of
@@ -1191,6 +1195,14 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const target = sourceDialogTarget;
     if (!target || target.kind === "edit" || target.kind === "edit-link" || !person) return;
     setSourceDialogTarget(null);
+    if (target.kind === "cite") {
+      if (fields instanceof Promise) return;
+      const { node, owner } = target;
+      const ownerRaw = owner.kind === "individual" ? owner.indi.raw : owner.fam.raw;
+      const order = node !== ownerRaw ? EVENT_CHILD_ORDER : owner.kind === "individual" ? INDI_CHILD_ORDER : FAM_CHILD_ORDER;
+      commitWithSourceDiff(owner, () => attachSourceCitation(node, target.sourceXref, fields.page, order, fields.quay));
+      return;
+    }
     if (!(fields instanceof Promise)) {
       addSourceTo(target, person, fields);
       return;
@@ -1209,7 +1221,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   }
 
   function addSourceTo(
-    target: Exclude<SourceDialogTarget, { kind: "edit" } | { kind: "edit-link" }>,
+    target: Exclude<SourceDialogTarget, { kind: "edit" } | { kind: "edit-link" } | { kind: "cite" }>,
     owner: Individual,
     fields: AddSourceResult,
   ) {
@@ -1410,8 +1422,13 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     if (!sourceDialogTarget) return undefined;
     if (sourceDialogTarget.kind === "edit") {
       const { node, index, owner, fields } = sourceDialogTarget;
+      // Only a citation of a source record can be cited again: an inline one
+      // (plain text on the line) has no record to point a second citation at.
+      const cited = sourceCitationNodes(node)[index]?.value?.trim();
+      const sourceXref = cited && getSourceLookup(dataset.records).sourceNodes.has(cited) ? cited : undefined;
       return {
         fields,
+        onCiteAgain: sourceXref ? () => setSourceDialogTarget({ kind: "cite", node, owner, sourceXref }) : undefined,
         onSave: (saved: EditSourceFields) => { commitEditSource(node, index, owner, saved); setSourceDialogTarget(null); },
         onRemove: () => { commitRemoveSource(node, index, owner); setSourceDialogTarget(null); },
       };
@@ -2440,6 +2457,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         t={t}
         editing={editingSourceDialog}
         initialText={sourceDialogTarget?.kind === "individual" ? sourceDialogTarget.text : undefined}
+        citeXref={sourceDialogTarget?.kind === "cite" ? sourceDialogTarget.sourceXref : undefined}
       />
       <AddMediaDialog
         isOpen={mediaPickerOpen}

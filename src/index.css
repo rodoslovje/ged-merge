@@ -8325,6 +8325,34 @@ kbd {
   background: color-mix(in oklch, var(--accent) 12%, var(--panel));
   border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
 }
+/* The file's own sources that answer to what is typed in the paste box — a
+   book has no link to be matched by, so it is found by name. */
+.add-source-found { margin: 0 0 12px; }
+.modal-body .add-source-found-list { list-style: none; margin: 4px 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.modal-body .add-source-found-list li { margin: 0; }
+.add-source-found-list li + li { border-top: 1px solid var(--border); }
+.add-source-found-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg);
+  border: 0;
+  cursor: pointer;
+}
+.add-source-found-row:hover,
+.add-source-found-row:focus-visible { background: color-mix(in oklch, var(--accent) 10%, var(--panel)); }
+.add-source-found-title { min-width: 0; overflow-wrap: anywhere; }
+.add-source-found-author { margin-left: auto; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.add-source-picked-title { min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+.add-source-picked-title .add-source-found-author { margin-left: 4px; }
+.add-source-picked-clear { padding: 0 4px; font-size: 1.1rem; line-height: 1; color: var(--muted); background: none; border: 0; cursor: pointer; }
+.add-source-picked-clear:hover { color: var(--text); }
+.add-source-same-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .add-source-field { display: flex; flex-direction: column; gap: 3px; margin: 0 0 10px; font-size: 0.8rem; color: var(--muted); }
 .add-source-field input {
   width: 100%;
