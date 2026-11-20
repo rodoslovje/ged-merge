@@ -41,6 +41,9 @@ beforeEach(async () => {
     setItem: (k: string, v: string) => storage.set(k, v),
     removeItem: (k: string) => storage.delete(k),
   });
+  // No Web Locks unless a test brings its own: a lock claimed by one test
+  // would still be held when the next one asks.
+  vi.stubGlobal("navigator", {});
   timers = new Map();
   let nextId = 1;
   vi.stubGlobal("window", {
@@ -203,6 +206,52 @@ describe("useWorkspacePersistence: startup restore", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(rig.posted).toEqual([]);
     expect(rig.actions).toEqual([]);
+  });
+
+  it("a tab that finds the cache held by another neither restores nor writes", async () => {
+    await plant();
+    // Another tab holds the lock: the request waits until it is aborted.
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: (_name: string, o: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            o.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+          }),
+      },
+    });
+    const ds = load();
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.api.hydratedRef.current).toBe(true), { timeout: 2000 });
+    expect(rig.posted).toEqual([]);
+    expect(rig.toasts).toEqual(["persist.otherTab"]);
+    expect(rig.api.persistEnabled).toBe(false);
+    // Work in this tab leaves the other tab's cache as it was.
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds, editVersion: 1 });
+    await tick();
+    await idb.saveFile("compare", { fileName: "in.ged", blob: new Blob(["x"]), savedAt: 2 });
+    await idb.deleteFile("main");
+    const ws = await idb.loadWorkspace();
+    expect(await ws.main!.blob.text()).toBe(TEXT);
+    expect(ws.compare).toBeUndefined();
+    expect(ws.session!.editState).toBeUndefined();
+  });
+
+  it("the tab that gets the lock restores as before", async () => {
+    await plant();
+    let held = false;
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: async (_name: string, _o: unknown, cb: () => Promise<void>) => {
+          held = true;
+          await cb();
+        },
+      },
+    });
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.posted).toHaveLength(1));
+    expect(held).toBe(true);
+    expect(rig.api.persistEnabled).toBe(true);
+    expect(rig.toasts).toEqual([]);
   });
 
   it("with persistence off, reads nothing", async () => {

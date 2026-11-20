@@ -4142,6 +4142,7 @@ export const sl = {
   "save.toast_other": "Shranjeno — prenesenih je {{count}} datotek.",
   "match.failed": "Iskanje ujemanj ni uspelo: {{message}}",
   "persist.writeFailed": "Delovnega okolja ni bilo mogoče shraniti v predpomnilnik — dokler se prostor ne sprosti, se delo ob osvežitvi morda ne bo obnovilo.",
+  "persist.otherTab": "GED Merge je odprt še v drugem zavihku, zato se delovno okolje v predpomnilnik shranjuje samo tam. Delo v tem zavihku se po osvežitvi strani ne bo obnovilo.",
   "persist.restoreSkipped": "Zadnje obnavljanje shranjene datoteke se ni končalo, zato je bilo tokrat preskočeno. Za nov poskus osvežite stran.",
   "edit.charts.button": "Diagrami",
   "edit.charts.tooltip": "Diagrami za trenutno osebo — drevo, pahljača, sorodstvo …",

@@ -7,7 +7,7 @@ import { isTableFile } from "../csv/compareCsv";
 import type { useDirtyTracking } from "../edit-state/useDirtyTracking";
 import type { useUndoRedo } from "../edit-state/useUndoRedo";
 import {
-  clearWorkspace, consumeFreshStart, deleteFile, loadWorkspace, requestPersistentStorage,
+  claimCache, clearWorkspace, consumeFreshStart, deleteFile, loadWorkspace, requestPersistentStorage,
   saveFile, saveMainAndSession, type StoredEditState, type StoredSession,
 } from "./idb";
 
@@ -79,7 +79,10 @@ const SETTINGS_KEYS = ["persistWorkspace", "formatOverrides", "targetFormats"] a
  */
 export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   const { t } = useTranslation();
-  const { persistEnabled } = opts;
+  // Whether this tab owns the cache (see `claimCache`): another tab of the app
+  // that has it leaves this one working uncached, whatever the setting says.
+  const [cacheOwner, setCacheOwner] = useState(true);
+  const persistEnabled = opts.persistEnabled && cacheOwner;
   // Mirrored into a ref so the mount-only hydration effect reads the current
   // value without needing to re-run, and (non-memoized) closures in App always
   // see it fresh.
@@ -171,9 +174,17 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     }
     // Only read the cache when the user has opted in; otherwise there is nothing
     // stored and we go straight to the landing page.
-    const hydrate: ReturnType<typeof loadWorkspace> = persistEnabledRef.current
-      ? loadWorkspace()
-      : Promise.resolve({});
+    const wanted = persistEnabledRef.current;
+    const hydrate: ReturnType<typeof loadWorkspace> = !wanted
+      ? Promise.resolve({})
+      : claimCache().then((owner) => {
+          if (owner) return loadWorkspace();
+          if (!cancelled) {
+            setCacheOwner(false);
+            opts.setSaveToast(t("persist.otherTab"));
+          }
+          return {};
+        });
     void hydrate.then((ws) => {
       if (cancelled || userLoadedRef.current) return;
       if (!ws.main) {
@@ -258,7 +269,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     });
     return () => { cancelled = true; };
     // Mount-only by design: `t` and `opts.setSaveToast` are read once, on the
-    // boot that skips a restore.
+    // boot that skips a restore or finds the cache held by another tab.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post, dispatch, autoStartRef]);
 
@@ -420,38 +431,50 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // React to the opt-in toggle: on enable, request durable storage (the only
   // place that may prompt) and cache the current workspace right away; on
   // disable, wipe the cache. The debounced effect above writes the session.
-  const prevPersistRef = useRef(persistEnabled);
+  // Keyed on the setting itself, not on whether this tab owns the cache: a tab
+  // that finds the cache held by another must not wipe it as if caching had
+  // been turned off.
+  const settingOn = opts.persistEnabled;
+  const prevPersistRef = useRef(settingOn);
   useEffect(() => {
-    if (persistEnabled === prevPersistRef.current) return; // includes the mount no-op
-    prevPersistRef.current = persistEnabled;
-    if (!persistEnabled) {
+    if (settingOn === prevPersistRef.current) return; // includes the mount no-op
+    prevPersistRef.current = settingOn;
+    if (!settingOn) {
       void clearWorkspace();
       clearStoredPublish();
       return;
     }
-    void requestPersistentStorage();
-    const ds = lastMainFile?.dataset;
-    if (ds && lastMainFile) {
-      void saveFile("main", {
-        fileName: lastMainFile.fileName,
-        blob: serializedMainRef.current.blob(ds, changeJournal, editVersion),
-        savedAt: Date.now(),
-        originalHash: mainOriginalHashRef.current ?? undefined,
-        handle: mainHandle ?? undefined,
-      });
-    }
-    if (compareBlobRef.current && compare.status === "loaded") {
-      void saveFile("compare", {
-        fileName: compare.file.fileName,
-        blob: compareBlobRef.current,
-        isCsv: isTableFile(compare.file.fileName),
-        savedAt: Date.now(),
-        originalHash: compareOriginalHashRef.current ?? undefined,
-        handle: compareHandle ?? undefined,
-      });
-    }
+    // Turned on in this session: the cache has not been claimed yet.
+    void claimCache().then((owner) => {
+      if (!owner) {
+        setCacheOwner(false);
+        opts.setSaveToast(t("persist.otherTab"));
+        return;
+      }
+      void requestPersistentStorage();
+      const ds = lastMainFile?.dataset;
+      if (ds && lastMainFile) {
+        void saveFile("main", {
+          fileName: lastMainFile.fileName,
+          blob: serializedMainRef.current.blob(ds, changeJournal, editVersion),
+          savedAt: Date.now(),
+          originalHash: mainOriginalHashRef.current ?? undefined,
+          handle: mainHandle ?? undefined,
+        });
+      }
+      if (compareBlobRef.current && compare.status === "loaded") {
+        void saveFile("compare", {
+          fileName: compare.file.fileName,
+          blob: compareBlobRef.current,
+          isCsv: isTableFile(compare.file.fileName),
+          savedAt: Date.now(),
+          originalHash: compareOriginalHashRef.current ?? undefined,
+          handle: compareHandle ?? undefined,
+        });
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistEnabled]);
+  }, [settingOn]);
 
   return {
     persistEnabled,

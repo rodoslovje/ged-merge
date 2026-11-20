@@ -117,6 +117,57 @@ export interface StoredSession {
   savedAt: number;
 }
 
+// ── One tab owns the cache ──────────────────────────────────────────────────
+//
+// The cache has one main and one session. Two tabs writing to it mixed them: a
+// decision clicked in one tab stored that tab's session beside the other tab's
+// edited main, and a reload restored a file with change tracking that did not
+// describe it. So the first tab to ask holds a Web Lock for as long as it
+// lives, and any other tab neither restores from the cache nor writes to it.
+
+const CACHE_LOCK = "gedmerge-workspace";
+/** How long a tab waits for the lock. A reload asks for it while the page it
+ *  replaces may still be letting go; another live tab never lets go. */
+const CACHE_LOCK_WAIT_MS = 500;
+
+/** False once another tab turned out to own the cache: every write below is
+ *  then a no-op. Clearing stays possible — that is the user's own request. */
+let writable = true;
+
+/**
+ * Claim the workspace cache for this tab. True when it is ours (or the browser
+ * has no Web Locks, where nothing changes); false when another tab holds it.
+ */
+export function claimCache(): Promise<boolean> {
+  // Asked once per tab: a second request would wait on this tab's own lock.
+  claim ??= requestCacheLock();
+  return claim;
+}
+let claim: Promise<boolean> | undefined;
+
+function requestCacheLock(): Promise<boolean> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (!locks) return Promise.resolve(true);
+  return new Promise<boolean>((resolve) => {
+    const waiting = new AbortController();
+    const timer = setTimeout(() => waiting.abort(), CACHE_LOCK_WAIT_MS);
+    locks
+      .request(CACHE_LOCK, { signal: waiting.signal }, () => {
+        clearTimeout(timer);
+        resolve(true);
+        return new Promise<void>(() => {}); // held until the tab goes
+      })
+      .catch((err: unknown) => {
+        clearTimeout(timer);
+        // Only a wait that ran out means another tab; a browser refusing the
+        // API outright (an opaque origin) leaves the cache as it always was.
+        const taken = (err as { name?: string } | null)?.name === "AbortError";
+        if (taken) writable = false;
+        resolve(!taken);
+      });
+  });
+}
+
 let dbPromise: Promise<IDBDatabase | null> | undefined;
 
 function openDb(): Promise<IDBDatabase | null> {
@@ -232,10 +283,12 @@ export function loadWorkspace(): Promise<{
 }
 
 export function saveFile(role: FileRole, file: StoredFile): Promise<void> {
+  if (!writable) return Promise.resolve();
   return withDb((db) => idbPut(db, FILES_STORE, role, file), undefined);
 }
 
 export function deleteFile(role: FileRole): Promise<void> {
+  if (!writable) return Promise.resolve();
   return withDb(async (db) => {
     await idbDelete(db, FILES_STORE, role);
     if (role === "main") await idbDelete(db, FILES_STORE, LEGACY_MAIN_KEY);
@@ -243,6 +296,7 @@ export function deleteFile(role: FileRole): Promise<void> {
 }
 
 export function saveSession(session: StoredSession): Promise<void> {
+  if (!writable) return Promise.resolve();
   return withDb(
     (db) => idbPut(db, SESSION_STORE, SESSION_KEY, { ...session, schema: SESSION_SCHEMA }),
     undefined,
@@ -260,6 +314,7 @@ export function saveSession(session: StoredSession): Promise<void> {
  * of failing silently forever.
  */
 export function saveMainAndSession(file: StoredFile | undefined, session: StoredSession): Promise<boolean> {
+  if (!writable) return Promise.resolve(false);
   return withDb<boolean>(
     (db) =>
       new Promise((resolve) => {
