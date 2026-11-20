@@ -2832,6 +2832,14 @@ button:focus-visible {
 .edit-sibling.sex-m:hover { border-color: var(--sex-male); }
 .edit-sibling.sex-f:hover { border-color: var(--sex-female); }
 .edit-sibling.half { border-style: dashed; }
+/* "+ Add Sibling": the empty dashed box an add-child card is. */
+.edit-sibling.add {
+  justify-content: center;
+  border-style: dashed;
+  color: var(--muted);
+}
+.edit-sibling.add:hover { color: var(--text); }
+.edit-sibling-picker { max-width: 480px; }
 .edit-sibling.self {
   cursor: default;
   background: var(--accent-soft);

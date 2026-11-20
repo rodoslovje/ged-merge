@@ -96,7 +96,7 @@ import { nextSex, offeredEventGroups } from "./edit/editConstants";
 import { KEY, KEY_STATUS, altShiftLabel, familyStepFor, isEditableTarget, isModalOpen, modLabel } from "../keyboard/shortcuts";
 import { familyStepTarget } from "../gedcom/familyNav";
 import type { Commit, FamilyCommit, MediaOwner, SourceDialogTarget, RemoveSourceOwner, CommitRemoveSource, OpenEditSource, OpenMediaLink } from "./edit/types";
-import { FamilySection, NewUnionSection, ParentFamilyGroup, PendingFamilyGroup } from "./edit/FamilySections";
+import { FamilySection, NewUnionSection, ParentFamilyGroup, PendingFamilyGroup, type PickingSlot, type RelativeKind } from "./edit/FamilySections";
 import type { PendingRelativeLink } from "../merge/materialize";
 import { WiderFamilyPanel } from "./edit/WiderFamilyPanel";
 import { RelativesIcon } from "./icons/RelativesIcon";
@@ -288,7 +288,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const [fsIdAdded, setFsIdAdded] = useState(false);
   // Trigger counters to add a note to a specific family (keyed by family ID).
   const [famNoteAdd, setFamNoteAdd] = useState<Record<string, number>>({});
-  const [pickingSlot, setPickingSlot] = useState<{ kind: "father" | "mother" | "partner" | "child"; fam: Family | undefined } | null>(null);
+  const [pickingSlot, setPickingSlot] = useState<PickingSlot>(null);
   // Incremented on every undo/redo so components with local state re-mount and
   // pick up the restored GEDCOM data rather than showing stale values.
   const [undoVersion, setUndoVersion] = useState(0);
@@ -1437,7 +1437,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     return undefined;
   }
 
-  const addRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", fam?: Family, typedName?: string) => {
+  const addRelative = useStableHandler((kind: RelativeKind, fam?: Family, typedName?: string) => {
     if (!person) return;
     const beforePerson = cloneNode(person.raw);
     const beforeFam = fam ? cloneNode(fam.raw) : null;
@@ -1447,7 +1447,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const added =
       kind === "partner"
         ? addPartner(dataset, person, fam)
-        : kind === "child"
+        : kind === "child" || kind === "sibling"
           ? addChild(dataset, person, fam)
           : addParent(dataset, person, fam, kind);
 
@@ -1456,7 +1456,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // supplies a surname default otherwise. setName writes both parts at
     // once, so they are resolved together before the single call.
     let defaultSurname: string | undefined;
-    if (kind === "child") {
+    if (kind === "child" || kind === "sibling") {
       // Inherit from the father of the family the child was added to
       const childFam = added.childOf.map((id) => dataset.families.get(id)).find((f) => f?.husband);
       const father = childFam?.husband ? dataset.individuals.get(childFam.husband) : undefined;
@@ -1572,7 +1572,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addPersonRequest]);
 
-  const connectRelative = useStableHandler((kind: "father" | "mother" | "partner" | "child", existingId: string, fam?: Family) => {
+  const connectRelative = useStableHandler((kind: RelativeKind, existingId: string, fam?: Family) => {
     if (!person) return;
     const existing = dataset.individuals.get(existingId);
     if (!existing) return;
@@ -1635,7 +1635,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     // moves them out of the family they are in. Name those parents and ask
     // first — the alternative is a person with two sets of them, which is what
     // the health check's "Two sets of parents" finding is about.
-    const leaving = kind === "child"
+    const leaving = kind === "child" || kind === "sibling"
       ? birthParentFamilies(existing, dataset).find((f) => f.id !== fam?.id)
       : undefined;
     if (!leaving) { runConnect(); return; }

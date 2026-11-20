@@ -67,14 +67,15 @@ import type { RecordPatch } from "../historyTypes";
  * the graph that changes these cards' kinship path to the start person.
  */
 
-type RelativeKind = "father" | "mother" | "partner" | "child";
+/** A sibling is a child of the person's parent family — `fam` is that family. */
+export type RelativeKind = "father" | "mother" | "partner" | "child" | "sibling";
 export type PickingSlot = { kind: RelativeKind; fam: Family | undefined } | null;
 
 /** The people a relative picker leaves out: anyone the connect would refuse
  *  (see {@link impossibleRelatives}), so an impossible pick is never offered. */
 function blockedRelatives(dataset: Dataset, personId: string, kind: RelativeKind, fam: Family | undefined): ReadonlySet<string> | undefined {
   const person = dataset.individuals.get(personId);
-  return person ? impossibleRelatives(dataset, person, kind, fam) : undefined;
+  return person ? impossibleRelatives(dataset, person, kind === "sibling" ? "child" : kind, fam) : undefined;
 }
 
 /**
@@ -400,7 +401,20 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
           &minus;
         </button>
       )}
-      {fam && <SiblingsRow fam={fam} personId={personId} dataset={dataset} t={t} navigate={navigate} sameSexParents={sameSexParents} />}
+      {fam && (
+        <SiblingsRow
+          fam={fam}
+          personId={personId}
+          dataset={dataset}
+          t={t}
+          navigate={navigate}
+          sameSexParents={sameSexParents}
+          pickerOpen={pickingSlot?.kind === "sibling" && pickingSlot.fam === fam}
+          setPickingSlot={setPickingSlot}
+          connectRelative={connectRelative}
+          addRelative={addRelative}
+        />
+      )}
     </div>
   );
 });
@@ -409,20 +423,22 @@ export const ParentFamilyGroup = memo(function ParentFamilyGroup({
  * The person's siblings under one parent family: the family's own children by
  * birth with the person marked in their place, then each parent's children
  * from other unions as half-siblings. One click opens a sibling; ⌥←/→ keep
- * walking the family's own run (familyStepTarget). Absent for an only child.
+ * walking the family's own run (familyStepTarget). The closing "+ Add
+ * Sibling" box adds a child to this family; for an only child it stands
+ * beside the person's own box.
  */
-function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
+function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents, pickerOpen, setPickingSlot, connectRelative, addRelative }: {
   fam: Family;
   personId: string;
   dataset: Dataset;
   t: Translate;
   navigate: (id: string) => void;
   sameSexParents: boolean;
-}) {
+  pickerOpen: boolean;
+} & Pick<SharedSectionProps, "setPickingSlot" | "connectRelative" | "addRelative">) {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const formatName = useNameOf();
   const { full, half } = familySiblings(dataset, fam.id, personId);
-  if (full.length <= 1 && half.length === 0) return null;
 
   const chip = (id: string, title?: string, isHalf = false) => {
     const indi = dataset.individuals.get(id);
@@ -477,6 +493,15 @@ function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
       </div>
       <div className="edit-sibling-row" style={{ "--sibling-name-ch": longest } as CSSProperties}>
         {full.map((id) => chip(id))}
+        <button
+          type="button"
+          className="edit-sibling add"
+          title={t("edit.addSibling")}
+          aria-expanded={pickerOpen}
+          onClick={() => setPickingSlot(pickerOpen ? null : { kind: "sibling", fam })}
+        >
+          {t("edit.addSibling")}
+        </button>
         {half.map((group) => (
           <Fragment key={group.via}>
             <span className="edit-sibling-group">
@@ -488,6 +513,19 @@ function SiblingsRow({ fam, personId, dataset, t, navigate, sameSexParents }: {
           </Fragment>
         ))}
       </div>
+      {pickerOpen && (
+        <div className="edit-sibling-picker">
+          <RelativePickerCard
+            individuals={dataset.individuals}
+            excludeId={personId}
+            excludeIds={blockedRelatives(dataset, personId, "sibling", fam)}
+            onPickExisting={(id) => connectRelative("sibling", id, fam)}
+            onAddNew={(typed) => { setPickingSlot(null); addRelative("sibling", fam, typed); }}
+            onCancel={() => setPickingSlot(null)}
+            t={t}
+          />
+        </div>
+      )}
     </div>
   );
 }
