@@ -15,7 +15,7 @@ import {
 } from "../gedcom/edit";
 import { buildObjeIndex, buildSourceIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
-import { eventDisplayLabel, isOccurrenceFlag, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
+import { eventDisplayLabel, isChangeStampEvent, isOccurrenceFlag, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { eventTakesText } from "../tools/conformance/allows";
 import { contactTagOf } from "../gedcom/address";
 import type { Dataset, Family, GedcomVersion, GedNode, PersonName, SourceCitation } from "../gedcom/types";
@@ -836,6 +836,18 @@ export function applyAdditionalNames(
 }
 
 /**
+ * A record's events under `tag`, in file order — the nodes a review row's
+ * `mainIdx` / `compareIdx` count, which are indices into the typed events.
+ * MyHeritage writes its change stamp as an event line (`1 EVEN <time>` +
+ * `2 TYPE _UPD`) that the typed events leave out: counted here, every index
+ * after it pointed one line too early — an incoming place was written under
+ * the stamp, and the stamp was imported in place of the real event.
+ */
+function eventsByTag(record: GedNode, tag: string): GedNode[] {
+  return childrenByTag(record, tag).filter((c) => !isChangeStampEvent(c));
+}
+
+/**
  * Find the main event a row should write to: `mainEvents[mainIdx]`
  * when the row has a real main-side event, otherwise the new node created
  * for this incoming-only event's `(tag, compareIdx)` — reusing it across that
@@ -851,7 +863,7 @@ function resolveEventNode(
   newEventNodes?: Map<string, GedNode>,
 ): GedNode {
   if (mainIdx >= 0) {
-    const existing = childrenByTag(target, tag)[mainIdx];
+    const existing = eventsByTag(target, tag)[mainIdx];
     if (existing) {
       markEventTouched(existing, "changed");
       return existing;
@@ -900,7 +912,7 @@ export function applyEventValue(
   order: string[] = [],
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   if (!incEvent?.value) return false;
   if (choice === "incoming" || choice === "both") {
     const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
@@ -930,7 +942,7 @@ export function applyEventSub(
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSub = incEvent ? firstChild(incEvent, subTag) : undefined;
   if (!incSub) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
@@ -977,7 +989,7 @@ export function applyEventAssociations(
   customTags: Record<string, CustomTagNode[]>,
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incAssocs = incEvent ? childrenByTag(incEvent, "ASSO") : [];
   if (!incAssocs.length) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
@@ -1101,7 +1113,7 @@ export function applyEventSources(
    *  can report the citation rather than the bare address. */
   placedOut?: PlacedLink[],
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSours = incEvent ? childrenByTag(incEvent, "SOUR") : [];
   const incLinks = [...eventLinkUrls(incEvent), ...recordLinks];
   const incObjeLinks = eventObjeLinks(incEvent, placement.incoming?.sourceCtx.objeIndex);
