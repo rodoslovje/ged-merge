@@ -315,6 +315,18 @@ export interface NormalizeOptions {
    * there are still reshaped and respelled; only the whitespace is left alone.
    */
   tidyPlaceWhitespace?: boolean;
+  /**
+   * Where the main's place layout is one the incoming file is not reshaped to
+   * (plain comma places, or too few places to tell): split a place that
+   * carries an address inline — `Kranj, Glavni trg 5` — into the main's own
+   * place and an `ADDR`, whenever the place without the address is one the
+   * main already writes. On by default, for an incoming file: left whole, the
+   * value became a second place beside the main's `Kranj`, and its address a
+   * row the merge had no line to copy for.
+   *
+   * The bulk tool turns it off: one's own file keeps its places as written.
+   */
+  addressOntoKnownPlace?: boolean;
   /** Alias source-tags the vendorTags pass must leave untouched. The
    * bulk-normalize tool sets it to every alias whose target is foreign to the
    * file's own producer (`foreignAliasTags`), so e.g. a MyHeritage file keeps

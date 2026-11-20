@@ -7,7 +7,8 @@ import { dropPlaceholderPlaces, normalizePlaceString } from "./place";
 import { reshapeRecordLinks, rewriteLinkLang } from "./links";
 import { learnForeignTails, reformatPlace, reshapesLayout, respellSeparator } from "./placeReformat";
 import { inferDateProfile } from "./profile";
-import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat } from "./types";
+import type { MainProfile, NormalizationReport, NormalizeOptions, NormChange, PlaceTargetFormat, ReformattedPlace } from "./types";
+import { parsePlace } from "../gedcom/place";
 import { migrateVersion, versionFamily } from "./migrate";
 import { reshapeNameVariants } from "./nameVariants";
 import { reshapeUnknownNames } from "./unknownName";
@@ -257,6 +258,28 @@ export function normalizeDataset(
   // the record is later merged or saved.
   // A pass-through layout still runs the pass when the reader has chosen a
   // comma form: respelling it is then the one edit that pass makes.
+  // A layout the file is not reshaped to still takes one thing from the main:
+  // its places. See `NormalizeOptions.addressOntoKnownPlace`.
+  const knownPlaces = profile.place.fullCanonical;
+  if (
+    options.places && options.addressOntoKnownPlace !== false &&
+    !reshapesLayout(profile.placeFmt.layout) && knownPlaces.size > 0
+  ) {
+    // Read the way a structured file is, but without the main's learned
+    // hierarchy: that moves records between localities and fills in levels,
+    // which is the reshape's business. Here the place must already be the
+    // main's, and only the address is taken off it.
+    const structured: PlaceTargetFormat = { ...profile.placeFmt, layout: "structured-addr", hierarchy: undefined };
+    walkNodes(editable, (node) => {
+      reshapePlaceNode(node, structured, report, seenPlace, (r, _placRaw, addrRaw) => {
+        if (addrRaw || !r.addr || !r.plac || r.agency) return undefined;
+        const mainPlace = knownPlaces.get(parsePlace(r.plac).parts.map((p) => p.toLowerCase()).join("|"));
+        // The main's spelling, tidied as every incoming place is above.
+        if (!mainPlace) return undefined;
+        return { plac: options.tidyPlaceWhitespace === false ? mainPlace : normalizePlaceString(mainPlace), addr: r.addr };
+      });
+    });
+  }
   if (options.places && (reshapesLayout(profile.placeFmt.layout) || profile.placeFmt.separatorEnforced)) {
     // Learned from this file as a whole before any place is rewritten: which
     // of its upper levels are only its own names for the main's country.
@@ -326,6 +349,9 @@ function reshapePlaceNode(
   fmt: PlaceTargetFormat,
   report: NormalizationReport,
   seen: Set<string>,
+  /** Has the last word on a reshaped place: what to write instead, or
+   *  undefined to leave the event's place as it is. */
+  accept?: (r: ReformattedPlace, placRaw: string | undefined, addrRaw: string | undefined) => ReformattedPlace | undefined,
 ): void {
   const placNode = firstChild(node, "PLAC");
   const addrNode = firstChild(node, "ADDR");
@@ -347,7 +373,12 @@ function reshapePlaceNode(
   }
   const placRaw = placNode?.value;
   const addrRaw = addrNode?.value;
-  const r = reformatPlace(placRaw, addrRaw, fmt);
+  let r = reformatPlace(placRaw, addrRaw, fmt);
+  if (accept) {
+    const accepted = accept(r, placRaw, addrRaw);
+    if (!accepted) return;
+    r = accepted;
+  }
 
   const before = [placRaw, addrRaw].filter(Boolean).join(" · ");
   const after = [r.plac, r.addr, r.agency].filter(Boolean).join(" · ");
