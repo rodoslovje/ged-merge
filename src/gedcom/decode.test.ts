@@ -231,6 +231,16 @@ describe("decodeGedcom UTF-16 without a BOM", () => {
   });
 });
 
+describe("decodeGedcom with CHAR UNICODE over 8-bit bytes", () => {
+  it("reads a UTF-8 file that still declares UNICODE as UTF-8", () => {
+    const src = "0 HEAD\n1 CHAR UNICODE\n1 NAME Žan\n";
+    const { text, charset, warnings } = decodeGedcom(new TextEncoder().encode(src).buffer as ArrayBuffer);
+    expect(text).toBe(src);
+    expect(charset).toBe("UTF-8");
+    expect(warnings.some((w) => /valid UTF-8/.test(w.message))).toBe(true);
+  });
+});
+
 describe("decodeGedcom with classic-Mac (CR-only) line endings", () => {
   it("reads the declared CHAR from a CR-only header", () => {
     // ANSEL 0xE2 = combining acute before its letter: "é".

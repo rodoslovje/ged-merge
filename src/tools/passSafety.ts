@@ -1,6 +1,6 @@
 import type { Dataset, Family, GedNode, Individual } from "../gedcom/types";
 import { cloneNode } from "../gedcom/node";
-import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual, rebuildNoteReferrers } from "../gedcom/edit";
+import { bumpSourceCacheVersion, forgetXrefCache, rebuildFamily, rebuildIndividual, rebuildNoteReferrers } from "../gedcom/edit";
 import { clearObjeNodeCache } from "../gedcom/source";
 import type { RecordSnapshots } from "../ui/historyTypes";
 
@@ -87,6 +87,7 @@ function restore(dataset: Dataset, records: GedNode[], kept: Map<string, GedNode
   // Pushed one by one: a spread of a large file's records overflows the stack.
   dataset.records.length = 0;
   for (const r of records) dataset.records.push(r);
+  forgetXrefCache(dataset.records);
   bumpSourceCacheVersion(dataset.records);
   clearObjeNodeCache(dataset.records);
 

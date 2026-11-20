@@ -195,6 +195,46 @@ describe("useAppHistory: entries and Back", () => {
     expect(app.api.canGoBack).toBe(false);
   });
 
+  it("Back under an open dialog closes the dialog and stays on the person", async () => {
+    vi.stubGlobal("document", { activeElement: null });
+    const { useModalKeyboard } = await import("../keyboard/useModalKeyboard");
+    const app = await mount();
+    app.api.recordEditPerson("@I1@");
+    app.api.recordEditPerson("@I2@");
+    const onClose = vi.fn();
+    const dialog = renderHook(() => useModalKeyboard(true, onClose));
+    const at = history.idx;
+    history.back();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(app.historyPerson).toEqual([]); // the person on screen did not change
+    expect(history.idx).toBe(at);
+    // With the dialog gone, Back is Back again.
+    dialog.unmount();
+    history.back();
+    expect(app.historyPerson).toEqual(["@I1@"]);
+    // Forward under a dialog is taken back the other way.
+    const again = renderHook(() => useModalKeyboard(true, onClose));
+    history.go(1);
+    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(app.historyPerson).toEqual(["@I1@"]);
+    expect(history.idx).toBe(at - 1);
+    again.unmount();
+  });
+
+  it("a view's own Back button is not held up by a dialog still closing", async () => {
+    vi.stubGlobal("document", { activeElement: null });
+    const { useModalKeyboard } = await import("../keyboard/useModalKeyboard");
+    const app = await mount();
+    app.api.recordEditPerson("@I1@");
+    app.api.recordEditPerson("@I2@");
+    const onClose = vi.fn();
+    const dialog = renderHook(() => useModalKeyboard(true, onClose));
+    app.api.goBackPage();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(app.historyPerson).toEqual(["@I1@"]);
+    dialog.unmount();
+  });
+
   it("skips an entry whose person no longer exists", async () => {
     const app = await mount();
     for (const id of ["@I1@", "@I2@", "@I3@"]) app.api.recordEditPerson(id);

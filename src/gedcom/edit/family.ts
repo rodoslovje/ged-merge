@@ -4,7 +4,7 @@ import { cloneNode, mergeSubLines, nodeFingerprint, firstChild, hasChild } from 
 import type { Dataset, Family, GedNode, Individual, Sex } from "../types";
 import { FAM_CHILD_ORDER, getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, insertRecord, nextXref, recordPosition, removeChild, removeRecordsByXref } from "./shared";
 import { bumpSourceCacheVersion, rebuildFamily, rebuildIndividual } from "./cache";
-import { repointAssociations } from "../assoc";
+import { repointAssociations, VOID_XREF } from "../assoc";
 import { isPointer } from "../uri";
 import { clearObjeNodeCache } from "../source";
 import { familiesScope, individualsScope, pointerScope, unindexRecord } from "./pointerIndex";
@@ -555,16 +555,39 @@ export function familyMembers(dataset: Dataset, fam: Family): string[] {
   return [...ids];
 }
 
-/** Fully remove a family from the dataset, cleaning up the FAMS/FAMC pointers
- *  of every record naming it — its listed members and any back-linked only. */
+/**
+ * Take every line naming the family `famId` out of a member's record: the
+ * `FAMS`/`FAMC` links, and the pointers further down — an adoption's or a
+ * birth's `FAMC` under its event, a sealing's — which used to stay behind,
+ * naming a record no longer in the file. In 7.0 a nested `FAMC` that carries
+ * detail of its own (`ADOP BOTH`) keeps it and points at `@VOID@`, which is
+ * what the standard gives a pointer whose target is not in the file.
+ */
+function dropFamilyPointers(node: GedNode, famId: string, v70: boolean, depth: number): boolean {
+  let changed = false;
+  const kept: GedNode[] = [];
+  for (const child of node.children) {
+    if (child.value?.trim() === famId) {
+      changed = true;
+      if (!(v70 && depth > 0 && child.tag === "FAMC" && child.children.length)) continue;
+      child.value = VOID_XREF;
+    } else if (dropFamilyPointers(child, famId, v70, depth + 1)) {
+      changed = true;
+    }
+    kept.push(child);
+  }
+  if (changed) node.children = kept;
+  return changed;
+}
+
+/** Fully remove a family from the dataset, cleaning up the pointers to it in
+ *  the record of everyone it holds — its listed members and any back-linked
+ *  only. */
 export function removeFamily(dataset: Dataset, fam: Family): void {
   for (const indiId of familyMembers(dataset, fam)) {
     const indi = dataset.individuals.get(indiId);
     if (!indi) continue;
-    const kept = indi.raw.children.filter((c) => !((c.tag === "FAMS" || c.tag === "FAMC") && c.value === fam.id));
-    if (kept.length === indi.raw.children.length) continue;
-    indi.raw.children = kept;
-    rebuildIndividual(dataset, indi);
+    if (dropFamilyPointers(indi.raw, fam.id, dataset.version === "7.0", 0)) rebuildIndividual(dataset, indi);
   }
   const ri = recordIndexOf(dataset.records, fam.raw, fam.id);
   if (ri !== -1) unindexRecord(dataset.records, dataset.records.splice(ri, 1)[0]);

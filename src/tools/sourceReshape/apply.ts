@@ -423,11 +423,15 @@ function applyStandardCoverage(rec: GedNode, events: CoverageEvent[], agency: st
     }
   }
   const flatAgnc = firstChild(rec, "AGNC");
-  if (!childText(data, "AGNC")) {
+  const stated = childText(data, "AGNC");
+  if (!stated) {
     const value = flatAgnc?.value?.trim() || agency;
     if (value) data.children.push({ level: data.level + 1, tag: "AGNC", value, children: [] });
   }
-  if (flatAgnc) spliceChild(rec, flatAgnc);
+  // The flat line goes once `DATA` says the same — moved there just now, or
+  // already there. One naming a different agency is not restated anywhere, so
+  // it stays.
+  if (flatAgnc && (!stated || stated === (flatAgnc.value?.trim() ?? ""))) spliceChild(rec, flatAgnc);
   return true;
 }
 
@@ -497,6 +501,17 @@ export function toStandardCoverage(
   const plac = firstChild(rec, "PLAC");
   const date = firstChild(rec, "DATE");
   if (!plac?.value?.trim() && !date?.value?.trim()) return undefined;
+  // A record that already states its coverage keeps it (see
+  // applyStandardCoverage), so the flat lines are not restated there: they
+  // may go only when the coverage already says what they say. A place or a
+  // period it does not carry would otherwise be deleted and written nowhere.
+  const data = firstChild(rec, "DATA");
+  const stated = data ? childrenByTag(data, "EVEN") : [];
+  if (stated.length) {
+    const says = (tag: "PLAC" | "DATE", value: string | undefined) =>
+      !value || stated.some((even) => childText(even, tag) === value);
+    if (!says("PLAC", plac?.value?.trim()) || !says("DATE", coveragePeriod(date?.value?.trim()))) return undefined;
+  }
   const title = sourceTitle(rec);
   // The register type is read from the source's own title, and the example
   // row carries that title with it: a coverage claim the reader cannot

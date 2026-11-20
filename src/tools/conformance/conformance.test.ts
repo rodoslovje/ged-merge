@@ -668,6 +668,37 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("leaves flat PLAC/DATE/AGNC a source's DATA > EVEN does not already say in %s", (_v, head) => {
+    // The coverage a record already states is kept, so flat lines saying
+    // something else are restated nowhere: removed, they were simply lost.
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Kranj
+1 PLAC Ljubljana
+1 DATE 1851-1900
+1 AGNC Nadškofijski arhiv Ljubljana
+1 DATA
+2 EVEN BIRT
+3 DATE FROM 1800 TO 1850
+3 PLAC Kranj
+2 AGNC Župnija Kranj
+0 @S2@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03165 | Naklo
+1 PLAC Naklo
+1 DATE 1800-1850
+1 DATA
+2 EVEN BIRT
+3 DATE FROM 1800 TO 1850
+3 PLAC Naklo
+0 TRLR`);
+    fixConformance(ds, "coverage");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("1 PLAC Ljubljana\n1 DATE 1851-1900\n1 AGNC Nadškofijski arhiv Ljubljana\n1 DATA\n");
+    expect(out).toContain("2 AGNC Župnija Kranj\n");
+    // Flat lines that only repeat the coverage do go.
+    expect(out).toMatch(/0 @S2@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN BIRT\n3 DATE FROM 1800 TO 1850\n3 PLAC Naklo\n0 TRLR/);
+  });
+
   it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("restates a source's flat PLAC/DATE as DATA > EVEN in %s", (_v, head) => {
     const ds = dataset(`${head}
 0 @S1@ SOUR

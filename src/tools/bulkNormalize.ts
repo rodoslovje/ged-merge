@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import type { NormChange, NormalizationReport, NormalizeOptions } from "../normalize/types";
 import { childValue, cloneNode, nodesEqual } from "../gedcom/node";
-import { bumpSourceCacheVersion, rebuildNoteReferrers } from "../gedcom/edit";
+import { bumpSourceCacheVersion, forgetXrefCache, rebuildNoteReferrers } from "../gedcom/edit";
 import { clearObjeNodeCache } from "../gedcom/source";
 import { NOTE_TAGS } from "../gedcom/builder";
 import type { RecordPatch } from "../ui/historyTypes";
@@ -188,6 +188,7 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
   // Pushed one by one: a spread of a large file's records overflows the stack.
   ds.records.length = 0;
   for (const r of records) ds.records.push(r);
+  forgetXrefCache(ds.records);
   bumpSourceCacheVersion(ds.records);
   clearObjeNodeCache(ds.records);
   // The typed model is rebuilt once the record list holds the new notes it

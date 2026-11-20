@@ -41,9 +41,18 @@ export const RichNoteInput = forwardRef<
   const htmlRef = useRef(isHtmlNote(text));
   if (isHtmlNote(text)) htmlRef.current = true;
 
+  // The text this box last handed up. While the box is being typed in, the
+  // `text` coming back down is that same text, and the DOM (with its caret) is
+  // left alone. Any other text is a change from outside and is written in even
+  // with the caret in the box: boxes are kept by position, so when the note in
+  // front is removed this box becomes the next note's — left showing the
+  // removed one, the next keystroke wrote that text over the note that stayed.
+  const handedUpRef = useRef(text);
+
   useEffect(() => {
     const el = innerRef.current;
-    if (!el || document.activeElement === el) return;
+    if (!el || (document.activeElement === el && text === handedUpRef.current)) return;
+    handedUpRef.current = text;
     const html = serializeNoteHtml(noteToDoc(text));
     if (el.innerHTML !== html) el.innerHTML = html;
   }, [text]);
@@ -54,6 +63,7 @@ export const RichNoteInput = forwardRef<
     const doc = parseNoteHtml(el.innerHTML);
     const next = htmlRef.current || noteDocHasFormatting(doc) ? serializeNoteHtml(doc) : noteDocToText(doc);
     if (noteDocHasFormatting(doc)) htmlRef.current = true;
+    handedUpRef.current = next;
     onInput(next);
   }
 

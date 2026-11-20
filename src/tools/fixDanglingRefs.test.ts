@@ -109,6 +109,37 @@ describe("fixDanglingRefs repairs rather than deletes", () => {
     expect(lines(rec(ds, "@I1@"))).toEqual(["1 NAME Bo /Horvat/"]);
   });
 
+  it("5.5.1: any other dangling pointer with detail becomes an inline note spelling it out", () => {
+    const ds = dataset("5.5.1", `0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 ADOP
+2 DATE 1900
+2 FAMC @F9@
+3 ADOP BOTH
+1 OBJE @O9@
+2 _PRIM Y
+1 NOTE @N9@
+2 SOUR @S1@
+3 PAGE p. 3
+1 OBJE @O8@
+0 @S1@ SOUR
+1 TITL Book`);
+    fixClean(ds);
+    expect(lines(rec(ds, "@I1@"))).toEqual([
+      "1 NAME Bo /Horvat/",
+      "1 ADOP",
+      "2 DATE 1900",
+      "2 NOTE FAMC @F9@\n  ADOP BOTH",
+      "1 NOTE OBJE @O9@\n  _PRIM Y",
+      // A note keeps what hangs under it as lines.
+      "1 NOTE NOTE @N9@",
+      "2 SOUR @S1@",
+      "3 PAGE p. 3",
+      // …and a pointer with nothing under it still just goes.
+    ]);
+    expect(serializeGedcom(ds.records)).toContain("2 NOTE FAMC @F9@\n3 CONT   ADOP BOTH\n");
+  });
+
   it("repairs a dangling pointer nested under a kept one in the same run", () => {
     const ds = dataset("7.0", `0 @I1@ INDI
 1 NAME Bo /Horvat/
