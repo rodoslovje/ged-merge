@@ -7,25 +7,25 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 
 | # | Epizoda | Recept | Stanje |
 |---|---------|--------|--------|
-| 1 | GED Merge — prvi koraki | `scripts/overview.ts` | SL z glasom ✓ |
-| 2 | Osnovno urejanje | `scripts/editing.ts` | SL z glasom ✓ |
-| 3 | Nastavitve prikaza | `scripts/settings.ts` | SL z glasom ✓ |
-| 4 | Viri | `scripts/sources.ts` | SL z glasom ✓ |
-| 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ |
-| 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ |
-| 7 | Zemljevidi | `scripts/maps.ts` | SL z glasom ✓ |
-| 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ |
-| 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ |
-| 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ |
-| 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ |
-| 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ |
-| 13 | Kraji in naslovi | `scripts/addresses.ts` | SL z glasom ✓ |
-| 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ |
-| 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ |
-| 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ |
-| 17 | Spletna stran | `scripts/publish.ts` | SL z glasom ✓ |
+| 1 | GED Merge — prvi koraki | `scripts/overview.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 2 | Osnovno urejanje | `scripts/editing.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 3 | Nastavitve prikaza | `scripts/settings.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 4 | Viri | `scripts/sources.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 5 | Diagrami | `scripts/charts.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 6 | Kraji in geokodiranje | `scripts/geocoding.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 7 | Zemljevidi | `scripts/maps.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 8 | Možnosti diagramov, izvoz, zasebnost | `scripts/export.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 9 | Statistika | `scripts/stats.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 10 | Združevanje | `scripts/merge.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 11 | Dvojniki | `scripts/duplicates.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 12 | Fotografije | `scripts/photos.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 13 | Kraji in naslovi | `scripts/addresses.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 14 | Uredi vire | `scripts/organize.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 17 | Spletna stran | `scripts/publish.ts` | SL z glasom ✓ · EN z glasom ✓ |
 
-Angleške različice epizod 1–5 še niso zgrajene (recepti imajo angleški govor).
+Angleške različice vseh epizod so zgrajene z glasom Soniox »Nina« (20. 11. 2026). Recepti so pregledani za aplikacijo na ta dan, tudi slovenski govor, ki je pripravljen za ponovno snemanje.
 
 ## Napotki za agente (vzporedno delo)
 
