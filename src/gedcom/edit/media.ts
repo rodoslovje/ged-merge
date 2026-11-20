@@ -1,4 +1,4 @@
-import { clearObjeNodeCache, isPointer, objeInfoOf, type CropRegion } from "../source";
+import { clearObjeNodeCache, CROP_EXTENSION, isPointer, objeInfoOf, type CropRegion } from "../source";
 import { childrenByTag, firstChild, removeChildren } from "../node";
 import { mediaContainerOf, type MediaAddress } from "../media";
 import { fileFormOf } from "../mediaForm";
@@ -322,16 +322,19 @@ export function setMediaInfo(
 }
 
 /**
- * Write (or clear, with `null`) the GEDCOM 7 `CROP` region on an `OBJE` *link*
- * node — the rectangle of a group photo that depicts the linking record. It
+ * Write (or clear, with `null`) the crop region on an `OBJE` *link* node, in the
+ * form `version` has for it — GEDCOM 7's `CROP`, or `_CROP` in 5.5.1 — the rectangle of a group photo that depicts the linking record. It
  * lives on the link, not the shared media record, so two people can mark
  * different regions of the same image. Values are rounded to integers per the
  * spec; zero `TOP`/`LEFT` are written explicitly so the region is unambiguous.
  */
-export function setCropRegion(linkNode: GedNode, crop: CropRegion | null): void {
+export function setCropRegion(linkNode: GedNode, crop: CropRegion | null, version: "5.5.1" | "7.0"): void {
   removeChildren(linkNode, "CROP");
+  removeChildren(linkNode, CROP_EXTENSION);
   if (!crop || crop.width <= 0 || crop.height <= 0) return;
-  const node: GedNode = { level: linkNode.level + 1, tag: "CROP", children: [] };
+  // `CROP` is 7.0's; a 5.5.1 file keeps the region under the extension the
+  // conversion writes for it (and restores, on the way up).
+  const node: GedNode = { level: linkNode.level + 1, tag: version === "7.0" ? "CROP" : CROP_EXTENSION, children: [] };
   const push = (tag: string, value: number) =>
     node.children.push({ level: linkNode.level + 2, tag, value: String(Math.max(0, Math.round(value))), children: [] });
   push("TOP", crop.top);

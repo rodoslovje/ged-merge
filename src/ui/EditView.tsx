@@ -930,7 +930,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   function editMediaCropOn(owner: MediaOwner, addr: MediaAddress, crop: CropRegion | null) {
     ownerCommit(owner, (raw) => {
       const child = mediaNodeAt(raw, addr);
-      if (child) setCropRegion(child, crop);
+      if (child) setCropRegion(child, crop, writeVersion);
     });
   }
 
@@ -948,7 +948,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     if (existing) {
       ownerCommit(own, (raw) => {
         const child = mediaNodeAt(raw, existing);
-        if (child) setCropRegion(child, crop);
+        if (child) setCropRegion(child, crop, writeVersion);
       }, undefined, indi);
     } else {
       const extraPatches: RecordPatch[] = [];
@@ -956,7 +956,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       ownerCommit(own, (raw) => {
         attach(raw);
         const links = childrenByTag(raw, "OBJE");
-        if (links.length) setCropRegion(links[links.length - 1], crop);
+        if (links.length) setCropRegion(links[links.length - 1], crop, writeVersion);
       }, extraPatches, indi);
     }
     mediaGenRef.current += 1; // the person's tray (if on screen) shows the new link

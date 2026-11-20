@@ -221,12 +221,18 @@ export interface CropRegion {
   height: number;
 }
 
+/** The tag a 5.5.1 file keeps a media link's crop region under: 5.5.1 has no
+ *  `CROP`, and a bare one there is a line of another version. */
+export const CROP_EXTENSION = "_CROP";
+
 /** Read the `CROP` region from an `OBJE` link node, or undefined when there's no
  *  crop or it lacks usable width/height. Integer subtags per the GEDCOM 7 spec.
  *  Falls back to MyHeritage's `_POSITION x1 y1 x2 y2` (two corner points in
  *  source-image pixels), the same region in that program's vocabulary. */
 export function cropOf(linkNode: GedNode): CropRegion | undefined {
-  const crop = firstChild(linkNode, "CROP");
+  // 7.0's `CROP`, or the `_CROP` a 5.5.1 file keeps it under — and the bare
+  // `CROP` this app wrote into 5.5.1 files before it had that stand-in.
+  const crop = firstChild(linkNode, "CROP") ?? firstChild(linkNode, CROP_EXTENSION);
   if (crop) {
     const num = (tag: string): number | undefined => {
       const raw = childValue(crop, tag)?.trim();
