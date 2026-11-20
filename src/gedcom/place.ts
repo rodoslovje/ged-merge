@@ -90,6 +90,9 @@ export function placeNodeCoord(plac: GedNode): GeoCoord | undefined {
  * taken by one list and refused by the next.
  */
 export function parseCoordInput(raw: string): GeoCoord | undefined {
+  // "46,05" is a latitude with a decimal comma, half of a pair still being
+  // typed — not latitude 46, longitude 5.
+  if (/^\s*-?\d+,0\d*\s*$/.test(raw)) return undefined;
   const parts = raw.split(/[,;\s]+/).filter(Boolean);
   if (parts.length === 2) return parseCoordPair(parts[0], parts[1]);
   // A decimal comma, as most of Europe writes it — and as every map site in
@@ -131,8 +134,15 @@ function parseCoordValue(raw: string, negative: "S" | "W"): number | undefined {
   if (!s) return undefined;
   let sign = 1;
   if (/^[NSEW]/.test(s)) {
+    // A letter of the other axis is no value on this one: `LATI E14.5` with
+    // `LONG N46.05` is a pair written the wrong way round, and read with the
+    // letters ignored it was a pin in the Arabian Sea shown as valid.
+    const own = negative === "S" ? "NS" : "EW";
+    if (!own.includes(s[0])) return undefined;
     if (s[0] === negative) sign = -1;
     s = s.slice(1).trim();
+    // The letter is the sign; a minus beside it says it twice, or the opposite.
+    if (s.startsWith("-")) return undefined;
   }
   // Degree/minute/second marks (webtrees writes a trailing `"`), then the
   // webtrees `::` separators; what remains is 1–3 numeric components.
@@ -141,6 +151,7 @@ function parseCoordValue(raw: string, negative: "S" | "W"): number | undefined {
   if (comps.length > 3 || comps.some((c) => !/^-?\d+(\.\d+)?$/.test(c))) return undefined;
   const [deg, min = 0, sec = 0] = comps.map(Number);
   if (comps.length > 1 && deg < 0) return undefined;
+  if (min < 0 || min >= 60 || sec < 0 || sec >= 60) return undefined;
   return sign * (deg + min / 60 + sec / 3600);
 }
 

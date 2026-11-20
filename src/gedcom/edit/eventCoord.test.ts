@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../builder";
 import { parseGedcom } from "../parser";
 import { serializeGedcom } from "../serialize";
-import { parseCoordInput } from "../place";
+import { parseCoordInput, parseCoordPair } from "../place";
 import { setEventField, setEventFieldAtIndex } from "../edit";
 
 function build(text: string) {
@@ -57,6 +57,31 @@ describe("event coordinate update", () => {
     // Editing the date must not drop the coordinate.
     setEventField(indi, "RESI", { date: "1890" });
     expect(serializeGedcom(ds.records)).toContain("4 LATI N46.24137");
+  });
+});
+
+describe("a coordinate written on the wrong axis", () => {
+  it("is no coordinate: the letters are not ignored", () => {
+    // LATI E14.5 with LONG N46.05 — the pair the wrong way round — used to
+    // read as 14.5°N 46.05°E, a pin in the Arabian Sea shown as valid.
+    expect(parseCoordPair("E14.5", "N46.05")).toBeUndefined();
+    expect(parseCoordPair("W14.5", "E14.5")).toBeUndefined();
+    expect(parseCoordPair("N46.05", "S46")).toBeUndefined();
+    expect(parseCoordPair("N46.05", "E14.5")).toEqual({ lat: 46.05, lon: 14.5 });
+    expect(parseCoordPair("S46.05", "W14.5")).toEqual({ lat: -46.05, lon: -14.5 });
+  });
+
+  it("refuses a letter with a minus sign, and minutes or seconds past 59", () => {
+    expect(parseCoordPair("S-46", "E14.5")).toBeUndefined();
+    expect(parseCoordPair("N46::70::10", "E14.5")).toBeUndefined();
+    expect(parseCoordPair("N46::3::99", "E14.5")).toBeUndefined();
+    expect(parseCoordPair("N46::3::19", "E14::30::20")).toBeDefined();
+  });
+
+  it("does not take a half-typed decimal comma for a pair", () => {
+    expect(parseCoordInput("46,05")).toBeUndefined();
+    expect(parseCoordInput("46,0511 14,5051")).toEqual({ lat: 46.0511, lon: 14.5051 });
+    expect(parseCoordInput("46,14")).toEqual({ lat: 46, lon: 14 });
   });
 });
 
