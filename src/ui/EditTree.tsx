@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
@@ -200,9 +200,15 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const limited = !complete && limit !== null && limit < shownDepth;
   // Everyone connected, built only while it is on screen: on a large file it is
   // the one pedigree view whose cost grows with the whole family, not one line.
+  // It stops at COMPLETE_MAX_PEOPLE unless asked for everyone: past that a
+  // large file opens in seconds rather than at once and pans unevenly
+  // (measured: 20k boxes take ~9 s and ~24 fps, 7.8k ~3 s and 60 fps). The
+  // choice holds per person, so a re-root starts capped again.
+  const [completeAllFor, setCompleteAllFor] = useState<string | null>(null);
+  const completeAll = completeAllFor === currentRootId;
   const completeTree = useMemo(
-    () => (complete && rootPerson ? buildCompleteTree(t, rootPerson, mainDs, nameOf) : undefined),
-    [complete, t, rootPerson, mainDs, nameOf],
+    () => (complete && rootPerson ? buildCompleteTree(t, rootPerson, mainDs, nameOf, completeAll ? Infinity : undefined) : undefined),
+    [complete, completeAll, t, rootPerson, mainDs, nameOf],
   );
   // What the "+N" marker says: the half decides who is missing, and the
   // tooltip names the limit that hid them.
@@ -634,7 +640,20 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           />
         </>
       }
-      controlsRight={<ChartFindBox find={find} />}
+      controlsRight={
+        <>
+          {completeTree?.truncated && (
+            <button
+              className="nav-btn"
+              onClick={() => setCompleteAllFor(currentRootId)}
+              title={t("tree.complete.showAll.tooltip")}
+            >
+              {t("tree.complete.showAll", { n: completeCount })}
+            </button>
+          )}
+          <ChartFindBox find={find} />
+        </>
+      }
     >
       <div className="tree-canvas-wrap">
         <ChartLegend entries={colorer.legend} tint={tint} />

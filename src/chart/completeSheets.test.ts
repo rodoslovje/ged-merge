@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildCompleteTree } from "./completeTree";
-import { planCompletePages } from "./completeSheets";
+import { planCompletePages, splitFamily } from "./completeSheets";
 import { NODE_H } from "./treeLayout";
+import type { TreeNode } from "./personTree";
 
 const tr = (key: string) => key;
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
@@ -61,5 +62,43 @@ describe("planCompletePages", () => {
     const pages = planCompletePages(tree, opts(Infinity, Infinity));
     expect(pages).toHaveLength(1);
     expect(pages[0].pieces).toHaveLength(7);
+  });
+
+  it("parts a family taller than the page over several pieces, none printing smaller", () => {
+    // Fifteen children of one couple: taller than a short page, and the
+    // sheet split never parts a family's children.
+    let s = "0 @H@ INDI\n1 NAME Jakob /Kos/\n1 SEX M\n1 FAMS @F@\n0 @W@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F@\n0 @F@ FAM\n1 HUSB @H@\n1 WIFE @W@\n";
+    for (let i = 0; i < 15; i++) s += `1 CHIL @K${i}@\n`;
+    for (let i = 0; i < 15; i++) s += `0 @K${i}@ INDI\n1 NAME Kid${i} /Kos/\n1 SEX F\n1 FAMC @F@\n`;
+    const ds = dataset(wrap(s));
+    const big = buildCompleteTree(tr, ds.individuals.get("@H@")!, ds);
+    const pages = planCompletePages(big, opts(1400, 600));
+    const pieces = pages.flatMap((p) => p.pieces);
+    expect(pieces.map((p) => p.label)).toEqual(["1", "1/2", "1/3", "1/4"].slice(0, pieces.length));
+    expect(pieces.length).toBeGreaterThan(1);
+    expect(pieces[1].from).toBe("1");
+    expect(pages.some((p) => p.oversized)).toBe(false);
+    // Every child is on exactly one piece, in order.
+    const kids = pieces.flatMap((p) => p.root.partners.flatMap((q) => q.children.map((c) => c.name)));
+    expect(kids).toEqual(Array.from({ length: 15 }, (_, i) => `Kid${i} Kos`));
+  });
+});
+
+describe("splitFamily", () => {
+  it("keeps the person and spouses on every copy, the children in runs", () => {
+    const kid = (name: string) => ({ key: name, name, children: [], partners: [] }) as unknown as TreeNode;
+    const root = {
+      key: "r", name: "R", children: [kid("a")],
+      partners: [{ key: "s1", name: "S1", children: [kid("b"), kid("c")], partners: [] }, { key: "s2", name: "S2", children: [kid("d")], partners: [] }],
+    } as unknown as TreeNode;
+    // Two children per copy.
+    const count = (n: TreeNode) => n.children.length + n.partners.reduce((s, p) => s + p.children.length, 0);
+    const parts = splitFamily(root, (n) => count(n) <= 2);
+    expect(parts).toHaveLength(2);
+    expect(parts.map((p) => p.partners.length)).toEqual([2, 2]);
+    expect(parts[0].children.map((c) => c.key)).toEqual(["a"]);
+    expect(parts[0].partners[0].children.map((c) => c.key)).toEqual(["b"]);
+    expect(parts[1].partners[0].children.map((c) => c.key)).toEqual(["c"]);
+    expect(parts[1].partners[1].children.map((c) => c.key)).toEqual(["d"]);
   });
 });

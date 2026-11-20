@@ -2573,6 +2573,8 @@ export const sl = {
   "tree.complete": "Celotno",
   "tree.complete.tooltip": "Vsi, ki so povezani z osebo: krvni sorodniki, njihovi zakonci in družine zakoncev. Prikazani so v oštevilčenih drevesih, vsaka rodbina pa je izrisana le enkrat.",
   "tree.complete.truncated": "prikazanih oseb: {{n}}, ostale so izpuščene",
+  "tree.complete.showAll": "Pokaži vse ({{n}})",
+  "tree.complete.showAll.tooltip": "Izriši vse, ki so povezani z osebo. Pri veliki datoteki se diagram potem odpira nekaj sekund in se premika manj tekoče.",
   "tree.node.continuesOn": "Družina te osebe je izrisana v drevesu {{n}}. Kliknite za skok tja.",
   "tree.bowtie": "Predniki in potomci",
   "tree.bothTitle": "Predniki in potomci",
