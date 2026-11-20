@@ -140,7 +140,9 @@ describe("LocalLoads", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     local.feed(w.post, { type: "parse", role: "main", fileName: "m2.ged", buffer: enc(MAIN) });
     expect(await old).toBe(SUPERSEDED);
-  });
+    // Builds a 30,000-person file: seconds of work, which a busy machine stretches past the
+    // 5 s default — it timed out in full runs that had nothing wrong with them.
+  }, 30_000);
 
   it("an announcement a newer load of the slot overtook resolves as superseded", async () => {
     const local = new LocalLoads();
