@@ -21,7 +21,7 @@ import {
   type FieldRow,
   type RelativePair,
 } from "../review/types";
-import { rowCanKeepBoth } from "../merge/applyFields";
+import { currentFieldChoices, rowCanKeepBoth } from "../merge/applyFields";
 import { PersonMedia } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
@@ -145,7 +145,14 @@ export function ComparePanel({
   }, [mainIndi, compareIndi, mainDs, compareDs, t, decision, settings.showAge, placeFmt, confirmed]);
 
   const status = decision?.status ?? "undecided";
-  const fields = decision?.fields ?? {};
+  // The choices by the rows as they stand now, as the merge reads them: an
+  // event added or removed in Edit since the decision re-keys the rows, and a
+  // choice read under its old key showed on the wrong event's row — or on
+  // none — while the save still applied it to the value it was made for.
+  const fields = useMemo(
+    () => currentFieldChoices(decision?.fields ?? {}, decision?.fieldAnchors, rows),
+    [decision, rows],
+  );
   const takenChildren = useMemo(() => new Set(decision?.takenChildren ?? []), [decision]);
   // People a confirmed decision has already added to the main file — by this
   // match or another one (see `CandidateDecision.added`): incoming id → main id,
