@@ -481,31 +481,21 @@ describe("buildSurnameRings", () => {
 
 describe("a branch larger than a call takes arguments", () => {
   it("builds the surname rings and the bars for 140,000 relatives", () => {
-    // 380 children, each with 370 of their own: every one a blood relative.
-    // Spread into Math.max, that many were a RangeError and no chart.
-    const kids = 380;
-    const each = 370;
-    const out = ["0 @I0@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1800\n1 FAMS @F0@\n"];
-    const root = ["0 @F0@ FAM\n1 HUSB @I0@\n"];
-    for (let k = 1; k <= kids; k++) {
-      out.push(`0 @C${k}@ INDI\n1 NAME B /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1825\n1 FAMC @F0@\n1 FAMS @F${k}@\n`);
-      root.push(`1 CHIL @C${k}@\n`);
-      const fam = [`0 @F${k}@ FAM\n1 HUSB @C${k}@\n`];
-      for (let g = 1; g <= each; g++) {
-        out.push(`0 @G${k}x${g}@ INDI\n1 NAME C /Novak/\n1 BIRT\n2 DATE ${1850 + (g % 30)}\n1 FAMC @F${k}@\n`);
-        fam.push(`1 CHIL @G${k}x${g}@\n`);
-      }
-      out.push(fam.join(""));
-    }
-    const ds = dataset(wrap(out.join("") + root.join("")));
-    const input = { ds, rootId: "@I0@", nameOf, now: 2026 };
-    const people = collectKin(input);
-    expect(people.length).toBeGreaterThan(kids * each);
+    // Spread into Math.max, that many were a RangeError and no chart. The
+    // relatives are made here rather than parsed: only their number matters.
+    const ds = dataset(wrap("0 @I0@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1800\n"));
+    const indi = ds.individuals.get("@I0@")!;
+    const people = Array.from({ length: 140_000 }, (_, i): KinPerson => ({
+      id: `@X${i}@`, indi, up: 0, down: 1 + (i % 6), distance: 1 + (i % 6), generation: -(1 + (i % 6)),
+      branch: OWN_BRANCH, side: "own", name: `A Novak${i % 40}`, given: "A", surname: `Novak${i % 40}`,
+      years: "", sex: "U", span: { from: 1800 + (i % 150), to: 1860 + (i % 150), openEnd: false, living: false },
+    }));
+    const input = { ds, rootId: "@I0@", nameOf, now: 2026, people };
     // The wheel itself is left out: placing that many dots takes minutes, a
     // limit of its own that a spread-free maximum does not lift.
-    expect(() => buildSurnameRings({ ...input, people })).not.toThrow();
-    const bars = buildKinBars({ ...input, people, width: 1200 });
+    expect(() => buildSurnameRings(input)).not.toThrow();
+    const bars = buildKinBars({ ...input, width: 1200 });
     expect(bars.minYear).toBeLessThanOrEqual(1800);
     expect(bars.maxYear).toBe(2026);
-  }, 120_000);
+  });
 });
