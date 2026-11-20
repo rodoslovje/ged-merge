@@ -32,6 +32,8 @@ export type SourceDialogTarget =
   | { kind: "family"; fam: Family }
   | { kind: "event"; commitField: (update: EventFieldUpdate, extraPatches?: RecordPatch[]) => void }
   | { kind: "edit"; node: GedNode; index: number; owner: RemoveSourceOwner; fields: EditSourceFields }
+  /** "Cite again": one more citation of `sourceXref` on `node`, with its own page. */
+  | { kind: "cite"; node: GedNode; owner: RemoveSourceOwner; sourceXref: string }
   | {
       kind: "edit-link";
       url: string;

@@ -1,8 +1,9 @@
 import { useFormatOverrides } from "./TargetFormatContext";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { getSourceLookup, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
-import { findExistingSource, type FsSourceHint } from "../gedcom/source";
+import { getSourceLookup, memoOnContent, type EditSourceFields, type NewSourceFields } from "../gedcom/edit";
+import { findExistingSource, sourceTitle, type FsSourceHint } from "../gedcom/source";
+import { buildSourceSearch, searchSources, sourceWithTitle } from "../gedcom/sourceSearch";
 import { parseSourceInput } from "../gedcom/citationParse";
 import { inferMainProfile } from "../normalize/profile";
 import { familySearchPageUrl, rewriteLinkLang } from "../normalize/links";
@@ -26,6 +27,10 @@ import type { Translate } from "../locales/i18n";
  * tool's known sites — the commit side then applies the same PLAC/DATE/REPO
  * extras the Organize sources tool writes. */
 export type AddSourceResult = NewSourceFields & {
+  /** A source of the file the reader picked by name (the dialog's search, a
+   *  title that matches, "Cite again"): the citation points at this record,
+   *  and nothing but its page and quality is written. */
+  sourceXref?: string;
   page?: string;
   /** How good the evidence is (`QUAY`), for the citation about to be written
    * — a recognized link proposes it, the reader confirms or clears it. */
@@ -74,6 +79,10 @@ interface Props {
     fields: EditSourceFields;
     onSave: (fields: EditSourceFields) => void;
     onRemove?: () => void;
+    /** Open the dialog again to cite the same source record once more, with
+     *  a page of its own. Omit where there is no record to cite again (an
+     *  inline citation) or no place to put it (Tools → Sources). */
+    onCiteAgain?: () => void;
   };
   /** Standalone mode (Tools → Sources): the confirmed fields create a `SOUR`
    * record cited by nothing yet, so a URL that matches an existing source has
@@ -81,6 +90,9 @@ interface Props {
   standalone?: boolean;
   /** Text to put in the paste box when the dialog opens (a link to cite). */
   initialText?: string;
+  /** A source record the dialog opens already picked ("Cite again"): only
+   *  the page and the quality are asked for. */
+  citeXref?: string;
 }
 
 interface FormState {
@@ -170,11 +182,17 @@ function titleOf(dataset: Dataset, sourceXref: string): string | undefined {
   return rec?.children.find((c) => c.tag === "TITL")?.value?.trim();
 }
 
-export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone, initialText }: Props) {
+export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, standalone, initialText, citeXref }: Props) {
   const [text, setText] = useState("");
   useEffect(() => {
     if (isOpen && initialText) setText(initialText);
   }, [isOpen, initialText]);
+  // A source of the file picked by name rather than matched by a link: the
+  // search list, a hand-typed title the file already has, or "Cite again".
+  const [picked, setPicked] = useState<string | undefined>();
+  useEffect(() => {
+    if (isOpen) setPicked(citeXref);
+  }, [isOpen, citeXref]);
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   // The Repository dropdown: "" = none, a REPO xref, "@create@" for the
   // recognized site's proposed new repository, or "@new@" for a hand-named one.
@@ -344,6 +362,29 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
       : coverage === "standard" && sourceRegisterOf(recognized?.site, fields.title) !== "unknown",
   );
   const matchTitle = useMemo(() => (match ? titleOf(dataset, match.sourceXref) : undefined), [dataset, match]);
+  // The file's sources by name, for finding one that has no link to match by
+  // — a book. Built once per file state, and only where a citation is added.
+  const searchable = isOpen && !editing && !standalone;
+  const sourceEntries = useMemo(
+    () => (searchable ? memoOnContent(dataset.records, "sourceSearch", () => buildSourceSearch(dataset.records)) : []),
+    [dataset, searchable],
+  );
+  const pickedSource = useMemo(() => {
+    const node = isOpen && picked ? getSourceLookup(dataset.records).sourceNodes.get(picked) : undefined;
+    return node && { title: sourceTitle(node)?.trim() || t("source.untitled"), author: childText(node, "AUTH")?.trim() };
+  }, [dataset, isOpen, picked, t]);
+  const query = useDebounced(text, 150);
+  const suggestions = useMemo(
+    () => (picked || parsed.url ? [] : searchSources(sourceEntries, query)),
+    [sourceEntries, query, picked, parsed.url],
+  );
+  // What the reader types into the Title field may be a source the file
+  // already has. Only proposed: two registers can share a title.
+  const titleMatch = useMemo(() => {
+    if (picked || match || fields.url.trim()) return undefined;
+    const found = sourceWithTitle(sourceEntries, fields.title, fields.author);
+    return found && !suggestions.some((s) => s.xref === found.xref) ? found : undefined;
+  }, [sourceEntries, suggestions, picked, match, fields.url, fields.title, fields.author]);
   const urlOnly =
     parsed.url !== undefined &&
     parsed.title === undefined && parsed.author === undefined &&
@@ -576,6 +617,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
 
   function reset() {
     setText("");
+    setPicked(undefined);
     setFields(EMPTY_FORM);
     setRepoSel("");
     setRepoName("");
@@ -657,6 +699,11 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   }
 
   function handleAdd() {
+    if (pickedSource) {
+      onAdd({ sourceXref: picked, page: fields.page.trim() || undefined, quay: fields.quay.trim() || undefined });
+      reset();
+      return;
+    }
     const repo = { sel: repoSel, name: repoName, caln: repoCaln };
     const inFlight = pendingLookup.current;
     if (!inFlight || !fetching || inFlight.url !== normalizedUrl) {
@@ -716,7 +763,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
     reset();
   }
 
-  const canAdd = Boolean(fields.url.trim() || fields.title.trim()) && !(standalone && match);
+  const canAdd = Boolean(pickedSource) || (Boolean(fields.url.trim() || fields.title.trim()) && !(standalone && match));
 
   /**
    * Confirm the dialog from the keyboard — what the Add / Save button does,
@@ -750,6 +797,19 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
           {editing?.onRemove && (
             <button className="tree-open-btn add-source-remove" onClick={handleRemove}>{t("editSource.remove")}</button>
           )}
+          {editing?.onCiteAgain && (
+            <button
+              className="tree-open-btn"
+              title={t("editSource.citeAgainHint")}
+              onClick={() => {
+                const citeAgain = editing.onCiteAgain!;
+                reset();
+                citeAgain();
+              }}
+            >
+              {t("editSource.citeAgain")}
+            </button>
+          )}
           <button className="tree-open-btn" onClick={handleClose}>{t("addSource.cancel")}</button>
           {editing ? (
             <button className="add-source-submit" onClick={handleSave}>{t("editSource.save")}</button>
@@ -759,7 +819,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
         </>
       }
     >
-          {!editing && (
+          {!editing && !pickedSource && (
             <label className="add-source-field">
               <span>{t("addSource.field.link")}</span>
               <textarea
@@ -771,6 +831,51 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                 onChange={(e) => setText(e.target.value)}
               />
             </label>
+          )}
+          {suggestions.length > 0 && (
+            <div className="add-source-found">
+              <span className="add-source-registers-label">{t("addSource.found")}</span>
+              <ul className="add-source-found-list">
+                {suggestions.map((s) => (
+                  <li key={s.xref}>
+                    <button type="button" className="add-source-found-row" onClick={() => setPicked(s.xref)}>
+                      <span aria-hidden="true">📖</span>
+                      <span className="add-source-found-title">{s.title}</span>
+                      {s.author && <span className="add-source-found-author">{s.author}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {pickedSource && (
+            <div className="add-source-chip">
+              <span aria-hidden="true">📖</span>
+              <span className="add-source-picked-title">
+                {pickedSource.title}
+                {pickedSource.author && <span className="add-source-found-author"> {pickedSource.author}</span>}
+              </span>
+              <span className="add-source-chip-site">{t("addSource.pickedTag")}</span>
+              {!citeXref && (
+                <button
+                  type="button"
+                  className="add-source-picked-clear"
+                  title={t("addSource.pickOther")}
+                  aria-label={t("addSource.pickOther")}
+                  onClick={() => setPicked(undefined)}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
+          {titleMatch && (
+            <div className="add-source-hint add-source-same-title">
+              <span>{t("addSource.sameTitle", { title: titleMatch.title })}</span>
+              <button type="button" className="add-source-register" onClick={() => setPicked(titleMatch.xref)}>
+                {t("addSource.citeExisting")}
+              </button>
+            </div>
           )}
           {match && (
             <div className="add-source-hint">
@@ -818,7 +923,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             <div className="add-source-hint">{t("addSource.recognizedFetchOff", { setting: t("settings.links.fetch") })}</div>
           )}
           {fetching && !recognized && <div className="add-source-hint is-fetching">{t("addSource.fetching")}</div>}
-          {!match && (
+          {!match && !pickedSource && (
             <SourceFieldsForm
               values={fields}
               onChange={(key, value) => setFields((f) => ({ ...f, [key]: value }))}
@@ -848,7 +953,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               the new citation itself says — its entry and how good that
               evidence is; the source's own fields are the file's, not a
               proposal's. */}
-          {match && !standalone && (
+          {(match || pickedSource) && !standalone && (
             <>
               <SourceGroupHead group="citation" t={t} />
               <div className="add-source-details-grid">
@@ -856,6 +961,8 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
                   <span>{t("addSource.field.page")}</span>
                   <input
                     className="edit-input"
+                    // A picked source leaves the page as the one thing to type.
+                    autoFocus={Boolean(pickedSource)}
                     value={fields.page}
                     onChange={(e) => setFields((f) => ({ ...f, page: e.target.value }))}
                   />
@@ -864,12 +971,12 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
               </div>
             </>
           )}
-          <SourceGroupHead group="media" t={t} />
+          {!pickedSource && <SourceGroupHead group="media" t={t} />}
           {/* Read the page again and fill these fields from it — for a record
               made before the lookup could answer, or made offline from the
               link alone. Offered while editing a record that has a link; the
               fields are the reader's to check before Save writes any of it. */}
-          <SourceLinkRow
+          {!pickedSource && <SourceLinkRow
             label={t("addSource.field.url")}
             value={fields.url}
             onChange={(v) => setFields((f) => ({ ...f, url: v }))}
@@ -877,7 +984,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
             fetching={fetching}
             lookupAllowed={settings.allowLinkFetch}
             t={t}
-          />
+          />}
     </SourceDialogShell>
   );
 }
