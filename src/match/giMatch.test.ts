@@ -148,4 +148,31 @@ describe("matchGiPairs", () => {
     const result = matchGiPairs(mainDs, compareDs, pairs!);
     expect(result.individuals).toHaveLength(0);
   });
+
+  it("gives a pair to the namesake its incoming row describes, not the first in the file", () => {
+    // Two Janez Novaks born in 1850 share one key; the index matched the one from Bled.
+    const main = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 3 MAR 1850
+2 PLAC Kranj
+0 @I2@ INDI
+1 NAME Janez /Novak/
+1 SEX M
+1 BIRT
+2 DATE 9 SEP 1850
+2 PLAC Bled
+0 TRLR
+`;
+    const mainRow = row(["Janez", "Novak", "9 SEP 1850", "Bled", "", "", "", "", "", "", "", "Renko", "95"]);
+    const incomingRow = row(["Janez", "Novak", "9 SEP 1850", "Bled", "1 FEB 1920", "Bled", "", "", "", "", "", "Matične knjige", "95"]);
+    const { dataset: compareDs, pairs } = parseGiMatchesCsv(`${HEADER}\n${mainRow}\n${incomingRow}\n`);
+    const result = matchGiPairs(dataset(main), compareDs, pairs!);
+    expect(result.individuals.map((c) => c.mainId)).toEqual(["@I2@"]);
+  });
 });
