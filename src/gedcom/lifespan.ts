@@ -74,6 +74,36 @@ function structuredDateOf(indi: Individual | undefined, tags: readonly string[])
   return undefined;
 }
 
+/**
+ * The earliest and the latest year a date allows — for a test of what is
+ * *impossible*, which a date that states a bound, read as its bare year, gets
+ * wrong: `BEF 1850` allows any year up to 1850, `AFT 1800` any from 1800 on,
+ * and a range anything between its ends. Undefined for a date with no year.
+ *
+ * An "about" date is deliberately its year and no more. Slack there was tried
+ * and measured (match benchmark, 2026-11-20): it let a father whose birth is
+ * estimated "ABT 1850" from his child's meet an infant of a similar surname
+ * who died in 1849, as a strong match. An estimate is a point for this test,
+ * and the veto it gives is right far more often than the estimate is.
+ */
+export function yearBounds(date: GedDate | undefined): { min: number; max: number } | undefined {
+  if (date?.year === undefined) return undefined;
+  const y = date.year;
+  switch (date.qualifier) {
+    case "before":
+    case "to":
+      return { min: -Infinity, max: y };
+    case "after":
+    case "from":
+      return { min: y, max: Infinity };
+    case "between":
+    case "range":
+      return { min: y, max: Math.max(y, date.year2 ?? y) };
+    default:
+      return { min: y, max: y };
+  }
+}
+
 /** True when the record carries any death/burial/cremation event, even undated. */
 export function isDeceased(indi: Individual | undefined): boolean {
   return (indi?.events ?? []).some((e) => (DEATH_TAGS as readonly string[]).includes(e.tag));

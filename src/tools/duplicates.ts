@@ -15,7 +15,7 @@ import {
   SAME_FAMILY_GIVEN,
   SAME_PERSON_GIVEN,
 } from "../match/similarity";
-import { soundex } from "../match/text";
+import { blockingCode } from "../match/text";
 import { DEFAULT_CONFIG, type MatchCategory, type MatchConfig } from "../match/types";
 import { label } from "../match/relatives";
 
@@ -181,7 +181,7 @@ export function findDuplicates(
   const byRank = [...ds.individuals.values()].sort((x, y) => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
   byRank.forEach((indi, i) => rank.set(indi, i));
   for (const indi of ds.individuals.values()) {
-    const keys = individualBlockKeys(indi, soundex, ds);
+    const keys = individualBlockKeys(indi, blockingCode, ds);
     keysOf.set(indi, keys);
     const r = rank.get(indi)!;
     for (const key of keys) {

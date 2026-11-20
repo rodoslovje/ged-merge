@@ -3,7 +3,7 @@ import type { Dataset, Individual } from "../gedcom/types";
 import { eraYear, estimatedBirthYear } from "./birthEstimate";
 import { givenVariantKey } from "./givenVariants";
 import { ownComparableName } from "./similarity";
-import { foldToken, soundex } from "./text";
+import { blockingCode, foldToken } from "./text";
 
 /**
  * Cross-file blocking (`matchDatasets`): which main records an incoming record
@@ -74,7 +74,7 @@ function blockParts(indi: Individual, ds: Dataset): Parts | undefined {
   if (cached !== undefined) return cached ?? undefined;
   const n = ownComparableName(indi);
   const given = n?.given;
-  const sdx = soundex(n?.surname ?? given ?? "");
+  const sdx = blockingCode(n?.surname ?? given ?? "");
   if (!sdx) {
     partsCache.set(indi, null);
     return undefined;
@@ -104,8 +104,9 @@ function givenTokenKeys(folded: string): string[] {
     const group = givenVariantKey(token);
     if (group !== undefined) keys.add(`v${group}`);
     else {
-      const code = soundex(token);
-      if (code) keys.add(code.slice(1));
+      const code = blockingCode(token);
+      // Soundex digits without the first letter; a `~` code is kept whole.
+      if (code) keys.add(code.startsWith("~") ? code : code.slice(1));
     }
   }
   return keys.size ? [...keys] : ["-"];
@@ -141,6 +142,16 @@ export class CrossBlockIndex {
       if (p.initial !== undefined) {
         const g = `${p.sdx}:${p.initial}`;
         add(p.era !== undefined ? `G:${g}:${Math.floor(p.era / ERA_BLOCK)}` : `GU:${g}`, i);
+        add(`GA:${g}`, i);
+      }
+      // The undated half of the same again, by the given name's variant
+      // group: a dated record and an undated one meet across a name the
+      // initial does not span — Janez and Ivan are one name in the variant
+      // table, and J is not I. Two *dated* records get no such key: across
+      // initials they meet within the decade window only, as before.
+      for (const v of variantKeys(p)) {
+        const g = `${p.sdx}:${v}`;
+        if (p.era === undefined) add(`GU:${g}`, i);
         add(`GA:${g}`, i);
       }
     });
@@ -199,7 +210,18 @@ export class CrossBlockIndex {
         walk(`GA:${g}`);
       }
     }
+    for (const v of variantKeys(p)) {
+      const g = `${p.sdx}:${v}`;
+      walk(p.era !== undefined ? `GU:${g}` : `GA:${g}`);
+    }
   }
+}
+
+/** A record's given-name variant groups (`v12`), the keys of {@link Parts.givenKeys}
+ *  that stand for a name the variant table knows. Longer than one letter, so
+ *  they never collide with an initial in the same key space. */
+function variantKeys(p: Parts): string[] {
+  return p.givenKeys.filter((k) => k.startsWith("v"));
 }
 
 /** The decades a main record is indexed under: its own, and for an estimated
