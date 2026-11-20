@@ -29,6 +29,7 @@ export type StructCategory =
   | "level"
   | "strayCont"
   | "danglingXref"
+  | "unusedRecord"
   | "duplicateXref"
   | "version"
   | "unknownTag"
@@ -47,7 +48,7 @@ export type StructSeverity = "error" | "warning" | "info";
 const SEV_RANK: Record<StructSeverity, number> = { error: 0, warning: 1, info: 2 };
 
 /** The order the categories are listed in, within one severity. */
-export const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "missingLine", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
+export const CATEGORY_ORDER: StructCategory[] = ["encoding", "syntax", "level", "strayCont", "danglingXref", "unusedRecord", "duplicateXref", "pointerType", "version", "unknownTag", "misplacedTag", "cardinality", "missingLine", "enumValue", "valueFormat", "xrefShape", "badDate", "impossibleDate", "reversedRange", "shortYear", "nonStandardDate", "ambiguousDate", "customTag"];
 
 export interface StructIssue {
   category: StructCategory;
@@ -131,6 +132,7 @@ const EMPTY_COUNTS: Record<StructCategory, number> = {
   level: 0,
   strayCont: 0,
   danglingXref: 0,
+  unusedRecord: 0,
   duplicateXref: 0,
   version: 0,
   unknownTag: 0,
@@ -218,6 +220,55 @@ function nodeLine(node: GedNode): string {
   // Collapse folded CONT newlines so the tooltip stays one readable line.
   const value = node.value != null ? ` ${node.value.replace(/\n/g, " ⏎ ")}` : "";
   return `${node.level}${xref} ${node.tag}${value}`;
+}
+
+/** The shared records a person, a family or another record points at —
+ *  the ones that can be left with nothing pointing at them. */
+const SHARED_RECORD_TAGS = new Set(["NOTE", "SNOTE", "OBJE", "SOUR"]);
+
+/**
+ * The shared NOTE/SNOTE/OBJE/SOUR records nothing in the file uses: no line
+ * points at them, or only lines of records that are themselves unused (a page
+ * image of a source nobody cites). Removing an event or a citation leaves its
+ * note, photo or source behind like this; so does a program that exports its
+ * whole source library. Nothing is wrong with the file, which is why this is
+ * an informational finding — the record is simply reachable from no person.
+ *
+ * One walk of the file: the targets held by any other kind of record are in
+ * use, and use then spreads through what those shared records point at.
+ */
+export function findUnusedRecords(records: GedNode[]): GedNode[] {
+  const shared = new Map<string, GedNode>();
+  for (const r of records) if (r.xref && SHARED_RECORD_TAGS.has(r.tag) && !shared.has(r.xref)) shared.set(r.xref, r);
+  if (shared.size === 0) return [];
+
+  const used = new Set<string>();
+  /** What each shared record points at among the shared records. */
+  const heldBy = new Map<string, string[]>();
+  for (const rec of records) {
+    const own = rec.xref && shared.get(rec.xref) === rec ? rec.xref : undefined;
+    let held: string[] | undefined;
+    const stack = [...rec.children];
+    while (stack.length) {
+      const node = stack.pop()!;
+      const v = node.value?.trim();
+      if (isPointerValue(v) && v !== own && shared.has(v)) {
+        if (own) (held ??= []).push(v);
+        else used.add(v);
+      }
+      for (const child of node.children) stack.push(child);
+    }
+    if (own && held) heldBy.set(own, held);
+  }
+  const open = [...used];
+  while (open.length) {
+    for (const v of heldBy.get(open.pop()!) ?? []) {
+      if (used.has(v)) continue;
+      used.add(v);
+      open.push(v);
+    }
+  }
+  return [...shared.values()].filter((r) => !used.has(r.xref!));
 }
 
 /** Map a parser/decoder `ParseWarning` to a structural issue (text-level, line-based). */
@@ -509,6 +560,19 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
       tooltip: d.tooltip,
       messageKey: "tools.validate.struct.issue.danglingXref",
       messageVars: { tag: d.tag, xref: d.xref, count: d.count },
+    });
+  }
+
+  // (c′) Shared records nothing points at.
+  for (const rec of findUnusedRecords(ds.records)) {
+    push({
+      category: "unusedRecord",
+      severity: "info",
+      recordId: rec.xref,
+      recordTag: rec.tag,
+      sample: rec.xref,
+      tooltip: nodeLine(rec),
+      messageKey: "tools.validate.struct.issue.unusedRecord",
     });
   }
 
