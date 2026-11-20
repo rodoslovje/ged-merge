@@ -535,11 +535,8 @@ function IndexResults({
 
   const searchable = allowLinkFetch && !living;
   // Ask the index as soon as it may be asked: on showing the person, on the
-  // switch being turned on, on a changed own-tree name or exact choice, when
-  // the person's own name or birth is edited (the question itself changes),
-  // and again on "Try again". An answer already held (the cache) leaves
-  // nothing to ask.
-  const asked = indexApiUrl(query, own, site);
+  // switch being turned on, on a changed own-tree name or exact choice, and
+  // again on "Try again". An answer already held (the cache) leaves nothing to ask.
   useEffect(() => {
     if (!searchable) return;
     const cached = answered.get(indexApiUrl(query, own, site));
@@ -562,12 +559,11 @@ function IndexResults({
       // Interrupted (the switch turned off): ask again when it is back on.
       setSearch((s) => (s.state === "loading" ? { state: "idle" } : s));
     };
-    // The rail is keyed by person, but the person is edited under it: `asked`
-    // is the question as it stands, so a corrected surname asks again rather
-    // than leaving the old name's hits beside the new name's links. `attempt`
-    // re-runs the search after an error.
+    // Person and dataset are fixed per mount (the rail is keyed by person);
+    // the query changes only with the exact choice; `attempt` re-runs the
+    // search after an error.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchable, attempt, ownKey, indexExact, asked]);
+  }, [searchable, attempt, ownKey, indexExact]);
 
   const retry = () => {
     setSearch({ state: "idle" });
