@@ -29,6 +29,21 @@ describe("parseCsvText", () => {
     ]);
   });
 
+  it("reads a quote in the middle of a field as that character", () => {
+    // An inch mark opened a quoted field and swallowed every row after it.
+    expect(parseCsvText('1;he said 6" tall;x\r\n2;y;z\r\n', ";")).toEqual([
+      ["1", 'he said 6" tall', "x"],
+      ["2", "y", "z"],
+    ]);
+  });
+
+  it("still reads a quoted field with separators, quotes and line breaks in it", () => {
+    expect(parseCsvText('a;"b;c ""d""\ne";f\n"";g;"h"\n', ";")).toEqual([
+      ["a", 'b;c "d"\ne', "f"],
+      ["", "g", "h"],
+    ]);
+  });
+
   it("honours an explicit separator over the detected one", () => {
     expect(parseCsvText("a;b,c\n", ",")).toEqual([["a;b", "c"]]);
   });

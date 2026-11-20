@@ -207,7 +207,9 @@ export function gedcomDate(raw: string): string {
   if (m) return ymd(m[1], m[2]);
   m = v.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
   if (m) return ymd(m[3], m[2], m[1]);
-  if (/^\d{4}$/.test(v)) return v;
+  // Four digits are a year only when they can be one: a date cell read as its
+  // serial number (3774 for 1 May 1910) is four digits too.
+  if (/^\d{4}$/.test(v)) return Number(v) >= 1000 && Number(v) <= new Date().getFullYear() ? v : "";
   return parseDate(v).year !== undefined ? v : "";
 }
 

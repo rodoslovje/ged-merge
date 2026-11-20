@@ -581,6 +581,16 @@ describe("parseGiMatchesCsv", () => {
     expect(partners[0]).toEqual(expect.objectContaining({ given: "Anica", surname: "Jurejevčič" }));
   });
 
+  it("separates undated partners on the semicolon between them", () => {
+    // No entry carries a "|", so the list was split on commas — into one
+    // person named "Marija Kos; Ana Zupan".
+    const mainRow = row(["A", "B", "1 JAN 1900", "", "", "", "", "", "", "", "", "", "Renko", "99"]);
+    const incomingRow = row(["A", "B", "1 JAN 1900", "", "", "", "", "", "", "Marija Kos; Ana Zupan", "", "", "Pokopališča-geneanet", "99"]);
+    const { dataset } = parseGiMatchesCsv(`${EN_HEADER}\n${mainRow}\n${incomingRow}\n`);
+    const partners = partnerNames(dataset.individuals.get("@SGI1@")!, dataset);
+    expect(partners.map((p) => `${p?.given} ${p?.surname}`)).toEqual(["Marija Kos", "Ana Zupan"]);
+  });
+
   it("pads a data row written short instead of dropping it, so later pairs keep their roles", () => {
     // Rows come in main/incoming pairs; dropping a short row swapped the two
     // roles for every pair after it.
