@@ -818,21 +818,37 @@ export function applyAdditionalNames(
     incExtra.push(c);
   }
   if (incExtra.length === 0) return false;
+  const nameOf = (n: GedNode) => (n.value ?? "").trim();
+  let changed = false;
   if (choice !== "both") {
-    // Strip target's extra NAMEs, keeping only the primary one.
+    // Strip target's extra NAMEs, keeping only the primary one — and the
+    // incoming record's own primary name, where the name row kept it beside
+    // the main's ("both", see applyNamePart): that one was added a moment ago
+    // by this same merge, and stripping it lost the name the report says was
+    // kept.
+    const incPrimary = nameOf(firstChild(incoming, "NAME")!);
     let primaryKept = false;
-    target.children = target.children.filter((c) => {
+    const kept = target.children.filter((c) => {
       if (c.tag !== "NAME") return true;
       if (!primaryKept) { primaryKept = true; return true; }
-      return false;
+      return nameOf(c) === incPrimary;
     });
+    changed = kept.length !== target.children.length;
+    target.children = kept;
   }
+  // A name the target already carries is not added again: two files of the
+  // same person usually share their alternate names, and each merge doubled
+  // them.
+  const have = new Set(childrenByTag(target, "NAME").map(nameOf));
   for (const n of incExtra) {
+    if (have.has(nameOf(n))) continue;
+    have.add(nameOf(n));
     const clone = cloneNodeRemapped(n, sourMap);
     collectCustomTags(clone, customTags);
     insertOrdered(target, clone, INDI_CHILD_ORDER);
+    changed = true;
   }
-  return true;
+  return changed;
 }
 
 /**
