@@ -77,3 +77,28 @@ test("edit mode: adding father/mother/partner/child creates new people and links
 
   await expect(page.locator(".app-head-actions .export-btn")).toBeEnabled();
 });
+
+test("a new person's sex is read off the given name typed for them", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('input.file-input').first().setInputFiles(SAMPLE);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const given = page.locator(".edit-name-input").first();
+  await page.locator(".edit-children .person-card-add", { hasText: "Add child" }).first().click();
+  await page.locator(".relative-picker-new").click();
+  await expect(given).toHaveValue("");
+  await given.fill("Marija");
+  await given.press("Tab");
+  await expect(given).toHaveClass(/sex-f/);
+
+  // Only the first naming guesses: a sex put back to unknown survives a later
+  // correction of the name.
+  await page.locator(".sex-select").click();
+  await page.locator('.dd-menu .dd-item[data-value="U"]').click();
+  await expect(given).not.toHaveClass(/sex-f/);
+  await given.fill("Marjeta");
+  await given.press("Tab");
+  await expect(given).toHaveValue("Marjeta");
+  await expect(given).not.toHaveClass(/sex-[mf]/);
+});

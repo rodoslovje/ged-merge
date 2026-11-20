@@ -66,6 +66,7 @@ import {
   recordLinkTag,
   setMarriedName,
   setName,
+  setSexFromGivenName,
   setNotes,
   setSex,
   updateSourceCitation,
@@ -1472,6 +1473,9 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     if (typed?.surname) defaultSurname = typed.surname;
     if (given || defaultSurname) {
       setName(added, { given, surname: defaultSurname });
+      // A child's or sibling's sex is read off the typed name; a parent or
+      // partner already has the one their role states.
+      setSexFromGivenName(added, given);
       rebuildIndividual(dataset, added);
     }
 
@@ -1547,6 +1551,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     const parts = name ? splitFullName(name, settings.order) : undefined;
     if (parts?.given || parts?.surname) {
       setName(added, parts);
+      setSexFromGivenName(added, parts.given);
       rebuildIndividual(dataset, added);
     }
     // Undo removes the person and returns to whoever was shown before (nobody,

@@ -9,7 +9,7 @@ import { sexClass } from "../sex";
 import { YearsText } from "../YearsText";
 import { lifespanApproxOf } from "../../gedcom/lifespan";
 import { useSettingsSlice } from "../SettingsContext";
-import { setName } from "../../gedcom/edit";
+import { setName, setSexFromGivenName } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
 import type { Commit } from "./types";
 import { fieldWidth, MATCH_STATUSES } from "./editConstants";
@@ -91,7 +91,14 @@ export function NameEditor({
     // current parse, so an uncommitted merge suggestion still commits.
     const current = primaryName(person);
     if (nextGiven === (current?.given ?? "") && nextSurname === (current?.surname ?? "")) return;
-    commit((indi) => setName(indi, { given: nextGiven, surname: nextSurname }));
+    // A given name typed where there was none is a new person being named, so
+    // it sets their still-unknown sex too. A later correction of the name does
+    // not: the user may have put the sex back to unknown on purpose.
+    const firstNaming = !(current?.given ?? "").trim();
+    commit((indi) => {
+      setName(indi, { given: nextGiven, surname: nextSurname });
+      if (firstNaming) setSexFromGivenName(indi, nextGiven);
+    });
   }
 
   const givenIsMerge = givenMergeInit.current !== undefined && given === givenMergeInit.current;
