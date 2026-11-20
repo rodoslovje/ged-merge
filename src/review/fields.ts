@@ -357,6 +357,11 @@ function buildEventRows(
     // two that share a first line but not a postcode still read as different.
     pushRow(subRows, `${keyBase}.addr`, t("event.colAddr"), eventAddressFullText(me, effectiveMAddr),
       eventAddressFullText(ce, effectiveIncomingAddr), undefined, undefined, ce?.address?.originalRaw);
+    // An incoming address read out of the place has no line of its own to take.
+    if (effectiveIncomingAddr && !ce?.address?.raw) {
+      const addrRow = subRows.find((r) => r.key === `${keyBase}.addr`);
+      if (addrRow) addrRow.inPlace = true;
+    }
     pushRow(subRows, `${keyBase}.age`, t("event.colAge"), me?.age, ce?.age);
     pushRow(subRows, `${keyBase}.note`, t("event.colNote"), eventNotesText(me), eventNotesText(ce));
     // The people the event names — godparents, witnesses, the officiant. Shown
@@ -899,7 +904,7 @@ export function fieldDiffCounts(
   let linkCount = 0;
   for (const row of rows) {
     // Already in the file: shown for the record, but nothing this match adds.
-    if (row.taken) continue;
+    if (row.taken || row.inPlace) continue;
     const isLink = row.mainLinks !== undefined || row.incomingLinks !== undefined;
     const isSources = row.mainSources !== undefined || row.incomingSources !== undefined
       || row.mainLinkIcons !== undefined || row.incomingLinkIcons !== undefined;
@@ -1698,7 +1703,7 @@ const BIRTH_DATE_ROW = /^(BIRT|BAPM|CHR)(\.\d+)?\.date$/;
 export function isMajorDifference(row: FieldRow): boolean {
   // An event already taken into the file is settled: its incoming value is on
   // screen for the record, and the reader's own is the one that stands.
-  if (row.state !== "conflict" || row.taken) return false;
+  if (row.state !== "conflict" || row.taken || row.inPlace) return false;
   if (row.key === "given" || row.key === "surname") return true;
   if (!BIRTH_DATE_ROW.test(row.key)) return false;
   const mainYear = parseDate(row.main).year;

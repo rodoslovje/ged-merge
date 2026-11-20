@@ -67,6 +67,12 @@ export interface FieldRow {
    *  applied — the panel says where the event went instead of offering
    *  choices that would do nothing. */
   taken?: true;
+  /** An address row whose incoming side is read out of the incoming *place*
+   *  (`PLAC Kranj, Glavni trg 5`): the incoming event has no `ADDR` line, so
+   *  there is nothing here to take — the address comes across inside the
+   *  place. Shown for comparison, with no choice and no count as new: offered
+   *  as "incoming", the row promised a write the merge has no line to make. */
+  inPlace?: true;
   /** Source citations attached to the event, rendered as badges in this row's value cells. */
   mainSources?: SourceCitation[];
   incomingSources?: SourceCitation[];
@@ -436,7 +442,7 @@ export function defaultChoice(row: FieldRow): FieldChoice {
 export function pendingFieldChoices(rows: readonly FieldRow[], decision: CandidateDecision): Map<string, FieldChoice> {
   const out = new Map<string, FieldChoice>();
   for (const row of rows) {
-    if (row.isGroupHeader || row.state === "agree" || row.state === "main-only") continue;
+    if (row.isGroupHeader || row.state === "agree" || row.state === "main-only" || row.inPlace) continue;
     const choice = decision.fields[row.key] ?? defaultChoice(row);
     if (choice !== "main") out.set(row.key, choice);
   }

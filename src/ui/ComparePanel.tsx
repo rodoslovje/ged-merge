@@ -330,7 +330,7 @@ export function ComparePanel({
 
   /** The choices a row's buttons offer — the ones 1/2/3 may take. */
   function choicesOf(row: FieldRow): FieldChoice[] {
-    if (forceMain || locked || row.taken || row.relatives) return [];
+    if (forceMain || locked || row.taken || row.inPlace || row.relatives) return [];
     if (row.state === "conflict" && (row.key === "father" || row.key === "mother")) return [];
     if (row.state !== "conflict" && row.state !== "incoming-only") return [];
     return rowCanKeepBoth(row.key) ? CHOICES : CHOICES.filter((c) => c !== "both");
@@ -366,6 +366,11 @@ export function ComparePanel({
     // so the incoming value beside it is on screen for the record only.
     if (row.taken) {
       return <span className="gm-main-tag" title={t("compare.takenHint")}>{t("compare.taken")}</span>;
+    }
+    // The incoming address is part of the incoming place, with no line of its
+    // own: it comes across with the place, and this row has nothing to take.
+    if (row.inPlace) {
+      return <span className="gm-main-tag" title={t("compare.inPlaceHint")}>{t("compare.inPlace")}</span>;
     }
     // Two files naming different fathers/mothers: the merge never replaces a
     // linked parent (the disagreement is kept and listed in the save report),
