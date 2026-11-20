@@ -63,6 +63,10 @@ export interface MergeContext {
   /** The main id an incoming individual already resolves to — a match, or a
    *  new record an earlier decision created — without creating anything. */
   resolved: (incomingId: string) => string | undefined;
+  /** Whether {@link resolve} would add this incoming individual to the file as
+   *  a new record: nobody in the main matches them, none was made for them
+   *  yet, and they are not held back. Asked before a link that may be refused. */
+  wouldImport: (incomingId: string) => boolean;
   /** Import an incoming individual as a fresh main record, ignoring any match
    *  the engine suggested for it. Used where the user's explicit pick has to
    *  outrank a suggestion (see the taken-children path). */
@@ -402,6 +406,8 @@ export function makeContext(
       return matched;
     },
     resolved: (incomingId) => matchedJoin(incomingId) ?? addedFromIncoming.get(incomingId),
+    wouldImport: (incomingId) =>
+      !suppressed.has(incomingId) && matchedJoin(incomingId) === undefined && !addedFromIncoming.has(incomingId),
     importNew: addNewIndividual,
     pairedAsRelatives: (mainId, incomingId) => {
       const m = main.individuals.get(mainId);
@@ -518,6 +524,21 @@ export function applyFamilyStructure(
     ];
     for (const [role, incSlot] of spouses) {
       if (!incSlot) continue;
+      // Peek at the slot before the incoming partner becomes a record: with
+      // somebody else already in it the link is refused below — and resolving
+      // first left the partner in the file as a new person tied to no family,
+      // whom nobody had chosen to add (the parents' stitch peeks the same way).
+      const occupant = slotValue(role);
+      if (occupant && ctx.wouldImport(incSlot)) {
+        deferNamingPeople(
+          ctx,
+          famId,
+          ctx.t(role === "HUSB" ? "merge.field.husband" : "merge.field.wife"),
+          "merge.reason.mainHasSpouse",
+          { kept: [ctx.person(occupant)], incoming: [ctx.incomingPerson(incSlot)] },
+        );
+        continue;
+      }
       const targetId = ctx.resolve(incSlot);
       if (!targetId) {
         // A join left to the save into a slot already taken is no join: the
