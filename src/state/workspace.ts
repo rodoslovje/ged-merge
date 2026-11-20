@@ -104,6 +104,7 @@ export type WorkspaceAction =
   | { type: "slotLoaded"; role: DatasetRole; file: LoadedFile }
   | { type: "slotError"; role: DatasetRole; fileName: string; message: string }
   | { type: "slotCleared"; role: DatasetRole }
+  | { type: "mainLoadFailed" }
   | { type: "mainRenamed"; fileName: string }
   | { type: "matchingStarted" }
   | { type: "matchingStopped" }
@@ -147,6 +148,14 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
 
     case "slotCleared":
       return { ...state, [slotKey(action.role)]: { status: "empty" } };
+
+    case "mainLoadFailed":
+      // A new main failed to load over one already open: the open file is
+      // still on screen and still being edited, so its slot reads "loaded"
+      // again. Same file, same generation — nothing keyed on `mainLoadGen`
+      // (the dirty-tracking baseline, the views' keys) starts over.
+      if (!state.lastMainFile) return state;
+      return { ...state, main: { status: "loaded", file: state.lastMainFile } };
 
     case "mainRenamed": {
       // A save can give a file a better name than it was created with (see
