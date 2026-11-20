@@ -41,6 +41,9 @@ beforeEach(async () => {
     setItem: (k: string, v: string) => storage.set(k, v),
     removeItem: (k: string) => storage.delete(k),
   });
+  // No Web Locks unless a test brings its own: a lock claimed by one test
+  // would still be held when the next one asks.
+  vi.stubGlobal("navigator", {});
   timers = new Map();
   let nextId = 1;
   vi.stubGlobal("window", {
@@ -205,6 +208,52 @@ describe("useWorkspacePersistence: startup restore", () => {
     expect(rig.actions).toEqual([]);
   });
 
+  it("a tab that finds the cache held by another neither restores nor writes", async () => {
+    await plant();
+    // Another tab holds the lock: the request waits until it is aborted.
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: (_name: string, o: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            o.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+          }),
+      },
+    });
+    const ds = load();
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.api.hydratedRef.current).toBe(true), { timeout: 2000 });
+    expect(rig.posted).toEqual([]);
+    expect(rig.toasts).toEqual(["persist.otherTab"]);
+    expect(rig.api.persistEnabled).toBe(false);
+    // Work in this tab leaves the other tab's cache as it was.
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds, editVersion: 1 });
+    await tick();
+    await idb.saveFile("compare", { fileName: "in.ged", blob: new Blob(["x"]), savedAt: 2 });
+    await idb.deleteFile("main");
+    const ws = await idb.loadWorkspace();
+    expect(await ws.main!.blob.text()).toBe(TEXT);
+    expect(ws.compare).toBeUndefined();
+    expect(ws.session!.editState).toBeUndefined();
+  });
+
+  it("the tab that gets the lock restores as before", async () => {
+    await plant();
+    let held = false;
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: async (_name: string, _o: unknown, cb: () => Promise<void>) => {
+          held = true;
+          await cb();
+        },
+      },
+    });
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.posted).toHaveLength(1));
+    expect(held).toBe(true);
+    expect(rig.api.persistEnabled).toBe(true);
+    expect(rig.toasts).toEqual([]);
+  });
+
   it("with persistence off, reads nothing", async () => {
     await plant();
     const rig = await mount({ persistEnabled: false });
@@ -288,6 +337,43 @@ describe("useWorkspacePersistence: the debounced writer", () => {
     expect(ws.session!.editState).toBeUndefined();
   });
 
+  it("a save's text is written once, with the session and the file's disk hash", async () => {
+    const ds = load();
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.api.hydratedRef.current).toBe(true));
+    rig.api.mainOriginalHashRef.current = "disk-hash";
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds, editVersion: 2 });
+    await tick();
+    // The save: App hands over the text, marks the main uncached and the
+    // saved version clean (see handleConfirmSave).
+    const { SerializedMain } = await import("./serializedMain");
+    const serialize = vi.spyOn(SerializedMain.prototype, "blob");
+    rig.api.savedMainBlobRef.current = new Blob(["0 HEAD\n1 NOTE saved\n0 TRLR\n"]);
+    rig.api.mainCachedRef.current = false;
+    (rig.opts.cleanEditVersionRef as { current: number }).current = 3;
+    rig.update({ editVersion: 3 });
+    await tick();
+    const ws = await idb.loadWorkspace();
+    expect(await ws.main!.blob.text()).toContain("1 NOTE saved");
+    expect(ws.main!.originalHash).toBe("disk-hash");
+    expect(ws.session!.editState).toBeUndefined();
+    expect(serialize).not.toHaveBeenCalled();
+    expect(rig.api.savedMainBlobRef.current).toBeNull();
+    expect(rig.api.mainCachedRef.current).toBe(true);
+    serialize.mockRestore();
+  });
+
+  it("a save's text is dropped once the file has been edited again", async () => {
+    const ds = load();
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.api.hydratedRef.current).toBe(true));
+    rig.api.savedMainBlobRef.current = new Blob(["stale"]);
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds, editVersion: 1 });
+    await tick();
+    expect(await (await idb.loadWorkspace()).main!.blob.text()).toBe(textOf(ds));
+    expect(rig.api.savedMainBlobRef.current).toBeNull();
+  });
+
   it("a failing cache write is reported once per failure streak", async () => {
     const ds = load();
     const rig = await mount();
@@ -334,6 +420,26 @@ describe("useWorkspacePersistence: toggle, clear and verify", () => {
     expect(ws.compare).toMatchObject({ fileName: "in.csv", isCsv: true });
     rig.update({ persistEnabled: false });
     await vi.waitFor(async () => expect((await idb.loadWorkspace()).main).toBeUndefined());
+  });
+
+  it("turning caching on in a second tab says the other tab has it, and writes nothing", async () => {
+    await plant();
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: (_name: string, o: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            o.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+          }),
+      },
+    });
+    const ds = load(TEXT.replace("Janez /Novak/", "Ana /Kos/"));
+    const rig = await mount({ persistEnabled: false });
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds });
+    rig.update({ persistEnabled: true });
+    await vi.waitFor(() => expect(rig.toasts).toEqual(["persist.otherTab"]), { timeout: 2000 });
+    expect(rig.api.persistEnabled).toBe(false);
+    await tick();
+    expect(await (await idb.loadWorkspace()).main!.blob.text()).toBe(TEXT);
   });
 
   it("Clear cached data wipes the workspace, the place decisions and the media folder", async () => {

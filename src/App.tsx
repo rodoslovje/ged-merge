@@ -145,6 +145,16 @@ const SAMPLE_FILES = [
 // least this long once it starts.
 const MIN_MATCHING_DISPLAY_MS = 300;
 
+/** A main file being loaded: what is taken over once it has parsed. */
+interface PendingMainLoad {
+  fileName: string;
+  handle?: FileSystemFileHandle;
+  originalHash: string;
+  /** The worker was torn down for this load, so it no longer holds the main
+   *  that is open. */
+  workerReset: boolean;
+}
+
 // Both mode views stay mounted (see render below) and are toggled with these
 // styles rather than `hidden`, so the active one keeps the `flex: 1 1 0;
 // min-height: 0` column sizing its content (`.edit-view`/`.main-split`)
@@ -408,6 +418,10 @@ function AppContent() {
   // bytes the worker parses — no dataset crosses the worker boundary (see
   // ParseSuccess.dataset). Lives for the app's lifetime, like the worker's state.
   const localLoads = useRef(new LocalLoads()).current;
+  // A main the reader picked that has not parsed yet: what its arrival resets.
+  const pendingMainLoadRef = useRef<PendingMainLoad | null>(null);
+  // The load whose dirty-tracking baseline has been taken.
+  const baselineGenRef = useRef<number | null>(null);
 
   // Dispatch a message from the GEDCOM worker to the right state. Invoked on
   // every worker message via useGedcomWorker's latest-handler ref.
@@ -540,12 +554,21 @@ function AppContent() {
         // A newer load of the slot overtook the build: its own answer follows.
         if (dataset === SUPERSEDED) return;
         if (!dataset) {
+          persistence.hydratedRef.current = true;
+          // The worker did take the file: its main is the new one now.
+          if (msg.role === "main" && keepOpenMain(t("load.unreadable"), true)) return;
           dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message: t("load.unreadable") });
           void deleteFile(msg.role);
-          persistence.hydratedRef.current = true;
           return;
         }
         const file = loadedFileFromParsed(msg, dataset);
+        if (msg.role === "main") {
+          const pending = pendingMainLoadRef.current;
+          if (pending?.fileName === msg.fileName) {
+            pendingMainLoadRef.current = null;
+            resetForNewMain(pending);
+          }
+        }
         // slotLoaded also records lastMainFile when role is "main".
         dispatch({ type: "slotLoaded", role: msg.role, file });
         if (msg.role === "main") {
@@ -583,6 +606,10 @@ function AppContent() {
       } else {
         // The worker has no i18n: it names the not-a-GEDCOM case by a code.
         const message = msg.message === NOT_GEDCOM ? t("load.notGedcom") : msg.message;
+        if (msg.role === "main" && keepOpenMain(message, false)) {
+          persistence.hydratedRef.current = true;
+          return;
+        }
         dispatch({ type: "slotError", role: msg.role, fileName: msg.fileName, message });
         // A file that fails to parse must not stay cached, or every reload would
         // re-load it into an error and never reach the landing page.
@@ -603,6 +630,7 @@ function AppContent() {
     for (const role of ["main", "compare"] as const) {
       const slot = workspace[role];
       if (slot.status === "loading") {
+        if (role === "main" && keepOpenMain(message, true)) continue;
         dispatch({ type: "slotError", role, fileName: slot.fileName, message });
         // Same as a parse failure: a file whose load crashes the worker must
         // not stay cached, or every reload would crash into it again.
@@ -692,6 +720,48 @@ function AppContent() {
     loadFile(role, new File([blob], fileName, { type: "text/plain" }));
   }
 
+  /** Let go of everything that belonged to the main just replaced — called
+   *  once the new one has parsed, never before (see loadFile). */
+  function resetForNewMain(pending: PendingMainLoad) {
+    persistence.mainCachedRef.current = false;
+    persistence.savedMainBlobRef.current = null;
+    persistence.setMainHandle(pending.handle ?? null);
+    persistence.mainOriginalHashRef.current = pending.originalHash;
+    // Drop stale results + decisions; the worker emits fresh matches once
+    // both sides are (re)loaded and re-normalized.
+    clearMatchState();
+    undoRedo.clearAll();
+    dirty.prepareForLoad();
+    setEditVersion(0); // new file → dataset matches the cached original again
+    editVersionRef.current = 0;
+    changeJournal.reset();
+    cleanEditVersionRef.current = 0;
+    sortEligiblePersonIdsRef.current = new Set();
+    setChartsRootId(null);
+    dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
+    dispatch({ type: "rejectedDuplicatesCleared" }); // rejects reference this main's xrefs only
+    autoStartRef.current = false; // allow the default start person for the new file
+  }
+
+  /**
+   * A main that did not load, over one already open: the open file stays the
+   * main — still editable, still saveable, its cache entry untouched — and the
+   * failure is said in a toast. False when no file is open, where the slot
+   * shows the error itself. `workerLost` when the worker no longer holds the
+   * open file (it took the new one, or died), so it is handed back.
+   */
+  function keepOpenMain(message: string, workerLost: boolean): boolean {
+    if (!lastMainFile) return false;
+    const pending = pendingMainLoadRef.current;
+    pendingMainLoadRef.current = null;
+    dispatch({ type: "mainLoadFailed" });
+    setSaveToast(message);
+    if (workerLost || pending?.workerReset) {
+      void refeedWorkerMain(serializeMainForWorker(lastMainFile.dataset), lastMainFile.fileName);
+    }
+    return true;
+  }
+
   async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
     // Also guards a reload triggered by the external-change check below: if
     // there's unsaved work, this asks before discarding it exactly as it would
@@ -734,6 +804,7 @@ function AppContent() {
       originalHash = await hashFile(file);
       buffer = await file.arrayBuffer();
     } catch {
+      if (role === "main" && keepOpenMain(t("load.unreadable"), false)) return;
       dispatch({ type: "slotError", role, fileName, message: t("load.unreadable") });
       return;
     }
@@ -741,36 +812,24 @@ function AppContent() {
     // The main is NOT written here — the debounced effect owns the main key
     // (it serializes the live, possibly-edited dataset), so a stale original
     // write can't land after and clobber an edit. A fresh main resets the flag
-    // so the next debounce re-caches it.
+    // so the next debounce re-caches it (see resetForNewMain).
+    const pendingMain: PendingMainLoad = { fileName, handle, originalHash, workerReset: false };
     if (role === "compare") {
       persistence.compareBlobRef.current = file;
       persistence.setCompareHandle(handle ?? null);
       persistence.compareOriginalHashRef.current = originalHash;
       if (persistence.persistEnabled) void saveFile("compare", { fileName, blob: file, isCsv, savedAt: Date.now(), originalHash, handle });
-    } else {
-      persistence.mainCachedRef.current = false;
-      persistence.setMainHandle(handle ?? null);
-      persistence.mainOriginalHashRef.current = originalHash;
-    }
-    // Drop stale results + decisions; the worker will emit fresh matches once
-    // both sides are (re)loaded and re-normalized.
-    clearMatchState();
-    if (role === "main") {
-      undoRedo.clearAll();
-      dirty.prepareForLoad();
-      setEditVersion(0); // new file → dataset matches the cached original again
-      editVersionRef.current = 0;
-      changeJournal.reset();
-      cleanEditVersionRef.current = 0;
-      sortEligiblePersonIdsRef.current = new Set();
-      setChartsRootId(null);
-      dispatch({ type: "setStart", id: undefined }); // start person is opt-in; reset on (re)load
-      dispatch({ type: "rejectedDuplicatesCleared" }); // rejects reference this main's xrefs only
-      autoStartRef.current = false; // allow the default start person for the new file
-    } else {
+      // Drop stale results + decisions; the worker will emit fresh matches once
+      // both sides are (re)loaded and re-normalized.
+      clearMatchState();
       // Incoming reload: edit entries remain valid (they only touch main data).
       // Drop merge entries whose field comparisons reference the old incoming file.
       undoRedo.dropMergeEntries();
+    } else {
+      // Nothing of the open main is let go until the new one has parsed: a
+      // file that turns out not to load leaves the open one as it was — edits,
+      // undo history and cache entry included (see keepOpenMain).
+      pendingMainLoadRef.current = pendingMain;
     }
     const newMsg: WorkerRequest = isCsv
       ? { type: "parseCsv", fileName, buffer }
@@ -788,6 +847,11 @@ function AppContent() {
     const otherLoaded = role === "main" ? compare.status === "loaded" : main.status === "loaded";
     const keptMain = lastMainFile;
     if (matching && otherLoaded) {
+      // The match in flight dies with the worker, whatever the new file does.
+      if (role === "main") {
+        pendingMain.workerReset = true;
+        clearMatchState();
+      }
       resetWorker();
       // Always feed main before compare so the compare normalizes against the
       // main's profile.
@@ -953,6 +1017,10 @@ function AppContent() {
   // "modified existing" from "newly added" when reverting via Remove from save.
   useEffect(() => {
     if (main.status !== "loaded") return;
+    // Once per loaded file: a failed re-load puts the open file's slot back
+    // to "loaded" (see keepOpenMain), and its tracking must not start over.
+    if (baselineGenRef.current === mainLoadGen) return;
+    baselineGenRef.current = mainLoadGen;
     // Startup restore of an edited workspace: the re-parsed main is the edited
     // serialization, so adopt the cached pre-edit tracking and undo history
     // instead of treating the current (edited) records as the clean baseline.
@@ -2267,12 +2335,14 @@ function AppContent() {
     const mainFileName = renamed ? savedFileName : lastMainFile?.fileName ?? savedFileName;
     if (renamed) dispatch({ type: "mainRenamed", fileName: savedFileName });
 
-    // The saved file is the new main baseline — refresh the cache so a reload
-    // restores the saved state (the confirmed decisions are now baked in and
-    // cleared below, so the persisted session debounce will write them away).
-    if (persistEnabled) {
-      void saveFile("main", { fileName: mainFileName, blob: new Blob([text]), savedAt: Date.now() });
-    }
+    // The saved file is the new main baseline, so a reload must restore the
+    // saved state. The text is handed to the debounced writer rather than
+    // written here: that one puts the main beside the session it belongs to
+    // (the confirmed decisions, cleared below) in a single transaction, keeps
+    // the file's disk hash and handle, and reports a write that failed. A main
+    // written on its own could land beside the pre-save session — and a reload
+    // would then offer the decisions already baked into it a second time.
+    if (persistEnabled) persistence.savedMainBlobRef.current = new Blob([text]);
 
     // The downloaded file is the new main baseline — rebuild the live dataset
     // from the same records (see savedBaseline).
@@ -2298,11 +2368,11 @@ function AppContent() {
     // merge-only session the counter still sits at 0, and without the bump
     // global search and kinship would keep serving the pre-merge dataset.
     bumpEdit(null);
-    // The cached main text (written just above) equals the rebuilt dataset:
-    // remember this version as clean and mark the main cached — the debounce
-    // (sole main writer) then leaves it alone until the next edit.
+    // The saved text equals the rebuilt dataset: remember this version as
+    // clean, and mark the main as not cached so the debounce (sole main
+    // writer) writes the saved text once, then leaves it until the next edit.
     cleanEditVersionRef.current = editVersionRef.current;
-    persistence.mainCachedRef.current = true;
+    persistence.mainCachedRef.current = false;
     // The worker's main is still the file as loaded; matched against it, a
     // later compare would report people this save just imported as new. Hand
     // it the saved text so its copy is the new baseline too. After the bump

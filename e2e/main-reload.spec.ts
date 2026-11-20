@@ -131,3 +131,43 @@ test("after replacing the main, a reload restores the NEW file (cache not poison
   await expect(page.locator(".header-file-btn.main")).toContainText(path.basename(FILE_BIG));
   await expect(page.locator(".edit-name-input").first()).toHaveValue("Luka", { timeout: 15000 });
 });
+
+// A file that does not load, picked over an open main: the open file used to
+// stay on screen and editable while its slot read "error" — Save did nothing,
+// the cache writer stopped, and the undo history had been wiped before the
+// new file was even parsed.
+test("a file that fails to load over an open main leaves that main editable, saveable and cached", async ({ page }) => {
+  const notGedcom = path.join(tmpdir(), `reload-bad-${uid}.ged`);
+  writeFileSync(notGedcom, "this is not a GEDCOM file\n", "utf-8");
+  await enablePersist(page);
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FILE_A);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  const given = page.locator(".edit-name-input").first();
+  await given.fill("Janko TEST");
+  await page.locator(".edit-name-input").nth(1).click(); // blur to commit
+  const save = page.locator(".app-head-actions .export-btn");
+  await expect(save).toBeEnabled();
+
+  await page.locator(".header-file-btn.main").click();
+  await page.locator("input.file-input").first().setInputFiles(notGedcom);
+  await page.locator(".confirm-dialog-confirm").click(); // unsaved changes: replace anyway
+  await expect(page.locator(".save-toast")).toBeVisible();
+
+  // Still the open file, with its edit and a Save that opens.
+  await expect(page.locator(".header-file-btn.main")).toContainText(path.basename(FILE_A));
+  await expect(given).toHaveValue("Janko TEST");
+  await save.click();
+  await expect(page.locator(".preview-actions .export-btn")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".preview-actions")).toHaveCount(0);
+
+  // The cache still writes: a further edit reaches it and survives a reload.
+  await given.fill("Janko AGAIN");
+  await page.locator(".edit-name-input").nth(1).click();
+  await waitForCache(page, { mainContains: "Janko AGAIN" });
+  await page.reload();
+  await page.locator(".edit-person").waitFor();
+  await expect(page.locator(".edit-name-input").first()).toHaveValue("Janko AGAIN", { timeout: 15000 });
+});

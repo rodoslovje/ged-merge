@@ -48,6 +48,12 @@ export function decodeGedcom(buffer: ArrayBuffer): DecodeResult {
     case "UTF-8":
       return decodeAsUtf8(bytes, warnings, true);
     case "UNICODE":
+      // The declaration was read as 8-bit text, so these are not UTF-16 bytes
+      // whatever it says: a UTF-16 file re-written as UTF-8 with its header
+      // left alone — which is what this app's own copies of such a file are
+      // (the workspace cache, a re-feed to the worker). Read as UTF-16 they
+      // came out as no GEDCOM at all.
+      if (isValidUtf8(bytes)) return mislabelledUtf8(bytes, warnings, "UNICODE");
       // No BOM but declared UNICODE: assume little-endian, the common case.
       warnings.push({
         kind: "encoding",

@@ -30,6 +30,21 @@ describe("workspaceReducer — slots", () => {
     expect(s2.main).toEqual({ status: "loaded", file: f });
   });
 
+  it("puts the open main back when a new one fails to load over it", () => {
+    const open = file("tree.ged");
+    const loaded = workspaceReducer(initialWorkspace, { type: "slotLoaded", role: "main", file: open });
+    const failed = reduce(loaded, { type: "slotLoading", role: "main", fileName: "photo.jpg" }, { type: "mainLoadFailed" });
+    expect(failed.main).toEqual({ status: "loaded", file: open });
+    expect(failed.lastMainFile).toBe(open);
+    // Same file, same load: nothing keyed on the generation starts over.
+    expect(failed.mainLoadGen).toBe(loaded.mainLoadGen);
+  });
+
+  it("leaves the slot alone when no main is open to put back", () => {
+    const loading = workspaceReducer(initialWorkspace, { type: "slotLoading", role: "main", fileName: "photo.jpg" });
+    expect(workspaceReducer(loading, { type: "mainLoadFailed" })).toBe(loading);
+  });
+
   it("records lastMainFile only for the main slot", () => {
     const fm = file("m.ged");
     const fc = file("c.ged");
