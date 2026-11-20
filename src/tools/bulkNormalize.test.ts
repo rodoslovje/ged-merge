@@ -108,7 +108,7 @@ describe("bulkNormalize", () => {
     const ds = dataset(new TextEncoder().encode(text).buffer);
     // An id asked for earlier in the session: the highest is now cached.
     expect(nextXref(ds.records, "N")).toBe("@N2@");
-    applyBulkNormalize(ds, {}, { notes: "shared" });
+    applyBulkNormalize(ds, { dates: false, places: false, links: false, names: false, vendorTags: false, noteShape: true }, { notes: "shared" });
     const taken = ds.records.filter((r) => r.tag === "NOTE").map((r) => r.xref);
     expect(taken.length).toBeGreaterThan(1);
     expect(taken).not.toContain(nextXref(ds.records, "N"));
