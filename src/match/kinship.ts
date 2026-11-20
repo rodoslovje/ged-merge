@@ -271,7 +271,7 @@ function spouseIds(ds: Dataset, id: string): string[] {
 }
 
 /** How many parents the two share (1 = half-siblings, 2 = full). */
-function sharedParentCount(ds: Dataset, aId: string, bId: string): number {
+export function sharedParentCount(ds: Dataset, aId: string, bId: string): number {
   const a = new Set(parentIds(ds, aId));
   return new Set(parentIds(ds, bId).filter((p) => a.has(p))).size;
 }
@@ -409,7 +409,13 @@ export function kinshipLabelFor(
   t: Translate,
   /** The parent whose line the relative is on — names a mother's brother apart. */
   side?: "father" | "mother" | "own",
+  /** How many parents the two share, asked only for a sibling: one makes them
+   *  half-siblings, as {@link kinshipLabel} names them everywhere else. */
+  sharedParents?: () => number,
 ): string | undefined {
+  if (up === 1 && down === 1 && sharedParents?.() === 1) {
+    return sex === "F" ? t("kinship.halfSister") : t("kinship.halfBrother");
+  }
   return relLabel(up, down, sex ?? "U", t, { lineage: () => (side === "mother" ? "maternal" : undefined) });
 }
 

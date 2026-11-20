@@ -31,7 +31,7 @@ import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import type { HoverInfo } from "./useChartHover";
 import { ChartHoverCard } from "./ChartHoverCard";
-import { createKinshipResolver, kinshipLabelFor, lineageClass } from "../match/kinship";
+import { createKinshipResolver, kinshipLabelFor, lineageClass, sharedParentCount } from "../match/kinship";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
 import { ChartRootTitle } from "./ChartRootTitle";
@@ -270,7 +270,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
    *  whose kinship line means something else everywhere in the app — the
    *  relationship to your start person. Named from the positions the layout
    *  already knows, so no pedigree is walked per person. */
-  const kinshipOf = useCallback((p: KinPerson) => kinshipLabelFor(p.up, p.down, p.sex, t, p.side), [t]);
+  const kinshipOf = useCallback(
+    (p: KinPerson) => kinshipLabelFor(p.up, p.down, p.sex, t, p.side, () => sharedParentCount(mainDs, currentRootId, p.id)),
+    [t, mainDs, currentRootId],
+  );
   const tooltipFor = useCallback(
     (p: KinPerson) => {
       const rel = kinshipOf(p);
