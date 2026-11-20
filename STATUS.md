@@ -2,7 +2,7 @@
 _Updated 2026-11-19_
 
 GED Merge, live at gedmerge.com (test site test.gedmerge.com). Rules: `CLAUDE.md`/`AGENTS.md` (details in `docs/agents/`). **Backlog and priorities: `IDEAS.md`** (not duplicated here).
-Workflow: one worktree per session, every change a branch + PR; `main` merges only on green CI, every green `main` deploys the test site, production only on request.
+Workflow: one worktree per task, every change a branch + PR; `main` merges only on green CI, every green `main` deploys the test site, production only on request.
 
 **Last work (23. 10.–19. 11., PRs #43–#227)**
 - Charts: 3D network (families as clusters, layout in a worker, blood / branch / all branches) #227; Timeline Lines layout and historical events by place #213 #214 #217; colour axes by country/region #96 #104; zoom by typed percentage #224
