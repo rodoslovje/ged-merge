@@ -92,6 +92,11 @@ export interface FactLine {
   /** Sex-tagged ages for events about a couple: a marriage carries both
    *  spouses ("♂32", "♀28"); a birth carries the parents. */
   ages?: string[];
+  /** {@link ages} without those of people presumed living — set whenever one
+   *  was left out, so it can be empty. What a renderer shows under the privacy
+   *  option: beside a dated event, an age is a birth year (see
+   *  {@link withPublicAges}). */
+  agesPublic?: string[];
 }
 
 /** One rendered citation: the "§ title" text, the cited page kept separate
@@ -396,7 +401,7 @@ export function marriageFact(
     fam: fam.id,
   };
   const fact = marr ? withNote(base, marr, opts) : base;
-  if (opts.age && ds && marr) fact.ages = coupleAges(fam, ds, marr.date, marr);
+  if (opts.age && ds && marr) coupleAges(fact, fam, ds, marr.date, marr);
   // A divorce or annulment wins over a separation recorded beside it.
   const end =
     fam.events.find((e) => e.tag === "DIV" || e.tag === "ANUL") ?? fam.events.find((e) => e.tag === "SEPA");
@@ -451,6 +456,25 @@ function sexAge(indi: Individual | undefined, glyph: string, at: GedDate | undef
   return age === undefined ? undefined : `${glyph}${age}`;
 }
 
+/** Put the sex-tagged ages of `people` on a fact: all of them as `ages`, and
+ *  — when any of them is presumed living or private — the rest as
+ *  `agesPublic`. */
+function setAges(fact: FactLine, ds: Dataset, people: { indi: Individual | undefined; text: string | undefined }[]): void {
+  const aged = people.filter((p): p is { indi: Individual | undefined; text: string } => p.text !== undefined);
+  if (!aged.length) return;
+  fact.ages = aged.map((p) => p.text);
+  const open = aged.filter((p) => !(p.indi && (isPresumedLiving(p.indi, ds) || p.indi.private)));
+  if (open.length < aged.length) fact.agesPublic = open.map((p) => p.text);
+}
+
+/** The fact as shown under the living-people privacy option: the ages of
+ *  people presumed living left out. A living spouse's age on a marriage line,
+ *  or a living parent's on a birth line, gives their birth year away however
+ *  well their name is hidden. */
+export function withPublicAges(f: FactLine): FactLine {
+  return f.agesPublic ? { ...f, ages: f.agesPublic } : f;
+}
+
 /**
  * The whole years an age the record states says (`AGE 62y` → 62), for a fact
  * whose age cannot be computed — the person has no birth date, and the age at
@@ -463,24 +487,26 @@ function statedYears(stated: string | undefined): number | undefined {
 
 /** The parents' sex-tagged ages (♂ father, ♀ mother) at a person's birth —
  *  each parent taken from the first child-family that records that role. */
-function parentAges(indi: Individual, ds: Dataset, at: GedDate | undefined): string[] | undefined {
+function parentAges(fact: FactLine, indi: Individual, ds: Dataset, at: GedDate | undefined): void {
   const families = indi.childOf.map((id) => ds.families.get(id)).filter((f): f is Family => f !== undefined);
   const father = families.find((f) => f.husband && ds.individuals.has(f.husband))?.husband;
   const mother = families.find((f) => f.wife && ds.individuals.has(f.wife))?.wife;
-  const ages = [
-    sexAge(father ? ds.individuals.get(father) : undefined, "♂", at),
-    sexAge(mother ? ds.individuals.get(mother) : undefined, "♀", at),
-  ].filter((s): s is string => s !== undefined);
-  return ages.length ? ages : undefined;
+  const dad = father ? ds.individuals.get(father) : undefined;
+  const mum = mother ? ds.individuals.get(mother) : undefined;
+  setAges(fact, ds, [
+    { indi: dad, text: sexAge(dad, "♂", at) },
+    { indi: mum, text: sexAge(mum, "♀", at) },
+  ]);
 }
 
 /** Both spouses' sex-tagged ages (♂ husband, ♀ wife) at a marriage. */
-function coupleAges(fam: Family, ds: Dataset, at: GedDate | undefined, marr?: GedEvent): string[] | undefined {
-  const ages = [
-    sexAge(fam.husband ? ds.individuals.get(fam.husband) : undefined, "♂", at, marr?.husbandAge),
-    sexAge(fam.wife ? ds.individuals.get(fam.wife) : undefined, "♀", at, marr?.wifeAge),
-  ].filter((s): s is string => s !== undefined);
-  return ages.length ? ages : undefined;
+function coupleAges(fact: FactLine, fam: Family, ds: Dataset, at: GedDate | undefined, marr?: GedEvent): void {
+  const husband = fam.husband ? ds.individuals.get(fam.husband) : undefined;
+  const wife = fam.wife ? ds.individuals.get(fam.wife) : undefined;
+  setAges(fact, ds, [
+    { indi: husband, text: sexAge(husband, "♂", at, marr?.husbandAge) },
+    { indi: wife, text: sexAge(wife, "♀", at, marr?.wifeAge) },
+  ]);
 }
 
 /** Attach the age to a personal fact when the Age option is on: the parents'
@@ -496,7 +522,7 @@ function withAge(
 ): FactLine {
   if (!opts.age) return fact;
   if (fact.tag === "BIRT") {
-    if (ds) fact.ages = parentAges(indi, ds, at);
+    if (ds) parentAges(fact, indi, ds, at);
   } else {
     const age = ageAtDate(indi, at) ?? statedYears(stated);
     if (age !== undefined) fact.age = age;

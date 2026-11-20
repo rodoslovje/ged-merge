@@ -7,7 +7,7 @@
 // live here once for every language.
 
 import type { GedDate, Sex } from "../gedcom/types";
-import { factDateKey, type ReportData, type ReportEntry } from "./model";
+import { factDateKey, withPublicAges, type ReportData, type ReportEntry } from "./model";
 import type { FactLine } from "./model";
 import { spouseName, spouseRedacted, type ReportTextOptions } from "./text";
 
@@ -130,7 +130,9 @@ export function planEntry(
   const first = (tags: string[]) => entry.facts.find((f) => tags.includes(f.tag));
   const all = (tags: string[]) => entry.facts.filter((f) => tags.includes(f.tag));
 
-  const birth = first(["BIRT"]);
+  // Under the privacy option a line keeps only the ages of the dead.
+  const shown = (f: FactLine | undefined) => (f && priv ? withPublicAges(f) : f);
+  const birth = shown(first(["BIRT"]));
   const baptism = first(["BAPM", "CHR"]);
   const death = first(["DEAT"]);
   const burial = first(["BURI", "CREM"]);
@@ -193,7 +195,7 @@ export function planEntry(
     const stmts: Omit<Statement, "subject">[] = [
       {
         kind: "married",
-        fact: m,
+        fact: shown(m)!,
         ...(widowed ? { fact2: { tag: "DEAT", glyph: "", parsed: prevMarriage!.spouseDied, date: undefined } } : null),
         spouse: name && `${name}${years}`,
         again,

@@ -111,3 +111,55 @@ describe("report Age fact option", () => {
     expect(prose).toContain("(star 64 let)");
   });
 });
+
+describe("ages of living people under the privacy option", () => {
+  // Janez died in 2005; his wife Ana (born 1970) is living. Their son died an
+  // infant. An age beside a dated event is a birth year: Ana's must not show.
+  const ds = dataset(wrap(
+    "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1960\n1 DEAT\n2 DATE 2005\n1 FAMS @F1@\n" +
+      "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1970\n1 FAMS @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 3 MAR 2000\n1 DEAT\n2 DATE 2001\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n1 MARR\n2 DATE 5 MAY 1995\n2 PLAC Kranj\n",
+  ));
+  const entries = buildDescendants(ds, "@I1@", nameOf, 2026, { age: true })!.generations.flatMap((g) => g.entries);
+  const marriage = entries.find((e) => e.id === "@I1@")!.facts.find((f) => f.tag === "MARR")!;
+  const birth = entries.find((e) => e.id === "@I3@")!.facts.find((f) => f.tag === "BIRT")!;
+  const privacy = { privacyLiving: true, livingNameOf: () => "Living" };
+
+  it("shows both ages without the option", () => {
+    expect(factText(tr, marriage)).toContain("(♂35 ♀25)");
+    expect(factText(tr, birth)).toContain("(♂40 ♀30)");
+  });
+
+  it("leaves the living spouse's and the living parent's age out of the lines", () => {
+    expect(factText(tr, marriage, privacy)).toContain("(♂35)");
+    expect(factText(tr, marriage, privacy)).not.toContain("♀");
+    expect(factText(tr, birth, privacy)).toContain("(♂40)");
+    expect(factText(tr, birth, privacy)).not.toContain("♀");
+  });
+
+  it("leaves them out of the narrative too", () => {
+    const prose = (id: string, opts = {}) => {
+      const entry = entries.find((e) => e.id === id)!;
+      return narrativeParagraph(makeT("en"), narrativeLangFor("en"), entry, planEntry(entry, [], opts));
+    };
+    expect(prose("@I1@")).toContain("♀25");
+    expect(prose("@I1@", privacy)).not.toContain("♀");
+    expect(prose("@I3@")).toContain("♀30");
+    expect(prose("@I3@", privacy)).not.toContain("♀");
+  });
+
+  it("drops the parenthesis when every age on the line is a living person's", () => {
+    const both = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1960\n1 FAMS @F1@\n" +
+        "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 BIRT\n2 DATE 1970\n1 FAMS @F1@\n" +
+        "0 @I3@ INDI\n1 NAME Tone /Novak/\n1 SEX M\n1 BIRT\n2 DATE 2000\n1 DEAT\n2 DATE 2001\n1 FAMC @F1@\n" +
+        "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n1 CHIL @I3@\n",
+    ));
+    const son = buildDescendants(both, "@I1@", nameOf, 2026, { age: true })!
+      .generations.flatMap((g) => g.entries).find((e) => e.id === "@I3@")!;
+    const born = son.facts.find((f) => f.tag === "BIRT")!;
+    expect(factText(tr, born)).toContain("(♂40 ♀30)");
+    expect(factText(tr, born, privacy)).not.toContain("(");
+  });
+});
