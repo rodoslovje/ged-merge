@@ -288,6 +288,43 @@ describe("useWorkspacePersistence: the debounced writer", () => {
     expect(ws.session!.editState).toBeUndefined();
   });
 
+  it("a save's text is written once, with the session and the file's disk hash", async () => {
+    const ds = load();
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.api.hydratedRef.current).toBe(true));
+    rig.api.mainOriginalHashRef.current = "disk-hash";
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds, editVersion: 2 });
+    await tick();
+    // The save: App hands over the text, marks the main uncached and the
+    // saved version clean (see handleConfirmSave).
+    const { SerializedMain } = await import("./serializedMain");
+    const serialize = vi.spyOn(SerializedMain.prototype, "blob");
+    rig.api.savedMainBlobRef.current = new Blob(["0 HEAD\n1 NOTE saved\n0 TRLR\n"]);
+    rig.api.mainCachedRef.current = false;
+    (rig.opts.cleanEditVersionRef as { current: number }).current = 3;
+    rig.update({ editVersion: 3 });
+    await tick();
+    const ws = await idb.loadWorkspace();
+    expect(await ws.main!.blob.text()).toContain("1 NOTE saved");
+    expect(ws.main!.originalHash).toBe("disk-hash");
+    expect(ws.session!.editState).toBeUndefined();
+    expect(serialize).not.toHaveBeenCalled();
+    expect(rig.api.savedMainBlobRef.current).toBeNull();
+    expect(rig.api.mainCachedRef.current).toBe(true);
+    serialize.mockRestore();
+  });
+
+  it("a save's text is dropped once the file has been edited again", async () => {
+    const ds = load();
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.api.hydratedRef.current).toBe(true));
+    rig.api.savedMainBlobRef.current = new Blob(["stale"]);
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds, editVersion: 1 });
+    await tick();
+    expect(await (await idb.loadWorkspace()).main!.blob.text()).toBe(textOf(ds));
+    expect(rig.api.savedMainBlobRef.current).toBeNull();
+  });
+
   it("a failing cache write is reported once per failure streak", async () => {
     const ds = load();
     const rig = await mount();
