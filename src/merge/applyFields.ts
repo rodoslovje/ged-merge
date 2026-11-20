@@ -15,7 +15,7 @@ import {
 } from "../gedcom/edit";
 import { buildObjeIndex, buildSourceIndex, matchesPage, newSourceCitations, fullerSourceOf, sourceContentKey, type ObjeIndex } from "../gedcom/source";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "../gedcom/private";
-import { eventDisplayLabel, isOccurrenceFlag, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
+import { eventDisplayLabel, isChangeStampEvent, isOccurrenceFlag, SINGLE_EVENT_TAGS } from "../gedcom/eventTags";
 import { eventTakesText } from "../tools/conformance/allows";
 import { contactTagOf } from "../gedcom/address";
 import type { Dataset, Family, GedcomVersion, GedNode, PersonName, SourceCitation } from "../gedcom/types";
@@ -31,6 +31,7 @@ import { parseName } from "../gedcom/name";
 import { isPointer, looksLikeUrl } from "../gedcom/uri";
 import { linkKey } from "../normalize/links";
 import { writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
+import { conformingXref, xrefConforms } from "../gedcom/xrefShape";
 import { lifespanAnchors, zoneSortKey } from "../review/fields";
 import { defaultChoice, EVENT_TEXT_SUBS, type CandidateDecision, type FieldChoice, type FieldRow } from "../review/types";
 import { incomingCitationPage, incomingPageObje, placeCitation, placeEventLink, placeRecordLink, type LinkPlacement, type PlacedLink } from "./linkPlacement";
@@ -818,21 +819,49 @@ export function applyAdditionalNames(
     incExtra.push(c);
   }
   if (incExtra.length === 0) return false;
+  const nameOf = (n: GedNode) => (n.value ?? "").trim();
+  let changed = false;
   if (choice !== "both") {
-    // Strip target's extra NAMEs, keeping only the primary one.
+    // Strip target's extra NAMEs, keeping only the primary one — and the
+    // incoming record's own primary name, where the name row kept it beside
+    // the main's ("both", see applyNamePart): that one was added a moment ago
+    // by this same merge, and stripping it lost the name the report says was
+    // kept.
+    const incPrimary = nameOf(firstChild(incoming, "NAME")!);
     let primaryKept = false;
-    target.children = target.children.filter((c) => {
+    const kept = target.children.filter((c) => {
       if (c.tag !== "NAME") return true;
       if (!primaryKept) { primaryKept = true; return true; }
-      return false;
+      return nameOf(c) === incPrimary;
     });
+    changed = kept.length !== target.children.length;
+    target.children = kept;
   }
+  // A name the target already carries is not added again: two files of the
+  // same person usually share their alternate names, and each merge doubled
+  // them.
+  const have = new Set(childrenByTag(target, "NAME").map(nameOf));
   for (const n of incExtra) {
+    if (have.has(nameOf(n))) continue;
+    have.add(nameOf(n));
     const clone = cloneNodeRemapped(n, sourMap);
     collectCustomTags(clone, customTags);
     insertOrdered(target, clone, INDI_CHILD_ORDER);
+    changed = true;
   }
-  return true;
+  return changed;
+}
+
+/**
+ * A record's events under `tag`, in file order — the nodes a review row's
+ * `mainIdx` / `compareIdx` count, which are indices into the typed events.
+ * MyHeritage writes its change stamp as an event line (`1 EVEN <time>` +
+ * `2 TYPE _UPD`) that the typed events leave out: counted here, every index
+ * after it pointed one line too early — an incoming place was written under
+ * the stamp, and the stamp was imported in place of the real event.
+ */
+function eventsByTag(record: GedNode, tag: string): GedNode[] {
+  return childrenByTag(record, tag).filter((c) => !isChangeStampEvent(c));
 }
 
 /**
@@ -851,7 +880,7 @@ function resolveEventNode(
   newEventNodes?: Map<string, GedNode>,
 ): GedNode {
   if (mainIdx >= 0) {
-    const existing = childrenByTag(target, tag)[mainIdx];
+    const existing = eventsByTag(target, tag)[mainIdx];
     if (existing) {
       markEventTouched(existing, "changed");
       return existing;
@@ -900,7 +929,7 @@ export function applyEventValue(
   order: string[] = [],
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   if (!incEvent?.value) return false;
   if (choice === "incoming" || choice === "both") {
     const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
@@ -930,7 +959,7 @@ export function applyEventSub(
   customTags: Record<string, CustomTagNode[]> = {},
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSub = incEvent ? firstChild(incEvent, subTag) : undefined;
   if (!incSub) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
@@ -977,7 +1006,7 @@ export function applyEventAssociations(
   customTags: Record<string, CustomTagNode[]>,
   newEventNodes?: Map<string, GedNode>,
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incAssocs = incEvent ? childrenByTag(incEvent, "ASSO") : [];
   if (!incAssocs.length) return false;
   const event = resolveEventNode(target, tag, mainIdx, compareIdx, order, newEventNodes);
@@ -1101,7 +1130,7 @@ export function applyEventSources(
    *  can report the citation rather than the bare address. */
   placedOut?: PlacedLink[],
 ): boolean {
-  const incEvent = compareIdx >= 0 ? childrenByTag(incomingRecord, tag)[compareIdx] : undefined;
+  const incEvent = compareIdx >= 0 ? eventsByTag(incomingRecord, tag)[compareIdx] : undefined;
   const incSours = incEvent ? childrenByTag(incEvent, "SOUR") : [];
   const incLinks = [...eventLinkUrls(incEvent), ...recordLinks];
   const incObjeLinks = eventObjeLinks(incEvent, placement.incoming?.sourceCtx.objeIndex);
@@ -1352,6 +1381,12 @@ export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
   return set;
 }
 
+/** The version a merge into `main` writes in: the strict target's when the
+ *  overrides name one, else the main file's own. */
+export function mergeTargetVersion(main: Pick<Dataset, "version">, overrides?: FormatOverrides): "5.5.1" | "7.0" {
+  return overrides?.standard ?? overrides?.writeVersion ?? (main.version === "7.0" ? "7.0" : "5.5.1");
+}
+
 /**
  * Pre-compute the xref translation table for all compare shared records
  * (SOUR/REPO/NOTE/SNOTE/OBJE). A compare record describing the same content as an
@@ -1364,7 +1399,15 @@ export function reservedXrefs(sourMap: SourXrefMap): ReadonlySet<string> {
  * compare file could silently resolve to an unrelated main record that
  * happens to share the xref.
  */
-export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode[]): Map<string, string> {
+export function buildSourXrefMap(
+  compareRecords: GedNode[],
+  mainRecords: GedNode[],
+  /** The version the merged file is written in. An incoming id its rules do
+   *  not take (`@src-krstna.knjiga@` in 7.0, one past 22 characters in 5.5.1)
+   *  is replaced on the way in: only a save that converts versions renames
+   *  ids, so a merge into a file kept in its version left such a one in it. */
+  target?: "5.5.1" | "7.0",
+): Map<string, string> {
   const map = new Map<string, string>();
   const used = new Set(mainRecords.filter((r) => r.xref).map((r) => r.xref as string));
   // A shared-record pointer the main already writes is taken too, even when
@@ -1403,8 +1446,9 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
       continue;
     }
     if (!used.has(rec.xref)) {
-      map.set(rec.xref, rec.xref);
-      used.add(rec.xref);
+      const own = target && !xrefConforms(rec.xref, target === "7.0") ? conformingXref(rec.xref, target === "7.0", used) : rec.xref;
+      map.set(rec.xref, own);
+      used.add(own);
     } else {
       const prefix = SHARED_XREF_PREFIX[rec.tag];
       let n = nextFree.get(prefix) ?? 1;
@@ -1738,7 +1782,7 @@ export function materializeEventSources(
   const incLinks = eventLinkUrls(incomingEventNode);
   if (!incSours.length && !incLinks.length) return [];
   const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
-  const sourMap = buildSourXrefMap(compare.records, dataset.records);
+  const sourMap = buildSourXrefMap(compare.records, dataset.records, mergeTargetVersion(dataset));
   for (const s of incSours) copyCitation(eventNode, s, EVENT_CHILD_ORDER, sourMap, dataset.records, placement, {});
   importSourRecords(dataset.records, compare, sourMap, {});
   if (incLinks.length) {
@@ -1820,7 +1864,7 @@ export function materializeRecordField(
   order: string[],
 ): GedNode[] {
   const before = new Set(dataset.records.filter((r) => r.xref).map((r) => r.xref as string));
-  const sourMap = buildSourXrefMap(compare.records, dataset.records);
+  const sourMap = buildSourXrefMap(compare.records, dataset.records, mergeTargetVersion(dataset));
   if (!applyRecordField(target, incoming, field, choice, sourMap, dataset.records, order, {})) return [];
   importSourRecords(dataset.records, compare, sourMap, {});
   const added = dataset.records.filter((r) => r.xref && !before.has(r.xref));

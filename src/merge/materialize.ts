@@ -9,7 +9,7 @@ import type { FormatOverrides } from "../normalize/formatOverrides";
 import { incomingParentIds, individualFieldRows } from "../review/fields";
 import { confirmedPeople, parseDecisionKey, pinnedAdds, type CandidateDecision } from "../review/types";
 import { applyRecordPatches, coalescePatches, patchesFromSnapshots, snapshotRecords, type RecordPatch } from "../ui/historyTypes";
-import { buildSourXrefMap, foldMatchedSourcePages, importSourRecords, remapSealingFamilies } from "./applyFields";
+import { buildSourXrefMap, foldMatchedSourcePages, mergeTargetVersion, importSourRecords, remapSealingFamilies } from "./applyFields";
 import {
   applyImportBranches,
   applyIndividualFamilies,
@@ -319,8 +319,8 @@ function liveContext(
     main.records,
     "sourXrefMap",
     // `records` reads as the main does: its sources are copies, not changes.
-    () => buildSourXrefMap(compare.records, records),
-    `${recordsId(compare.records)}:${contentStamp(compare.records)}`,
+    () => buildSourXrefMap(compare.records, records, mergeTargetVersion(main, overrides)),
+    `${recordsId(compare.records)}:${contentStamp(compare.records)}:${mergeTargetVersion(main, overrides)}`,
   );
   const report: ChangeReport = {
     changes: [], deferred: [], graftJoins: [], recordsChanged: 0, newPersons: 0, newFamilies: 0,

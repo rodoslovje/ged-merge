@@ -20,6 +20,7 @@ import type { Translate } from "../locales/i18n";
 import {
   applyRows,
   buildSourXrefMap,
+  mergeTargetVersion,
   cloneNode,
   currentFieldChoices,
   linkPlacementFor,
@@ -448,7 +449,7 @@ export function mergeDecisions(
   // coordinate fill's business (see `fillWrittenPlaceCoords`).
   const inheritedPlacs = new Set<GedNode>();
   for (const r of records.filter(isPersonOrFamily)) walkPlacNodes(r, (plac) => inheritedPlacs.add(plac));
-  const sourXrefMap = buildSourXrefMap(compare.records, records);
+  const sourXrefMap = buildSourXrefMap(compare.records, records, mergeTargetVersion(main, overrides));
   const indiNodes = new Map<string, GedNode>();
   const famNodes = new Map<string, GedNode>();
   for (const r of records) {

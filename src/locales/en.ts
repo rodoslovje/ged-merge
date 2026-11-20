@@ -2865,6 +2865,8 @@ export const en = {
   "compare.conflicts": "conflicts",
   "compare.keepMain": "main",
   "compare.taken": "in your file",
+  "compare.inPlace": "in the place",
+  "compare.inPlaceHint": "The incoming file writes this address inside the place, with no address line of its own. It comes across with the place, so there is nothing to choose here.",
   "compare.takenHint": "This event was taken into your file in Edit and is out of the merge; the incoming values stay on screen so you can see what the other file recorded.",
   "compare.parentConflict": "The two files name different parents. A merge never replaces a linked parent — your file's stays, the disagreement is listed in the save report, and Edit is the place to change the link.",
   "compare.relativesHint": "The years shown identify the person — they are not merged here. Each relative's own dates and names arrive when you confirm that person's own match.",
