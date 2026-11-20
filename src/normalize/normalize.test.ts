@@ -969,12 +969,14 @@ describe("normalizeDataset (place reshaping)", () => {
 1 CHAR UTF-8
 0 @P1@ INDI
 1 BIRT
-2 PLAC Kranj (Slovenija), Kidričeva 38/a
+2 PLAC Tržič (Slovenija), Kidričeva 38/a
 0 TRLR
 `);
     const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(main));
     const birth = out.individuals.get("@P1@")!.events.find((e) => e.tag === "BIRT")!;
-    expect(birth.place?.raw).toBe("Kranj (Slovenija), Kidričeva 38/a");
+    // Tržič is no place of the main's, so nothing of it is taken apart either
+    // (see addressOntoKnownPlace.test.ts for a place the main does have).
+    expect(birth.place?.raw).toBe("Tržič (Slovenija), Kidričeva 38/a");
     expect(report.placesReshaped).toBe(0);
   });
 });
