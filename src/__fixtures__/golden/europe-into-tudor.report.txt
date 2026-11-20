@@ -1,10 +1,10 @@
 changeReport.title
 ==================
 
-changeReport.stat.records:        124
+changeReport.stat.records:        123
 changeReport.stat.fields:         109
 changeReport.stat.newFields:      108
-changeReport.stat.added:           80
+changeReport.stat.added:           79
 changeReport.stat.removed:          0
 changeReport.stat.undescribed:      0
 changeReport.stat.deferred:         7
@@ -330,10 +330,9 @@ changeReport.added
   ...  @I390@
   ...  @I391@
   ...  @I392@
-  Philip_II  @I393@
   Henry Tudor + Anne of_Cleves  @F233@
     merge.field.wife: changeReport.verb.added "Anne of_Cleves"
-  Anne of_Cleves  @I394@
+  Anne of_Cleves  @I393@
 
 changeReport.kept
 -----------------
