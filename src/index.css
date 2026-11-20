@@ -8328,7 +8328,8 @@ kbd {
 /* The file's own sources that answer to what is typed in the paste box — a
    book has no link to be matched by, so it is found by name. */
 .add-source-found { margin: 0 0 12px; }
-.add-source-found-list { list-style: none; margin: 4px 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.modal-body .add-source-found-list { list-style: none; margin: 4px 0 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.modal-body .add-source-found-list li { margin: 0; }
 .add-source-found-list li + li { border-top: 1px solid var(--border); }
 .add-source-found-row {
   display: flex;
