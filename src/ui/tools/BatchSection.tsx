@@ -128,15 +128,25 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   // the page painting in between. `ver` stands in for in-place dataset edits.
   const rowsBuild = useSlicedBuild(() => startBatchRows(dataset, nameOf), [dataset, nameOf, ver]);
   const rows = rowsBuild.result ?? NO_ROWS;
+  const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
+  const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
+  // The two walks over the whole file relative to the start person — 2.4 s
+  // together on a file of half a million people — are made only once a
+  // filter asks for them, in the builder or among the saved ones (whose
+  // counts are shown): most visits use neither.
+  const asks = (kind: BatchCriterion["kind"]) =>
+    criteria.some((c) => c.kind === kind) || saved.some((f) => f.criteria.some((c) => c.kind === kind));
+  const wantsLine = asks("line");
+  const wantsKinship = asks("kinship");
   const lineSides = useMemo(
-    () => (startId ? computeLineSides(dataset, startId) : null),
+    () => (startId && wantsLine ? computeLineSides(dataset, startId) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-    [dataset, startId, ver],
+    [dataset, startId, ver, wantsLine],
   );
   const kinship = useMemo(
-    () => (startId ? computeKinship(dataset, startId) : null),
+    () => (startId && wantsKinship ? computeKinship(dataset, startId) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-    [dataset, startId, ver],
+    [dataset, startId, ver, wantsKinship],
   );
   /** Kinship-to-start labels for the result rows ("Show kinship" setting),
    *  resolved lazily per rendered row and cached inside the resolver. */
@@ -183,13 +193,11 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
 
-  const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
   const [action, setAction] = useState<BatchActionSpec | null>(null);
   /** Unchecked match ids — everyone matching is selected by default. */
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const { confirmDialog, confirmDialogElement } = useConfirmDialog();
   const [done, setDone] = useState<{ changed: number; skipped: number } | null>(null);
-  const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
   const [saveName, setSaveName] = useState("");
   /** The saved filter currently loaded into the builder — its conditions and
    *  action show below. Cleared as soon as the builder is edited by hand. */
