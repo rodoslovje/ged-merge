@@ -151,7 +151,16 @@ export function mergeDuplicate(
   const parents = parentsChoice(decision.fields, ownParentFams.length > 0);
   for (const rFamId of [...removed.childOf]) {
     const rFam = dataset.families.get(rFamId);
-    if (!rFam || (!rFam.husband && !rFam.wife)) continue;
+    if (!rFam) continue;
+    if (!rFam.husband && !rFam.wife) {
+      // A family of siblings alone, their parents unknown. No comparison row
+      // stands for it, so no choice could keep it: skipped, the merged person
+      // dropped out of it — and with one sibling left the family was pruned,
+      // taking that sibling's only tie with it. The survivor takes the removed
+      // record's place among the siblings whenever there are any.
+      if (rFam.children.some((c) => c !== removedId && c !== survivorId)) addSurvivorAsChild(dataset, survivor, removed, rFam);
+      continue;
+    }
     // Backstop, whatever the choice: dropping this link can leave the family
     // below two members, and `removeIndividual` then prunes it — stranding a
     // parent whose only tie to the tree it was. An extra parent line the user
