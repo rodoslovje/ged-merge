@@ -136,8 +136,9 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
     return {
       ...l,
       points,
-      minYear: years.length ? Math.min(...years) : undefined,
-      maxYear: years.length ? Math.max(...years) : undefined,
+      // By a loop: a line can hold more points than a spread takes as arguments.
+      minYear: years.length ? years.reduce((a, b) => Math.min(a, b)) : undefined,
+      maxYear: years.length ? years.reduce((a, b) => Math.max(a, b)) : undefined,
     };
   }, [trees, redacted, withheld]);
 

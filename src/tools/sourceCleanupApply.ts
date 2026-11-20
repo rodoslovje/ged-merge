@@ -1,7 +1,7 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { noteInsertedXref, rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
-import { cloneNode, firstChild } from "../gedcom/node";
+import { cloneNode, firstChild, recordLookup } from "../gedcom/node";
 import { clearObjeNodeCache } from "../gedcom/source";
 import { familySearchPageUrl } from "../normalize/links";
 import { type RecordPatch } from "../ui/historyTypes";
@@ -62,10 +62,12 @@ export function applySourceCleanup(
   // tidy pass only reaches media its conversion touches; the survivor of a
   // pure duplicate merge is this pass's to finish.
   if (reshape.options.tidyLinks) {
+    const objeOf = recordLookup(next);
     for (const g of dupGroups) {
       if (g.kind !== "media") continue;
       const survivor = g.members.find((m) => m.survivor);
-      const node = survivor && next.find((r) => r.tag === "OBJE" && r.xref === survivor.xref);
+      const found = survivor && objeOf(survivor.xref);
+      const node = found?.tag === "OBJE" ? found : undefined;
       const file = node && firstChild(node, "FILE");
       const stored = file?.value?.trim();
       const tidied = stored && familySearchPageUrl(stored);
@@ -185,5 +187,7 @@ function transplant(dataset: Dataset, next: GedNode[]): void {
     live.children = rec.children;
     return live;
   });
-  dataset.records.splice(0, dataset.records.length, ...merged);
+  // Pushed one by one: a spread of a large file's records overflows the stack.
+  dataset.records.length = 0;
+  for (const rec of merged) dataset.records.push(rec);
 }

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { GedNode, Dataset } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
-import { cloneNode, nodesEqual } from "../gedcom/node";
+import { cloneNode, nodesEqual, recordLookup } from "../gedcom/node";
 import { captureBaseline, type SaveBaseline } from "../gedcom/fingerprint";
 import { displayName } from "../match/relatives";
 import {
@@ -209,12 +209,13 @@ export function useDirtyTracking() {
   ) {
     ensureBaseline();
     bumpSubstantiveCounts(substantiveCounts.current, patches, direction === "undo" ? -1 : 1);
+    const recordOf = recordLookup(dataset.records);
     const { dirty, snapshots } = computePatchApplyOps(
       patches,
       direction,
       getSnapshot,
       (kind, id) => {
-        if (kind === "record") return dataset.records.find((r) => r.xref === id);
+        if (kind === "record") return recordOf(id);
         return kind === "individual"
           ? dataset.individuals.get(id)?.raw
           : dataset.families.get(id)?.raw;

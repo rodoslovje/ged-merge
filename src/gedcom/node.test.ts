@@ -8,6 +8,7 @@ import {
   findByPath,
   firstChild,
   hasChild,
+  recordLookup,
   removeChildren,
   upsertChild,
 } from "./node";
@@ -143,5 +144,24 @@ describe("cloneNode", () => {
     // A copy, not the same array — editing one record must not re-wrap another.
     cloned.conc!.at.push(9);
     expect(name.conc!.at).toEqual([4]);
+  });
+});
+
+describe("recordLookup", () => {
+  const rec = (xref: string | undefined, tag = "NOTE"): GedNode => ({ level: 0, tag, ...(xref ? { xref } : {}), children: [] });
+
+  it("finds records by xref, through its scans and through its index alike", () => {
+    const records = [rec(undefined, "HEAD"), ...Array.from({ length: 20 }, (_, i) => rec(`@N${i}@`)), rec(undefined, "TRLR")];
+    const find = recordLookup(records);
+    // More lookups than it scans for, so the later ones come from the index.
+    for (let i = 0; i < 20; i++) expect(find(`@N${i}@`)).toBe(records[i + 1]);
+    expect(find("@N99@")).toBeUndefined();
+  });
+
+  it("answers with the first record under a doubled xref, as a scan does", () => {
+    const first = rec("@N1@");
+    const records = [first, rec("@N1@")];
+    const find = recordLookup(records);
+    for (let i = 0; i < 8; i++) expect(find("@N1@")).toBe(first);
   });
 });

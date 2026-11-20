@@ -431,8 +431,10 @@ export function fixConformance(
       }
       patches.push(recordPatch(dataset, xref, rec, before));
     }
-    if (mediaPass) patches.push(...mediaPassOver(dataset.records, mediaPass, journal));
-    if (agencyPass) patches.push(...mediaPassOver(dataset.records, hangAgencyUnderData, journal, "SOUR"));
+    // One by one: a pass over every media or source record of a large file
+    // returns more patches than a spread takes as arguments.
+    if (mediaPass) for (const p of mediaPassOver(dataset.records, mediaPass, journal)) patches.push(p);
+    if (agencyPass) for (const p of mediaPassOver(dataset.records, hangAgencyUnderData, journal, "SOUR")) patches.push(p);
     if (formsPass) {
       const v7 = isV7Table(dataset.records);
       for (const rec of dataset.records) {

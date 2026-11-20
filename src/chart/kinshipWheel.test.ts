@@ -478,3 +478,24 @@ describe("buildSurnameRings", () => {
     expect(capped.bands.every((b) => b.distance <= 2)).toBe(true);
   });
 });
+
+describe("a branch larger than a call takes arguments", () => {
+  it("builds the surname rings and the bars for 140,000 relatives", () => {
+    // Spread into Math.max, that many were a RangeError and no chart. The
+    // relatives are made here rather than parsed: only their number matters.
+    const ds = dataset(wrap("0 @I0@ INDI\n1 NAME Oče /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1800\n"));
+    const indi = ds.individuals.get("@I0@")!;
+    const people = Array.from({ length: 140_000 }, (_, i): KinPerson => ({
+      id: `@X${i}@`, indi, up: 0, down: 1 + (i % 6), distance: 1 + (i % 6), generation: -(1 + (i % 6)),
+      branch: OWN_BRANCH, side: "own", name: `A Novak${i % 40}`, given: "A", surname: `Novak${i % 40}`,
+      years: "", sex: "U", span: { from: 1800 + (i % 150), to: 1860 + (i % 150), openEnd: false, living: false },
+    }));
+    const input = { ds, rootId: "@I0@", nameOf, now: 2026, people };
+    // The wheel itself is left out: placing that many dots takes minutes, a
+    // limit of its own that a spread-free maximum does not lift.
+    expect(() => buildSurnameRings(input)).not.toThrow();
+    const bars = buildKinBars({ ...input, width: 1200 });
+    expect(bars.minYear).toBeLessThanOrEqual(1800);
+    expect(bars.maxYear).toBe(2026);
+  });
+});

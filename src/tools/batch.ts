@@ -11,7 +11,7 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { inferNameVariants } from "../normalize/nameVariants";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
-import { clearObjeNodeCache, isPointer } from "../gedcom/source";
+import { clearObjeNodeCache, isPointer, objeNodesFor } from "../gedcom/source";
 import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
 import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
 import { unionMarriage, type UnionMarriage } from "../gedcom/union";
@@ -1026,7 +1026,7 @@ function removeMediaBatch(
     if (val && isPointer(val)) {
       if (action.xref && val === action.xref) return true;
       if (!file) return false;
-      const rec = ds.records.find((r) => r.tag === "OBJE" && r.xref === val);
+      const rec = objeNodesFor(ds.records).get(val);
       return firstChild(rec ?? obje, "FILE")?.value?.trim().toLowerCase() === file;
     }
     return !!file && firstChild(obje, "FILE")?.value?.trim().toLowerCase() === file;

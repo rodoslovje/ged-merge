@@ -165,7 +165,9 @@ export function extractBranch(
     }
     for (const child of node.children) chase(child);
   };
-  for (let rec = queue.shift(); rec; rec = queue.shift()) chase(rec);
+  // By index, not `shift()`: taking the head off a long array moves every
+  // record behind it, each time — a minute for a branch of 200,000 people.
+  for (let at = 0; at < queue.length; at++) chase(queue[at]);
 
   const kept = new Set([...keepIndi, ...keepFam, ...supporting]);
 

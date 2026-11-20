@@ -307,6 +307,12 @@ export function applyNormPatch(records: GedNode[], patch: NormPatch): boolean {
       else records[r] = next;
     } else return false;
   }
-  if (patch.added) records.splice(patch.added.at, 0, ...patch.added.records);
+  if (patch.added) {
+    // Not a spread into `splice`: a file whose notes all became records adds
+    // more of them than an engine takes as arguments.
+    const tail = records.splice(patch.added.at);
+    for (const rec of patch.added.records) records.push(rec);
+    for (const rec of tail) records.push(rec);
+  }
   return true;
 }

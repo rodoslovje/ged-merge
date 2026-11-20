@@ -115,6 +115,19 @@ describe("buildSourXrefMap", () => {
     expect(buildSourXrefMap(compare, main).get("@S2@")).toBe("@S2@");
   });
 
+  it("gives every colliding record a free number of its own", () => {
+    // Two files from one program number their notes alike: all of them collide.
+    const notes = (text: string) => Array.from({ length: 400 }, (_, i) => `0 @N${i + 1}@ NOTE ${text} ${i + 1}\n`).join("");
+    const main = records(notes("main"));
+    const compare = records(notes("incoming"));
+    const map = buildSourXrefMap(compare, main);
+    const given = compare.filter((r) => r.xref).map((r) => map.get(r.xref!)!);
+    expect(new Set(given).size).toBe(400);
+    // In order, from the first number the main leaves free.
+    expect(given[0]).toBe("@N401@");
+    expect(given[399]).toBe("@N800@");
+  });
+
   it("leaves the choice open when two main sources of that title both cover it", () => {
     const main = records(
       "0 @S1@ SOUR\n1 TITL Krstna knjiga\n1 REPO @R1@\n2 CALN 1\n" +
