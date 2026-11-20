@@ -1,4 +1,11 @@
 import React, { forwardRef, useLayoutEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
+
+/** The × button's tooltip: "Clear place", in the reader's language. */
+function useClearTitle(): (field: string | undefined) => string {
+  const { t } = useTranslation();
+  return (field) => (field ? t("edit.clearField", { field: field.toLowerCase() }) : t("edit.clear"));
+}
 
 /** Input with an × button at the right edge to clear its value.
  * The clear button only appears when the field is non-empty.
@@ -14,6 +21,7 @@ export const ClearableInput = forwardRef<
   }
 >(function ClearableInput({ value, onClear, wrapStyle, wrapClassName, className, clearTitle, ...rest }, ref) {
   const named = clearTitle ?? rest.title;
+  const clearLabel = useClearTitle();
   return (
     <div
       className={`clearable-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`}
@@ -25,7 +33,7 @@ export const ClearableInput = forwardRef<
           type="button"
           className="input-clear"
           tabIndex={-1}
-          title={named ? `Clear ${named.toLowerCase()}` : "Clear"}
+          title={clearLabel(named)}
           onMouseDown={(e) => {
             e.preventDefault(); // keep input focused so onBlur fires with the cleared value
             onClear();
@@ -54,6 +62,7 @@ export const ClearableTextarea = forwardRef<
   }
 >(function ClearableTextarea({ value, onClear, wrapStyle, wrapClassName, className, leading, ...rest }, ref) {
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
+  const clearLabel = useClearTitle();
 
   // Grow the textarea to fit its content — one line tall when short, taller
   // as it wraps or gains lines — so editing reads like the multi-line text
@@ -105,7 +114,7 @@ export const ClearableTextarea = forwardRef<
           type="button"
           className="input-clear"
           tabIndex={-1}
-          title={rest.title ? `${rest.title ? "Clear " + rest.title.toLowerCase() : "Clear"}` : "Clear"}
+          title={clearLabel(rest.title)}
           onMouseDown={(e) => {
             e.preventDefault(); // keep textarea focused so onBlur fires with the cleared value
             onClear();

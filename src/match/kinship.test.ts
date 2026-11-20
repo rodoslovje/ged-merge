@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { Translate } from "../locales/i18n";
-import { createKinshipResolver, kinshipInfo, kinshipLabel, lineageClass } from "./kinship";
+import { createKinshipResolver, kinshipInfo, kinshipLabel, kinshipLabelFor, lineageClass, sharedParentCount } from "./kinship";
 import { bloodLineage } from "./relationshipPath";
 
 function dataset(text: string) {
@@ -661,5 +661,32 @@ describe("direct line (ancestors and descendants)", () => {
     expect(lineageClass("paternal", true)).toBe("lineage-paternal kinship-direct");
     expect(lineageClass(undefined, true)).toBe("kinship-direct");
     expect(lineageClass("maternal")).toBe("lineage-maternal");
+  });
+});
+
+describe("kinshipLabelFor: a sibling by known positions", () => {
+  const key: Translate = ((k: string) => k) as Translate;
+  it("names a sibling sharing one parent a half-sibling, as kinshipLabel does", () => {
+    expect(kinshipLabelFor(1, 1, "M", key, "own", () => 1)).toBe("kinship.halfBrother");
+    expect(kinshipLabelFor(1, 1, "F", key, "own", () => 1)).toBe("kinship.halfSister");
+    expect(kinshipLabelFor(1, 1, "F", key, "own", () => 2)).toBe("kinship.sister");
+    expect(kinshipLabelFor(1, 1, "M", key, "own")).toBe("kinship.brother");
+  });
+
+  it("asks about shared parents for a sibling only", () => {
+    const asked = () => { throw new Error("not a sibling"); };
+    expect(kinshipLabelFor(2, 0, "M", key, "father", asked)).toBe("kinship.grandfather");
+  });
+
+  it("counts the parents two people share", () => {
+    const ds = buildDataset(parseGedcom(new TextEncoder().encode(
+      "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+        "0 @F@ INDI\n1 FAMS @F1@\n1 FAMS @F2@\n0 @M1@ INDI\n1 FAMS @F1@\n0 @M2@ INDI\n1 FAMS @F2@\n" +
+        "0 @A@ INDI\n1 FAMC @F1@\n0 @B@ INDI\n1 FAMC @F1@\n0 @C@ INDI\n1 FAMC @F2@\n" +
+        "0 @F1@ FAM\n1 HUSB @F@\n1 WIFE @M1@\n1 CHIL @A@\n1 CHIL @B@\n" +
+        "0 @F2@ FAM\n1 HUSB @F@\n1 WIFE @M2@\n1 CHIL @C@\n0 TRLR\n",
+    ).buffer));
+    expect(sharedParentCount(ds, "@A@", "@B@")).toBe(2);
+    expect(sharedParentCount(ds, "@A@", "@C@")).toBe(1);
   });
 });

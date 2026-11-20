@@ -845,11 +845,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   /** Commit an association edit against whichever record owns it — the person
    *  for an individual or their event, the family for a marriage. */
-  const commitAssoc = (ownerId: string, mutate: (notes: SharedNoteCtx) => void) => {
+  const commitAssoc = useStableHandler((ownerId: string, mutate: (notes: SharedNoteCtx) => void) => {
     const fam = dataset.families.get(ownerId);
     ownerCommit(fam ? { kind: "family", fam } : { kind: "individual" }, (_raw, notes) => mutate(notes));
-  };
-  const assocApi: AssocApi = {
+  });
+  // One object for as long as the dataset stands. A fresh one on every render
+  // re-rendered every event row and family section that reads this context —
+  // on each tick, each worker message — however carefully their own props
+  // were kept stable.
+  const assocApi = useMemo<AssocApi>(() => ({
     dataset,
     version: dataset.version,
     navigate,
@@ -858,7 +862,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     notes: (ownerId, node, refs) => commitAssoc(ownerId, (ctx) => setAssociationNotes(ctx, node, refs)),
     remove: (ownerId, container, node) => commitAssoc(ownerId, () => removeAssociation(container, node)),
     move: (ownerId, from, to, node) => commitAssoc(ownerId, () => moveAssociation(from, to, node)),
-  };
+  }), [dataset, navigate, commitAssoc]);
 
   /** Attach a photo by folder-relative path, following the main's media mode:
    *  an inline OBJE/FILE block, or a pointer to a shared top-level OBJE. In

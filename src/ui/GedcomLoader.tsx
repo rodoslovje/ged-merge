@@ -99,14 +99,14 @@ export function GedcomLoader({ title, state, onLoad, onUnload, accent, highlight
   const accept: AcceptSpec =
     accent === "incoming"
       ? {
-          description: "GEDCOM, CSV or spreadsheet files",
+          description: t("load.fileTypes.incoming"),
           mime: {
             "text/plain": [".ged", ".gedcom"],
             "text/csv": [".csv"],
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx", ".xlsm"],
           },
         }
-      : { description: "GEDCOM files", mime: { "text/plain": [".ged", ".gedcom"] } };
+      : { description: t("load.fileTypes.gedcom"), mime: { "text/plain": [".ged", ".gedcom"] } };
 
   function onChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

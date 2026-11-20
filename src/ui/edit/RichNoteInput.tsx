@@ -160,7 +160,7 @@ export const RichNoteInput = forwardRef<
           type="button"
           className="input-clear"
           tabIndex={-1}
-          title={`Clear ${title.toLowerCase()}`}
+          title={t("edit.clearField", { field: title.split("\n")[0].toLowerCase() })}
           onMouseDown={(e) => {
             e.preventDefault(); // keep the box focused so onBlur fires with the cleared value
             onClear();

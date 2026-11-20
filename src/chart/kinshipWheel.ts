@@ -1130,6 +1130,9 @@ export function buildKinBars(input: KinInput & { width: number; people?: KinPers
   const end = (p: KinPerson) => p.span.to ?? p.span.from!;
   const maxYear = people.reduce((m, p) => Math.max(m, end(p)), now);
   let minYear = people.reduce((m, p) => Math.min(m, start(p)), Infinity);
+  // Nobody to draw: an axis all the same, a century back from now — not
+  // `Infinity`, which reached the year slider as its minimum.
+  if (!Number.isFinite(minYear)) minYear = now - 100;
   const inner = input.width - BAR_LEFT - BAR_RIGHT;
   const named = people.filter((p) => rowH(p.distance) >= BAR_NAMED_H);
   if (named.length) {
