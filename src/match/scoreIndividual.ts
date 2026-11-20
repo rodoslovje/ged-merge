@@ -1,6 +1,6 @@
 import { isBinarySex } from "../gedcom/sex";
 import type { Dataset, GedDate, Individual, PersonName } from "../gedcom/types";
-import { BIRTH_TAGS, DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateText, deathYear, isDeceased } from "../gedcom/lifespan";
+import { BIRTH_TAGS, DEATH_TAGS, birthDateOf, birthDateText, birthYear, deathDateOf, deathDateText, deathYear, isDeceased, yearBounds } from "../gedcom/lifespan";
 import { daysBetween } from "../gedcom/age";
 import { eraYear, estimatedBirthYear } from "./birthEstimate";
 import type { NameFrequencies } from "./nameFrequency";
@@ -746,23 +746,32 @@ function temporalGate(
   // Nobody marries after their own death, so a record that outlives the other's
   // death by a wedding is a different person however well the names agree (a
   // child who died at seven vs. the woman who married in 1873).
-  const da = deathYear(a);
-  const bb = birthYear(b);
-  if (da !== undefined && bb !== undefined && da < bb) return false;
-  const db = deathYear(b);
-  const ba = birthYear(a);
-  if (db !== undefined && ba !== undefined && db < ba) return false;
-  if (da !== undefined && marriedAfter(da, b, dsB)) return false;
-  if (db !== undefined && marriedAfter(db, a, dsA)) return false;
+  //
+  // Each date by the years it *allows* (see yearBounds): a death "after 1800"
+  // does not come before a wedding in 1805, and a birth "before 1850" may well
+  // precede a death in 1845. Read as bare years, both vetoed one person
+  // recorded twice — and a vetoed pair is never scored.
+  const da = yearBounds(deathDateOf(a));
+  const bb = yearBounds(birthDateOf(b));
+  if (da && bb && da.max < bb.min) return false;
+  const db = yearBounds(deathDateOf(b));
+  const ba = yearBounds(birthDateOf(a));
+  if (db && ba && db.max < ba.min) return false;
+  if (da && marriedAfter(da.max, b, dsB)) return false;
+  if (db && marriedAfter(db.max, a, dsA)) return false;
 
   return true;
 }
 
-/** True when the person has a dated marriage later than `deathYear` — the death
- *  recorded on the *other* record of the pair. A same-year marriage is left
- *  alone: a widow(er)'s year of death and a wedding can share one. */
-function marriedAfter(deathYear: number, indi: Individual, ds: Dataset): boolean {
-  return cachedMarriageEvents(indi, ds).some((e) => e.date?.year !== undefined && e.date.year > deathYear);
+/** True when the person has a dated marriage that cannot be earlier than the
+ *  year after `latestDeath` — the latest year the death recorded on the
+ *  *other* record of the pair allows. A same-year marriage is left alone: a
+ *  widow(er)'s year of death and a wedding can share one. */
+function marriedAfter(latestDeath: number, indi: Individual, ds: Dataset): boolean {
+  return cachedMarriageEvents(indi, ds).some((e) => {
+    const wed = yearBounds(e.date);
+    return !!wed && wed.min > latestDeath;
+  });
 }
 
 /**
