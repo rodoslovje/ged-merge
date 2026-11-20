@@ -511,3 +511,19 @@ describe("publishedHtml", () => {
     expect(siteFileName("")).toBe("family-tree.html");
   });
 });
+
+describe("publishedUrl", () => {
+  it("keeps web addresses, on http(s)", async () => {
+    const { publishedUrl } = await import("./model");
+    expect(publishedUrl("https://arhiv.si/knjiga/3")).toBe("https://arhiv.si/knjiga/3");
+    expect(publishedUrl(" http://arhiv.si ")).toBe("http://arhiv.si");
+    expect(publishedUrl("arhiv.si/knjiga")).toBe("https://arhiv.si/knjiga");
+  });
+
+  it("leaves out what is no web address, or runs on another scheme", async () => {
+    const { publishedUrl } = await import("./model");
+    for (const value of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<b>x</b>", "file:///C:/scan.jpg", "C:\\scans\\krst.jpg", "krst.jpg", "", undefined]) {
+      expect(publishedUrl(value), String(value)).toBeUndefined();
+    }
+  });
+});

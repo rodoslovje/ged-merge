@@ -166,6 +166,24 @@ describe("isPresumedLiving", () => {
     expect(isPresumedLiving(get("@I3@"), ds, NOW)).toBe(true);
   });
 
+  it("measures a bounded or ranged birth from the latest year it allows", () => {
+    const born = (date: string) =>
+      dataset(`0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 DATE ${date}\n0 TRLR\n`);
+    const living = (date: string) => {
+      const one = born(date);
+      return isPresumedLiving(one.individuals.get("@I1@"), one, 2026);
+    };
+    // Could have been born in 1960, or at any time since 1920.
+    expect(living("BET 1920 AND 1960")).toBe(true);
+    expect(living("FROM 1920 TO 1960")).toBe(true);
+    expect(living("AFT 1920")).toBe(true);
+    // The whole range lies more than a hundred years back.
+    expect(living("BET 1900 AND 1920")).toBe(false);
+    expect(living("BEF 1920")).toBe(false);
+    expect(living("1920")).toBe(false);
+    expect(living("ABT 1960")).toBe(true);
+  });
+
   it("is not living when the person has no death event but an old dated birth", () => {
     expect(isPresumedLiving(get("@I4@"), ds, NOW)).toBe(false);
   });

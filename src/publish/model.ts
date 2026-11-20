@@ -10,6 +10,7 @@ import { unionMarriage } from "../gedcom/union";
 import { planSitePhotos, type PhotoUse, type PubPhoto, type PubPhotoLink } from "./photos";
 import { detectAddress } from "../tools/addresses";
 import { noteToText } from "../gedcom/noteHtml";
+import { isWebAddress, withScheme } from "../gedcom/uri";
 import type { GeoCoord, NoteRef, SourceCitation } from "../gedcom/types";
 import type { MapOverlay } from "../ui/SettingsContext";
 
@@ -332,13 +333,28 @@ function pubNotes(refs: NoteRef[] | undefined): string[] | undefined {
   return out.length ? out : undefined;
 }
 
+/**
+ * A source's link as the published page may carry it: an address the web can
+ * open, on http(s). The value comes from the file — a citation's page link, a
+ * repository's `WWW` — and the page is opened by people who never saw that
+ * file, so anything else (a local path, a `javascript:` line) is left out
+ * rather than handed to them as a link.
+ */
+export function publishedUrl(url: string | undefined): string | undefined {
+  const value = url?.trim();
+  if (!value || !isWebAddress(value)) return undefined;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value) && !/^https?:\/\//i.test(value)) return undefined;
+  return withScheme(value);
+}
+
 function pubSources(cites: SourceCitation[] | undefined): PubSource[] | undefined {
   const out: PubSource[] = [];
   for (const c of cites ?? []) {
     const s: PubSource = {};
     if (c.title?.trim()) s.title = c.title.trim();
     if (c.page?.trim()) s.page = c.page.trim();
-    if (c.url) s.url = c.url;
+    const url = publishedUrl(c.url);
+    if (url) s.url = url;
     if (s.title || s.page || s.url) out.push(s);
   }
   return out.length ? out : undefined;
