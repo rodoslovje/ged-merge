@@ -2309,6 +2309,8 @@ export const en = {
   "tree.complete": "Complete",
   "tree.complete.tooltip": "Everyone connected to the person — blood relatives, their spouses and the spouses' families — in numbered trees, each family line drawn once",
   "tree.complete.truncated": "{{n}} people shown, the rest left out",
+  "tree.complete.showAll": "Show all {{n}}",
+  "tree.complete.showAll.tooltip": "Draw everyone connected to the person — on a large file the chart then takes several seconds to open and pans less smoothly",
   "tree.node.continuesOn": "This person's own family is drawn in tree {{n}}. Click to go there.",
   "tree.bowtie": "Ancestors and Descendants",
   "tree.bothTitle": "Ancestors and Descendants",

@@ -68,16 +68,62 @@ function pieces(tree: CompleteTree, opts: SheetSplitOptions): Omit<PagePiece, "x
       continue;
     }
     for (const sheet of splitIntoSheets(panel.tree, { ...opts, budget })) {
-      out.push({
-        label: sheet.number === 1 ? String(n) : markerLabel(sheet.number),
+      const label = sheet.number === 1 ? String(n) : markerLabel(sheet.number);
+      const piece = {
+        label,
         top: sheet.number === 1 ? panel.tree : sheet.root,
         root: sheet.root,
         from: sheet.from ? (sheet.from.sheet === 1 ? String(n) : markerLabel(sheet.from.sheet)) : undefined,
         markerLabel,
         ...size(sheet.root),
+      };
+      if (piece.w <= opts.budget.w && piece.h <= opts.budget.h) {
+        out.push(piece);
+        continue;
+      }
+      // Still too big: a family whose children alone outgrow the page, which
+      // the split never parts. Its children go over several pieces instead,
+      // the couple repeated on each: 15.3, then 15.3/2, 15.3/3 …
+      const fits = (root: TreeNode) => {
+        const s = size(root);
+        return s.w <= opts.budget.w && s.h <= opts.budget.h;
+      };
+      splitFamily(sheet.root, fits).forEach((root, i) => {
+        out.push(i === 0 ? { ...piece, root, ...size(root) } : { ...piece, label: `${label}/${i + 1}`, top: root, root, from: label, ...size(root) });
       });
     }
   }
+  return out;
+}
+
+/**
+ * Part a family's children over as few copies of the family as fit the page,
+ * in their order: each copy keeps the person and every spouse, and carries a
+ * run of the children — the spouseless ones first, then each union's, as the
+ * layout draws them. A single child too big alone still gets a copy of its own
+ * (the page then prints smaller; see `CompletePage.oversized`).
+ */
+export function splitFamily(root: TreeNode, fits: (root: TreeNode) => boolean): TreeNode[] {
+  // Every child with the union it belongs to: -1 for the spouseless ones.
+  const units = [
+    ...root.children.map((child) => ({ union: -1, child })),
+    ...root.partners.flatMap((p, union) => p.children.map((child) => ({ union, child }))),
+  ];
+  const copy = (run: typeof units): TreeNode => ({
+    ...root,
+    children: run.filter((u) => u.union === -1).map((u) => u.child),
+    partners: root.partners.map((p, union) => ({ ...p, children: run.filter((u) => u.union === union).map((u) => u.child) })),
+  });
+  const out: TreeNode[] = [];
+  let run: typeof units = [];
+  for (const unit of units) {
+    if (run.length > 0 && !fits(copy([...run, unit]))) {
+      out.push(copy(run));
+      run = [];
+    }
+    run.push(unit);
+  }
+  out.push(copy(run));
   return out;
 }
 
