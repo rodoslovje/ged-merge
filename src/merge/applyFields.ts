@@ -1389,6 +1389,11 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
   // copied it in as a second, image-less record of the same register.
   const fuller = fullerSourceOf(compareRecords, mainRecords);
 
+  // Where the search for a free number last stopped, per prefix. Starting
+  // again at 1 for every colliding record walked the whole run each time: two
+  // files from the same program number their notes alike, nearly all of them
+  // collide, and eight thousand took half a minute.
+  const nextFree = new Map<string, number>();
   for (const rec of compareRecords) {
     if (!SHARED_RECORD_TAGS.has(rec.tag) || !rec.xref) continue;
     const key = sharedContentKey(rec);
@@ -1402,9 +1407,10 @@ export function buildSourXrefMap(compareRecords: GedNode[], mainRecords: GedNode
       used.add(rec.xref);
     } else {
       const prefix = SHARED_XREF_PREFIX[rec.tag];
-      let n = 1;
+      let n = nextFree.get(prefix) ?? 1;
       let fresh: string;
       do { fresh = `@${prefix}${n++}@`; } while (used.has(fresh));
+      nextFree.set(prefix, n);
       used.add(fresh);
       map.set(rec.xref, fresh);
     }
