@@ -292,6 +292,24 @@ export function estimateBirthYearFromNetwork(start: Individual, ds: Dataset): nu
 }
 
 /**
+ * The latest year the person's own birth evidence allows — what "born more
+ * than a hundred years ago" has to be measured from. A range counts by its
+ * later end (`BET 1920 AND 1960` may be 1960), and a date that only says
+ * "after" sets no latest year at all: read as their first year, both passed a
+ * person born in 1960 off as born in 1920, and so as no longer living.
+ */
+function birthNoLaterThan(indi: Individual): number | undefined {
+  for (const tag of BIRTH_TAGS) {
+    const date = indi.events.find((e) => e.tag === tag)?.date;
+    if (date?.year === undefined) continue;
+    if (date.qualifier === "after" || date.qualifier === "from") return undefined;
+    if (date.qualifier === "between" || date.qualifier === "range") return date.year2 ?? date.year;
+    return date.year;
+  }
+  return undefined;
+}
+
+/**
  * Whether a person is presumed living for chart-privacy purposes. No death
  * event is the starting assumption of "living"; it's overridden only when
  * there's dating evidence that places their birth more than
@@ -307,7 +325,7 @@ export function isPresumedLiving(
   now: number = new Date().getFullYear(),
 ): boolean {
   if (!indi || isDeceased(indi)) return false;
-  const by = birthYear(indi);
+  const by = birthNoLaterThan(indi);
   if (by !== undefined) return now - by < LIVING_WINDOW_YEARS;
   const est = ds && estimateBirthYearFromNetwork(indi, ds);
   return est === undefined || now - est < LIVING_WINDOW_YEARS;
