@@ -110,6 +110,12 @@ const DATA_STRUCT_CATEGORIES: ReadonlySet<StructCategory> = new Set<StructCatego
   "danglingXref", "unusedRecord", "badDate", "impossibleDate", "reversedRange", "shortYear", "ambiguousDate",
 ]);
 
+/** Findings that are no issue: listed under their own chip for a reader who
+ *  wants them, and left out of the tab's count and the "All" list. A file
+ *  exported with its whole source library has hundreds of unused records and
+ *  nothing wrong with it. */
+const NOTED_ONLY: ReadonlySet<StructCategory> = new Set<StructCategory>(["unusedRecord"]);
+
 function structGroup(c: StructCategory): HealthGroup {
   return DATA_STRUCT_CATEGORIES.has(c) ? "data" : "gedcom";
 }
@@ -515,6 +521,7 @@ export function ValidatePanel({
     }
     for (const issue of structure?.issues ?? []) {
       if (structGroup(issue.category) !== group) continue;
+      if (f === "all" && NOTED_ONLY.has(issue.category)) continue;
       // Translations without a language are a chip of their own, carved out
       // of the missing lines they technically are.
       if (f === "tranLang" ? !isUntaggedTran(issue)
@@ -1153,7 +1160,11 @@ export function ValidatePanel({
   }
 
   // Each half's own count: the tab says it, and "All" within the half.
-  const structIn = (g: HealthGroup) => structure?.issues.filter((i) => structGroup(i.category) === g).length ?? 0;
+  const structIn = (g: HealthGroup) =>
+    structure?.issues.filter((i) => structGroup(i.category) === g && !NOTED_ONLY.has(i.category)).length ?? 0;
+  // What the half lists without counting: its chips stay up even when the
+  // half is otherwise clean.
+  const notedOnly = structure?.issues.some((i) => structGroup(i.category) === group && NOTED_ONLY.has(i.category)) ?? false;
   const groupTotal: Record<HealthGroup, number> = {
     data: report.issues.length + structIn("data"),
     gedcom: structIn("gedcom"),
@@ -1350,7 +1361,7 @@ export function ValidatePanel({
           onCancel={() => setBatchPending(false)}
         />
       )}
-      {total === 0 ? (
+      {total === 0 && !notedOnly ? (
         group === "gedcom"
           ? <p className="tools-clean">{t("tools.validate.clean.gedcom", { version })}</p>
           : !(mediaMissing && mediaMissing.length > 0) && <p className="tools-clean">{t("tools.validate.clean.data")}</p>

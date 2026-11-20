@@ -27,7 +27,13 @@ test("the health check lists shared records nothing points at", async ({ page })
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.getByText("Health check", { exact: true }).first().click();
 
+  // No issue of the file's: neither the tab's count nor "All" includes them.
+  await expect(page.getByRole("tab", { name: /Data issues/ })).toContainText("2");
+  await expect(page.locator(".tools-chip", { hasText: "All" })).toContainText("2");
+  await expect(page.locator(".tools-issues")).not.toContainText("Nothing in the file points at this record");
+
   await page.locator(".tools-chip", { hasText: "Unused records" }).click();
+  await expect(page.locator(".tools-chip", { hasText: "Unused records" })).toContainText("3");
   const rows = page.locator(".tools-issues").getByText("Nothing in the file points at this record");
   await expect(rows).toHaveCount(3);
   await expect(page.locator(".tools-issues")).toContainText("Mrliška knjiga Naklo");
