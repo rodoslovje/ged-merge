@@ -34,3 +34,23 @@ test("Edit shows the siblings under the parents and opens one with a click", asy
   await row.locator(".edit-sibling", { hasText: "Mira" }).click();
   await expect(page.locator(".edit-sibling.self")).toContainText("Mira");
 });
+
+test("Add Sibling adds a child to the parents' family", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first()
+    .setInputFiles({ name: "siblings.ged", mimeType: "text/plain", buffer: Buffer.from(GED, "utf-8") });
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  await page.locator(".edit-sibling.add").click();
+  const picker = page.locator(".edit-sibling-picker .relative-picker");
+  await picker.locator(".relative-picker-input").fill("Tone");
+  await picker.locator(".relative-picker-new").click();
+
+  // Edit moves to the new sister or brother, who takes the father's surname
+  // and stands among Ana's siblings.
+  const row = page.locator(".edit-sibling-row");
+  await expect(page.locator(".edit-sibling.self")).toContainText("Tone Novak");
+  await expect(row.locator(".edit-sibling", { hasText: "Ana Novak" })).toBeVisible();
+  await expect(row.locator(".edit-sibling", { hasText: "Ivan Novak" })).toBeVisible();
+});

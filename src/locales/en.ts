@@ -1781,6 +1781,7 @@ export const en = {
   "edit.addMother": "+ Add Mother",
   "edit.addPartner": "+ Add Partner",
   "edit.addChild": "+ Add Child",
+  "edit.addSibling": "+ Add Sibling",
   "edit.siblings.title": "Siblings",
   "edit.siblings.self": "The person you are editing",
   "edit.siblings.viaFather": "Father's other family",
