@@ -403,7 +403,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     // A throw partway puts the targets back as they were (see applyPassSafely).
     const res = applyPassSafely(dataset, (journal) => {
       for (const id of ids) journal.touch(id);
-      return applyBatchAction(dataset, ids, action, writeVersionOf(formatOverrides));
+      return applyBatchAction(dataset, ids, action, writeVersionOf(formatOverrides), formatOverrides);
     });
     if (res.patches.length > 0) onApplyPatches(res.patches);
     setDone({ changed: res.changed, skipped: res.skipped });

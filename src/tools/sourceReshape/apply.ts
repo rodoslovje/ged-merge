@@ -1,6 +1,7 @@
 import type { GedNode } from "../../gedcom/types";
 import { memoOnContent } from "../../gedcom/edit/cache";
 import { childrenByTag, childText, cloneNode, firstChild, nodeFingerprint } from "../../gedcom/node";
+import { hangAgencyUnderData } from "../../gedcom/edit/sources";
 import {
   EVENT_CHILD_ORDER,
   FAM_CHILD_ORDER,
@@ -1331,6 +1332,10 @@ export function reshapeSources(
         );
       if (!std) {
         fillField(hit.rec, "AGNC", fields.agency);
+        // A source's own AGNC is the vendor's flat field; the standard keeps
+        // the agency under DATA. With no register type to state a coverage
+        // from, a strict target still gets it there rather than out of place.
+        if (opts.standard) hangAgencyUnderData(hit.rec);
         if (keepFlat) {
           fillField(hit.rec, "PLAC", fields.place);
           fillField(hit.rec, "DATE", fields.dateRange);

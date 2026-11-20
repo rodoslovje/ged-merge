@@ -1,5 +1,6 @@
 import { submitterFields, type Submitter } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
+import { languageNameOf, languageTagOf } from "../gedcom/languageId";
 import { conformingXref, xrefConforms } from "../gedcom/xrefShape";
 import { relevelRecords } from "../gedcom/mediaForm";
 import { downloadOptions, ensureUtf8Charset, stampHeadSource, type SerializeOptions } from "../gedcom/serialize";
@@ -219,6 +220,13 @@ export function convertVersion(records: GedNode[], from: OutputVersion, to: Outp
   const head = records.find((r) => r.tag === "HEAD");
   if (head) {
     declareVersion(head, to);
+    // The header's language: a word from 5.5.1's list, a language tag in 7.0.
+    const lang = firstChild(head, "LANG");
+    const said = lang && (to === "7.0" ? languageTagOf(lang.value) : languageNameOf(lang.value));
+    if (lang && said && said !== lang.value) {
+      note(`HEAD.LANG ${lang.value}`, `HEAD.LANG ${said}`);
+      lang.value = said;
+    }
     const gedc = firstChild(head, "GEDC")!;
     const vers = firstChild(gedc, "VERS")!;
     if (vers.value !== to) {

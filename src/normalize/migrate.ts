@@ -7,6 +7,7 @@ import { readSex, SEX_X_EXTENSION } from "../gedcom/sex";
 import { NAME_TYPES_551, nameType70, splitSlashName } from "../gedcom/name";
 import { FS_EXID_TYPE, FS_VENDOR_TAGS, isFsExidType } from "../gedcom/exid";
 import { allowsChild, enumValuesAt } from "../tools/conformance/allows";
+import { languageNameOf, languageTagOf } from "../gedcom/languageId";
 import { isHtmlNote } from "../gedcom/noteHtml";
 import { walkNodes } from "./walk";
 
@@ -342,6 +343,18 @@ function downgradeLeftovers(records: GedNode[], ctx: MigrateCtx): void {
         report(ctx, retag(time, TIME_EXTENSION), before);
       }
     }
+    // A language, a media type or a translation where 5.5.1 has no such line
+    // — on a place, a transcript, a media file — is kept under the stand-in a
+    // note's already gets, and a reference where 5.5.1 takes none (the `EXID`
+    // of a place) under the submitter's. Left as they were, they were 7.0
+    // lines in a 5.5.1 file.
+    for (const c of node.children) {
+      const stand = c.tag === "REFN" ? "_REFN" : NOTE_DOWNGRADES[c.tag];
+      if (!stand || allowsChild("5.5.1", path, c.tag)) continue;
+      if (c.tag !== "REFN" && !allowsChild("7.0", path, c.tag)) continue; // no line of either version: not ours to rename
+      const before = `${node.tag}.${describe(c)}`;
+      report(ctx, retag(c, stand), before);
+    }
     for (const phrase of childrenByTag(node, "PHRASE")) {
       const text = phrase.value?.trim();
       const before = `${node.tag}.${describe(phrase)}`;
@@ -438,7 +451,31 @@ const CALENDAR_ESCAPES: Record<string, string> = {
   "DFRENCH R": "FRENCH_R",
 };
 
+/**
+ * The stand-ins {@link downgradeLeftovers} writes outside a note — a place's
+ * `_LANG`, a transcript's `_MIME`/`_LANG`, a media file's `_TRAN`, a place's
+ * `_REFN` typed by a URI — restated as the 7.0 lines they stand for, wherever
+ * 7.0 has that line. (A note's own are {@link upgradeExtensionNode}'s.)
+ */
+function upgradeLeftovers(records: GedNode[], ctx: MigrateCtx): void {
+  walkWithPath(records, (node, path) => {
+    for (const c of node.children) {
+      const up = NOTE_UPGRADES[c.tag];
+      const before = `${node.tag}.${describe(c)}`;
+      if (up && allowsChild("7.0", path, up)) {
+        report(ctx, retag(c, up), before);
+      } else if (
+        c.tag === "_REFN" && path[0] !== "SUBM" && allowsChild("7.0", path, "EXID") &&
+        /^https?:\/\//i.test(firstChild(c, "TYPE")?.value?.trim() ?? "")
+      ) {
+        report(ctx, retag(c, "EXID"), before);
+      }
+    }
+  });
+}
+
 function upgrade(records: GedNode[], ctx: MigrateCtx): void {
+  upgradeLeftovers(records, ctx);
   // Shared notes: `0 @N1@ NOTE` records become SNOTE, and every pointer to
   // one follows. Text NOTE substructures are unchanged (still valid in 7).
   const noteXrefs = new Set(
@@ -472,6 +509,12 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       upgradeDate(node, ctx);
     } else if (node.tag === "AGE" && node.value !== undefined) {
       upgradeAge(node, ctx);
+    } else if (node.tag === "LANG" && languageTagOf(node.value)) {
+      // 5.5.1 names a language in a word from its own list (a submitter's
+      // `LANG Slovene`); 7.0 writes its language tag.
+      const before = describe(node);
+      node.value = languageTagOf(node.value);
+      report(ctx, node, before);
     } else if (node.tag === "ASSO") {
       upgradeAsso(node, ctx);
     } else if (node.tag in EXID_TYPE_URI && node.level > 0 && node.value !== undefined) {
@@ -1026,15 +1069,43 @@ function isVoidPointer(value: string | undefined): boolean {
  *
  * Runs first, while an association's role is still 7.0's `ROLE`.
  */
+/** A line and the lines beneath it as text, one per line and indented by
+ *  depth — what a structure the target has no form for says, for a note. */
+function spellOut(node: GedNode, keep: (child: GedNode) => boolean = () => true): string[] {
+  const out = [`${node.tag}${node.value !== undefined ? ` ${node.value}` : ""}`];
+  const go = (of: GedNode, indent: string) => {
+    for (const c of of.children) {
+      if (!keep(c)) continue;
+      out.push(`${indent}${c.tag}${c.value !== undefined ? ` ${c.value}` : ""}`);
+      go(c, `${indent}  `);
+    }
+  };
+  go(node, "  ");
+  return out;
+}
+
 function downgradeVoidPointers(records: GedNode[], ctx: MigrateCtx): void {
   walkNodes(records, (node) => {
     // A child's sealing must name the family (5.5.1's SLGC.FAMC is {1:1}),
-    // so one to parents the file does not record has no 5.5.1 form: it goes.
+    // so one to parents the file does not record has no 5.5.1 form. What it
+    // says — its date, its temple — is kept as a note in its place: dropped
+    // whole, the ordinance was simply gone from the file.
     const sealings = node.children.filter((c) => c.tag === "SLGC" && childrenByTag(c, "FAMC").some((f) => isVoidPointer(f.value)));
     for (const slgc of sealings) {
-      node.children = node.children.filter((c) => c !== slgc);
+      const isVoidFamc = (c: GedNode) => c.tag === "FAMC" && isVoidPointer(c.value);
+      const said = spellOut(slgc, (c) => !isVoidFamc(c));
+      // What the pointer to no family carried — a PHRASE saying why — is said too.
+      for (const famc of slgc.children.filter(isVoidFamc)) {
+        for (const under of famc.children) said.push(...spellOut(under).map((line) => `  ${line}`));
+      }
+      const at = node.children.indexOf(slgc);
+      const note: GedNode | undefined = said.length > 1
+        ? { level: slgc.level, tag: "NOTE", value: said.join("\n"), children: [] }
+        : undefined;
+      if (note) node.children[at] = note;
+      else node.children.splice(at, 1);
       ctx.changed++;
-      ctx.onChange(`${node.tag}.SLGC (FAMC ${VOID_XREF})`, "—");
+      ctx.onChange(`${node.tag}.SLGC (FAMC ${VOID_XREF})`, note ? `${node.tag}.NOTE (text)` : "—");
     }
     if (!node.children.some((c) => isVoidPointer(c.value))) return;
     const kept: GedNode[] = [];
@@ -1211,6 +1282,24 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
         report(ctx, retag(resn, OBJE_RESN_EXTENSION), before);
       }
     }
+    // 5.5.1's family has no FACT: its generic event says the same, the
+    // fact's own TYPE naming what it is.
+    if (rec.tag === "FAM") {
+      for (const fact of childrenByTag(rec, "FACT")) {
+        const before = `FAM.${describe(fact)}`;
+        report(ctx, retag(fact, "EVEN"), before);
+      }
+    }
+    // 5.5.1 names a submitter's language in a word from its own list.
+    if (rec.tag === "SUBM") {
+      for (const lang of childrenByTag(rec, "LANG")) {
+        const name = languageNameOf(lang.value);
+        if (!name || name === lang.value) continue;
+        const before = `SUBM.${describe(lang)}`;
+        lang.value = name;
+        report(ctx, lang, before);
+      }
+    }
   }
 
   walkNodes(records, (node) => {
@@ -1233,6 +1322,8 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
       downgradeAsso(node, ctx);
     } else if (node.tag === "EXID" && node.level > 0) {
       downgradeExid(node, ctx);
+    } else if (node.tag === "SOUR" && node.level > 0 && isPointer(node.value)) {
+      downgradeCitationRoles(node, ctx);
     } else if (node.tag === "OBJE" && node.children.length > 0) {
       downgradeObje(node, ctx);
     } else if (node.tag === "SEX" && node.value?.trim().toUpperCase() === "X") {
@@ -1344,6 +1435,34 @@ function downgradeAsso(node: GedNode, ctx: MigrateCtx): void {
   role.value = phraseNode?.value || ROLE_TO_RELA[enumToken] || role.value;
   if (phraseNode) role.children = role.children.filter((c) => c !== phraseNode);
   report(ctx, role, before);
+}
+
+/**
+ * A citation's role in the event it cites (`SOUR.EVEN.ROLE`). 5.5.1 knows six
+ * roles and takes any other in brackets, in words: 7.0's `OTHER` with its
+ * `PHRASE` becomes `(the phrase)`, a role 5.5.1 has no word for becomes its
+ * name in brackets, and a bare `OTHER` — which says nothing — goes.
+ */
+function downgradeCitationRoles(citation: GedNode, ctx: MigrateCtx): void {
+  const known = enumValuesAt("5.5.1", ["INDI", "SOUR", "EVEN", "ROLE"]) ?? [];
+  for (const even of childrenByTag(citation, "EVEN")) {
+    for (const role of childrenByTag(even, "ROLE")) {
+      const value = role.value?.trim() ?? "";
+      if (known.includes(value) || /^\(.*\)$/.test(value)) continue;
+      const before = `EVEN.${describe(role)}`;
+      const phrase = firstChild(role, "PHRASE");
+      const text = phrase?.value?.trim() || (value.toUpperCase() !== "OTHER" ? ROLE_TO_RELA[value.toUpperCase()] ?? value : "");
+      ctx.changed++;
+      if (!text) {
+        even.children = even.children.filter((c) => c !== role);
+        ctx.onChange(before, "—");
+        continue;
+      }
+      role.value = `(${text})`;
+      role.children = role.children.filter((c) => c !== phrase);
+      ctx.onChange(before, `EVEN.${describe(role)}`);
+    }
+  }
 }
 
 function downgradeExid(node: GedNode, ctx: MigrateCtx): void {

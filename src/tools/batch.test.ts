@@ -496,6 +496,16 @@ describe("addMarriedName action", () => {
     expect(ana.names[0].married).toBe("Kovač");
   });
 
+  it("writes a name record under a strict target, whatever the file's _MARNM habit", () => {
+    const inline = FILE.replace("1 NAME Cilka /Zupan/\n1 SEX F\n1 NAME /Rakar/\n2 TYPE married", "1 NAME Cilka /Zupan/\n2 _MARNM /Rakar/\n1 SEX F");
+    const ds = dataset(inline);
+    applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1", { standard: "5.5.1", names: "records" });
+    const ana = ds.individuals.get("@I1@")!;
+    expect(ana.raw.children.filter((c) => c.tag === "NAME").map((c) => c.value)).toEqual(["Ana /Novak/", "/Kovač/"]);
+    expect(JSON.stringify(ana.raw)).not.toContain("_MARNM");
+    expect(ana.names[1]).toMatchObject({ full: "Kovač", type: "married" });
+  });
+
   it("falls back to the standard record form when the file has no married name at all", () => {
     const ds = dataset(FILE.replace("1 NAME /Rakar/\n2 TYPE married\n", ""));
     applyBatchAction(ds, ids, { kind: "addMarriedName" }, "5.5.1");
@@ -1444,5 +1454,37 @@ describe("sources on one event", () => {
 
   it("reads a union's events for the partners", () => {
     expect(match([{ kind: "sources", mode: "eventHas", tag: "MARR" }])).toEqual(["@I3@", "@I4@"]);
+  });
+});
+
+describe("convertEvent: a vendor tag on people and on families alike", () => {
+  const FILE = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 _WORK weaver
+1 FAMS @F1@
+0 @F1@ FAM
+1 WIFE @I1@
+1 _WORK farm
+0 TRLR
+`;
+
+  it("becomes a person's standard tag on the person only", () => {
+    const ds = dataset(FILE);
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_WORK", toTag: "OCCU" }, "5.5.1");
+    expect(ds.individuals.get("@I1@")!.raw.children.map((c) => c.tag)).toContain("OCCU");
+    // An occupation is no line of a family's: its `_WORK` stays as it was.
+    expect(ds.families.get("@F1@")!.raw.children.map((c) => c.tag)).toEqual(["WIFE", "_WORK"]);
+    expect(validateConformance(ds).filter((i) => i.category === "misplacedTag")).toEqual([]);
+  });
+
+  it("becomes a generic event on both, which both may carry", () => {
+    const ds = dataset(FILE);
+    applyBatchAction(ds, ["@I1@"], { kind: "convertEvent", fromTag: "_WORK", toTag: "EVEN", type: "Work" }, "5.5.1");
+    expect(ds.individuals.get("@I1@")!.raw.children.map((c) => c.tag)).toContain("EVEN");
+    expect(ds.families.get("@F1@")!.raw.children.map((c) => c.tag)).toEqual(["WIFE", "EVEN"]);
   });
 });

@@ -16,6 +16,18 @@ describe("setFsIds — the tag of a newly added FamilySearch id", () => {
     expect(tags(ds)).toEqual(["_FID KWZ1-ABC", "EXID GPZG-CXL"]);
   });
 
+  it("writes an id that is changed in the strict target's form, and leaves the others", () => {
+    const ds = ds7();
+    setFsIds(ds.individuals.get("@I1@")!, ["XXXX-999"], preferredFsIdTag(ds, { standard: "7.0" }));
+    expect(tags(ds)).toEqual(["EXID XXXX-999"]);
+    const exid = ds.individuals.get("@I1@")!.raw.children.find((c) => c.tag === "EXID")!;
+    expect(exid.children.map((c) => c.tag)).toEqual(["TYPE"]);
+    // In the file's own format the changed id keeps the record's tag.
+    const own = ds7();
+    setFsIds(own.individuals.get("@I1@")!, ["XXXX-999"], preferredFsIdTag(own));
+    expect(tags(own)).toEqual(["_FID XXXX-999"]);
+  });
+
   it("keeps the record's own tag in the file's own format", () => {
     const ds = ds7();
     setFsIds(ds.individuals.get("@I1@")!, ["KWZ1-ABC", "GPZG-CXL"], preferredFsIdTag(ds));

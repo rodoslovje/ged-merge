@@ -9,6 +9,8 @@ import { addEventNode, setEventField, setFamilyEventField } from "../gedcom/edit
 import { addAdditionalName, setAdditionalName, setMarriedName } from "../gedcom/edit/names";
 import { familiesByMarriage } from "../gedcom/familySort";
 import { inferNameVariants } from "../normalize/nameVariants";
+import type { FormatOverrides } from "../normalize/formatOverrides";
+import { allowsChild } from "./conformance/allows";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer, objeNodesFor } from "../gedcom/source";
@@ -629,6 +631,9 @@ export function applyBatchAction(
   action: BatchActionSpec,
   /** The version new lines are written in — the target's. */
   version: "5.5.1" | "7.0",
+  /** The target's format choices: a strict target writes a married name as a
+   *  name of its own, whatever the file's habit. */
+  overrides?: FormatOverrides,
 ): BatchApplyResult {
   switch (action.kind) {
     case "addMedia":
@@ -644,9 +649,9 @@ export function applyBatchAction(
     case "estimateMarriage":
       return estimateMarriageBatch(ds, ids);
     case "addMarriedName":
-      return addMarriedNameBatch(ds, ids);
+      return addMarriedNameBatch(ds, ids, version, overrides);
     case "convertEvent":
-      return convertEventBatch(ds, ids, action);
+      return convertEventBatch(ds, ids, action, version);
   }
 }
 
@@ -655,9 +660,17 @@ function convertEventBatch(
   ds: Dataset,
   ids: string[],
   action: { fromTag: string; toTag: string; type?: string },
+  version: "5.5.1" | "7.0",
 ): BatchApplyResult {
   const { fromTag, toTag } = action;
   if (!fromTag || !toTag || fromTag === toTag) return { patches: [], changed: 0, skipped: ids.length };
+  // Where the target tag may stand. A vendor tag can sit on people and on
+  // families alike, but the standard tag it becomes belongs to one of them:
+  // an occupation written onto a family is a line out of place. An extension
+  // is no one's to refuse.
+  const fits = (record: "INDI" | "FAM") => toTag.startsWith("_") || allowsChild(version, [record], toTag);
+  const onPeople = fits("INDI");
+  const onFamilies = fits("FAM");
   // A family event (`SEPA`) is the couple's: converted in every union a
   // picked person is a partner in, each union once.
   const famIds = [...new Set(ids.flatMap((id) => ds.individuals.get(id)?.spouseOf ?? []))];
@@ -687,7 +700,7 @@ function convertEventBatch(
   for (const id of ids) {
     const indi = ds.individuals.get(id);
     if (!indi) continue;
-    const nodes = childrenByTag(indi.raw, fromTag);
+    const nodes = onPeople ? childrenByTag(indi.raw, fromTag) : [];
     let touched = nodes.length > 0;
     nodes.forEach(convert);
     // The typed record must follow the raw tree, or the panel's own filters
@@ -698,7 +711,7 @@ function convertEventBatch(
       if (doneFams.has(famId)) { touched = true; continue; }
       const fam = ds.families.get(famId);
       if (!fam) continue;
-      const famNodes = childrenByTag(fam.raw, fromTag);
+      const famNodes = onFamilies ? childrenByTag(fam.raw, fromTag) : [];
       if (famNodes.length === 0) continue;
       touched = true;
       doneFams.add(famId);
@@ -901,11 +914,15 @@ export function readMarriedNames(sources: MarriedNameSource[]): MarriedNameVerdi
 
 /** Write every union's partner surname as a married name, in marriage order
  *  and in the file's own convention (see the {@link BatchActionSpec} member). */
-function addMarriedNameBatch(ds: Dataset, ids: string[]): BatchApplyResult {
+function addMarriedNameBatch(ds: Dataset, ids: string[], version: "5.5.1" | "7.0", overrides?: FormatOverrides): BatchApplyResult {
   const names = previewMarriedNames(ds, ids);
   const skipped = ids.filter((id) => ds.individuals.has(id) && !names.has(id)).length;
   const snap = snapshotRecords(ds, [...names.keys()], []);
-  const target = inferNameVariants(ds).married;
+  // The file's habit, unless the target says otherwise: a strict target asks
+  // for name records, and a file's `_MARNM` habit is then no reason to write
+  // more of them for the health check to flag.
+  const habit = inferNameVariants(ds).married;
+  const target: typeof habit = overrides?.names === "records" && habit.form === "tag" ? { form: "record", type: "married" } : habit;
   for (const [id, sources] of names) {
     const indi = ds.individuals.get(id)!;
     if (target.form === "tag") {
@@ -920,9 +937,9 @@ function addMarriedNameBatch(ds: Dataset, ids: string[]): BatchApplyResult {
         if (recorded) continue;
         // The surname-only `1 NAME /Novak/` + `2 TYPE married` pair the standard
         // (and every file observed) uses — the given name stays on the primary.
-        addAdditionalName(indi, target.form === "record" ? target.type! : "married", ds.version);
+        addAdditionalName(indi, target.form === "record" ? target.type! : "married", version);
         const added = childrenByTag(indi.raw, "NAME").length - 2;
-        setAdditionalName(indi, added, { given: "", surname }, ds.version);
+        setAdditionalName(indi, added, { given: "", surname }, version);
       }
     }
     rebuildIndividual(ds, indi);
