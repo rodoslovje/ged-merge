@@ -1032,7 +1032,7 @@ export function lookupPlace(index: GazetteerIndex, rawPlace: string, home = ""):
   }
   // The home country is part of the question, so it is part of the key — the
   // same string answers differently once a file's silent country is known.
-  const key = home ? `${home} ${rawPlace}` : rawPlace;
+  const key = home ? `${home}\0${rawPlace}` : rawPlace;
   const hit = lookupCache.get(key);
   if (hit) return hit;
   const out = lookupPlaceUncached(index, rawPlace, home);

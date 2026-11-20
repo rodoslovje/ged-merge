@@ -356,7 +356,7 @@ const nameProbe = new Map<string, Promise<boolean>>();
  *  hiccup (or an aborted lookup) remembered for the whole session would keep
  *  offering wrong-občina namesakes long after the network recovered. */
 function isKnownName(field: string, name: string, signal?: AbortSignal): Promise<boolean> {
-  const key = `${field} ${foldToken(name)}`;
+  const key = `${field}\0${foldToken(name)}`;
   let probe = nameProbe.get(key);
   if (!probe) {
     probe = rnFetch(`${field}=${cqlString(name)}`, signal, 1)
