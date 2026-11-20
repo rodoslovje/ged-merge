@@ -616,7 +616,9 @@ interface RelativeEntry {
  */
 function parseRelativeList(value: string): RelativeEntry[] {
   if (!value) return [];
-  const parts = value.includes("|") ? value.split(";") : value.split(",");
+  // Undated entries carry no "|", but are separated by ";" all the same
+  // ("Marija Kos; Ana Zupan"): split on commas, the two became one person.
+  const parts = value.includes("|") || value.includes(";") ? value.split(";") : value.split(",");
   const out: RelativeEntry[] = [];
   for (let part of parts) {
     part = part.trim();
