@@ -430,6 +430,7 @@ const UNDERSCORE_UPGRADES: Record<string, string> = {
   _NO: "NO",
   _SDATE: "SDATE",
   _UID: "UID",
+  _CROP: "CROP",
 };
 
 /** 7.0's `NAME.TYPE` for a married name. */
@@ -517,6 +518,13 @@ function upgrade(records: GedNode[], ctx: MigrateCtx): void {
       report(ctx, node, before);
     } else if (node.tag === "ASSO") {
       upgradeAsso(node, ctx);
+    } else if (node.tag in EXID_TYPE_URI && node.level > 1 && node.value !== undefined) {
+      // 5.5.1 gives these ids to a record alone, but programs write them
+      // further down — MyHeritage a `RIN` under every event and citation —
+      // where 7.0 takes no EXID either. There the id keeps its own name, as
+      // an extension: an EXID would be a line out of place on every one.
+      const before = describe(node);
+      report(ctx, retag(node, `_${node.tag}`), before);
     } else if (node.tag in EXID_TYPE_URI && node.level > 0 && node.value !== undefined) {
       const before = describe(node);
       node.children.push(plain("TYPE", EXID_TYPE_URI[node.tag]));
@@ -635,7 +643,11 @@ function upgradeExtensionNode(node: GedNode, ctx: MigrateCtx): boolean {
     report(ctx, node, before);
     return true;
   }
-  if (node.tag in UNDERSCORE_UPGRADES && node.level > 0) {
+  // Ancestry writes a `_CROP` of its own, with `_LEFT`/`_TOP`/`_WDTH`/`_HGHT`
+  // beneath it: only one holding 7.0's own lines is 7.0's `CROP` under
+  // another name.
+  const ancestryCrop = node.tag === "_CROP" && !node.children.some((c) => c.tag === "WIDTH" || c.tag === "HEIGHT");
+  if (node.tag in UNDERSCORE_UPGRADES && node.level > 0 && !ancestryCrop) {
     // The stand-ins this migration's own downgrade writes for 7-only
     // structures go back to their real tags, `_UID` to the one 7.0 adopted.
     const before = describe(node);
@@ -1040,6 +1052,8 @@ const UNDERSCORE_DOWNGRADES: Record<string, string> = {
   CREA: "_CREA",
   NO: "_NO",
   SDATE: "_SDATE",
+  // A media link's crop region, with its TOP/LEFT/WIDTH/HEIGHT beneath it.
+  CROP: "_CROP",
 };
 
 /** A 7.0 note's substructures, none of which 5.5.1's NOTE has. */

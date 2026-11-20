@@ -3,6 +3,7 @@ import { parseGedcom } from "./parser";
 import { buildDataset } from "./builder";
 import { childrenByTag, firstChild } from "./node";
 import { serializeGedcom } from "./serialize";
+import { cropOf } from "./source";
 import type { Dataset, GedNode } from "./types";
 import { validateConformance } from "../tools/conformance/conformance";
 import {
@@ -2484,7 +2485,7 @@ describe("setCropRegion", () => {
     const indi = ds.individuals.get("@I1@")!;
     const link = attachInlineMedia(indi.raw, "group.jpg");
 
-    setCropRegion(link, { top: 10.6, left: 0, width: 120.2, height: 140 });
+    setCropRegion(link, { top: 10.6, left: 0, width: 120.2, height: 140 }, "7.0");
     const crop = link.children.find((c) => c.tag === "CROP")!;
     const v = (tag: string) => crop.children.find((c) => c.tag === tag)?.value;
     expect(v("TOP")).toBe("11");
@@ -2493,18 +2494,30 @@ describe("setCropRegion", () => {
     expect(v("HEIGHT")).toBe("140");
 
     // Replacing overwrites rather than duplicating.
-    setCropRegion(link, { top: 1, left: 2, width: 3, height: 4 });
+    setCropRegion(link, { top: 1, left: 2, width: 3, height: 4 }, "7.0");
     expect(link.children.filter((c) => c.tag === "CROP")).toHaveLength(1);
 
-    setCropRegion(link, null);
+    setCropRegion(link, null, "7.0");
     expect(link.children.some((c) => c.tag === "CROP")).toBe(false);
+  });
+
+  it("writes the region as _CROP in a 5.5.1 file, replacing a bare CROP an earlier version wrote there", () => {
+    const ds = buildFromText(BASE);
+    const link = attachInlineMedia(ds.individuals.get("@I1@")!.raw, "group.jpg");
+    setCropRegion(link, { top: 1, left: 2, width: 3, height: 4 }, "7.0"); // as older builds wrote it, whatever the file
+    setCropRegion(link, { top: 5, left: 6, width: 7, height: 8 }, "5.5.1");
+    expect(link.children.filter((c) => /CROP/.test(c.tag)).map((c) => c.tag)).toEqual(["_CROP"]);
+    // Read back the same, under either tag.
+    expect(cropOf(link)).toEqual({ top: 5, left: 6, width: 7, height: 8 });
+    setCropRegion(link, null, "5.5.1");
+    expect(cropOf(link)).toBeUndefined();
   });
 
   it("rejects a degenerate region", () => {
     const ds = buildFromText(BASE);
     const indi = ds.individuals.get("@I1@")!;
     const link = attachInlineMedia(indi.raw, "group.jpg");
-    setCropRegion(link, { top: 0, left: 0, width: 0, height: 10 });
+    setCropRegion(link, { top: 0, left: 0, width: 0, height: 10 }, "7.0");
     expect(link.children.some((c) => c.tag === "CROP")).toBe(false);
   });
 });
