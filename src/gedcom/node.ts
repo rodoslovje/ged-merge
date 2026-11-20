@@ -155,3 +155,22 @@ export function mergeSubLines(into: GedNode, from: GedNode): void {
     have.add(nodeFingerprint(clone));
   }
 }
+
+/**
+ * Look records up by xref, for a caller that may ask once or a hundred
+ * thousand times: the first few lookups scan the list, as a single one always
+ * did, and after that an index is built once. A scan per lookup in a loop over
+ * a whole-file pass's patches is quadratic — minutes on a large file.
+ */
+export function recordLookup(records: readonly GedNode[]): (xref: string) => GedNode | undefined {
+  let index: Map<string, GedNode> | undefined;
+  let scans = 0;
+  return (xref) => {
+    if (!index) {
+      if (scans++ < 4) return records.find((r) => r.xref === xref);
+      index = new Map();
+      for (const r of records) if (r.xref && !index.has(r.xref)) index.set(r.xref, r);
+    }
+    return index.get(xref);
+  };
+}

@@ -1,7 +1,7 @@
 import { Notice } from "./ui/Notice";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ButtonHTMLAttributes, type DragEvent } from "react";
 import { type RecordPatch, type PendingEditApply, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
-import { cloneNode } from "./gedcom/node";
+import { cloneNode, recordLookup } from "./gedcom/node";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
 import { useTheme } from "./ui/useTheme";
 import { useMode, type Mode } from "./ui/useMode";
@@ -1749,20 +1749,22 @@ function AppContent() {
       // sweeps marks from earlier unsaved hand edits of the same record — the
       // record-level stamp survives (its substantive count stands), only the
       // per-event refresh is lost, and only on files that stamp per event.
+      const recordOf = recordLookup(mainDataset.records);
       for (const p of patches) {
         if (p.after) clearEventAuditStamps(p.after);
         const live = p.type === "individual"
           ? mainDataset.individuals.get(p.id)?.raw
           : p.type === "family"
             ? mainDataset.families.get(p.id)?.raw
-            : mainDataset.records.find((r) => r.xref === p.id);
+            : recordOf(p.id);
         if (live) clearEventAuditStamps(live);
       }
     }
     // stay: undoing a whole-file tool batch keeps the user where they are —
     // there is no single person to show, and the Tools page they came from
     // re-scans itself off the edit version.
-    if (toolBatchRef.current) toolBatchRef.current.push(...patches);
+    // One by one: a whole-file pass hands over a patch per record.
+    if (toolBatchRef.current) for (const p of patches) toolBatchRef.current.push(p);
     else handlePushEdit(patches, undefined, undefined, true);
     // Shared-record patches are flagged by the push itself (see
     // captureSnapshotsForPush): a record with no owner card behind it — e.g.
