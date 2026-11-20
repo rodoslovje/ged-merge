@@ -39,6 +39,23 @@ describe("SerializedMain", () => {
     }
   });
 
+  it("writes a UTF-16 file as a copy that reads back as the same records", async () => {
+    // The copy is UTF-8 under the file's own `CHAR UNICODE` header; read as
+    // UTF-16 it was no GEDCOM at all, and the cached workspace was dropped.
+    const text = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UNICODE\n0 @I1@ INDI\n1 NAME Žan /Kovačič/\n0 TRLR\n";
+    for (const bom of [true, false]) {
+      const utf16 = new Uint8Array(text.length * 2 + (bom ? 2 : 0));
+      const view = new DataView(utf16.buffer);
+      if (bom) view.setUint16(0, 0xfeff, true);
+      for (let i = 0; i < text.length; i++) view.setUint16(i * 2 + (bom ? 2 : 0), text.charCodeAt(i), true);
+      const ds = load(utf16);
+      expect(ds.charset).toBe("UNICODE");
+      const copy = load(await bytesOf(new SerializedMain().blob(ds, new ChangeJournal(), 0)));
+      expect(whole(copy)).toBe(whole(ds));
+      expect(copy.individuals.get("@I1@")?.raw.children[0].value).toBe("Žan /Kovačič/");
+    }
+  });
+
   it("keeps the byte-order mark, CRLF endings and a missing final newline", async () => {
     for (const [eol, finalNewline] of [["\r\n", false], ["\n", true], ["\r\n", true]] as const) {
       const text = bigFile(5000, eol, finalNewline);
