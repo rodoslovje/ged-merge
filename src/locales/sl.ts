@@ -2017,6 +2017,7 @@ export const sl = {
   "edit.addMother": "+ Dodaj mater",
   "edit.addPartner": "+ Dodaj partnerja",
   "edit.addChild": "+ Dodaj otroka",
+  "edit.addSibling": "+ Dodaj sestro/brata",
   "edit.siblings.title": "Bratje in sestre",
   "edit.siblings.self": "Oseba, ki jo urejate",
   "edit.siblings.viaFather": "Očetova druga družina",
