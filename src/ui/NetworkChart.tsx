@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildFamilyGraph, SPOUSE_LINE, type GraphScope } from "../chart/familyGraph";
+import { buildFamilyGraph, graphBranches, type GraphScope } from "../chart/familyGraph";
 import { linkLength } from "../chart/forceLayout3d";
 import type { Layout3dReply, Layout3dRequest } from "../worker/layout3dMessages";
-import { lineColor, paletteColor, type BranchInfo } from "../chart/nodeColor";
 import { livingLabelFor } from "../chart/nodeDisplay";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 
@@ -108,15 +107,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   }, [graph, select]);
 
   // ─── Colour ───────────────────────────────────────────────────────────────
-  const branches = useMemo(() => {
-    const map = new Map<string, BranchInfo>();
-    for (const l of graph.lines) {
-      const indi = mainDs.individuals.get(l.ancestorId);
-      map.set(l.key, { label: indi ? nameOf(indi) : t("kin.wedge.unknown"), color: lineColor(l.index, "ancestors") });
-    }
-    map.set(SPOUSE_LINE, { label: t("network.line.spouse"), color: paletteColor(6) });
-    return map;
-  }, [graph, mainDs, nameOf, t]);
+  const branches = useMemo(() => graphBranches(graph, mainDs, t, nameOf), [graph, mainDs, nameOf, t]);
   const subjects = useMemo(() => graph.nodes.map((n) => ({ indi: n.indi, pos: n.pos })), [graph]);
   const colorer = useNodeColorer(mainDs, subjects, branches);
   const categories = useMemo(() => graph.nodes.map((n) => colorer.categoryOf(n.indi, n.pos)), [graph, colorer]);

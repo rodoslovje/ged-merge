@@ -6089,6 +6089,12 @@ input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(-
   stroke: var(--accent);
   stroke-width: 1.5;
 }
+/* The Complete Tree's panels, behind the dots, as the canvas draws them. */
+.tree-minimap-frame {
+  fill: var(--panel-2);
+  stroke: var(--border-2);
+  stroke-width: 1;
+}
 .tree-svg { display: block; margin: auto; flex: 0 0 auto; }
 /* Zoom wrapper (ChartZoom): the outer div holds the scaled footprint inside the
    flex canvas (auto margins centre a small chart, same as the bare SVG used to);

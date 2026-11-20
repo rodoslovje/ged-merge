@@ -14,12 +14,22 @@ interface Props<T extends ChartNode> {
   /** Canvas zoom. Node coords are native but the viewport rect is in scaled
    *  scroll pixels, so the map works in scaled space (everything × zoom). */
   zoom?: number;
+  /** Frames drawn behind the dots — the Complete Tree's panels — in content
+   *  coordinates, as the nodes. */
+  frames?: MinimapFrame[];
+}
+
+export interface MinimapFrame {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 /** Overview map of the whole chart with a draggable viewport rectangle. Generic
  *  over the node shape ({@link ChartNode}), so each view colours by its own
  *  scheme without casting. */
-export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, viewport, onScrollTo, fill, nodeH = NODE_H, zoom = 1 }: Props<T>) {
+export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, viewport, onScrollTo, fill, nodeH = NODE_H, zoom = 1, frames }: Props<T>) {
   const dragging = useRef(false);
   // Work in scaled (on-screen) space so the viewport rectangle — which is in
   // zoomed scroll pixels — lines up with the node dots. minimapFit sizes the box
@@ -47,6 +57,21 @@ export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, vi
       )),
     [nodes, zoom, scaleX, scaleY, nodeH, fill],
   );
+  const boxes = useMemo(
+    () =>
+      frames?.map((f, i) => (
+        <rect
+          key={i}
+          className="tree-minimap-frame"
+          x={(f.x + PAD) * zoom * scaleX}
+          y={(f.y + PAD) * zoom * scaleY}
+          width={Math.max(1, f.w * zoom * scaleX)}
+          height={Math.max(1, f.h * zoom * scaleY)}
+          rx={2}
+        />
+      )),
+    [frames, zoom, scaleX, scaleY],
+  );
 
   const recentre = (e: React.PointerEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -71,6 +96,7 @@ export function TreeMinimap<T extends ChartNode>({ nodes, contentW, contentH, vi
         e.currentTarget.releasePointerCapture(e.pointerId);
       }}
     >
+      {boxes}
       {dots}
       <rect
         className="tree-minimap-viewport"

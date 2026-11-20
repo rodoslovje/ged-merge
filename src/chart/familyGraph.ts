@@ -14,7 +14,8 @@
 // Pure: no React, no DOM.
 
 import type { Dataset, Individual } from "../gedcom/types";
-import type { NodePosition } from "./nodeColor";
+import type { Translate } from "../locales/i18n";
+import { lineColor, paletteColor, type BranchInfo, type NodePosition } from "./nodeColor";
 import { bloodKin, OWN_BRANCH } from "./kinshipWheel";
 
 /** The line of the people reached through the root's partner. */
@@ -103,6 +104,23 @@ function neighbours(ds: Dataset, indi: Individual, out: Near[]): void {
     if (other) out.push({ id: other, dGen: 0, rel: "partner" });
     for (const c of fam.children) out.push({ id: c, dGen: -1, rel: "child" });
   }
+}
+
+/** The graph's lines named and coloured for the Line axis: each grandparent
+ *  line after its grandparent, and the partner's family. */
+export function graphBranches(
+  graph: FamilyGraph,
+  ds: Dataset,
+  t: Translate,
+  nameOf: (indi: Individual) => string,
+): Map<string, BranchInfo> {
+  const map = new Map<string, BranchInfo>();
+  for (const l of graph.lines) {
+    const indi = ds.individuals.get(l.ancestorId);
+    map.set(l.key, { label: indi ? nameOf(indi) : t("kin.wedge.unknown"), color: lineColor(l.index, "ancestors") });
+  }
+  map.set(SPOUSE_LINE, { label: t("network.line.spouse"), color: paletteColor(6) });
+  return map;
 }
 
 /** The people around `rootId`, at most `limit` of them, none more than

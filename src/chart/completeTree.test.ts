@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import type { TreeNode } from "./personTree";
-import { buildCompleteTree, layoutComplete, packSkyline } from "./completeTree";
+import { buildCompleteTree, connectedCount, layoutComplete, packSkyline } from "./completeTree";
 
 const tr = (key: string) => key;
 const wrap = (body: string) => `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n${body}0 TRLR\n`;
@@ -101,6 +101,13 @@ describe("buildCompleteTree", () => {
     const t = buildCompleteTree(tr, lone.individuals.get("@L@")!, lone);
     expect(t.panels).toHaveLength(1);
     expect(t.people).toBe(1);
+  });
+});
+
+describe("connectedCount", () => {
+  it("counts the people the uncapped chart draws", () => {
+    expect(connectedCount(DS, "@R@")).toBe(buildCompleteTree(tr, DS.individuals.get("@R@")!, DS).people);
+    expect(connectedCount(DS, "@nobody@")).toBe(0);
   });
 });
 

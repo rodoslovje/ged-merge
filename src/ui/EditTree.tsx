@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
 import { buildPersonTree, countTreePeople, pruneTree, treeDepth, type TreeMode, type TreeNode } from "../chart/personTree";
-import { buildCompleteTree, flattenComplete, layoutComplete, type CompleteLaid } from "../chart/completeTree";
+import { buildCompleteTree, connectedCount, flattenComplete, layoutComplete, type CompleteLaid } from "../chart/completeTree";
+import { buildFamilyGraph, graphBranches } from "../chart/familyGraph";
 import {
   bowtieHalf,
   flatten,
@@ -271,6 +272,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [radial, bowtie, complete, tree, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
+  // Everyone the Complete Tree covers, for its button — a walk over ids, not
+  // the chart itself, so offering the button costs next to nothing.
+  const completeCount = useMemo(
+    () => (onCompleteChange ? connectedCount(mainDs, currentRootId) : 0),
+    [onCompleteChange, mainDs, currentRootId],
+  );
+
   // Ancestor / descendant head-counts for both directions, shown on the mode
   // buttons so the user can tell at a glance whether either way is worth opening.
   const peopleCounts = useMemo(() => ({
@@ -340,14 +348,26 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // ancestor half carries prefixed keys; the fan's segments resolve through
   // their tree node.
   const { positions, branchInfo } = useMemo(() => {
-    // The Complete Tree's panels each start from their own top person, so a
-    // generation or line read off them would mean nothing across panels.
+    // The Complete Tree's panels each start from their own top person, so the
+    // generation and line come from the 3D network's walk out from the root
+    // instead: generations counted from the root, the grandparent line (or
+    // the partner's family) the walk reached each person through.
+    if (complete) {
+      const graph = buildFamilyGraph(mainDs, currentRootId, "connected", Infinity);
+      const byId = new Map(graph.nodes.map((n) => [n.indi.id, n.pos]));
+      const positions = new Map<string, NodePosition>();
+      for (const n of flat?.nodes ?? []) {
+        const pos = n.main && byId.get(n.main.id);
+        if (pos) positions.set(n.key, pos);
+      }
+      return { positions, branchInfo: graphBranches(graph, mainDs, t, nameOf) };
+    }
     const anc = !complete && (bowtie || mode === "ancestors") ? shown.ancestors : undefined;
     const desc = !complete && (bowtie || mode === "descendants") ? shown.descendants : undefined;
     const a = indexPositions(anc, "ancestors", bowtie && !radial ? "a:" : "");
     const d = indexPositions(desc, "descendants", "", a.positions, a.branches);
     return { positions: d.positions, branchInfo: d.branches };
-  }, [complete, bowtie, mode, radial, shown]);
+  }, [complete, flat, mainDs, currentRootId, t, nameOf, bowtie, mode, radial, shown]);
   const positionOf = useCallback(
     (n: TreeNode, seg?: FanSegment): NodePosition | undefined => {
       if (!seg) return positions.get(n.key);
@@ -536,7 +556,11 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     },
     // Layered only: the fan has no panels to lay the families out in.
     ...(onCompleteChange && !radial
-      ? [{ key: "complete" as const, label: t("tree.complete"), title: t("tree.complete.tooltip") }]
+      ? [{
+          key: "complete" as const,
+          label: <>{t("tree.complete")}<span className="tree-mode-count">{completeCount}</span></>,
+          title: t("tree.complete.tooltip"),
+        }]
       : []),
   ];
   // The root's lifespan for the title, with the age appended when Age is on
@@ -681,6 +705,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
             fill={colorOf}
             nodeH={nodeH}
             onScrollTo={scrollTo}
+            frames={panels}
           />
         )}
 

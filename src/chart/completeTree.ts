@@ -162,6 +162,32 @@ export function buildCompleteTree(
   return { panels, rootKey: lineKey.get(root.id), people: people + spousesOnly.size, truncated };
 }
 
+/** How many people the Complete Tree of `rootId` covers uncapped: everyone
+ *  linked to them through parents, children and partners, themselves
+ *  included. A plain walk over the ids — cheap enough for a button's count. */
+export function connectedCount(ds: Dataset, rootId: string): number {
+  if (!ds.individuals.has(rootId)) return 0;
+  const seen = new Set<string>([rootId]);
+  const stack = [rootId];
+  const visit = (id: string | undefined) => {
+    if (id && !seen.has(id) && ds.individuals.has(id)) {
+      seen.add(id);
+      stack.push(id);
+    }
+  };
+  while (stack.length) {
+    const p = ds.individuals.get(stack.pop()!)!;
+    for (const famId of [...p.childOf, ...p.spouseOf]) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      visit(fam.husband);
+      visit(fam.wife);
+      fam.children.forEach(visit);
+    }
+  }
+  return seen.size;
+}
+
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 /** Height of a panel's title band, above its tree. */
