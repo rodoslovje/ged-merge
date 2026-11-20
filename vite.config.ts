@@ -220,26 +220,26 @@ export default defineConfig({
       // Per-directory floors — a regression ratchet, set a few points below the
       // current numbers so a genuine drop fails CI without flaking on small
       // edits. Re-run `npm run test:coverage` and raise these as coverage grows
-      // (last ratcheted 2026-10-23). `src/keyboard` is tiny (~40 statements),
+      // (last ratcheted 2026-11-20). `src/keyboard` is tiny (~40 statements),
       // so its floors sit further below: one uncovered branch moves it 8 points.
       thresholds: {
-        "src/chart/**": { statements: 90, branches: 77, functions: 91, lines: 92 },
+        "src/chart/**": { statements: 90, branches: 81, functions: 91, lines: 93 },
         "src/csv/**": { statements: 92, branches: 81, functions: 95, lines: 95 },
         "src/edit-state/**": { statements: 97, branches: 90, functions: 96, lines: 97 },
-        "src/gedcom/**": { statements: 90, branches: 82, functions: 93, lines: 92 },
-        "src/geo/**": { statements: 87, branches: 80, functions: 84, lines: 90 },
+        "src/gedcom/**": { statements: 92, branches: 86, functions: 94, lines: 94 },
+        "src/geo/**": { statements: 88, branches: 80, functions: 88, lines: 91 },
         "src/keyboard/**": { statements: 80, branches: 75, functions: 75, lines: 82 },
-        "src/match/**": { statements: 90, branches: 86, functions: 93, lines: 93 },
-        "src/merge/**": { statements: 87, branches: 79, functions: 89, lines: 90 },
-        "src/normalize/**": { statements: 91, branches: 84, functions: 90, lines: 93 },
-        "src/persist/**": { statements: 86, branches: 81, functions: 84, lines: 90 },
-        "src/report/**": { statements: 91, branches: 82, functions: 97, lines: 94 },
+        "src/match/**": { statements: 92, branches: 87, functions: 94, lines: 95 },
+        "src/merge/**": { statements: 89, branches: 81, functions: 90, lines: 94 },
+        "src/normalize/**": { statements: 93, branches: 88, functions: 94, lines: 94 },
+        "src/persist/**": { statements: 88, branches: 81, functions: 85, lines: 92 },
+        "src/report/**": { statements: 92, branches: 85, functions: 97, lines: 95 },
         "src/review/**": { statements: 89, branches: 85, functions: 91, lines: 91 },
-        "src/save/**": { statements: 92, branches: 89, functions: 88, lines: 96 },
-        "src/state/**": { statements: 86, branches: 81, functions: 97, lines: 89 },
-        "src/stats/**": { statements: 93, branches: 89, functions: 92, lines: 95 },
+        "src/save/**": { statements: 93, branches: 89, functions: 93, lines: 96 },
+        "src/state/**": { statements: 93, branches: 89, functions: 97, lines: 94 },
+        "src/stats/**": { statements: 93, branches: 89, functions: 93, lines: 95 },
         "src/terms/**": { statements: 98, branches: 91, functions: 98, lines: 98 },
-        "src/tools/**": { statements: 90, branches: 82, functions: 91, lines: 94 },
+        "src/tools/**": { statements: 92, branches: 85, functions: 93, lines: 94 },
         // Lower than the pure layers: several tested src/ui helpers (sheet
         // export, virtual list, match view) are only partly unit-tested; the
         // rest of their paths run in e2e.

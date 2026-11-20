@@ -27,5 +27,7 @@ describe("isRegisterAddress cache", () => {
     decompose.mockClear();
     expect(isRegisterAddress("Črni vrh 35")).toBe(true);
     expect(decompose).toHaveBeenCalled();
-  });
+    // Fills the cache to its bound: seconds of work, which a busy machine stretches past the
+    // 5 s default — it timed out in full runs that had nothing wrong with them.
+  }, 30_000);
 });
