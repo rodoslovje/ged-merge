@@ -89,6 +89,7 @@ const COLLECTIONS: { name: Text; items: [string, string | Text][] }[] = [
       ["👤", "Obrazi slovenskih pokrajin"],
       ["🎖️", { sl: "SIstory — žrtve vojn", en: "SIstory — war victims" }],
       ["🌲", { sl: "Geneanet — rodovniki", en: "Geneanet — trees" }],
+      ["📇", { sl: "Rodoslovni indeks (SI, HR)", en: "Genealogical Index (SI, HR)" }],
     ],
   },
   {
@@ -147,8 +148,8 @@ const scenario: Scenario = {
     en: "GED Merge: organize sources — from scattered links to proper sources",
   },
   description: {
-    sl: "Kako GED Merge povezave, raztresene po opombah in poljih povezav, spremeni v prave vire: katere zbirke prepozna (Matricula, FamilySearch, Geneanet, Find a Grave, BillionGraves, Slovenska biografija, Obrazi slovenskih pokrajin, SIstory, dLib, Google Knjige, Wikipedija, YouTube) in kaj naredijo zavihki orodja »Uredi vire«: Viri, Dvojniki, Hrambe in Strani. Primer: rodovnik pesnika Franceta Prešerna.",
-    en: "How GED Merge turns links scattered over notes and link fields into proper sources: which collections it recognises (Matricula, FamilySearch, Geneanet, Find a Grave, BillionGraves, Slovenska biografija, Obrazi slovenskih pokrajin, SIstory, dLib, Google Books, Wikipedia, YouTube) and what the tabs of Organize sources do: Sources, Duplicates, Repositories and Pages. Example: the pedigree of the poet France Prešeren.",
+    sl: "Kako GED Merge povezave, raztresene po opombah in poljih povezav, spremeni v prave vire: katere zbirke prepozna (Matricula, FamilySearch, Geneanet, Find a Grave, BillionGraves, Slovenska biografija, Obrazi slovenskih pokrajin, SIstory, slovenski in hrvaški rodoslovni indeks, dLib, Google Knjige, Wikipedija, YouTube) in kaj naredijo zavihki orodja »Uredi vire«: Viri, Dvojniki, Hrambe in Strani. Primer: rodovnik pesnika Franceta Prešerna.",
+    en: "How GED Merge turns links scattered over notes and link fields into proper sources: which collections it recognises (Matricula, FamilySearch, Geneanet, Find a Grave, BillionGraves, Slovenska biografija, Obrazi slovenskih pokrajin, SIstory, the Slovenian and Croatian Genealogical Indexes, dLib, Google Books, Wikipedia, YouTube) and what the tabs of Organize sources do: Sources, Duplicates, Repositories and Pages. Example: the pedigree of the poet France Prešeren.",
   },
   thumbnail: {
     tag: { sl: "Viri", en: "Sources" },
@@ -402,10 +403,13 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         const dead = group(d, "SIstory");
-        await dead.scrollIntoViewIfNeeded();
+        // Mid-screen, clear of the chapter callout at the bottom left.
+        await dead.evaluate((el) => el.scrollIntoView({ block: "center" }));
+        await d.wait(300);
         await d.highlight(dead, 4);
         await d.wait(4500);
-        await d.click(dead.locator("button.tools-issue-link", { hasText: "🗑" }));
+        // The bin (an icon now, no longer the 🗑 glyph): the row's one toggle button.
+        await d.click(dead.locator("button.tools-issue-link[aria-pressed]").first());
         await d.wait(600);
         await d.highlight(dead.locator(".tools-reshape-badge.remove"), 6);
       },

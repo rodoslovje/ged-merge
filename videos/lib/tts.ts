@@ -92,9 +92,13 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/\b([Uu])krep\b/g, "$1krêp"],
   ],
   en: [
-    [/gedmerge\.com/g, "GED Merge dot com"],
-    [/GED Merge/g, "Ged Merge"],
-    [/GEDCOM/g, "ged-com"],
+    // "GED" as in "Jed", not a hard G (chosen by ear, Soniox Nina).
+    [/gedmerge\.com/g, "Jed Merge dot com"],
+    [/GED Merge/g, "Jed Merge"],
+    // The poet's first name, not the country, and without a pause before
+    // "Prešeren" (chosen by ear against France-Prešeren, Frantseh, Frahntseh).
+    [/\bFrance\b/g, "Frantse"],
+    [/GEDCOM/g, "jed-com"],
     [/\.ged\b/g, " dot ged"],
   ],
 };

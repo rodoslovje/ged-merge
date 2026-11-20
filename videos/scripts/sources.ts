@@ -212,8 +212,8 @@ const scenario: Scenario = {
     {
       callout: { sl: "Grob na Geneanetu", en: "A grave on Geneanet" },
       say: {
-        sl: "Program prepozna tudi druge zbirke: grobove na Geneanetu in povezave na žrtve obeh svetovnih vojn v zbirki SIstory. Prešernova hči Ernestina je pokopana v Prešernovem gaju v Kranju. Dodajmo pokop in povezavo na njen grob.",
-        en: "The program recognises other collections too: graves on Geneanet, and links to victims of both world wars in the SIstory collection. Prešeren's daughter Ernestina is buried in Prešernov gaj in Kranj. Let's add her burial and a link to her grave.",
+        sl: "Program prepozna tudi druge zbirke: grobove na Geneanetu, osebe v Slovenskem rodoslovnem indeksu in povezave na žrtve obeh svetovnih vojn v zbirki SIstory. Prešernova hči Ernestina je pokopana v Prešernovem gaju v Kranju. Dodajmo pokop in povezavo na njen grob.",
+        en: "The program recognises other collections too: graves on Geneanet, people in the Slovenian Genealogical Index, and links to victims of both world wars in the SIstory collection. Prešeren's daughter Ernestina is buried in Prešernov gaj in Kranj. Let's add her burial and a link to her grave.",
       },
       run: async (d) => {
         await d.click(d.page.locator(".person-card").filter({ hasText: "Ernestina" }).filter({ visible: true }).first());

@@ -60,8 +60,9 @@ async function convert(d: Director, name: string, pick: string): Promise<void> {
   await d.highlight(null);
   await d.click(proposal(d, "SI-GURS", pick));
   await d.wait(900);
+  // Not the Merge mode tab, which the English label would also match.
   const apply = d.page
-    .locator("button")
+    .locator("button:not(.seg-btn)")
     .filter({ visible: true })
     .filter({ hasText: new RegExp(`^(${d.t({ sl: "Preimenuj", en: "Rename" })}|${d.t({ sl: "Združi", en: "Merge" })})$`) })
     .first();
@@ -303,7 +304,7 @@ const scenario: Scenario = {
       callout: { sl: "OpenStreetMap", en: "OpenStreetMap" },
       say: {
         sl: "Mina je umrla v Osojah na Koroškem, v Avstriji. Tega kraja GURS ne pozna, OpenStreetMap pa pozna tudi slovenska imena. »Na Koroškem« ni del imena, zato vpišemo »Osoje, Avstrija«. Državo lahko napišete po slovensko ali po angleško.",
-        en: "Mina died in Ossiach in Carinthia, Austria. GURS does not know it, but OpenStreetMap knows Slovenian names too. \"Na Koroškem\" is not part of the name, so we type Osoje, Austria. You can write the country in Slovenian or in English.",
+        en: "Mina died in Ossiach in Carinthia, Austria. GURS does not know it, but OpenStreetMap knows Slovenian names too. \"Na Koroškem\" is not part of the name, so we type Osoje, Austria, and it offers the German name, Ossiach. You can write the country in Slovenian or in English.",
       },
       run: async (d) => {
         const place = eventPlace(d, 1);
@@ -312,10 +313,12 @@ const scenario: Scenario = {
         await d.page.keyboard.type(d.t({ sl: "Osoje, Avstrija", en: "Osoje, Austria" }), { delay: 120 });
         await d.wait(700);
         await lookUp(d, "OSM");
-        await d.highlight(proposal(d, "OSM", "Osoje"), 4);
+        // In English OpenStreetMap answers with the German name, Ossiach.
+        const osoje = proposal(d, "OSM", d.t({ sl: "Osoje", en: "Ossiach" }));
+        await d.highlight(osoje, 4);
         await d.wait(1800);
         await d.highlight(null);
-        await d.click(proposal(d, "OSM", "Osoje"));
+        await d.click(osoje);
         await blur(d);
         await d.wait(1200);
         await d.highlight(eventPin(d, 1), 8);

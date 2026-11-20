@@ -48,7 +48,7 @@ const finding = (d: Director, address: string) =>
 
 /** The chip counting the house numbers the register no longer has. */
 const noSuchAddress = (d: Director) =>
-  visible(d, ".tools-chip").filter({ hasText: d.t({ sl: "Ni takega naslova", en: "No such address" }) }).first();
+  visible(d, ".tools-chip").filter({ hasText: d.t({ sl: "Ni takega naslova", en: "No such house" }) }).first();
 
 /** A register answer under an address row, by its full line. */
 const hit = (d: Director, line: string) => visible(d, "*").getByText(line, { exact: true }).first();
@@ -163,8 +163,9 @@ async function rename(
   await d.wait(700);
 }
 
-const applyRename = (d: Director) =>
-  visible(d, "button").filter({ hasText: new RegExp(`^(${d.t({ sl: "Preimenuj", en: "Rename" })}|${d.t({ sl: "Združi", en: "Merge" })})$`) }).first();
+/** The open rename box's own button (»Preimenuj«, or »Združi« when the name is
+ *  taken) — by its class: in English »Merge« is also the header's Merge tab. */
+const applyRename = (d: Director) => visible(d, ".tools-place-rename-apply").first();
 
 const scenario: Scenario = {
   id: "addresses",
@@ -345,7 +346,7 @@ const scenario: Scenario = {
     {
       say: {
         sl: "Register naslovov se je medtem naložil, zato je tu še zavihek »Naslovi«. »Drugo naselje«: hiša Krasinec 1 je zapisana pod Gradcem, kjer je pošta, register pa jo vodi v Krasincu. »Zapis«: naslov Kidričeva 38a register piše kot »Kidričeva cesta 38a«.",
-        en: "The address register has loaded meanwhile, so there is now an Addresses tab too. »Other settlement«: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under Krasinec. »Spelling«: the register spells Kidričeva 38a as »Kidričeva cesta«.",
+        en: "The address register has loaded meanwhile, so there is now an Addresses tab too. “Other settlement”: the house Krasinec 1 is written under Gradac, where the post office is, but the register files it under Krasinec. “Spelling”: the register spells Kidričeva 38a as “Kidričeva cesta 38a”.",
       },
       run: async (d) => {
         await d.wait(400);
@@ -399,7 +400,7 @@ const scenario: Scenario = {
       run: async (d) => {
         // The way to Geocoding › Addresses, narrowed to Slovenia, runs under
         // the first sentence; the rest is said on that screen.
-        await quickClick(d, link(d, { sl: "Nazaj na kraje", en: "Back to places" }));
+        await quickClick(d, link(d, { sl: "Nazaj na kraje", en: "Back to Places" }));
         await quickClick(d, visible(d, "button.tools-chip").filter({ hasText: d.t({ sl: "Geokodiranje", en: "Geocoding" }) }).first());
         await quickClick(d, link(d, /^(Naslovi|Addresses) \d/));
         await quickClick(d, visible(d, "button.tools-chip").filter({ hasText: /Sloven(ija|ia)/ }).first());
@@ -421,7 +422,7 @@ const scenario: Scenario = {
       callout: { sl: "Pripis v oklepaju", en: "A note in parentheses" },
       say: {
         sl: "Trinajst dogodkov ima naslov »bolnišnica / klinični center«. Napišimo pravi naslov, Zaloška cesta 2, opis pa dodajmo v oklepaju. Register hišo takoj najde. Zadetek potrdimo, da se zapiše tudi njegova koordinata.",
-        en: "Thirteen events have the address »hospital / medical centre«. Let's write the real address, Zaloška cesta 2, and add the description in parentheses. The register finds the house at once. We confirm the answer, so its coordinate is written too.",
+        en: "Thirteen events have the address “hospital / medical centre”. Let's write the real address, Zaloška cesta 2, and add the description in parentheses. The register finds the house at once. We confirm the answer, so its coordinate is written too.",
       },
       run: async (d) => {
         const row = addrRow(d, "bolnišnica / klinični center");
@@ -587,7 +588,7 @@ const scenario: Scenario = {
       callout: { sl: "Zapisano dvakrat", en: "Written twice" },
       say: {
         sl: "Ista hiša je včasih zapisana dvakrat: enkrat s hišnim imenom v oklepaju, enkrat brez njega. Gumb »Združi« oba zapisa poenoti.",
-        en: "The same house is sometimes written twice: once with its farm name in parentheses, once without. The Merge button makes the two one.",
+        en: "The same house is sometimes written twice: once with its farm name in parentheses, once without. The Join button makes the two one.",
       },
       run: async (d) => {
         const join = visible(d, ".tools-issue-link").filter({ hasText: new RegExp(`^${d.t({ sl: "Združi", en: "Join" })}$`) }).first();

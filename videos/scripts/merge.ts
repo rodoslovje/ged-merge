@@ -114,6 +114,23 @@ const scenario: Scenario = {
       },
     },
     {
+      say: {
+        sl: "Nad seznamom izberete, kaj se prenese ob shranjevanju. Pri izbiri »Po osebah« se prenesejo samo osebe, ki jih potrdite, pri izbiri »Celotna datoteka« pa vse osebe iz vhodne datoteke. Mi ostanemo pri izbiri »Po osebah«.",
+        en: "Above the list, you choose what the save brings in. With By person, only the people you confirm come across; with Whole file, everyone in the incoming file. We stay with By person.",
+      },
+      run: async (d) => {
+        const bar = d.page.locator(".merge-scope-bar").filter({ visible: true }).first();
+        await d.highlight(bar, 4);
+        await d.wait(2500);
+        await d.point(bar.locator("button").nth(0));
+        await d.wait(2500);
+        await d.point(bar.locator("button").nth(1));
+        await d.wait(2500);
+        await d.point(bar.locator("button").nth(0));
+        await d.highlight(null);
+      },
+    },
+    {
       callout: { sl: "Sorodstvo do izhodiščne osebe", en: "Kinship to the start person" },
       say: {
         sl: "Pod imenom piše, v kakšnem sorodu je oseba s Prešernom. Njegovi neposredni predniki, oče, dedek in praded, so poudarjeni, zato takoj vidite, kje v drevesu ste.",

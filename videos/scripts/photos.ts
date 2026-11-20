@@ -482,11 +482,18 @@ const scenario: Scenario = {
       },
       run: async (d) => {
         // Edvard is on screen: his own ancestors, his face from the wedding photo and Franc's portrait.
-        await d.click(d.page.locator(".charts-open-btn"));
-        await d.page.locator(".charts-kind").waitFor();
-        await d.click(d.page.locator(".charts-kind button").nth(0));
-        await d.click(d.page.locator("button").filter({ hasText: /^(Predniki|Ancestors)\d/ }).filter({ visible: true }).first());
-        // Three generations: the author, his parents and grandparents — large enough to see the faces.
+        // The chart opens on ancestors and descendants, with the living
+        // descendants: open it and switch to the ancestors out of sight.
+        const open = d.page.locator(".charts-open-btn");
+        await d.point(open);
+        await d.frozen(async () => {
+          await open.click();
+          await d.page.locator(".charts-kind").waitFor();
+          await d.page.locator(".charts-kind button").nth(0).click();
+          await d.page.locator("button").filter({ hasText: /^(Predniki|Ancestors)\s*\d/ }).filter({ visible: true }).first().click();
+          await d.wait(300);
+        });
+        // Three generations: Edvard, his parents and grandparents — large enough to see the faces.
         await d.page.locator(".chart-settings-btn").filter({ visible: true }).first().click();
         const rows = d.page
           .locator(".chart-settings-group")
