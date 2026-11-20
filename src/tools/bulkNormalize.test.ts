@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { bulkNormalize } from "./bulkNormalize";
+import { applyBulkNormalize, bulkNormalize } from "./bulkNormalize";
+import { nextXref } from "../gedcom/edit";
 
 function dataset(bytes: ArrayBuffer) {
   return buildDataset(parseGedcom(bytes));
@@ -96,4 +97,20 @@ describe("bulkNormalize", () => {
     // Two normalize passes over the whole corpus: 3–5 s on CI under coverage,
     // past vitest's 5 s default on a busy runner.
   }, 30_000);
+
+  it("a record adopted from the run is counted when the next id is handed out", () => {
+    const text = [
+      "0 HEAD\n1 CHAR UTF-8\n1 GEDC\n2 VERS 5.5.1",
+      "0 @I1@ INDI\n1 NAME A /B/\n1 NOTE first\n1 NOTE second",
+      "0 @N1@ NOTE shared",
+      "0 TRLR",
+    ].join("\n");
+    const ds = dataset(new TextEncoder().encode(text).buffer);
+    // An id asked for earlier in the session: the highest is now cached.
+    expect(nextXref(ds.records, "N")).toBe("@N2@");
+    applyBulkNormalize(ds, {}, { notes: "shared" });
+    const taken = ds.records.filter((r) => r.tag === "NOTE").map((r) => r.xref);
+    expect(taken.length).toBeGreaterThan(1);
+    expect(taken).not.toContain(nextXref(ds.records, "N"));
+  });
 });
