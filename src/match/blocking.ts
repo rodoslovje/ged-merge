@@ -144,12 +144,14 @@ export class CrossBlockIndex {
         add(p.era !== undefined ? `G:${g}:${Math.floor(p.era / ERA_BLOCK)}` : `GU:${g}`, i);
         add(`GA:${g}`, i);
       }
-      // The same again by the given name's variant group, so a dated record
-      // and an undated one meet across a name the initial does not span:
-      // Janez and Ivan are one name in the variant table, and J is not I.
+      // The undated half of the same again, by the given name's variant
+      // group: a dated record and an undated one meet across a name the
+      // initial does not span — Janez and Ivan are one name in the variant
+      // table, and J is not I. Two *dated* records get no such key: across
+      // initials they meet within the decade window only, as before.
       for (const v of variantKeys(p)) {
         const g = `${p.sdx}:${v}`;
-        add(p.era !== undefined ? `G:${g}:${Math.floor(p.era / ERA_BLOCK)}` : `GU:${g}`, i);
+        if (p.era === undefined) add(`GU:${g}`, i);
         add(`GA:${g}`, i);
       }
     });
@@ -210,14 +212,7 @@ export class CrossBlockIndex {
     }
     for (const v of variantKeys(p)) {
       const g = `${p.sdx}:${v}`;
-      if (p.era !== undefined) {
-        const lo = Math.floor((p.era - this.gap) / ERA_BLOCK);
-        const hi = Math.floor((p.era + this.gap) / ERA_BLOCK);
-        for (let b = lo; b <= hi; b++) walk(`G:${g}:${b}`);
-        walk(`GU:${g}`);
-      } else {
-        walk(`GA:${g}`);
-      }
+      walk(p.era !== undefined ? `GU:${g}` : `GA:${g}`);
     }
   }
 }
