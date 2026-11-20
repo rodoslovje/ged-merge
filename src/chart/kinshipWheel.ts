@@ -480,7 +480,9 @@ const sexRank = (sex: Sex | undefined) => (sex === "F" ? 1 : 0);
  */
 export function buildKinshipWheel(input: KinInput & { people?: KinPerson[] }): KinshipWheelChart {
   const people = input.people ?? collectKin(input);
-  const maxDistance = Math.max(1, ...people.map((p) => p.distance));
+  // By a loop, here and below: a branch can hold more people than an engine
+  // takes as arguments, and a spread of them is a RangeError, not a chart.
+  const maxDistance = people.reduce((m, p) => Math.max(m, p.distance), 1);
   // A bigger tree gets a bigger chart rather than denser dots: the canvas
   // scrolls and zooms, so the honest move is more room, not smaller marks.
   const radius = Math.round(Math.max(360, Math.min(900, 260 + Math.sqrt(people.length) * 4)));
@@ -958,7 +960,7 @@ function fitLabel(
  */
 export function buildSurnameRings(input: KinInput & { people?: KinPerson[] }): SurnameRingsChart {
   const people = (input.people ?? collectKin(input)).filter((p) => p.distance > 0);
-  const maxDistance = Math.max(1, ...people.map((p) => p.distance));
+  const maxDistance = people.reduce((m, p) => Math.max(m, p.distance), 1);
   // Same growth rule as the wheel, so switching layouts keeps the chart's size.
   const radius = Math.round(Math.max(360, Math.min(900, 260 + Math.sqrt(people.length) * 4)));
   // Nothing is captioned outside the rim here, so the padding only has to keep
@@ -1126,12 +1128,12 @@ export function buildKinBars(input: KinInput & { width: number; people?: KinPers
 
   const start = (p: KinPerson) => p.span.from ?? p.span.to!;
   const end = (p: KinPerson) => p.span.to ?? p.span.from!;
-  const maxYear = Math.max(now, ...people.map(end));
-  let minYear = Math.min(...people.map(start));
+  const maxYear = people.reduce((m, p) => Math.max(m, end(p)), now);
+  let minYear = people.reduce((m, p) => Math.min(m, start(p)), Infinity);
   const inner = input.width - BAR_LEFT - BAR_RIGHT;
   const named = people.filter((p) => rowH(p.distance) >= BAR_NAMED_H);
   if (named.length) {
-    const earliest = Math.min(...named.map(start));
+    const earliest = named.reduce((m, p) => Math.min(m, start(p)), Infinity);
     const span = maxYear - minYear;
     const have = (inner * (earliest - minYear)) / (span || 1);
     if (have < BAR_NAME_GUTTER && inner > BAR_NAME_GUTTER) {
