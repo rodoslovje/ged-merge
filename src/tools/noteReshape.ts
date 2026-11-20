@@ -126,10 +126,18 @@ export function reshapeNotes(
 
   // Shared records nothing points at any more — every referrer was flattened.
   if (target === "inline") {
-    for (const [xref, count] of refCounts) {
-      if (count > 0) continue;
-      const i = records.findIndex((r) => NOTE_TAGS.includes(r.tag) && r.xref === xref);
-      if (i !== -1) records.splice(i, 1);
+    // Taken out in one walk of the list: a search and a splice per note is
+    // quadratic, and a file of shared notes has one per person or more.
+    const emptied = new Set<string>();
+    for (const [xref, count] of refCounts) if (count <= 0) emptied.add(xref);
+    if (emptied.size) {
+      let kept = 0;
+      for (const r of records) {
+        // The first record under an xref, as the search found it.
+        if (r.xref && NOTE_TAGS.includes(r.tag) && emptied.delete(r.xref)) continue;
+        records[kept++] = r;
+      }
+      records.length = kept;
     }
   }
 
@@ -166,7 +174,10 @@ function toShared(
   // the record.
   for (const child of noteNode.children) rec.children.push(relevel(cloneNode(child), 1));
   // A record before TRLR, like every other record this app creates.
-  const trlr = records.findIndex((r) => r.tag === "TRLR");
+  // TRLR is the last record of nearly every file: looked for there first, so
+  // lifting each of a file's notes does not walk the file each time.
+  const last = records.length - 1;
+  const trlr = records[last]?.tag === "TRLR" ? last : records.findIndex((r) => r.tag === "TRLR");
   records.splice(trlr === -1 ? records.length : trlr, 0, rec);
   noteRecords.set(xref, rec);
   noteNode.tag = tag;
