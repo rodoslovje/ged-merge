@@ -18,8 +18,11 @@ import {
   pageBox,
 } from "../chart/sheets";
 import {
+  completePrintScales,
+  planCompleteSheets,
   planPrintScale,
   planSheets,
+  printCompleteSheets,
   printChartSheets,
   sheetBandsHeight,
   type SheetChartSource,
@@ -97,10 +100,19 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
     () => (paper ? sheetBandsHeight(opts.legend, { paper, orientation, size }) : HEADER_H + FOOTER_H),
     [opts.legend, paper, orientation, size],
   );
+  const complete = source?.complete;
   const sheets = useMemo(
-    () => (source && paper ? planSheets(source, { paper, orientation, size }, bandsH) : []),
-    [source, paper, orientation, size, bandsH],
+    () => (source && !complete && paper ? planSheets(source, { paper, orientation, size }, bandsH) : []),
+    [source, complete, paper, orientation, size, bandsH],
   );
+  // The Complete Tree prints as its trees packed onto pages instead.
+  const pages = useMemo(
+    () => (source && complete && paper ? planCompleteSheets(complete, source, { paper, orientation, size }, bandsH) : []),
+    [source, complete, paper, orientation, size, bandsH],
+  );
+  const count = !source ? 1 : complete ? pages.length : sheets.length;
+  // Complete Tree pages that print smaller than the rest (see completePrintScales).
+  const smaller = pages.filter((p) => p.oversized).length;
 
   // How much the print will be reduced (or enlarged) to sit on the paper — the
   // number that says whether "one sheet" is a wall chart or an unreadable one.
@@ -108,16 +120,31 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const scale = useMemo(() => {
     if (!paper) return 1;
     const box = pageBox(paper, orientation);
+    if (pages.length) {
+      return completePrintScales(pages.map((p) => ({ ...p, height: p.height + bandsH })), { paper, orientation }).common;
+    }
     if (source && sheets.length) return planPrintScale(source, { paper, orientation, size }, sheets, bandsH);
     const whole = canvasDiagramSize(canvasRef.current);
     return whole ? fillScale([{ width: whole.w, height: whole.h + bandsH }], box) : 1;
-  }, [source, paper, orientation, size, sheets, canvasRef, bandsH]);
+  }, [source, paper, orientation, size, sheets, pages, canvasRef, bandsH]);
 
   const print = () => {
     if (!paper) return;
     onClose();
     if (!source) {
       printCanvasPdf(canvasRef.current, opts, { paper, orientation });
+      return;
+    }
+    if (complete) {
+      void printCompleteSheets(canvasRef.current, complete, source, { paper, orientation, size }, {
+        ...opts,
+        subtitle: (page, total) =>
+          `${t("sheets.sheetOf", { n: page.number, total })} · ${t("sheets.trees", { list: page.pieces.map((p) => p.label).join(", ") })}`,
+        pieceTitle: (piece) => {
+          const who = piece.top.years ? `${piece.top.name} (${piece.top.years})` : piece.top.name;
+          return piece.from ? `${who} — ${t("sheets.treeFrom", { label: piece.from })}` : who;
+        },
+      });
       return;
     }
     void printChartSheets(canvasRef.current, source, { paper, orientation, size }, {
@@ -239,9 +266,9 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
 
         <p className={`sheet-dialog-count${paper ? "" : " is-hint"}`} aria-live="polite">
           {paper
-            ? `${t("sheets.count", { count: source ? sheets.length : 1 })} · ${t("sheets.scale", {
+            ? `${t("sheets.count", { count })} · ${t("sheets.scale", {
                 pct: Math.round(scale * 100),
-              })}`
+              })}` + (smaller ? ` · ${t("sheets.smaller", { count: smaller })}` : "")
             : t("sheets.custom.range", { min: CUSTOM_MM_MIN, max: CUSTOM_MM_MAX })}
         </p>
 

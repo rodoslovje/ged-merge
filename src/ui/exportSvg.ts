@@ -822,17 +822,21 @@ export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions, pape
  * centred on a real paper-sized page and every sheet is drawn at the same
  * `scale`, so boxes come out the same size across the whole printed set (a
  * sparse sheet blown up to fill its page would look like a different chart).
+ * A scale per sheet is the exception: the Complete Tree prints a sheet that
+ * cannot be cut down to the page smaller than the rest (see
+ * `completePrintScales`).
  */
 export function printSheetSet(
   sheets: { svg: SVGSVGElement; width: number; height: number }[],
   page: { w: number; h: number },
-  scale: number,
+  scale: number | number[],
   docTitle: string,
 ): void {
   const pages = sheets
+    .map((s, i) => ({ s, k: typeof scale === "number" ? scale : scale[i] }))
     .map(
-      (s) =>
-        `<div class="gm-sheet"><div class="gm-fit" style="width:${s.width * scale}px;height:${s.height * scale}px">` +
+      ({ s, k }) =>
+        `<div class="gm-sheet"><div class="gm-fit" style="width:${s.width * k}px;height:${s.height * k}px">` +
         `${serialize(s.svg)}</div></div>`,
     )
     .join("");

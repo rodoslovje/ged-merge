@@ -266,10 +266,14 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // want the root. It re-lays the very same tree the canvas draws.
   const sheetSource = useMemo(
     () =>
-      !radial && !bowtie && !complete && tree
-        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
-        : undefined,
-    [radial, bowtie, complete, tree, alignment, isGrid, nodeH, marriageLabel, mode],
+      complete
+        ? completeTree?.panels.length
+          ? { tree: completeTree.panels[0].tree, complete: completeTree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: false }
+          : undefined
+        : !radial && !bowtie && tree
+          ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
+          : undefined,
+    [radial, bowtie, complete, completeTree, tree, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // Everyone the Complete Tree covers, for its button — a walk over ids, not
