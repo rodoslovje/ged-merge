@@ -19,13 +19,13 @@ const tr = (key: string) => key;
 const NO_MATCHES = { individuals: [], families: [] };
 const STAMP = "1 EVEN 31 JAN 2020 13:12:03 GMT -0500\n2 TYPE _UPD\n";
 
-/** Confirm @I1@ ← @P1@, taking the incoming side of every row that differs. */
+/** Confirm @I1@ ← @P1@, taking the incoming side of every row. */
 function merge(mainBody: string, compareBody: string): string {
   const main = dataset(wrap(mainBody));
   const compare = dataset(wrap(compareBody));
   const rows = individualFieldRows(tr, main.individuals.get("@I1@")!, compare.individuals.get("@P1@")!, main, compare);
   const fields: Record<string, FieldChoice> = {};
-  for (const row of rows) if (row.status !== "same") fields[row.key] = "incoming";
+  for (const row of rows) fields[row.key] = "incoming";
   const decisions = new Map<string, CandidateDecision>([
     [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields }],
   ]);

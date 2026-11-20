@@ -663,11 +663,38 @@ export function applyFamilyStructure(
  * Reads the *live* node first: a FAMC wired by an earlier decision in this same
  * merge exists only there, and the pre-merge dataset would miss it.
  */
-function childFamilyOf(mainId: string, ctx: MergeContext, main?: Dataset): string | undefined {
-  return (
-    ctx.indiNode(mainId)?.children.find((c) => c.tag === "FAMC")?.value ??
-    main?.individuals.get(mainId)?.childOf[0]
-  );
+function childFamilyOf(mainId: string, ctx: MergeContext, main?: Dataset, parents?: ParentCouple): string | undefined {
+  const live = (ctx.indiNode(mainId)?.children ?? [])
+    .filter((c) => c.tag === "FAMC" && c.value)
+    .map((c) => c.value!);
+  const famIds = live.length ? live : main?.individuals.get(mainId)?.childOf ?? [];
+  // A person with more than one parent family — adoptive and birth — is being
+  // given parents: the family that already holds one of them is the one meant.
+  // Taking the first regardless wrote a birth mother in as the adoptive
+  // father's wife, and reported the birth father the other family already
+  // holds as a conflict with the adoptive one.
+  if (parents && famIds.length > 1) {
+    for (const id of famIds) {
+      const node = ctx.famNode(id);
+      if (!node) continue;
+      if (
+        (parents.HUSB && firstChild(node, "HUSB")?.value === parents.HUSB) ||
+        (parents.WIFE && firstChild(node, "WIFE")?.value === parents.WIFE)
+      ) return id;
+    }
+  }
+  return famIds[0];
+}
+
+/** The main records of the parents about to be linked, as far as they have
+ *  one yet — what {@link childFamilyOf} picks a parent family by. */
+function knownParents(slots: Array<{ role: "HUSB" | "WIFE"; incParentId: string }>, ctx: MergeContext): ParentCouple {
+  const known: ParentCouple = {};
+  for (const { role, incParentId } of slots) {
+    const id = ctx.resolved(incParentId);
+    if (id) known[role] = id;
+  }
+  return known;
 }
 
 /** A family's parents, husband first — empty when it names none. */
@@ -767,7 +794,7 @@ export function applyIndividualRelations(
     // importing first used to leave the incoming parent in the file as a
     // disconnected record nobody chose to add. Deferred here with the same
     // wording, naming the incoming person from the compare file directly.
-    const existingFamId = childFamilyOf(mainId, ctx, main);
+    const existingFamId = childFamilyOf(mainId, ctx, main, knownParents(slots, ctx));
     const existingFamNode = existingFamId ? ctx.famNode(existingFamId) : undefined;
     const occupant = existingFamNode ? firstChild(existingFamNode, role)?.value : undefined;
     if (occupant && occupant !== ctx.resolved(incParentId)) {
@@ -780,7 +807,7 @@ export function applyIndividualRelations(
     }
     const targetId = ctx.resolve(incParentId);
     if (!targetId) continue;
-    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx), parentsFam && ((node) => copyFamilyFacts(node, parentsFam, compare, ctx)));
+    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx), parentsFam && ((node) => copyFamilyFacts(node, parentsFam, compare, ctx)), knownParents(slots, ctx));
     setSpouseSlot(childFam.node, role, targetId, ctx.t(labelKey), ctx);
   }
 }
@@ -1148,12 +1175,15 @@ function ensureChildFamily(
   couple?: ParentCouple,
   /** Called with the family when this call creates it, not when it finds one. */
   onCreate?: (node: GedNode) => void,
+  /** The parents being linked who have a main record: which of several
+   *  parent families is meant (see {@link childFamilyOf}). */
+  known?: ParentCouple,
 ): { id: string; node: GedNode } {
   // Prefer the live merged tree's FAMC over the original dataset's: a child
   // family created earlier in this merge (e.g. by the confirmed-match parent
   // stitch) is wired onto the cloned indi node but absent from `main`, so
   // reading `main` here would miss it and create a duplicate family.
-  const existing = childFamilyOf(mainId, ctx, main);
+  const existing = childFamilyOf(mainId, ctx, main, known);
   if (existing) {
     const node = ctx.famNode(existing);
     if (node) return { id: existing, node };
@@ -1373,14 +1403,14 @@ function importAncestors(
   // The family the person already has, if any; one is created (or the
   // couple's own joined) only once a parent is actually linked, so a walk
   // that links nobody leaves no parentless one-child family behind.
-  const existingId = childFamilyOf(mainId, ctx, main);
-  const existingNode = existingId ? ctx.famNode(existingId) : undefined;
-  let childFam = existingNode ? { id: existingId!, node: existingNode } : undefined;
   const parents: Array<["HUSB" | "WIFE", string | undefined, string]> = [
     ["HUSB", incParents.father, "merge.field.father"],
     ["WIFE", incParents.mother, "merge.field.mother"],
   ];
   const slots = parents.flatMap(([role, incParentId]) => (incParentId ? [{ role, incParentId }] : []));
+  const existingId = childFamilyOf(mainId, ctx, main, knownParents(slots, ctx));
+  const existingNode = existingId ? ctx.famNode(existingId) : undefined;
+  let childFam = existingNode ? { id: existingId!, node: existingNode } : undefined;
   for (const [role, incParentId, labelKey] of parents) {
     if (!incParentId) continue;
     // Who already holds this slot decides whether the branch can be walked at
@@ -1409,7 +1439,7 @@ function importAncestors(
     const parentMainId = ctx.resolve(incParentId);
     if (!parentMainId) continue;
     // A family the graft creates for the parents carries their own facts.
-    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx), parentsFam && ((node) => copyFamilyFacts(node, parentsFam, compare, ctx)));
+    childFam ??= ensureChildFamily(mainId, main, ctx, coupleToLink(slots, ctx), parentsFam && ((node) => copyFamilyFacts(node, parentsFam, compare, ctx)), knownParents(slots, ctx));
     setSpouseSlot(childFam.node, role, parentMainId, ctx.t(labelKey), ctx);
     importAncestors(incParentId, main, compare, ctx, visited);
   }

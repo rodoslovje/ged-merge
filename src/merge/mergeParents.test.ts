@@ -94,4 +94,39 @@ describe("merging parents the way the review shows them", () => {
     expect([...wantedAdds(decide(), main, compare)].sort()).toEqual(["@P2@", "@P3@"]);
     expect(parentsAfter(main, compare)).toEqual([["Janez /Novak/", "Marija /Kos/"]]);
   });
+
+  it("links a parent into the family that already holds the other one, not the first family", () => {
+    // Peter has an adoptive family (@F1@, father only) listed before his birth
+    // family (@F2@, father only). The incoming file knows his birth parents.
+    const main = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Peter /Novak/\n1 BIRT\n2 DATE 1880\n1 FAMC @F1@\n1 FAMC @F2@\n" +
+        "0 @I2@ INDI\n1 NAME Anton /Kos/\n1 SEX M\n1 FAMS @F1@\n" +
+        "0 @I3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F2@\n" +
+        "0 @F1@ FAM\n1 HUSB @I2@\n1 CHIL @I1@\n" +
+        "0 @F2@ FAM\n1 HUSB @I3@\n1 CHIL @I1@\n",
+    ));
+    const compare = dataset(wrap(
+      "0 @P1@ INDI\n1 NAME Peter /Novak/\n1 BIRT\n2 DATE 1880\n1 FAMC @G1@\n" +
+        "0 @P3@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @G1@\n" +
+        "0 @P4@ INDI\n1 NAME Marija /Oblak/\n1 SEX F\n1 FAMS @G1@\n" +
+        "0 @G1@ FAM\n1 HUSB @P3@\n1 WIFE @P4@\n1 CHIL @P1@\n",
+    ));
+    const decisions = new Map<string, CandidateDecision>([
+      [decisionKey("individual", "@I1@", "@P1@"), { status: "confirmed", fields: { father: "incoming", mother: "incoming" } }],
+      [decisionKey("individual", "@I3@", "@P3@"), { status: "confirmed", fields: {} }],
+    ]);
+    const { records, report } = mergeDecisions(main, compare, decisions, NO_MATCHES, tr);
+    const fam = (id: string) => records.find((r) => r.xref === id)!;
+    const who = (id: string, role: string) => {
+      const ref = fam(id).children.find((c) => c.tag === role)?.value;
+      return ref ? records.find((r) => r.xref === ref)?.children.find((c) => c.tag === "NAME")?.value : undefined;
+    };
+    // The birth mother joins the birth father; the adoptive family is as it was.
+    expect(who("@F2@", "WIFE")).toBe("Marija /Oblak/");
+    expect(who("@F2@", "HUSB")).toBe("Janez /Novak/");
+    expect(who("@F1@", "WIFE")).toBeUndefined();
+    expect(who("@F1@", "HUSB")).toBe("Anton /Kos/");
+    // …and the father the birth family already holds is no conflict.
+    expect(JSON.stringify(report.deferred ?? [])).not.toContain("mainHasSpouse");
+  });
 });
