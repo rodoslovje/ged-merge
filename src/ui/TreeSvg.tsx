@@ -2,6 +2,7 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { LABEL_LINE_H, NODE_W, PAD, type Flat, type Placed } from "../chart/treeLayout";
+import { PANEL_TITLE_H, type PanelBox } from "../chart/completeTree";
 import { ageStandalone, APPROX_YEAR, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { YearsText } from "./YearsText";
 import type { Lineage } from "../match/kinship";
@@ -54,6 +55,9 @@ interface Props {
   /** Give each node a native `<title>` tooltip; off where the host shows its
    *  own hover card (see ChartHoverCard), which would otherwise double it. */
   nativeTooltip?: boolean;
+  /** The Complete Tree's panel frames, drawn behind the connectors — each
+   *  titled with its number and its topmost person. */
+  panels?: PanelBox[];
 }
 
 // Memoized: the canvas re-renders on every scroll/zoom tick (viewport state),
@@ -84,12 +88,22 @@ export const TreeSvg = memo(function TreeSvg({
   nodeH,
   tint,
   nativeTooltip = true,
+  panels,
 }: Props) {
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
   return (
     <svg className="tree-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
+        {panels?.map((p) => (
+          <g key={`panel-${p.number}`} className="tree-panel" transform={`translate(${p.x},${p.y})`}>
+            <rect className="tree-panel-frame" width={p.w} height={p.h} rx={12} ry={12} />
+            <text className="tree-panel-title" x={16} y={PANEL_TITLE_H / 2 + 4} dominantBaseline="central">
+              <tspan className="tree-panel-number">{p.number}</tspan>
+              <tspan dx={10}>{p.top.years ? `${p.top.name} (${p.top.years})` : p.top.name}</tspan>
+            </text>
+          </g>
+        ))}
         {flat.edges.map((e) => (
           <path
             key={e.id}
@@ -185,7 +199,18 @@ export const TreeSvg = memo(function TreeSvg({
                     onRepeatJump?.(repeatTo);
                   }}
                 >
-                  <NodeBadge x={NODE_W - 12} y={nodeH - 12} letter="→" cls="tree-node-repeat-badge" title={t("tree.node.repeatHint")} />
+                  {n.continuesOn !== undefined ? (
+                    // The Complete Tree: the number of the panel their line is in.
+                    <NodeBadge
+                      x={NODE_W - 14 - String(n.continuesOn).length * 3}
+                      y={nodeH - 12}
+                      letter={`→${n.continuesOn}`}
+                      cls="tree-node-repeat-badge"
+                      title={t("tree.node.continuesOn", { n: n.continuesOn })}
+                    />
+                  ) : (
+                    <NodeBadge x={NODE_W - 12} y={nodeH - 12} letter="→" cls="tree-node-repeat-badge" title={t("tree.node.repeatHint")} />
+                  )}
                 </g>
               )}
               {/* Same corner as the repeat marker — a repeat carries no line of

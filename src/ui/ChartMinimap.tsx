@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CHART_KEY, isEditableTarget, isModalOpen, keyHint } from "../keyboard/shortcuts";
 import { minimapDefaultOpen, type ChartNode, type Viewport } from "../chart/treeLayout";
-import { TreeMinimap } from "./TreeMinimap";
+import { TreeMinimap, type MinimapFrame } from "./TreeMinimap";
 import { MapIcon } from "./icons/MapIcon";
 
 // The collapsible minimap corner shared by the layered chart pages: the
@@ -24,9 +24,11 @@ interface Props<T extends ChartNode> {
   /** Box height for the current display settings. */
   nodeH?: number;
   onScrollTo: (left: number, top: number) => void;
+  /** Frames drawn behind the dots (the Complete Tree's panels). */
+  frames?: MinimapFrame[];
 }
 
-export function ChartMinimap<T extends ChartNode>({ contentW, contentH, viewport, zoom, nodes, fill, nodeH, onScrollTo }: Props<T>) {
+export function ChartMinimap<T extends ChartNode>({ contentW, contentH, viewport, zoom, nodes, fill, nodeH, onScrollTo, frames }: Props<T>) {
   const { t } = useTranslation();
   // null = follow the automatic default (collapsed unless the chart dwarfs the
   // screen); true/false once the user has toggled it by hand.
@@ -73,6 +75,7 @@ export function ChartMinimap<T extends ChartNode>({ contentW, contentH, viewport
         fill={fill}
         nodeH={nodeH}
         zoom={zoom}
+        frames={frames}
       />
     </div>
   ) : (

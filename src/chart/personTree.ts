@@ -163,6 +163,65 @@ export function buildPersonTree(
    *  is what the worker, with no settings to hand, has to use. */
   nameOf: NameFormatter = primaryNameOf,
 ): TreeNode | undefined {
+  const { place, build } = treeBuilder(t, mainDs, compareDs, maps, isRejected, nameOf);
+
+  if (mode === "ancestors") {
+    // Generation by generation, so a person reached twice (pedigree collapse)
+    // is drawn in full where they stand nearest the root — a parent's parents
+    // carry the line, and the deeper copy up the other side is the repeat.
+    // Walking depth-first instead let the father's whole line claim every
+    // shared ancestor first, however far out it reached them.
+    const root = place(rootMain, rootIncoming);
+    const queue = root ? [root] : [];
+    for (let i = 0; i < queue.length; i++) {
+      const { node, main, incoming } = queue[i];
+      if (node.repeat) continue;
+      for (const role of ["husband", "wife"] as const) {
+        const mp = main ? firstParent(main, mainDs, role) : undefined;
+        const ip = incoming ? firstParent(incoming, compareDs, role) : undefined;
+        const parent = place(mp, ip);
+        if (!parent) continue;
+        node.children.push(parent.node);
+        queue.push(parent);
+      }
+      // The marriage of this person's parents — drawn as the fan collar between
+      // their two segments. Prefer the main side, else the incoming side.
+      node.marriage = parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
+    }
+    return root?.node;
+  }
+
+  return build(rootMain, rootIncoming);
+}
+
+/** The node factory behind {@link buildPersonTree}, with the guards that keep
+ *  a person's line and a union's children to one position. Exposed so a chart
+ *  that draws several descendant trees as one (the Complete Tree, see
+ *  `completeTree.ts`) can share those guards across all of them: a key is
+ *  unique in the whole chart, and a line drawn in one tree is a repeat in the
+ *  next. */
+export interface TreeBuilder {
+  /** A node for this person — a repeat when already expanded (see
+   *  {@link TreeNode.repeat}). */
+  place: (main?: Individual, incoming?: Individual) => { node: TreeNode; main?: Individual; incoming?: Individual } | undefined;
+  /** This person's descendants tree: their unions, as partner nodes, and every
+   *  generation below. */
+  build: Build;
+  /** Person key (`main|incoming` ids) → the position that carries their line. */
+  expanded: ReadonlyMap<string, string>;
+  /** Union key (`m:`/`i:` + family id) → the partner position carrying its
+   *  children (undefined when they hang off the person). */
+  expandedFams: ReadonlyMap<string, string | undefined>;
+}
+
+export function treeBuilder(
+  t: Translate,
+  mainDs: Dataset,
+  compareDs: Dataset,
+  maps: MatchMaps,
+  isRejected?: (mainId: string, compareId: string) => boolean,
+  nameOf: NameFormatter = primaryNameOf,
+): TreeBuilder {
   // Occurrence count per person: pedigree collapse (and spouses who are also
   // blood relatives) repeat a person in several positions, and every occurrence
   // must get its own key — duplicate keys break React rendering and selection.
@@ -211,32 +270,6 @@ export function buildPersonTree(
     return { node, main, incoming };
   };
 
-  if (mode === "ancestors") {
-    // Generation by generation, so a person reached twice (pedigree collapse)
-    // is drawn in full where they stand nearest the root — a parent's parents
-    // carry the line, and the deeper copy up the other side is the repeat.
-    // Walking depth-first instead let the father's whole line claim every
-    // shared ancestor first, however far out it reached them.
-    const root = place(rootMain, rootIncoming);
-    const queue = root ? [root] : [];
-    for (let i = 0; i < queue.length; i++) {
-      const { node, main, incoming } = queue[i];
-      if (node.repeat) continue;
-      for (const role of ["husband", "wife"] as const) {
-        const mp = main ? firstParent(main, mainDs, role) : undefined;
-        const ip = incoming ? firstParent(incoming, compareDs, role) : undefined;
-        const parent = place(mp, ip);
-        if (!parent) continue;
-        node.children.push(parent.node);
-        queue.push(parent);
-      }
-      // The marriage of this person's parents — drawn as the fan collar between
-      // their two segments. Prefer the main side, else the incoming side.
-      node.marriage = parentsMarriage(main, mainDs) ?? parentsMarriage(incoming, compareDs);
-    }
-    return root?.node;
-  }
-
   const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
     const placed = place(main, incoming);
     if (!placed || placed.node.repeat) return placed?.node;
@@ -247,7 +280,7 @@ export function buildPersonTree(
     return node;
   };
 
-  return build(rootMain, rootIncoming);
+  return { place, build, expanded, expandedFams };
 }
 
 type Build = (main?: Individual, incoming?: Individual) => TreeNode | undefined;
@@ -761,7 +794,7 @@ export function importableMemo(): ImportableMemo {
   return { ancestors: new Map(), descendants: new Map(), ancestorsOf: new Map(), descendantsOf: new Map() };
 }
 
-function nodeKey(main: Individual | undefined, incoming: Individual | undefined): string {
+export function nodeKey(main: Individual | undefined, incoming: Individual | undefined): string {
   return `${main?.id ?? ""}|${incoming?.id ?? ""}`;
 }
 
@@ -855,7 +888,7 @@ export function countImportable(node: TreeNode): number {
   return n;
 }
 
-function firstParent(
+export function firstParent(
   indi: Individual,
   ds: Dataset,
   role: "husband" | "wife",

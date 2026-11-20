@@ -26,6 +26,8 @@ import {
   type Flat,
 } from "../chart/treeLayout";
 import type { TreeNode } from "../chart/personTree";
+import { PANEL_TITLE_H, type CompleteTree } from "../chart/completeTree";
+import { planCompletePages, type CompletePage, type PagePiece } from "../chart/completeSheets";
 import { APPROX_YEAR } from "../chart/nodeDisplay";
 import { yearsSegments } from "../gedcom/lifespan";
 import {
@@ -68,6 +70,9 @@ export interface SheetChartSource {
   marriageLabel?: (n: TreeNode) => string | undefined;
   /** Ancestor mode — moves the marriage label to the parent bracket. */
   ancestors: boolean;
+  /** The Complete Tree, when that is the chart: it prints as its numbered
+   *  trees packed onto pages instead of one tree cut up. */
+  complete?: CompleteTree;
 }
 
 export interface SheetPaper extends PrintPaper {
@@ -168,6 +173,126 @@ export async function printChartSheets(
   printSheetSet(built, paperPx(paper.paper, paper.orientation), scale, docTitle);
 }
 
+// ─── The Complete Tree ────────────────────────────────────────────────────────
+
+/** Plan the Complete Tree's printed pages (see `completeSheets.ts`). */
+export function planCompleteSheets(
+  complete: CompleteTree,
+  src: SheetChartSource,
+  { paper, orientation, size }: SheetPaper,
+  bandsH = HEADER_H + FOOTER_H,
+): CompletePage[] {
+  return planCompletePages(complete, {
+    grid: src.grid,
+    alignment: src.alignment,
+    nodeH: src.nodeH,
+    budget: sheetBudget(paper, orientation, bandsH, size),
+  });
+}
+
+/**
+ * The scales the planned pages print at. One for the whole set, as for sheets
+ * ({@link planPrintScale}) — except a page holding a family too big to cut
+ * down to the page: shrinking every page to its size would cost the whole set
+ * its legibility for a handful of pages, so that page alone comes out smaller.
+ */
+export function completePrintScales(
+  pages: (Pick<CompletePage, "oversized"> & { width: number; height: number })[],
+  paper: Pick<SheetPaper, "paper" | "orientation">,
+): { common: number; scales: number[] } {
+  const box = pageBox(paper.paper, paper.orientation);
+  const regular = pages.filter((p) => !p.oversized);
+  const common = fillScale(regular.length ? regular : pages, box);
+  return {
+    common,
+    scales: pages.map((p) => (p.oversized ? Math.min(common, fillScale([p], box)) : common)),
+  };
+}
+
+/** Print the Complete Tree: its trees packed onto pages, each in its frame,
+ *  titled by `pieceTitle` (the caller words and translates it). */
+export async function printCompleteSheets(
+  canvas: HTMLElement | null,
+  complete: CompleteTree,
+  src: SheetChartSource,
+  paper: SheetPaper,
+  opts: Omit<SvgExportOptions, "subtitle"> & {
+    subtitle: (page: CompletePage, total: number) => string;
+    pieceTitle: (piece: PagePiece) => string;
+  },
+): Promise<void> {
+  const live = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
+  if (!live) return;
+  const pages = planCompleteSheets(complete, src, paper, sheetBandsHeight(opts.legend, paper));
+  const prepared = await prepareDiagram(live);
+  const parts = liveParts(prepared);
+  const built = pages.map((page) =>
+    wrapWithBands(
+      drawPage(parts, page, src, prepared.foreground, opts.pieceTitle),
+      page.width,
+      page.height,
+      { ...opts, subtitle: opts.subtitle(page, pages.length) },
+      prepared.foreground,
+    ),
+  );
+  const { scales } = completePrintScales(
+    built.map((b, i) => ({ ...b, oversized: pages[i].oversized })),
+    paper,
+  );
+  printSheetSet(built, paperPx(paper.paper, paper.orientation), scales, opts.fileName ? `${opts.fileName}.gedmerge` : opts.title);
+}
+
+/** One page: each piece's frame and title, its tree inside. Colours are
+ *  explicit, as everything in the print document is. */
+function drawPage(
+  parts: LiveParts,
+  page: CompletePage,
+  src: SheetChartSource,
+  foreground: string,
+  pieceTitle: (piece: PagePiece) => string,
+): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  for (const piece of page.pieces) {
+    const frame = document.createElementNS(SVG_NS, "rect");
+    frame.setAttribute("x", String(piece.x));
+    frame.setAttribute("y", String(piece.y));
+    frame.setAttribute("width", String(piece.w));
+    frame.setAttribute("height", String(piece.h));
+    frame.setAttribute("rx", "12");
+    frame.setAttribute("fill", "none");
+    frame.setAttribute("stroke", foreground);
+    frame.setAttribute("stroke-opacity", "0.3");
+    svg.appendChild(frame);
+
+    const title = document.createElementNS(SVG_NS, "text");
+    title.setAttribute("x", String(piece.x + 16));
+    title.setAttribute("y", String(piece.y + PANEL_TITLE_H / 2 + 4));
+    title.setAttribute("dominant-baseline", "central");
+    title.setAttribute("font-family", SANS);
+    title.setAttribute("fill", foreground);
+    const num = document.createElementNS(SVG_NS, "tspan");
+    num.setAttribute("font-size", "18");
+    num.setAttribute("font-weight", "700");
+    num.setAttribute("fill", BADGE_BG);
+    num.textContent = piece.label;
+    const name = document.createElementNS(SVG_NS, "tspan");
+    name.setAttribute("dx", "10");
+    name.setAttribute("font-size", "14");
+    name.setAttribute("font-weight", "600");
+    name.textContent = pieceTitle(piece);
+    title.append(num, name);
+    svg.appendChild(title);
+
+    const laid = src.grid ? layoutGrid(piece.root, src.alignment, src.nodeH) : layout(piece.root, src.alignment, src.nodeH);
+    const flat = flatten(laid.root, src.alignment, src.grid ? "elbow" : "curve", src.nodeH, src.marriageLabel);
+    const g = document.createElementNS(SVG_NS, "g");
+    g.setAttribute("transform", `translate(${piece.x + PAD},${piece.y + PANEL_TITLE_H + PAD})`);
+    drawTree(g, parts, flat, src, piece.markerLabel);
+    svg.appendChild(g);
+  }
+  return svg;
+}
+
 // ─── Drawing one sheet ────────────────────────────────────────────────────────
 
 /**
@@ -181,10 +306,30 @@ function drawSheet(prepared: PreparedDiagram, flat: Flat, src: SheetChartSource)
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("transform", `translate(${PAD},${PAD})`);
   svg.appendChild(g);
+  drawTree(g, liveParts(prepared), flat, src, String);
+  return svg;
+}
 
-  const boxes = nodeIndex(prepared.clone);
-  const templates = edgeTemplates(prepared.clone, prepared.foreground);
+/** What every drawn tree lifts from the live chart: its boxes by key, and the
+ *  connector styles. Indexed once per print, however many trees it draws. */
+interface LiveParts {
+  boxes: Map<string, SVGGElement>;
+  templates: ReturnType<typeof edgeTemplates>;
+}
 
+function liveParts(prepared: PreparedDiagram): LiveParts {
+  return { boxes: nodeIndex(prepared.clone), templates: edgeTemplates(prepared.clone, prepared.foreground) };
+}
+
+/** Draw one laid tree into `g`: connectors, marriage labels, then the boxes —
+ *  a cut-off person with the marker `markerLabel` words for its sheet. */
+function drawTree(
+  g: SVGGElement,
+  { boxes, templates }: LiveParts,
+  flat: Flat,
+  src: SheetChartSource,
+  markerLabel: (part: number) => string,
+): void {
   for (const e of flat.edges) {
     const path = (e.partner ? templates.partner : templates.edge).cloneNode(true) as SVGPathElement;
     path.setAttribute("d", e.d);
@@ -217,10 +362,9 @@ function drawSheet(prepared: PreparedDiagram, flat: Flat, src: SheetChartSource)
     if (!box) continue; // a position the live chart isn't drawing — nothing to lift
     const node = box.cloneNode(true) as SVGGElement;
     node.setAttribute("transform", `translate(${n.x},${n.y})`);
-    if (n.continuesOn !== undefined) node.appendChild(continuationMarker(n.continuesOn, src));
+    if (n.continuesOn !== undefined) node.appendChild(continuationMarker(markerLabel(n.continuesOn), src));
     g.appendChild(node);
   }
-  return svg;
 }
 
 /** The rendered person boxes of the live chart, by node key (see TreeSvg). */
@@ -278,7 +422,7 @@ function edgeTemplates(clone: SVGSVGElement, foreground: string) {
  * with explicit brand colours (like the export's footer badge) rather than a
  * themed class, so it survives into the standalone print document.
  */
-function continuationMarker(number: number, src: SheetChartSource): SVGGElement {
+function continuationMarker(label: string, src: SheetChartSource): SVGGElement {
   // Stub + disc together span exactly PAD, so a marker on the last generation
   // still lands inside the sheet's own margin instead of being clipped.
   const r = 9;
@@ -315,10 +459,11 @@ function continuationMarker(number: number, src: SheetChartSource): SVGGElement 
   text.setAttribute("font-family", SANS);
   // The disc is a fixed size, so a three-digit sheet number sets in smaller type
   // rather than pushing the marker out of the margin.
-  text.setAttribute("font-size", String(number).length > 2 ? "8" : "11");
+  // A Complete Tree part ("15.2") gets the smallest type the disc takes.
+  text.setAttribute("font-size", label.length > 3 ? "6" : label.length > 2 ? "8" : "11");
   text.setAttribute("font-weight", "700");
   text.setAttribute("fill", BADGE_FG);
-  text.textContent = String(number);
+  text.textContent = label;
   g.appendChild(text);
   return g;
 }
