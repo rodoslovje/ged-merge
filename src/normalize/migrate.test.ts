@@ -692,6 +692,79 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     expect(changes).toContain("FAM.EVEN → FAM.EVEN.TYPE Event");
   });
 
+  it("names a language in the version's own terms: a word in 5.5.1, a tag in 7.0", () => {
+    const up = converted(
+      "5.5.1",
+      HEAD_551.replace("1 SUBM @U1@\n", "1 SUBM @U1@\n1 LANG Slovene\n") + "0 @U1@ SUBM\n1 NAME Ana\n1 LANG Slovenian\n1 LANG German\n0 TRLR\n",
+      "7.0",
+    );
+    expect(up.findings).toEqual([]);
+    expect(childrenByTag(record(up.records, "@U1@"), "LANG").map((l) => l.value)).toEqual(["sl", "de"]);
+    expect(childValue(up.records.find((r) => r.tag === "HEAD")!, "LANG")).toBe("sl");
+    expect(up.changes).toContain("LANG Slovenian → LANG sl");
+
+    const down = converted(
+      "7.0",
+      HEAD_70.replace("1 SUBM @U1@\n", "1 SUBM @U1@\n1 LANG sl\n") + "0 @U1@ SUBM\n1 NAME Ana\n1 LANG sl-SI\n1 LANG tlh\n0 TRLR\n",
+      "5.5.1",
+    );
+    // A language 5.5.1's list has no word for stays as it is written.
+    expect(childrenByTag(record(down.records, "@U1@"), "LANG").map((l) => l.value)).toEqual(["Slovene", "tlh"]);
+    expect(childValue(down.records.find((r) => r.tag === "HEAD")!, "LANG")).toBe("Slovene");
+  });
+
+  it("keeps the 7.0 lines 5.5.1 has no place for under the stand-ins it already writes, and restores them", () => {
+    const text = HEAD_70 + "0 @U1@ SUBM\n1 NAME Ana\n" +
+      "0 @I1@ INDI\n1 NAME A /B/\n1 BIRT\n2 PLAC Kranj\n3 LANG sl\n3 EXID 123\n4 TYPE http://example.com/\n" +
+      "1 SOUR @S1@\n2 DATA\n3 TEXT besedilo\n4 MIME text/plain\n4 LANG sl\n" +
+      "0 @S1@ SOUR\n1 TITL T\n1 TEXT celo\n2 MIME text/plain\n2 LANG sl\n" +
+      "0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM image/jpeg\n2 TRAN a.png\n3 FORM image/png\n0 TRLR\n";
+    const down = converted("7.0", text, "5.5.1");
+    expect(down.findings).toEqual([]);
+    const out = serializeGedcom(down.records);
+    expect(out).toContain("2 PLAC Kranj\n3 _LANG sl\n3 _REFN 123\n4 TYPE http://example.com/\n");
+    expect(out).toContain("3 TEXT besedilo\n4 _MIME text/plain\n4 _LANG sl\n");
+    expect(out).toContain("1 TEXT celo\n2 _MIME text/plain\n2 _LANG sl\n");
+    expect(out).toContain("2 _TRAN a.png\n");
+    expect(down.changes).toContain("PLAC.LANG sl → _LANG sl");
+
+    // …and the way back up puts every one of them where 7.0 has it.
+    const up = converted("5.5.1", out, "7.0");
+    expect(up.findings).toEqual([]);
+    const back = serializeGedcom(up.records);
+    expect(back).toContain("2 PLAC Kranj\n3 LANG sl\n3 EXID 123\n4 TYPE http://example.com/\n");
+    expect(back).toContain("3 TEXT besedilo\n4 MIME text/plain\n4 LANG sl\n");
+    expect(back).toContain("2 TRAN a.png\n");
+  });
+
+  it("writes a family's FACT as 5.5.1's generic event", () => {
+    const { records, findings, changes } = converted("7.0", HEAD_70 + "0 @U1@ SUBM\n1 NAME Ana\n0 @F1@ FAM\n1 FACT 3\n2 TYPE Cows\n0 TRLR\n", "5.5.1");
+    expect(findings).toEqual([]);
+    expect(serializeGedcom(records)).toContain("0 @F1@ FAM\n1 EVEN 3\n2 TYPE Cows\n");
+    expect(changes).toContain("FAM.FACT 3 → EVEN 3");
+  });
+
+  it("writes a citation's role 5.5.1 has no word for in brackets, and drops a bare OTHER", () => {
+    const { records, findings } = converted(
+      "7.0",
+      HEAD_70 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NAME A /B/\n" +
+        "1 SOUR @S1@\n2 EVEN BIRT\n3 ROLE OTHER\n4 PHRASE boter\n" +
+        "1 SOUR @S1@\n2 EVEN BAPM\n3 ROLE OTHER\n" +
+        "1 SOUR @S1@\n2 EVEN MARR\n3 ROLE WITN\n" +
+        "1 SOUR @S1@\n2 EVEN DEAT\n3 ROLE HUSB\n0 @S1@ SOUR\n1 TITL T\n0 TRLR\n",
+      "5.5.1",
+    );
+    expect(findings).toEqual([]);
+    const roles = childrenByTag(record(records, "@I1@"), "SOUR").map((c) => {
+      const even = firstChild(c, "EVEN")!;
+      return `${even.value}: ${childValue(even, "ROLE") ?? "—"}`;
+    });
+    expect(roles[0]).toBe("BIRT: (boter)");
+    expect(roles[1]).toBe("BAPM: —");
+    expect(roles[2]).toMatch(/^MARR: \(.+\)$/);
+    expect(roles[3]).toBe("DEAT: HUSB");
+  });
+
   it("joins a header's shared note to the text note it already has, and drops one to no note", () => {
     const { records, findings } = converted(
       "7.0",
@@ -1058,7 +1131,7 @@ describe("migrateVersion — a media record's RESN", () => {
 });
 
 describe("migrateVersion — a child's sealing to unrecorded parents", () => {
-  it("is dropped in 5.5.1, whose SLGC must name its family, and reported", () => {
+  it("is kept as a note in 5.5.1, whose SLGC must name its family, and reported", () => {
     const { records, changes } = migrated(
       "7.0",
       "0 @I1@ INDI\n1 SLGC\n2 DATE 1 JAN 1950\n2 TEMP SLAKE\n2 FAMC @VOID@\n3 PHRASE unknown parents\n" +
@@ -1067,7 +1140,9 @@ describe("migrateVersion — a child's sealing to unrecorded parents", () => {
     );
     const sealings = childrenByTag(record(records, "@I1@"), "SLGC");
     expect(sealings.map((s) => childValue(s, "FAMC"))).toEqual(["@F1@"]);
-    expect(changes).toContainEqual({ before: "INDI.SLGC (FAMC @VOID@)", after: "—" });
+    expect(changes).toContainEqual({ before: "INDI.SLGC (FAMC @VOID@)", after: "INDI.NOTE (text)" });
+    // Its date, its temple and why it names no family are all still said.
+    expect(childValue(record(records, "@I1@"), "NOTE")).toBe("SLGC\n  DATE 1 JAN 1950\n  TEMP SLAKE\n  PHRASE unknown parents");
     expect(findings(records, "5.5.1")).toEqual([]);
   });
 });
