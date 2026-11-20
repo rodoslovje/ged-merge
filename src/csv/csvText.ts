@@ -59,6 +59,11 @@ export function parseCsvText(text: string, delimiter?: string): string[][] {
   let row: string[] = [];
   let field = "";
   let inQuotes = false;
+  // Whether nothing of the current field has been read yet. Only there does a
+  // quote open a quoted field: one in the middle of plain text — an inch mark,
+  // `he said 6" tall` — is that character, and read as an opening quote it
+  // swallowed every row after it into one field, with no error.
+  let atFieldStart = true;
 
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
@@ -75,19 +80,23 @@ export function parseCsvText(text: string, delimiter?: string): string[][] {
       }
       continue;
     }
-    if (c === '"') {
+    if (c === '"' && atFieldStart) {
       inQuotes = true;
+      atFieldStart = false;
     } else if (c === sep) {
       row.push(field);
       field = "";
+      atFieldStart = true;
     } else if (c === "\n" || c === "\r") {
       if (c === "\r" && src[i + 1] === "\n") i++;
       row.push(field);
       field = "";
       rows.push(row);
       row = [];
+      atFieldStart = true;
     } else {
       field += c;
+      atFieldStart = false;
     }
   }
   // Final field/row (files without a trailing newline).
