@@ -107,7 +107,7 @@ export type HealthGroup = "data" | "gedcom";
 /** The structural categories that are about the data rather than the format:
  *  a date nobody can read or that cannot be, a reference to nothing. */
 const DATA_STRUCT_CATEGORIES: ReadonlySet<StructCategory> = new Set<StructCategory>([
-  "danglingXref", "badDate", "impossibleDate", "reversedRange", "shortYear", "ambiguousDate",
+  "danglingXref", "unusedRecord", "badDate", "impossibleDate", "reversedRange", "shortYear", "ambiguousDate",
 ]);
 
 function structGroup(c: StructCategory): HealthGroup {
@@ -1723,6 +1723,7 @@ const STRUCT_CATEGORIES: StructCategory[] = [
   "level",
   "strayCont",
   "danglingXref",
+  "unusedRecord",
   "duplicateXref",
   "pointerType",
   "encoding",
