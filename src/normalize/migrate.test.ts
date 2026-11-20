@@ -737,6 +737,45 @@ describe("convertVersion — structures the conversion must leave valid", () => 
     expect(back).toContain("2 TRAN a.png\n");
   });
 
+  it("keeps an id written below a record's own level under its own name on the way up", () => {
+    // MyHeritage writes a RIN under every event and citation. 7.0 takes an
+    // EXID on records only: an EXID there was a line out of place on each.
+    const { records, findings, changes } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NAME A /B/\n1 RIN MH:I1\n1 BIRT\n2 DATE 1900\n2 RIN MH:IF3\n" +
+        "2 SOUR @S1@\n3 RIN MH:SC5\n0 @S1@ SOUR\n1 TITL T\n0 TRLR\n",
+      "7.0",
+    );
+    expect(findings).toEqual([]);
+    const out = serializeGedcom(records);
+    expect(out).toContain("1 EXID MH:I1\n2 TYPE https://gedcom.io/terms/v7/RIN\n");
+    expect(out).toContain("2 DATE 1900\n2 _RIN MH:IF3\n2 SOUR @S1@\n3 _RIN MH:SC5\n");
+    expect(changes).toContain("RIN MH:IF3 → _RIN MH:IF3");
+  });
+
+  it("keeps a photo's crop region as _CROP in 5.5.1, and restores it", () => {
+    const text = HEAD_70 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NAME A /B/\n1 OBJE @O1@\n2 CROP\n3 TOP 0\n3 LEFT 5\n3 HEIGHT 50\n3 WIDTH 40\n" +
+      "0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM image/jpeg\n0 TRLR\n";
+    const down = converted("7.0", text, "5.5.1");
+    expect(down.findings).toEqual([]);
+    const out = serializeGedcom(down.records);
+    expect(out).toContain("1 OBJE @O1@\n2 _CROP\n3 TOP 0\n3 LEFT 5\n3 HEIGHT 50\n3 WIDTH 40\n");
+    const up = converted("5.5.1", out, "7.0");
+    expect(up.findings).toEqual([]);
+    expect(serializeGedcom(up.records)).toContain("1 OBJE @O1@\n2 CROP\n3 TOP 0\n3 LEFT 5\n3 HEIGHT 50\n3 WIDTH 40\n");
+  });
+
+  it("leaves Ancestry's own _CROP, which holds lines of its own, as it is", () => {
+    const { records, changes } = converted(
+      "5.5.1",
+      HEAD_551 + "0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NAME A /B/\n1 OBJE @O1@\n2 _CROP\n3 _LEFT 10\n3 _TOP 5\n3 _WDTH 40\n3 _HGHT 50\n" +
+        "0 @O1@ OBJE\n1 FILE a.jpg\n2 FORM jpg\n0 TRLR\n",
+      "7.0",
+    );
+    expect(serializeGedcom(records)).toContain("2 _CROP\n3 _LEFT 10\n3 _TOP 5\n3 _WDTH 40\n3 _HGHT 50\n");
+    expect(changes.some((c) => c.includes("_CROP"))).toBe(false);
+  });
+
   it("writes a family's FACT as 5.5.1's generic event", () => {
     const { records, findings, changes } = converted("7.0", HEAD_70 + "0 @U1@ SUBM\n1 NAME Ana\n0 @F1@ FAM\n1 FACT 3\n2 TYPE Cows\n0 TRLR\n", "5.5.1");
     expect(findings).toEqual([]);

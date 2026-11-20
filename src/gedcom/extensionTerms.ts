@@ -152,10 +152,10 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
   {
     tag: "_REFN",
     meaning: {
-      en: "a reference number on the submitter record (GEDCOM 7.0 SUBM.REFN, or an EXID GEDCOM 5.5.1 has no tag for), kept in a GEDCOM 5.5.1 file, whose submitter record has no REFN",
-      sl: "referenčna številka pri zapisu avtorja (SUBM.REFN iz GEDCOM 7.0 ali EXID, za katerega GEDCOM 5.5.1 nima oznake), ohranjena v datoteki GEDCOM 5.5.1, kjer zapis avtorja nima vrstice REFN",
+      en: "a reference number where GEDCOM 5.5.1 takes none — on the submitter record (GEDCOM 7.0 SUBM.REFN, or an EXID GEDCOM 5.5.1 has no tag for) or on a place (GEDCOM 7.0 PLAC.EXID) — kept in a GEDCOM 5.5.1 file",
+      sl: "referenčna številka na mestu, kjer je GEDCOM 5.5.1 ne pozna: pri zapisu avtorja (SUBM.REFN iz GEDCOM 7.0 ali EXID, za katerega GEDCOM 5.5.1 nima oznake) ali pri kraju (PLAC.EXID iz GEDCOM 7.0); ohranjena je v datoteki GEDCOM 5.5.1",
     },
-    context: "on the submitter record (SUBM), with its TYPE beneath it",
+    context: "on the submitter record (SUBM) or under a place (PLAC), with its TYPE beneath it",
   },
   {
     tag: "_UID",
@@ -216,26 +216,58 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
   {
     tag: "_MIME",
     meaning: {
-      en: "the media type of a note's text, such as text/html (GEDCOM 7.0 NOTE.MIME), kept in a GEDCOM 5.5.1 file",
-      sl: "vrsta vsebine besedila opombe, na primer text/html (MIME iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+      en: "the media type of a note's or a source transcript's text, such as text/html (GEDCOM 7.0 MIME), kept in a GEDCOM 5.5.1 file",
+      sl: "vrsta vsebine besedila opombe ali prepisa vira, na primer text/html (MIME iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
     },
-    context: "under a NOTE or a shared note record",
+    context: "under a NOTE, a shared note record, or a source's TEXT",
   },
   {
     tag: "_LANG",
     meaning: {
-      en: "the language of a note (GEDCOM 7.0 NOTE.LANG), kept in a GEDCOM 5.5.1 file",
-      sl: "jezik opombe (LANG iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      en: "the language of a note, a source transcript or a place name (GEDCOM 7.0 LANG), kept in a GEDCOM 5.5.1 file",
+      sl: "jezik opombe, prepisa vira ali imena kraja (LANG iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
     },
-    context: "under a NOTE or a shared note record",
+    context: "under a NOTE, a shared note record, a source's TEXT, or a place (PLAC)",
   },
   {
     tag: "_TRAN",
     meaning: {
-      en: "a translation of a note (GEDCOM 7.0 NOTE.TRAN), kept in a GEDCOM 5.5.1 file",
-      sl: "prevod opombe (TRAN iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      en: "a translation of a note, or a media file in another format (GEDCOM 7.0 TRAN), kept in a GEDCOM 5.5.1 file",
+      sl: "prevod opombe ali medijska datoteka v drugem formatu (TRAN iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
     },
-    context: "under a NOTE or a shared note record",
+    context: "under a NOTE, a shared note record, or a media record's FILE",
+  },
+  {
+    tag: "_CROP",
+    meaning: {
+      en: "the part of a photo that shows the person or family linked to it (GEDCOM 7.0 CROP), kept in a GEDCOM 5.5.1 file with the standard's own lines beneath it; Ancestry writes the same tag with lines of its own",
+      sl: "del fotografije, ki prikazuje osebo ali družino, povezano z njo (CROP iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1 z vrsticami, kot jih določa standard; Ancestry isto oznako zapisuje s svojimi vrsticami",
+    },
+    context: "under a link to a media record (OBJE @O1@), with TOP, LEFT, WIDTH and HEIGHT beneath it",
+  },
+  {
+    tag: "_RIN",
+    meaning: {
+      en: "a record number a program wrote below a record's own level (GEDCOM 5.5.1 RIN under an event or a citation), kept when the file is converted to GEDCOM 7.0, which has an identifier on records only",
+      sl: "številka zapisa, ki jo je program zapisal pod ravnjo samega zapisa (RIN iz GEDCOM 5.5.1 pri dogodku ali navedbi vira), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, ki identifikator pozna samo pri zapisih",
+    },
+    context: "under an event, a citation or another line below a record's own level",
+  },
+  {
+    tag: "_AFN",
+    meaning: {
+      en: "an Ancestral File number written below a record's own level (GEDCOM 5.5.1 AFN), kept when the file is converted to GEDCOM 7.0, which has an identifier on records only",
+      sl: "številka iz zbirke Ancestral File, zapisana pod ravnjo samega zapisa (AFN iz GEDCOM 5.5.1), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, ki identifikator pozna samo pri zapisih",
+    },
+    context: "under an event, a citation or another line below a record's own level",
+  },
+  {
+    tag: "_RFN",
+    meaning: {
+      en: "a permanent record file number written below a record's own level (GEDCOM 5.5.1 RFN), kept when the file is converted to GEDCOM 7.0, which has an identifier on records only",
+      sl: "stalna številka zapisa, zapisana pod ravnjo samega zapisa (RFN iz GEDCOM 5.5.1), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, ki identifikator pozna samo pri zapisih",
+    },
+    context: "under an event, a citation or another line below a record's own level",
   },
   {
     tag: "_SEX",
