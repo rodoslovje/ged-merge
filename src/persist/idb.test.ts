@@ -144,4 +144,68 @@ describe("workspace cache round-trips", () => {
     expect(await idb.saveMainAndSession(mainFile(), session())).toBe(false);
     await expect(idb.saveFile("main", mainFile())).resolves.toBeUndefined();
   });
+
+  it("opens a new connection after the browser closed the one it had", async () => {
+    const open = vi.spyOn(globalThis.indexedDB, "open");
+    const connection = (n: number) => (open.mock.results[n].value as IDBOpenDBRequest).result;
+    await idb.saveFile("main", mainFile());
+    expect(open).toHaveBeenCalledTimes(1);
+    connection(0).onclose?.(new Event("close"));
+    await idb.saveFile("main", mainFile("second.ged"));
+    expect(open).toHaveBeenCalledTimes(2);
+    // Another tab's upgrade: this connection gets out of its way.
+    const close = vi.spyOn(connection(1), "close");
+    connection(1).onversionchange?.(new Event("versionchange") as IDBVersionChangeEvent);
+    expect(close).toHaveBeenCalled();
+    await idb.saveFile("main", mainFile("again.ged"));
+    expect(open).toHaveBeenCalledTimes(3);
+    expect((await idb.loadWorkspace()).main?.fileName).toBe("again.ged");
+  });
+});
+
+describe("claimCache: one tab owns the cache", () => {
+  const withLocks = (request: (name: string, o: { signal: AbortSignal }, cb: () => Promise<void>) => Promise<unknown>) =>
+    vi.stubGlobal("navigator", { locks: { request } });
+  const held = (_name: string, o: { signal: AbortSignal }) =>
+    new Promise((_resolve, reject) => {
+      o.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+    });
+
+  it("is ours where the browser has no Web Locks", async () => {
+    vi.stubGlobal("navigator", {});
+    expect(await idb.claimCache()).toBe(true);
+    expect(await idb.saveMainAndSession(mainFile(), session())).toBe(true);
+  });
+
+  it("is ours once the lock is granted, and is asked for only once", async () => {
+    const request = vi.fn(async (_name: string, _o: unknown, cb: () => Promise<void>) => { void cb(); });
+    withLocks(request);
+    expect(await idb.claimCache()).toBe(true);
+    expect(await idb.claimCache()).toBe(true);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(await idb.saveMainAndSession(mainFile(), session())).toBe(true);
+  });
+
+  it("held by another tab: every write is a no-op, clearing still works", async () => {
+    await idb.saveMainAndSession(mainFile(), session());
+    await idb.saveFile("compare", mainFile("in.ged"));
+    withLocks(held);
+    expect(await idb.claimCache()).toBe(false);
+    expect(await idb.saveMainAndSession(mainFile("mine.ged"), session())).toBe(false);
+    await idb.saveFile("main", mainFile("mine.ged"));
+    await idb.saveSession(session({ mainFileName: "mine.ged" }));
+    await idb.deleteFile("compare");
+    const ws = await idb.loadWorkspace();
+    expect(ws.main?.fileName).toBe("tree.ged");
+    expect(ws.session?.mainFileName).toBe("tree.ged");
+    expect(ws.compare?.fileName).toBe("in.ged");
+    await idb.clearWorkspace();
+    expect(await idb.loadWorkspace()).toEqual({ main: undefined, compare: undefined, session: undefined });
+  });
+
+  it("a browser that refuses the lock outright leaves the cache as it was", async () => {
+    withLocks(() => Promise.reject(Object.assign(new Error("no"), { name: "SecurityError" })));
+    expect(await idb.claimCache()).toBe(true);
+    expect(await idb.saveMainAndSession(mainFile(), session())).toBe(true);
+  });
 });

@@ -422,6 +422,26 @@ describe("useWorkspacePersistence: toggle, clear and verify", () => {
     await vi.waitFor(async () => expect((await idb.loadWorkspace()).main).toBeUndefined());
   });
 
+  it("turning caching on in a second tab says the other tab has it, and writes nothing", async () => {
+    await plant();
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: (_name: string, o: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            o.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+          }),
+      },
+    });
+    const ds = load(TEXT.replace("Janez /Novak/", "Ana /Kos/"));
+    const rig = await mount({ persistEnabled: false });
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds });
+    rig.update({ persistEnabled: true });
+    await vi.waitFor(() => expect(rig.toasts).toEqual(["persist.otherTab"]), { timeout: 2000 });
+    expect(rig.api.persistEnabled).toBe(false);
+    await tick();
+    expect(await (await idb.loadWorkspace()).main!.blob.text()).toBe(TEXT);
+  });
+
   it("Clear cached data wipes the workspace, the place decisions and the media folder", async () => {
     await plant();
     const geo = await import("./geoDb");
