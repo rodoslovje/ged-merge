@@ -113,6 +113,27 @@ describe("workspace cache round-trips", () => {
     expect(ws).toEqual({ main: undefined, compare: undefined, session: undefined });
   });
 
+  it("settles when the transaction aborts instead of completing", async () => {
+    // A write refused at commit (quota) fires `abort`, not `error`.
+    const { IDBDatabase } = await import("fake-indexeddb");
+    const transaction = IDBDatabase.prototype.transaction;
+    const spy = vi.spyOn(IDBDatabase.prototype, "transaction").mockImplementation(function (this: IDBDatabase, ...args) {
+      const tx = transaction.apply(this, args as Parameters<typeof transaction>);
+      if (args[1] === "readwrite") queueMicrotask(() => tx.abort());
+      return tx;
+    });
+    const settled = (p: Promise<unknown>) =>
+      Promise.race([p.then(() => "settled"), new Promise((r) => setTimeout(() => r("hung"), 200))]);
+    try {
+      expect(await settled(idb.saveFile("main", mainFile()))).toBe("settled");
+      expect(await settled(idb.clearWorkspace())).toBe("settled");
+      expect(await idb.saveMainAndSession(mainFile(), session())).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+    expect((await idb.loadWorkspace()).main).toBeUndefined();
+  });
+
   it("operations resolve harmlessly when IndexedDB is unavailable", async () => {
     // The app must keep working with persistence silently off.
     // @ts-expect-error — simulating an environment without IndexedDB

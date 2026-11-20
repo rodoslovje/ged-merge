@@ -138,7 +138,17 @@ function openDb(): Promise<IDBDatabase | null> {
       if (!db.objectStoreNames.contains(FILES_STORE)) db.createObjectStore(FILES_STORE);
       if (!db.objectStoreNames.contains(SESSION_STORE)) db.createObjectStore(SESSION_STORE);
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // A connection the browser closed (storage pressure, cleared site data)
+      // or that another tab's upgrade needs out of the way is dead for good:
+      // forget it, so the next operation opens a new one instead of failing
+      // on this one until the page is reloaded.
+      const forget = () => { dbPromise = undefined; };
+      db.onclose = forget;
+      db.onversionchange = () => { db.close(); forget(); };
+      resolve(db);
+    };
     req.onerror = () => {
       // Don't cache a transient open failure (a briefly locked profile at
       // boot) as "no persistence forever" — the next operation retries.
@@ -175,6 +185,9 @@ function idbPut(db: IDBDatabase, store: string, key: string, value: unknown): Pr
       tx.objectStore(store).put(value, key);
       tx.oncomplete = () => resolve();
       tx.onerror = () => resolve();
+      // A write refused at commit (quota) aborts with no error event of its
+      // own; unhandled, the promise never settled and its caller hung.
+      tx.onabort = () => resolve();
     } catch {
       resolve();
     }
@@ -188,6 +201,9 @@ function idbDelete(db: IDBDatabase, store: string, key: string): Promise<void> {
       tx.objectStore(store).delete(key);
       tx.oncomplete = () => resolve();
       tx.onerror = () => resolve();
+      // A write refused at commit (quota) aborts with no error event of its
+      // own; unhandled, the promise never settled and its caller hung.
+      tx.onabort = () => resolve();
     } catch {
       resolve();
     }
