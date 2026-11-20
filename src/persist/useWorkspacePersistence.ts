@@ -122,6 +122,10 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // fire-and-forget original write from loadFile can't race and clobber a later
   // edited write. False after a fresh main load → the next debounce caches it.
   const mainCachedRef = useRef(false);
+  // The text of a save just confirmed, which is the main's serialization from
+  // then on: the next write stores it instead of serializing the dataset
+  // again. Dropped once written, or once an edit has made it stale.
+  const savedMainBlobRef = useRef<Blob | null>(null);
   // The editVersion whose serialization is in the cache. Re-serializing the
   // whole dataset is the expensive part of a persistence tick, so the blob is
   // rewritten only when the dataset actually changed since the last write —
@@ -368,6 +372,8 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
       // failure between them can't leave an edited main beside a stale session.
       const needBlob =
         !!mainDataset && (!mainCachedRef.current || (edited && lastMainWriteVersionRef.current !== editVersion));
+      if (edited) savedMainBlobRef.current = null; // edited since the save: its text is stale
+      const savedBlob = savedMainBlobRef.current;
       const file = needBlob
         ? {
             fileName: mainFileName,
@@ -375,7 +381,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
             // keeps the file's CONC lines: the break positions are re-read when
             // the workspace is restored, and a save after a reload still lands
             // on the lines the file arrived on (see `GedNode.conc`).
-            blob: serializedMainRef.current.blob(mainDataset, changeJournal, editVersion),
+            blob: savedBlob ?? serializedMainRef.current.blob(mainDataset, changeJournal, editVersion),
             savedAt: Date.now(),
             originalHash: mainOriginalHashRef.current ?? undefined,
             handle: mainHandle ?? undefined,
@@ -396,6 +402,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         if (needBlob) {
           mainCachedRef.current = true;
           lastMainWriteVersionRef.current = editVersion;
+          if (savedMainBlobRef.current === savedBlob) savedMainBlobRef.current = null;
         }
         writeFailureToldRef.current = false;
       } else if (!writeFailureToldRef.current) {
@@ -455,6 +462,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     userLoadedRef,
     compareBlobRef,
     mainCachedRef,
+    savedMainBlobRef,
     mainOriginalHashRef,
     compareOriginalHashRef,
     mainHandle,

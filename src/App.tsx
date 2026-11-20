@@ -2267,12 +2267,14 @@ function AppContent() {
     const mainFileName = renamed ? savedFileName : lastMainFile?.fileName ?? savedFileName;
     if (renamed) dispatch({ type: "mainRenamed", fileName: savedFileName });
 
-    // The saved file is the new main baseline — refresh the cache so a reload
-    // restores the saved state (the confirmed decisions are now baked in and
-    // cleared below, so the persisted session debounce will write them away).
-    if (persistEnabled) {
-      void saveFile("main", { fileName: mainFileName, blob: new Blob([text]), savedAt: Date.now() });
-    }
+    // The saved file is the new main baseline, so a reload must restore the
+    // saved state. The text is handed to the debounced writer rather than
+    // written here: that one puts the main beside the session it belongs to
+    // (the confirmed decisions, cleared below) in a single transaction, keeps
+    // the file's disk hash and handle, and reports a write that failed. A main
+    // written on its own could land beside the pre-save session — and a reload
+    // would then offer the decisions already baked into it a second time.
+    if (persistEnabled) persistence.savedMainBlobRef.current = new Blob([text]);
 
     // The downloaded file is the new main baseline — rebuild the live dataset
     // from the same records (see savedBaseline).
@@ -2298,11 +2300,11 @@ function AppContent() {
     // merge-only session the counter still sits at 0, and without the bump
     // global search and kinship would keep serving the pre-merge dataset.
     bumpEdit(null);
-    // The cached main text (written just above) equals the rebuilt dataset:
-    // remember this version as clean and mark the main cached — the debounce
-    // (sole main writer) then leaves it alone until the next edit.
+    // The saved text equals the rebuilt dataset: remember this version as
+    // clean, and mark the main as not cached so the debounce (sole main
+    // writer) writes the saved text once, then leaves it until the next edit.
     cleanEditVersionRef.current = editVersionRef.current;
-    persistence.mainCachedRef.current = true;
+    persistence.mainCachedRef.current = false;
     // The worker's main is still the file as loaded; matched against it, a
     // later compare would report people this save just imported as new. Hand
     // it the saved text so its copy is the new baseline too. After the bump
