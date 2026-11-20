@@ -77,6 +77,11 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
   const [ownDirection, setOwnDirection] = useState<ChartDirection>("both");
   const direction = hostDirection ?? ownDirection;
   const setDirection = onDirectionChange ?? setOwnDirection;
+  // The layered chart's fourth choice beside the directions: the Complete Tree,
+  // everyone connected. Kept here beside the direction, but not handed to the
+  // other kinds — none of them has a "complete" of its own — and not offered
+  // on the family website, whose address carries the direction alone.
+  const [complete, setComplete] = useState(false);
 
   // Digits 1–8 switch the kind (the chart-level keys — zoom, A/D, Esc — are
   // registered by whichever chart the hub is showing). Esc is handled here only
@@ -240,6 +245,8 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
       onNavigate={onNavigate}
       direction={direction}
       onDirectionChange={setDirection}
+      complete={complete && !hostDirection}
+      onCompleteChange={hostDirection ? undefined : setComplete}
       onRootChange={onRootChange}
       kindSwitcher={kindSwitcher}
     />

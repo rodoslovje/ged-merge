@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
 import { buildPersonTree, countTreePeople, pruneTree, treeDepth, type TreeMode, type TreeNode } from "../chart/personTree";
+import { buildCompleteTree, flattenComplete, layoutComplete, type CompleteLaid } from "../chart/completeTree";
 import {
   bowtieHalf,
   flatten,
@@ -12,6 +13,7 @@ import {
   layoutBowtie,
   layoutGrid,
   nodeHeight,
+  type BowtieLaid,
   type ChartDirection,
   type Placed,
 } from "../chart/treeLayout";
@@ -79,6 +81,9 @@ const EMPTY_MAPS = {
   compareToMain: new Map<string, string>(),
 };
 
+/** The direction row's choices: a direction, or the Complete Tree. */
+type DirectionChoice = ChartDirection | "complete";
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -98,6 +103,11 @@ interface Props {
    *  (including a round-trip through the relationship diagram). */
   direction: ChartDirection;
   onDirectionChange: (direction: ChartDirection) => void;
+  /** Draw the Complete Tree (everyone connected, see `completeTree.ts`) in place
+   *  of the direction — the layered chart only. Offered when the host can keep
+   *  the choice (`onCompleteChange`). */
+  complete?: boolean;
+  onCompleteChange?: (complete: boolean) => void;
   /** The Charts-hub kind switcher, rendered in the controls row. */
   kindSwitcher?: React.ReactNode;
   /** Re-root on another person. The hub owns the root (and records it in browser
@@ -105,11 +115,16 @@ interface Props {
   onRootChange: (id: string) => void;
 }
 
-export function EditTree({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, direction, onDirectionChange, kindSwitcher, onRootChange }: Props) {
+export function EditTree({ mainDs, rootId: currentRootId, startId, changedPersonIds, decisions, backLabel, onBack, onNavigate, direction, onDirectionChange, complete: completeChosen = false, onCompleteChange, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   // Identity-stable, so the memoized card contexts and the find box below don't
   // rebuild every render just because App passes a fresh callback.
   const changeRoot = useStableHandler(onRootChange);
+  // A direction (button or A/D key) leaves the Complete Tree.
+  const chooseDirection = useStableHandler((d: ChartDirection) => {
+    onCompleteChange?.(false);
+    onDirectionChange(d);
+  });
 
   const { settings } = useChartSettings();
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
@@ -125,8 +140,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // root and the descendants after it; the radial chart shares one circle
   // between the two, ancestors up and descendants down. `mode` is the one
   // direction the single-direction code paths still read.
-  const bowtie = direction === "both";
-  const mode: TreeMode = direction === "both" ? "ancestors" : direction;
+  // The Complete Tree replaces the direction while chosen; the fan has none.
+  const complete = completeChosen && !radial;
+  const bowtie = direction === "both" && !complete;
+  const mode: TreeMode = complete ? "descendants" : direction === "both" ? "ancestors" : direction;
   // The radial bowtie is a full circle whatever the shape setting says.
   const variant = bowtie && radial ? "circle" : pedigreeVariant(settings);
   // Kinship can only show when there's a start person to measure against; gate it so
@@ -179,7 +196,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const shownDepth = bowtie ? Math.max(depths.ancestors, depths.descendants) : depths[mode];
   // Whether the limit actually cuts the chart on screen (a limit deeper than
   // the tree changes nothing, and shouldn't claim to).
-  const limited = limit !== null && limit < shownDepth;
+  const limited = !complete && limit !== null && limit < shownDepth;
+  // Everyone connected, built only while it is on screen: on a large file it is
+  // the one pedigree view whose cost grows with the whole family, not one line.
+  const completeTree = useMemo(
+    () => (complete && rootPerson ? buildCompleteTree(t, rootPerson, mainDs, nameOf) : undefined),
+    [complete, t, rootPerson, mainDs, nameOf],
+  );
   // What the "+N" marker says: the half decides who is missing, and the
   // tooltip names the limit that hid them.
   const hiddenTitleFor = useCallback(
@@ -206,15 +229,18 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [hiddenTitleFor, bowtie, mode],
   );
 
-  const laid = useMemo(
+  const laid = useMemo<CompleteLaid | BowtieLaid | ReturnType<typeof layout> | undefined>(
     () =>
-      bowtie && shown.ancestors && shown.descendants
-        ? layoutBowtie(shown.ancestors, shown.descendants, alignment, nodeH, isGrid)
-        : tree
-          ? isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)
-          : undefined,
-    [bowtie, shown, tree, alignment, isGrid, nodeH],
+      complete
+        ? completeTree && layoutComplete(completeTree, alignment, nodeH, isGrid)
+        : bowtie && shown.ancestors && shown.descendants
+          ? layoutBowtie(shown.ancestors, shown.descendants, alignment, nodeH, isGrid)
+          : tree
+            ? isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)
+            : undefined,
+    [complete, completeTree, bowtie, shown, tree, alignment, isGrid, nodeH],
   );
+  const panels = laid && "panels" in laid ? laid.panels : undefined;
   const marriageLabel = useMemo(() => {
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
     const fields = { date: display.showMarriageDate, place: display.showMarriagePlace };
@@ -226,7 +252,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     () =>
       !laid
         ? undefined
-        : isBowtie(laid)
+        : "panels" in laid
+          ? flattenComplete(laid, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel)
+          : isBowtie(laid)
           ? flattenBowtie(laid, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel)
           : flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors"),
     [laid, alignment, isGrid, nodeH, marriageLabel, mode],
@@ -237,10 +265,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // want the root. It re-lays the very same tree the canvas draws.
   const sheetSource = useMemo(
     () =>
-      !radial && !bowtie && tree
+      !radial && !bowtie && !complete && tree
         ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
         : undefined,
-    [radial, bowtie, tree, alignment, isGrid, nodeH, marriageLabel, mode],
+    [radial, bowtie, complete, tree, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // Ancestor / descendant head-counts for both directions, shown on the mode
@@ -312,12 +340,14 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // ancestor half carries prefixed keys; the fan's segments resolve through
   // their tree node.
   const { positions, branchInfo } = useMemo(() => {
-    const anc = bowtie || mode === "ancestors" ? shown.ancestors : undefined;
-    const desc = bowtie || mode === "descendants" ? shown.descendants : undefined;
+    // The Complete Tree's panels each start from their own top person, so a
+    // generation or line read off them would mean nothing across panels.
+    const anc = !complete && (bowtie || mode === "ancestors") ? shown.ancestors : undefined;
+    const desc = !complete && (bowtie || mode === "descendants") ? shown.descendants : undefined;
     const a = indexPositions(anc, "ancestors", bowtie && !radial ? "a:" : "");
     const d = indexPositions(desc, "descendants", "", a.positions, a.branches);
     return { positions: d.positions, branchInfo: d.branches };
-  }, [bowtie, mode, radial, shown]);
+  }, [complete, bowtie, mode, radial, shown]);
   const positionOf = useCallback(
     (n: TreeNode, seg?: FanSegment): NodePosition | undefined => {
       if (!seg) return positions.get(n.key);
@@ -356,7 +386,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, setZoomTo, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${bowtie ? "both" : mode}:${variant}:${alignment}`, bowtie);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${currentRootId}:${complete ? "complete" : bowtie ? "both" : mode}:${variant}:${alignment}`, bowtie || complete);
 
   // Find-in-chart: every drawn position, in layout order (a shared ancestor is
   // drawn once per line of descent, so the same person yields several).
@@ -411,7 +441,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const selectedMainId = selected?.main?.id;
   useChartShortcuts({
     zoomIn, zoomOut, resetZoom, fitToScreen, scrollBy,
-    onMode: onDirectionChange,
+    onMode: chooseDirection,
     onEdit: selectedMainId && onNavigate ? () => onNavigate(selectedMainId) : undefined,
     onLeave: onBack,
   });
@@ -481,13 +511,14 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // or "Bowtie — Tree", plus "4 of 9 generations" while the limit is cutting —
   // on the page and in every export header, so a partial chart never passes
   // for a whole one.
-  const directionLabel = t(bowtie ? "tree.bowtie" : `tree.${mode}`);
+  const directionLabel = t(complete ? "tree.complete" : bowtie ? "tree.bowtie" : `tree.${mode}`);
   const chartKind =
     `${directionLabel} — ${t(`tree.kind.${variant}`)}` +
-    (limited ? ` · ${t("tree.gen.shown", { n: limit, of: shownDepth })}` : "");
+    (limited ? ` · ${t("tree.gen.shown", { n: limit, of: shownDepth })}` : "") +
+    (completeTree?.truncated ? ` · ${t("tree.complete.truncated", { n: completeTree.people })}` : "");
   // The direction row: the two directions with their head-counts, and both at
   // once.
-  const directions: SegmentedItem<ChartDirection>[] = [
+  const directions: SegmentedItem<DirectionChoice>[] = [
     {
       key: "ancestors",
       label: <>{t("tree.ancestors")}<span className="tree-mode-count">{peopleCounts.ancestors}</span></>,
@@ -503,6 +534,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       label: <>{t("tree.both")}<span className="tree-mode-count">{peopleCounts.ancestors + peopleCounts.descendants}</span></>,
       title: t("tree.both.tooltip"),
     },
+    // Layered only: the fan has no panels to lay the families out in.
+    ...(onCompleteChange && !radial
+      ? [{ key: "complete" as const, label: t("tree.complete"), title: t("tree.complete.tooltip") }]
+      : []),
   ];
   // The root's lifespan for the title, with the age appended when Age is on
   // (the title always shows the lifespan, so force it on here).
@@ -565,8 +600,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           <PedigreeVariantTabs hideShape={bowtie} />
           <Segmented
             label={t("tree.direction")}
-            value={bowtie ? "both" : mode}
-            onChange={onDirectionChange}
+            value={complete ? "complete" : bowtie ? "both" : mode}
+            onChange={(k) => (k === "complete" ? onCompleteChange?.(true) : chooseDirection(k))}
             items={directions}
           />
         </>
@@ -625,6 +660,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
                 display={display}
                 nodeH={nodeH}
                 nativeTooltip={false}
+                panels={panels}
               />
             </ChartZoom>
           ) : (

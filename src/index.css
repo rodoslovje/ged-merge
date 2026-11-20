@@ -6154,6 +6154,23 @@ input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(-
   stroke: var(--muted);
   stroke-dasharray: 3 3;
 }
+/* Complete Tree: each family's panel, a soft frame titled with its number and
+   its topmost person — the number the spouse badges elsewhere point at. */
+.tree-panel-frame {
+  fill: var(--panel-2);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.tree-panel-title {
+  fill: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.tree-panel-number {
+  fill: var(--accent);
+  font-size: 18px;
+  font-weight: 700;
+}
 /* Marriage label riding the partner connector — small muted text with a panel
    halo (paint-order stroke) so it stays readable where it crosses the line. */
 .tree-edge-label {
@@ -7108,8 +7125,12 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .tree-node-repeat-badge {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
-.tree-node-repeat-badge circle {
+.tree-node-repeat-badge circle,
+.tree-node-repeat-badge rect {
   fill: var(--accent);
+}
+.tree-node-repeat:hover .tree-node-repeat-badge rect {
+  fill: color-mix(in oklch, var(--accent) 82%, var(--text));
 }
 .tree-node-repeat-badge text {
   fill: var(--accent-ink);
