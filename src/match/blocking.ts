@@ -144,6 +144,14 @@ export class CrossBlockIndex {
         add(p.era !== undefined ? `G:${g}:${Math.floor(p.era / ERA_BLOCK)}` : `GU:${g}`, i);
         add(`GA:${g}`, i);
       }
+      // The same again by the given name's variant group, so a dated record
+      // and an undated one meet across a name the initial does not span:
+      // Janez and Ivan are one name in the variant table, and J is not I.
+      for (const v of variantKeys(p)) {
+        const g = `${p.sdx}:${v}`;
+        add(p.era !== undefined ? `G:${g}:${Math.floor(p.era / ERA_BLOCK)}` : `GU:${g}`, i);
+        add(`GA:${g}`, i);
+      }
     });
     // The given-name sub-buckets, only where a decade bucket is crowded.
     records.forEach((indi, i) => {
@@ -200,7 +208,25 @@ export class CrossBlockIndex {
         walk(`GA:${g}`);
       }
     }
+    for (const v of variantKeys(p)) {
+      const g = `${p.sdx}:${v}`;
+      if (p.era !== undefined) {
+        const lo = Math.floor((p.era - this.gap) / ERA_BLOCK);
+        const hi = Math.floor((p.era + this.gap) / ERA_BLOCK);
+        for (let b = lo; b <= hi; b++) walk(`G:${g}:${b}`);
+        walk(`GU:${g}`);
+      } else {
+        walk(`GA:${g}`);
+      }
+    }
   }
+}
+
+/** A record's given-name variant groups (`v12`), the keys of {@link Parts.givenKeys}
+ *  that stand for a name the variant table knows. Longer than one letter, so
+ *  they never collide with an initial in the same key space. */
+function variantKeys(p: Parts): string[] {
+  return p.givenKeys.filter((k) => k.startsWith("v"));
 }
 
 /** The decades a main record is indexed under: its own, and for an estimated
