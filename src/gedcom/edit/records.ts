@@ -88,7 +88,17 @@ export function setFsIds(indi: Individual, ids: string[], preferredTag: FsIdTag)
   // strict 5.5.1 one — which has no EXID — the file's extension.
   const own = existing[existing.length - 1]?.tag;
   const tag = own && (own === "EXID") === (preferredTag === "EXID") ? own : preferredTag;
-  existing.slice(0, clean.length).forEach((node, i) => { node.value = clean[i]; });
+  existing.slice(0, clean.length).forEach((node, i) => {
+    // A line whose id is left as it was keeps its tag, like anything else the
+    // reader did not touch. One whose id is rewritten is written as the
+    // target's: a changed value under `_FID` in a strict 7.0 file was a line
+    // this edit wrote in a form the target does not take.
+    if (node.value?.trim().toUpperCase() === clean[i]) return;
+    if ((node.tag === "EXID") !== (tag === "EXID")) {
+      const at = indi.raw.children.indexOf(node);
+      indi.raw.children[at] = fsIdNode(tag, clean[i], node.level);
+    } else node.value = clean[i];
+  });
   if (clean.length < existing.length) {
     const drop = new Set(existing.slice(clean.length));
     indi.raw.children = indi.raw.children.filter((c) => !drop.has(c));
