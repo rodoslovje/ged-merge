@@ -42,6 +42,35 @@ describe("mergeDuplicate", () => {
     expect(patches.some((p) => p.id === "@I2@" && p.after === null)).toBe(true);
   });
 
+  it("keeps the absorbed record's place in a family of siblings alone", () => {
+    // @F1@ has no parents: no comparison row stands for it. Skipped, the
+    // merged person left it — and with one sibling left, it was pruned.
+    const two = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @I3@ INDI\n1 NAME Ana /Novak/\n1 SEX F\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 CHIL @I2@\n1 CHIL @I3@\n",
+    ));
+    const before = serializeGedcom(two.records);
+    const patches = mergeDuplicate(two, "@I1@", "@I2@", decide({}), tr);
+    expect(two.families.get("@F1@")?.children.sort()).toEqual(["@I1@", "@I3@"]);
+    expect(two.individuals.get("@I1@")!.childOf).toEqual(["@F1@"]);
+    expect(two.individuals.get("@I3@")!.childOf).toEqual(["@F1@"]);
+    expect(validateDataset(two).counts.brokenLink).toBe(0);
+    applyRecordPatches(two, patches, "undo");
+    expect(serializeGedcom(two.records)).toBe(before);
+
+    // An only child of no known parents: nothing to keep, the family goes.
+    const alone = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n" +
+      "0 @I2@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 FAMC @F1@\n" +
+      "0 @F1@ FAM\n1 CHIL @I2@\n",
+    ));
+    mergeDuplicate(alone, "@I1@", "@I2@", decide({}), tr);
+    expect(alone.families.has("@F1@")).toBe(false);
+    expect(serializeGedcom(alone.records)).not.toContain("@F1@");
+  });
+
   it("combines a field only one side has", () => {
     const ds = dataset(wrap(
       "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n" +

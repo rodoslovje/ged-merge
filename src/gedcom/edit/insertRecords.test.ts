@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GedNode } from "../types";
-import { insertRecord, insertRecords } from "./shared";
+import { forgetXrefCache, insertRecord, insertRecords, nextXref } from "./shared";
 
 const rec = (tag: string, xref?: string): GedNode => ({ level: 0, tag, ...(xref ? { xref } : {}), children: [] });
 const shape = (records: GedNode[]) => records.map((r) => r.xref ?? r.tag);
@@ -27,5 +27,18 @@ describe("insertRecords", () => {
     for (const r of added()) insertRecord(oneByOne, r);
     insertRecords(batch, added());
     expect(shape(batch)).toEqual(shape(oneByOne));
+  });
+});
+
+describe("nextXref after a wholesale refill", () => {
+  it("does not hand out an id a refilled record already carries", () => {
+    const records = [rec("HEAD"), rec("NOTE", "@N1@"), rec("TRLR")];
+    expect(nextXref(records, "N")).toBe("@N2@"); // the cache now believes 2 is the highest
+    // A pass refills the list in place with records made elsewhere.
+    const refilled = [rec("HEAD"), rec("NOTE", "@N1@"), rec("NOTE", "@N2@"), rec("NOTE", "@N3@"), rec("TRLR")];
+    records.length = 0;
+    for (const r of refilled) records.push(r);
+    forgetXrefCache(records);
+    expect(nextXref(records, "N")).toBe("@N4@");
   });
 });

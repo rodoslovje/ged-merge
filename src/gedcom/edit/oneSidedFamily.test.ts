@@ -55,4 +55,31 @@ describe("a family named from one side only", () => {
     expect(out).not.toContain("@F1@");
     expect(ds.individuals.get("@I3@")!.childOf).toEqual([]);
   });
+
+  it("removing it takes the pointers under a member's events with it", () => {
+    const text = (version: string) => [
+      "0 HEAD", "1 GEDC", `2 VERS ${version}`,
+      "0 @I1@ INDI", "1 NAME Oče /Novak/", "1 FAMS @F1@",
+      "0 @I3@ INDI", "1 NAME Sin /Novak/",
+      "1 BIRT", "2 DATE 1900", "2 FAMC @F1@",
+      "1 ADOP", "2 FAMC @F1@", "3 ADOP BOTH",
+      "1 FAMC @F1@",
+      "0 @F1@ FAM", "1 HUSB @I1@", "1 CHIL @I3@",
+      "0 TRLR",
+    ].join("\n");
+    const run = (version: string) => {
+      const ds = buildDataset(parseGedcom(new TextEncoder().encode(text(version)).buffer));
+      removeIndividual(ds, ds.individuals.get("@I1@")!); // the family is pruned with its last parent
+      expect(ds.families.has("@F1@")).toBe(false);
+      return serializeGedcom(ds.records);
+    };
+    const v551 = run("5.5.1");
+    expect(v551).not.toContain("@F1@");
+    expect(v551).toContain("1 BIRT\n2 DATE 1900\n1 ADOP\n");
+    // 7.0 keeps the adoption's detail on a pointer to no record.
+    const v70 = run("7.0");
+    expect(v70).not.toContain("@F1@");
+    expect(v70).toContain("1 ADOP\n2 FAMC @VOID@\n3 ADOP BOTH\n");
+    expect(v70).toContain("1 BIRT\n2 DATE 1900\n1 ADOP");
+  });
 });

@@ -205,6 +205,17 @@ export function noteInsertedXref(records: GedNode[], xref: string | undefined): 
   if (cur !== undefined && parseInt(m[2], 10) > cur) maxes.set(m[1], parseInt(m[2], 10));
 }
 
+/**
+ * Forget the cached maxima for a record list refilled wholesale — a normalize
+ * run adopting the records it made in a cloned forest, a pass put back. The
+ * cache knows only what went through `nextXref` or {@link noteInsertedXref},
+ * and such a refill tells it nothing: the next id handed out was one a record
+ * just adopted already carried, and the file got two records under it.
+ */
+export function forgetXrefCache(records: GedNode[]): void {
+  maxXrefCache.delete(records);
+}
+
 /** Find the next unused `@<prefix><n>@` xref among the top-level records. */
 export function nextXref(
   records: GedNode[],

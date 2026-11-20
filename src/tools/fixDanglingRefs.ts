@@ -4,7 +4,7 @@ import { VOID_XREF } from "../gedcom/assoc";
 import { versionFamily, voidAsNote, voidCitation } from "../normalize/migrate";
 import { cloneNode } from "../gedcom/node";
 import { type RecordPatch } from "../ui/historyTypes";
-import { takesPointerAt } from "./conformance/allows";
+import { allowsChild, takesPointerAt } from "./conformance/allows";
 import { isFamilyLinkPointer, isPointerValue } from "./structure";
 
 /**
@@ -21,9 +21,13 @@ import { isFamilyLinkPointer, isPointerValue } from "./structure";
  *    `PAGE` is the text, its transcript the `TEXT`), an association a note
  *    (`voidAsNote`: what it says about the associate, then the role), and a
  *    repository citation keeps its call number with no pointer — the same
- *    forms the 7.0 → 5.5.1 conversion writes for `@VOID@`.
- * A pointer with no detail, a 5.5.1 one with no such form (a `NOTE @N1@`
- * names nothing to inline), and a 7.0 line whose payload isn't a pointer
+ *    forms the 7.0 → 5.5.1 conversion writes for `@VOID@`. Any other pointer
+ *    with detail — a media link's title, an adoption's `FAMC` with its
+ *    `ADOP BOTH` — becomes an inline note that spells the lines out
+ *    ({@link asInlineNote}): 5.5.1 has no pointer to "no record", and the
+ *    detail used to go with the line.
+ * A pointer with no detail, an association that names nobody, a 5.5.1 one
+ * where a note may not stand, and a 7.0 line whose payload isn't a pointer
  * (`NOTE @N1@` is text there) are removed, with the lines beneath them.
  *
  * Two classes of pointer are deliberately out of scope:
@@ -118,6 +122,31 @@ function repair({ node, path }: Dangling, v70: boolean): boolean {
   }
 }
 
+/**
+ * A dangling 5.5.1 pointer that carries detail, as an inline note in its
+ * place: the line itself, then the lines beneath it, as text.
+ *
+ *     2 FAMC @F9@            2 NOTE FAMC @F9@
+ *     3 ADOP BOTH      →     3 CONT   ADOP BOTH
+ *
+ * A dangling `NOTE` keeps what hangs under it as lines — a citation under a
+ * note stays a citation. Undefined where the standard allows no note.
+ */
+function asInlineNote({ node, path }: Dangling): GedNode | undefined {
+  if (!allowsChild("5.5.1", path.slice(0, -1), "NOTE")) return undefined;
+  const head = `${node.tag} ${node.value!.trim()}`;
+  if (node.tag === "NOTE") return { level: node.level, tag: "NOTE", value: head, children: node.children };
+  const text = [head];
+  const spell = (of: GedNode, indent: string) => {
+    for (const c of of.children) {
+      text.push(`${indent}${c.tag}${c.value !== undefined ? ` ${c.value}` : ""}`);
+      spell(c, `${indent}  `);
+    }
+  };
+  spell(node, "  ");
+  return { level: node.level, tag: "NOTE", value: text.join("\n"), children: [] };
+}
+
 /** @param only — repair just the pointers one finding names (its row's own
  *  button), instead of every dangling pointer in the file. */
 export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPatch[] {
@@ -146,7 +175,9 @@ export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPat
         if (note) d.parent.children[at] = note;
         else d.parent.children.splice(at, 1);
       } else if (!repair(d, v70)) {
-        d.parent.children.splice(at, 1);
+        const note = !v70 && d.node.children.length ? asInlineNote(d) : undefined;
+        if (note) d.parent.children[at] = note;
+        else d.parent.children.splice(at, 1);
       }
     }
 
