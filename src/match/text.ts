@@ -218,3 +218,20 @@ export function soundex(s: string): string {
 export function compareKey(value: string): string {
   return foldToken(value).replace(/\s+/g, "");
 }
+
+/**
+ * The phonetic code a name is blocked under: its soundex, or — for a name
+ * soundex has no letters for — the start of the name itself.
+ *
+ * Soundex is defined on A–Z. A name in Cyrillic, Greek or Hebrew folds to no
+ * such letter at all, so it had no code, no blocking key, and its record was
+ * left out of every bucket: `Иван Петров` could not be matched even against
+ * himself. Such a name is keyed by its first letters instead (marked with `~`,
+ * so it can never collide with a real soundex code).
+ */
+export function blockingCode(s: string): string {
+  const code = soundex(s);
+  if (code) return code;
+  const letters = foldToken(s).replace(/[^\p{L}]/gu, "");
+  return letters ? `~${letters.slice(0, 4)}` : "";
+}

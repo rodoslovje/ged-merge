@@ -18,7 +18,13 @@
  *   MATCH_BENCH_DUP       comma-separated files for the duplicate scans
  *                         (default: Renko, Renko-Rakar, Trobec, Ivanc, Pratnekar;
  *                         add Hawlina for the 500k-person scale check)
+ *   MATCH_BENCH_CROSS     comma-separated `Main:Incoming` pairs for the cross-file
+ *                         runs, in place of the two default ones
+ *                         (`Renko:Trobec,Renko:Hawlina`)
  *   MATCH_BENCH_BASELINE  `write` to overwrite the stored baseline with this run
+ *
+ * A scenario naming a file the data directory does not hold is skipped, and
+ * says so — not every machine has every file.
  */
 /// <reference types="node" />
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -163,8 +169,18 @@ it("matching benchmark", () => {
     scenarios.push(s);
     console.log(report(s, baseline).join("\n"));
   };
-  for (const [m, c] of CROSS) run(cross(m, c));
-  for (const f of dupFiles) run(duplicates(f));
+  const crossPairs: Array<[string, string]> = process.env.MATCH_BENCH_CROSS
+    ? process.env.MATCH_BENCH_CROSS.split(",").map((p) => p.split(":") as [string, string])
+    : CROSS;
+  const have = (name: string) => existsSync(resolve(DATA, `${name}.ged`));
+  for (const [m, c] of crossPairs) {
+    if (have(m) && have(c)) run(cross(m, c));
+    else console.log(`\n== cross ${m} ↔ ${c}: skipped, file not in ${DATA}`);
+  }
+  for (const f of dupFiles) {
+    if (have(f)) run(duplicates(f));
+    else console.log(`\n== duplicates ${f}: skipped, file not in ${DATA}`);
+  }
 
   // Store this run for every scenario that has no baseline yet (a file added
   // later, a first run); `write` replaces the stored baseline of all of them.

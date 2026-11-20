@@ -3,7 +3,7 @@ import type { Dataset, Individual } from "../gedcom/types";
 import { eraYear, estimatedBirthYear } from "./birthEstimate";
 import { givenVariantKey } from "./givenVariants";
 import { ownComparableName } from "./similarity";
-import { foldToken, soundex } from "./text";
+import { blockingCode, foldToken } from "./text";
 
 /**
  * Cross-file blocking (`matchDatasets`): which main records an incoming record
@@ -74,7 +74,7 @@ function blockParts(indi: Individual, ds: Dataset): Parts | undefined {
   if (cached !== undefined) return cached ?? undefined;
   const n = ownComparableName(indi);
   const given = n?.given;
-  const sdx = soundex(n?.surname ?? given ?? "");
+  const sdx = blockingCode(n?.surname ?? given ?? "");
   if (!sdx) {
     partsCache.set(indi, null);
     return undefined;
@@ -104,8 +104,9 @@ function givenTokenKeys(folded: string): string[] {
     const group = givenVariantKey(token);
     if (group !== undefined) keys.add(`v${group}`);
     else {
-      const code = soundex(token);
-      if (code) keys.add(code.slice(1));
+      const code = blockingCode(token);
+      // Soundex digits without the first letter; a `~` code is kept whole.
+      if (code) keys.add(code.startsWith("~") ? code : code.slice(1));
     }
   }
   return keys.size ? [...keys] : ["-"];
