@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../parser";
 import { buildDataset } from "../builder";
-import { addAdditionalName, removeAdditionalName, setAdditionalName } from "./names";
+import { addAdditionalName, removeAdditionalName, setAdditionalName, setSex, setSexFromGivenName } from "./names";
 import { rebuildIndividual } from "./cache";
 
 function load(text: string) {
@@ -88,5 +88,32 @@ describe("a name's TYPE in the file's version", () => {
     const dataset = load(VENDOR_FIRST);
     addAdditionalName(dataset.individuals.get("@I1@")!, "variation", "7.0");
     expect(typeOf(dataset, 1)).toBe("variation");
+  });
+});
+
+describe("setSexFromGivenName", () => {
+  const person = (sexLine: string) =>
+    load(`0 HEAD\n1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME Marija /Novak/\n${sexLine}0 TRLR\n`);
+
+  it("sets the sex a given name states on a person who has none", () => {
+    const dataset = person("");
+    const indi = dataset.individuals.get("@I1@")!;
+    setSexFromGivenName(indi, "Marija");
+    expect(lines(dataset)).toContain("SEX F");
+    setSex(indi, "U");
+    setSexFromGivenName(rebuildIndividual(dataset, indi), "Janez");
+    expect(lines(dataset)).toContain("SEX M");
+  });
+
+  it("leaves the sex unknown when the name doesn't settle it", () => {
+    const dataset = person("");
+    setSexFromGivenName(dataset.individuals.get("@I1@")!, "Vanja");
+    expect(lines(dataset).some((l) => l.startsWith("SEX"))).toBe(false);
+  });
+
+  it("never overrides a sex already set", () => {
+    const dataset = person("1 SEX M\n");
+    setSexFromGivenName(dataset.individuals.get("@I1@")!, "Marija");
+    expect(lines(dataset)).toContain("SEX M");
   });
 });

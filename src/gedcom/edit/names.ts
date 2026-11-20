@@ -2,6 +2,7 @@ import { spellNameType, splitSlashName } from "../name";
 import { childrenByTag, hasChild } from "../node";
 import type { GedcomVersion, GedNode, Individual, Sex } from "../types";
 import { SEX_X_EXTENSION } from "../sex";
+import { sexFromGivenName } from "../nameSex";
 import { getOrCreateChild, INDI_CHILD_ORDER, insertOrdered, NAME_CHILD_ORDER, removeChild, setOrRemoveValue } from "./shared";
 
 /**
@@ -169,4 +170,16 @@ export function setSex(indi: Individual, sex: Sex, version: GedcomVersion = "unk
     return;
   }
   node.value = sex;
+}
+
+/**
+ * Give a person whose sex is still unknown the one their given name states —
+ * for a person being added, whose name is the first thing known about them.
+ * A name that doesn't settle it ("Vanja", an unlisted name) leaves the sex
+ * unknown, and a sex already set is never overridden.
+ */
+export function setSexFromGivenName(indi: Individual, given: string | undefined): void {
+  if (indi.sex !== "U") return;
+  const sex = sexFromGivenName(given);
+  if (sex) setSex(indi, sex);
 }
