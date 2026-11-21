@@ -5,7 +5,9 @@ import type { Individual } from "../gedcom/types";
 import { overview, startOverview } from "../stats/aggregate";
 import { buildStatsFacts, startStatsFacts } from "../stats/facts";
 import { applyCountry, DEFAULT_SCOPE, scopeFacts } from "../stats/scope";
+import { scanAddresses, startAddressScan } from "./addresses";
 import { buildBatchRows, startBatchRows } from "./batch";
+import { scanGeocode, startGeocodeScan } from "./geocode";
 import { buildPlaceTree, startPlaceTree } from "./places";
 import { built, finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
 
@@ -111,6 +113,37 @@ describe("the whole-file builds, in slices", () => {
     expect(slices).toBeGreaterThan(3);
     expect(result).toEqual(buildPlaceTree(ds));
     expect(result.totalUses).toBe(PEOPLE);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b));
+    expect(progress.every((p) => p >= 0 && p < 1)).toBe(true);
+  });
+
+  // Places with and without coordinates, half of them with a house address.
+  const placed =
+    "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 CHAR UTF-8\n" +
+    Array.from({ length: PEOPLE }, (_, i) =>
+      `0 @I${i}@ INDI\n1 NAME Ana /Novak/\n1 BIRT\n2 PLAC Vas${i % 90}, Kranj, Slovenija\n` +
+      (i % 4 === 0 ? `3 MAP\n4 LATI N46.${100 + (i % 90)}\n4 LONG E14.${100 + (i % 90)}\n` : "") +
+      (i % 2 ? `2 ADDR Vas${i % 90} ${1 + (i % 7)}\n` : "") +
+      `1 FAMS @F${Math.floor(i / 2)}@\n`,
+    ).join("") +
+    Array.from({ length: PEOPLE / 2 }, (_, f) => `0 @F${f}@ FAM\n1 HUSB @I${f * 2}@\n1 WIFE @I${f * 2 + 1}@\n1 MARR\n2 PLAC Vas${f % 90}, Kranj, Slovenija\n`).join("") +
+    "0 TRLR\n";
+  const places = buildDataset(parseGedcom(new TextEncoder().encode(placed).buffer as ArrayBuffer));
+
+  it("the address scan comes out the same as run at once", () => {
+    const { result, slices, progress } = drip(startAddressScan(places));
+    expect(slices).toBeGreaterThan(5);
+    expect(result).toEqual(scanAddresses(places));
+    expect(result.length).toBeGreaterThan(100);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b));
+    expect(progress.every((p) => p >= 0 && p < 1)).toBe(true);
+  });
+
+  it("the coordinate scan comes out the same as run at once", () => {
+    const { result, slices, progress } = drip(startGeocodeScan(places, undefined, new Map()));
+    expect(slices).toBeGreaterThan(5);
+    expect(result).toEqual(scanGeocode(places, undefined, new Map()));
+    expect(result.rows.length + result.placed.length).toBeGreaterThan(50);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(progress.every((p) => p >= 0 && p < 1)).toBe(true);
   });

@@ -7,8 +7,8 @@ import { PlaceTranslationsEditor } from "./PlaceTranslationsEditor";
 import { buildPlaceTree, collectNodeUseIds, startPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import type { ToolView } from "../ToolsView";
-import { scanAddresses, type AddressRename } from "../../tools/addresses";
-import { useDatasetDerivations } from "../DatasetDerivations";
+import type { AddressRename } from "../../tools/addresses";
+import { useAddressRows } from "./useAddressRows";
 import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
 import { countGeocodePending, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
@@ -159,7 +159,6 @@ export function PlacesPanel({
   onViewChange: (view: ToolView) => void;
 }) {
   const { t } = useTranslation();
-  const derivations = useDatasetDerivations();
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -353,25 +352,24 @@ export function PlacesPanel({
    * anything moved. The badges catch up a frame later, which is soon enough for
    * a number nobody is reading at that moment.
    */
-  const [pending, setPending] = useState<{ places: number; addresses: number } | null>(null);
+  const [pending, setPending] = useState<{ places: number } | null>(null);
+  // The address scan runs in slices, and is the derivations' own: the geocode
+  // page finds it done.
+  const addrRows = useAddressRows(dataset, tree);
+  const addressPending = useMemo(() => addrRows.filter((r) => !r.placed).length, [addrRows]);
   useEffect(() => {
     if (!tree) return;
     let live = true;
     const id = window.setTimeout(() => {
       if (!live) return;
-      setPending({
-        places: countGeocodePending(dataset),
-        addresses: (derivations?.addressRows() ?? scanAddresses(dataset)).filter((r) => !r.placed).length,
-      });
+      setPending({ places: countGeocodePending(dataset) });
     }, 0);
     return () => {
       live = false;
       window.clearTimeout(id);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataset, tree]);
   const geocodePending = pending?.places ?? 0;
-  const addressPending = pending?.addresses ?? 0;
 
   if (!tree) return <ToolsLoading label={t("tools.running")} progress={building > 0 ? { done: building, total: 100 } : undefined} />;
 
