@@ -19,10 +19,11 @@ import type { Statement } from "./narrative";
 import type { NarrativeLang } from "./lang/types";
 import { narrativeEn } from "./lang/en";
 import { narrativeSl } from "./lang/sl";
+import { narrativeHr } from "./lang/hr";
 
 /** The narrative grammar for a UI language (report language = UI language). */
 export function narrativeLangFor(lang: string): NarrativeLang {
-  return lang.startsWith("sl") ? narrativeSl : narrativeEn;
+  return lang.startsWith("sl") ? narrativeSl : lang.startsWith("hr") ? narrativeHr : narrativeEn;
 }
 
 /** An entry's narrative with notes and sources folded in NGSQ-style:
@@ -237,6 +238,9 @@ function polish(s: string): string {
   const cleaned = s
     .replace(/\s+/g, " ")
     .replace(/ ([.,;:!?])/g, "$1")
+    // A Croatian year carries its own dot ("1848."), which is also the
+    // sentence's full stop.
+    .replace(/(\d)\.\./g, "$1.")
     .trim();
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }

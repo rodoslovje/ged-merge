@@ -1,8 +1,8 @@
 import type { DateOrder, DateQualifier, GedCalendar, GedDate } from "./types";
 
 /**
- * Month name → number. Covers English (GEDCOM standard) plus the Slovenian and
- * German forms that appear in real Central-European exports — nominative,
+ * Month name → number. Covers English (GEDCOM standard) plus the Slovenian,
+ * Croatian and German forms that appear in real Central-European exports — nominative,
  * genitive ("marca", "maja"), and common abbreviations ("avg", "okt").
  */
 const MONTHS: Record<string, number> = {
@@ -17,6 +17,20 @@ const MONTHS: Record<string, number> = {
   // Slovenian (genitive, "21. marca 2011")
   JANUARJA: 1, FEBRUARJA: 2, MARCA: 3, APRILA: 4, MAJA: 5, JUNIJA: 6,
   JULIJA: 7, AVGUSTA: 8, SEPTEMBRA: 9, OKTOBRA: 10, NOVEMBRA: 11, DECEMBRA: 12,
+  // Croatian (nominative, genitive "5. svibnja 1848.", abbreviations; also
+  // written without diacritics)
+  SIJEČANJ: 1, SIJEČNJA: 1, SIJECANJ: 1, SIJECNJA: 1, SIJ: 1,
+  VELJAČA: 2, VELJAČE: 2, VELJACA: 2, VELJACE: 2, VELJ: 2, VEL: 2,
+  OŽUJAK: 3, OŽUJKA: 3, OZUJAK: 3, OZUJKA: 3, OŽU: 3, OZU: 3,
+  TRAVANJ: 4, TRAVNJA: 4, TRA: 4,
+  SVIBANJ: 5, SVIBNJA: 5, SVI: 5,
+  LIPANJ: 6, LIPNJA: 6, LIP: 6,
+  SRPANJ: 7, SRPNJA: 7, SRP: 7,
+  KOLOVOZ: 8, KOLOVOZA: 8, KOL: 8,
+  RUJAN: 9, RUJNA: 9, RUJ: 9,
+  LISTOPAD: 10, LISTOPADA: 10, LIS: 10,
+  STUDENI: 11, STUDENOGA: 11, STUDENOG: 11, STU: 11,
+  PROSINAC: 12, PROSINCA: 12, PRO: 12,
   // German
   MÄRZ: 3, MAERZ: 3, MRZ: 3, MAI: 5, JUNI: 6, JULI: 7, DEZEMBER: 12, DEZ: 12,
 };
@@ -45,17 +59,17 @@ function checkDay(d: SimpleDate): SimpleDate {
 /**
  * Qualifier keyword variants. Genealogy software and hand entry use many
  * spellings/abbreviations for the same modifier ("ABT", "Abt.", "About",
- * "Circa", Slovenian "okoli"/"približno", German "um"), so each group is
- * matched case-insensitively with an optional trailing period. The Slovenian
- * and German words are what a user types into a date field; writing the date
+ * "Circa", Slovenian "okoli"/"približno", Croatian "oko"/"prije", German
+ * "um"), so each group is matched case-insensitively with an optional trailing
+ * period. The Slovenian, Croatian and German words are what a user types into a date field; writing the date
  * re-renders them as the standard keyword (see `normalize/date.ts`).
  */
 const ABOUT = "ABT|ABOUT|CIRCA|CCA|CIR|CA|EST|ESTIMATED|CAL|CALCULATED|OKOLI|OKROG|OKO|PRIBLIŽNO|PRIBL|UM";
-const BEFORE = "BEF|BEFORE|PRED|VOR";
-const AFTER = "AFT|AFTER|PO|NACH";
-const BETWEEN = "BET|BETWEEN|MED|ZWISCHEN";
+const BEFORE = "BEF|BEFORE|PRED|PRIJE|VOR";
+const AFTER = "AFT|AFTER|PO|POSLIJE|NAKON|NACH";
+const BETWEEN = "BET|BETWEEN|MED|IZMEĐU|IZMEDJU|IZMEDU|ZWISCHEN";
 const INTERPRETED = "INT|INTERPRETED";
-const AND = "AND|&|IN|UND";
+const AND = "AND|&|IN|I|UND";
 const FROM = "FROM|OD|VON";
 const TO = "TO|DO|BIS";
 

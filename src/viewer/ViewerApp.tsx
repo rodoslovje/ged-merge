@@ -26,7 +26,7 @@ import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { displayDateText } from "../gedcom/dateDisplay";
 import { customEventLabel, EVENT_GLYPHS, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
-import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES } from "../locales/i18n";
+import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type Language } from "../locales/i18n";
 import { StartPersonChip } from "../ui/edit/StartPersonChip";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
 import { useDatasetDerivations } from "../ui/DatasetDerivations";
@@ -147,12 +147,14 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
   const start = useMemo(() => startRoute(tree.startPage, tree.start), [tree]);
   const [route, go, replace] = useRoute(start);
   const { theme, changeThemeMode } = useTheme();
-  // The two toggles show what a click switches to: the other theme, the other
-  // language (the site has two). Their tooltips name it in full.
+  // The theme toggle shows what a click switches to; the language toggle the
+  // language the site is in. Their tooltips name the switch in full.
   const otherTheme = theme === "dark" ? "light" : "dark";
-  const otherLang = SUPPORTED_LANGUAGES.find((l) => l !== i18n.language) ?? "en";
+  // With more than two languages a click steps to the next one in turn.
+  const at = SUPPORTED_LANGUAGES.indexOf(i18n.language as Language);
+  const lang = SUPPORTED_LANGUAGES[Math.max(at, 0)];
+  const otherLang = SUPPORTED_LANGUAGES[(Math.max(at, 0) + 1) % SUPPORTED_LANGUAGES.length];
   // The button shows the language the site is in; its tooltip names the switch.
-  const lang = SUPPORTED_LANGUAGES.find((l) => l !== otherLang) ?? "sl";
   const langSwitch = `${LANGUAGE_NAMES[lang]} → ${LANGUAGE_NAMES[otherLang]}`;
   const setSettings = useSetSettings();
   const { settings: chartSettings, setKind, set: setChartSettings } = useChartSettings();

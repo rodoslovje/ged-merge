@@ -599,7 +599,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
       ? {
           software: "MacFamilyTree",
           category: "citation" as const,
-          meaning: { en: `source-template field (${field})`, sl: `polje predloge vira (${field})` },
+          meaning: { en: `source-template field (${field})`, sl: `polje predloge vira (${field})`, hr: `polje predloška izvora (${field})` },
         }
       : undefined);
     // Three kinds. A `_` extension the version has nothing for is valid: an
@@ -608,7 +608,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
     const bare = !tag.startsWith("_");
     const standard = bare ? undefined : standardFormIn(tag, version);
     const sourceField = (recordTag === "SOUR" && SOURCE_FIELD_TAGS.has(tag)) || undefined;
-    const known: Record<string, string> = info ? { software: info.software, meaningEn: info.meaning.en, meaningSl: info.meaning.sl } : {};
+    const known: Record<string, string> = info ? { software: info.software, meaningEn: info.meaning.en, meaningSl: info.meaning.sl, meaningHr: info.meaning.hr } : {};
     push({
       category: "customTag",
       severity: bare || standard ? "warning" : "info",
