@@ -227,15 +227,28 @@ export function useDebounced<T>(value: T, delay = 200): T {
   return debounced;
 }
 
+const NO_NAMES = new Map<string, string>();
+/** The index last built per file, with the name display it was built for:
+ *  the lists on one page ask for the same one. */
+const personNameIndexes = new WeakMap<Dataset, { nameOf: unknown; names: Map<string, string> }>();
+
 /**
  * Every person's name in the file, folded for searching, by xref — so a list
  * whose rows know only *which* people they concern can still be searched by
- * the name of one. Built once per dataset (the lists that use it memoize on
- * the dataset object), never per row and never per keystroke.
+ * the name of one. Built once per dataset, and shared by the lists that ask;
+ * never per row and never per keystroke.
+ *
+ * `wanted` says whether anything is being searched for: the index reads every
+ * person (0.8 s on a file of half a million), so a page that opens with an
+ * empty search box does not pay for it — it gets an empty index, which
+ * matches nobody, as an empty query does.
  */
-export function usePersonNameIndex(dataset: Dataset): Map<string, string> {
+export function usePersonNameIndex(dataset: Dataset, wanted = true): Map<string, string> {
   const nameOf = useNameOf();
   return useMemo(() => {
+    if (!wanted) return NO_NAMES;
+    const hit = personNameIndexes.get(dataset);
+    if (hit?.nameOf === nameOf) return hit.names;
     const names = new Map<string, string>();
     // Every name the person carries, not just the displayed one: a woman filed
     // under her maiden name is looked for under her married one just as often.
@@ -243,11 +256,12 @@ export function usePersonNameIndex(dataset: Dataset): Map<string, string> {
       const all = [nameOf(indi), ...indi.names.map((n) => n.full ?? "")].filter(Boolean).join(" ");
       names.set(id, foldSearch(all));
     }
+    personNameIndexes.set(dataset, { nameOf, names });
     return names;
     // The dataset object is replaced on load and mutated in place by edits; a
     // name changed by an edit reaches the box on the next load, which is as
     // often as any other tools list re-reads it.
-  }, [dataset, nameOf]);
+  }, [dataset, nameOf, wanted]);
 }
 
 /** True when one of these people's names carries every term of the query. */

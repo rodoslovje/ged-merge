@@ -218,7 +218,7 @@ export function SourceCleanupView({
   const [search, setSearch] = useState("");
   const query = foldSearch(useDebounced(search.trim()));
   const terms = useQueryTerms(query);
-  const personNames = usePersonNameIndex(dataset);
+  const personNames = usePersonNameIndex(dataset, !!query);
   // Every list is ticked into a run rather than out of one: the page arrives
   // with nothing armed, and the reader picks what it will do.
   const [linkSelected, setLinkSelected] = useState<Set<string>>(new Set());

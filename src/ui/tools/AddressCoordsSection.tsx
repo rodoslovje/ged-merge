@@ -269,7 +269,7 @@ export function AddressCoordsSection({
   const home = useHomeCountry();
   const { settings } = useSettings();
   const nameOf = useNameOf();
-  const personNames = usePersonNameIndex(dataset);
+  const personNames = usePersonNameIndex(dataset, !!query);
   /** The registers the place rename's field completes from, where the file
    *  writes a village only here — the move panel's own lookup. */
   const lookup = usePlaceLookup();

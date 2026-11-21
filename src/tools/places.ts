@@ -1,5 +1,6 @@
 import type { Dataset, GedNode, GeoCoord, Translation } from "../gedcom/types";
 import { translationsOf } from "../gedcom/translation";
+import { finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
 import { decomposePlace, placeAddressDetail, placeCollator, placeNodeCoord } from "../gedcom/place";
 import { ALL_EVENT_TAGS } from "../gedcom/eventTags";
 import { addressText, eventAddressNode, splitAddressParts } from "../gedcom/address";
@@ -354,6 +355,22 @@ export function placeKeysOf(raw: GedNode): string[] {
 }
 
 export function buildPlaceTree(dataset: Dataset): PlaceTree {
+  return finish(placeTreeSteps(dataset));
+}
+
+/** {@link buildPlaceTree} in slices: two seconds of work on a file of half a
+ *  million people, with the page painting in between. */
+export function startPlaceTree(dataset: Dataset): SlicedBuild<PlaceTree> {
+  return sliced(placeTreeSteps(dataset));
+}
+
+/** Records read between two pauses of the build. */
+const TREE_CHUNK = 512;
+
+function* placeTreeSteps(dataset: Dataset): BuildSteps<PlaceTree> {
+  // One more than the records, so progress stays short of 1 over the sort.
+  const total = dataset.individuals.size + dataset.families.size + 1;
+  let seen = 0;
   const root: MutableNode = { name: "", children: new Map(), uses: [], isAddress: false, coords: new Map(), translations: new Map(), placValues: new Set() };
   const distinct = new Set<string>();
   let totalUses = 0;
@@ -427,9 +444,11 @@ export function buildPlaceTree(dataset: Dataset): PlaceTree {
   };
 
   for (const indi of dataset.individuals.values()) {
+    if (++seen % TREE_CHUNK === 0) yield seen / total;
     visit(indi.raw, { recordId: indi.id, persons: [{ id: indi.id, label: label(indi) }] });
   }
   for (const fam of dataset.families.values()) {
+    if (++seen % TREE_CHUNK === 0) yield seen / total;
     const persons = familySpouses(dataset, fam.id);
     if (persons.length === 0) continue;
     visit(fam.raw, { recordId: fam.id, persons });

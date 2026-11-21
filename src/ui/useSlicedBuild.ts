@@ -3,10 +3,10 @@ import type { SlicedBuild } from "../tools/sliced";
 
 /** Work done at once, in the render that starts a build: a file of ordinary
  *  size is finished within it, so its panel never shows a loading state. */
-const FIRST_SLICE_MS = 40;
+export const FIRST_SLICE_MS = 40;
 /** Work per later slice: long enough to make headway, short enough that the
  *  page paints and answers between slices. */
-const SLICE_MS = 14;
+export const SLICE_MS = 14;
 
 /**
  * A whole-file build run in slices on the main thread (see `tools/sliced`).
