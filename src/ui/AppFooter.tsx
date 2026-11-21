@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { keyHint } from "../keyboard/shortcuts";
+import { docPage } from "./docPages";
 
 interface Props {
   onShortcuts: () => void;
@@ -13,14 +14,14 @@ function Sep() {
 /**
  * The page footer, shared by the main app shell and the full-page tree/chart
  * overlays. The changelog, User's Guide and the two legal pages are standalone
- * static pages on localized slugs (`/posodobitve`, `/navodila`, `/zasebnost`,
- * `/pogoji`), not in-app modals, so they are plain links; only the shortcut
+ * static pages on localized slugs (see `docPages.ts`),
+ * not in-app modals, so they are plain links; only the shortcut
  * sheet is a modal the app owns. Legal text lives on those pages alone — one
  * copy per language, with a durable address to link and print.
  */
 export function AppFooter({ onShortcuts }: Props) {
   const { t, i18n } = useTranslation();
-  const sl = i18n.language === "sl";
+  const lang = i18n.language;
 
   return (
     <footer className="app-footer">
@@ -29,7 +30,7 @@ export function AppFooter({ onShortcuts }: Props) {
       </a>
       <Sep />
       <a
-        href={sl ? "posodobitve/" : "changelog/"}
+        href={docPage("changelog", lang)}
         className="app-footer-link"
         target="_blank"
         rel="noopener noreferrer"
@@ -41,7 +42,7 @@ export function AppFooter({ onShortcuts }: Props) {
       {/* The version number above links here too, but it doesn't read as a
           link — the changelog needs a route in that looks like one. */}
       <a
-        href={sl ? "posodobitve/" : "changelog/"}
+        href={docPage("changelog", lang)}
         className="app-footer-link"
         target="_blank"
         rel="noopener noreferrer"
@@ -50,7 +51,7 @@ export function AppFooter({ onShortcuts }: Props) {
       </a>
       <Sep />
       <a
-        href={sl ? "navodila/" : "guide/"}
+        href={docPage("guide", lang)}
         className="app-footer-link"
         target="_blank"
         rel="noopener noreferrer"
@@ -63,7 +64,7 @@ export function AppFooter({ onShortcuts }: Props) {
       </button>
       <Sep />
       <a
-        href={sl ? "zasebnost/" : "privacy/"}
+        href={docPage("privacy", lang)}
         className="app-footer-link"
         target="_blank"
         rel="noopener noreferrer"
@@ -72,7 +73,7 @@ export function AppFooter({ onShortcuts }: Props) {
       </a>
       <Sep />
       <a
-        href={sl ? "pogoji/" : "terms/"}
+        href={docPage("terms", lang)}
         className="app-footer-link"
         target="_blank"
         rel="noopener noreferrer"
@@ -81,7 +82,7 @@ export function AppFooter({ onShortcuts }: Props) {
       </a>
       <Sep />
       <a
-        href={sl ? "pogoji/#contact" : "terms/#contact"}
+        href={`${docPage("terms", lang)}#contact`}
         className="app-footer-link"
         target="_blank"
         rel="noopener noreferrer"

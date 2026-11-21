@@ -69,12 +69,16 @@ export default defineConfig({
         navigateFallbackDenylist: [
           /^\/guide\//,
           /^\/navodila\//,
+          /^\/upute\//,
           /^\/changelog\//,
           /^\/posodobitve\//,
+          /^\/novosti\//,
           /^\/privacy\//,
           /^\/zasebnost\//,
+          /^\/privatnost\//,
           /^\/terms\//,
           /^\/pogoji\//,
+          /^\/uvjeti\//,
         ],
       },
       manifest: {
@@ -111,14 +115,20 @@ export default defineConfig({
         guide: resolve(import.meta.dirname, "guide/index.html"),
         // Slovenian translation of the guide, on a localized slug for SLO SEO.
         navodila: resolve(import.meta.dirname, "navodila/index.html"),
+        // Croatian translation of the guide.
+        upute: resolve(import.meta.dirname, "upute/index.html"),
         changelog: resolve(import.meta.dirname, "changelog/index.html"),
         // Slovenian translation of the changelog, on a localized slug for SLO SEO.
         posodobitve: resolve(import.meta.dirname, "posodobitve/index.html"),
+        novosti: resolve(import.meta.dirname, "novosti/index.html"),
         privacy: resolve(import.meta.dirname, "privacy/index.html"),
         // Slovenian legal pages, on localized slugs like the guide/changelog.
         zasebnost: resolve(import.meta.dirname, "zasebnost/index.html"),
+        // Croatian legal pages.
+        privatnost: resolve(import.meta.dirname, "privatnost/index.html"),
         terms: resolve(import.meta.dirname, "terms/index.html"),
         pogoji: resolve(import.meta.dirname, "pogoji/index.html"),
+        uvjeti: resolve(import.meta.dirname, "uvjeti/index.html"),
       },
     },
   },

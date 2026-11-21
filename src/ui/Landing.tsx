@@ -5,6 +5,7 @@ import { pickFile, fileFromDrop, supportsFilePicker } from "./filePicker";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { useMediaViewer } from "./MediaViewer";
 import { usePhone } from "./usePhone";
+import { docPage } from "./docPages";
 
 interface Props {
   mainState: SlotState;
@@ -96,13 +97,13 @@ interface News {
  *  On any failure the panel simply doesn't render. */
 function useLatestNews(): News | null {
   const { i18n } = useTranslation();
-  const sl = i18n.language === "sl";
+  const page = docPage("changelog", i18n.language);
   const [news, setNews] = useState<News | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setNews(null);
-    fetch(sl ? "posodobitve/" : "changelog/")
+    fetch(page)
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
       .then((html) => {
         const doc = new DOMParser().parseFromString(html, "text/html");
@@ -119,7 +120,7 @@ function useLatestNews(): News | null {
     return () => {
       cancelled = true;
     };
-  }, [sl]);
+  }, [page]);
 
   return news;
 }
@@ -398,7 +399,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew, onSho
               </ul>
               <a
                 className="lp-news-link"
-                href={i18n.language === "sl" ? "posodobitve/" : "changelog/"}
+                href={docPage("changelog", i18n.language)}
                 target="_blank"
                 rel="noopener noreferrer"
               >

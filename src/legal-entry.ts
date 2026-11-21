@@ -6,3 +6,4 @@ import "./theme/heritage-pine.css";
 import "./index.css";
 import "./theme/components.css";
 import "./guide.css";
+import "./docLangSwitch";
