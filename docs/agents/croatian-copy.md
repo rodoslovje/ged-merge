@@ -1,6 +1,6 @@
 # Writing Croatian copy
 
-Read it before writing any Croatian: `src/locales/hr.ts`, `src/report/lang/hr.ts`, the `hr` meanings in `src/gedcom/vendorTags.ts` / `extensionTerms.ts`. The User's Guide, changelog and legal pages have no Croatian version yet; a Croatian reader is sent to the English ones.
+Read it before writing any Croatian: `src/locales/hr.ts`, `src/report/lang/hr.ts`, the `hr` meanings in `src/gedcom/vendorTags.ts` / `extensionTerms.ts`, and the pages `upute/`, `novosti/`, `privatnost/`, `uvjeti/`.
 
 Translate from the English meaning. `sl.ts` is the key-for-key reference for the gender (`_M` / `_F` / `_Mp` / `_Fp`) and case (`_gen`) variants, which Croatian shares with Slovenian. Grep `hr.ts` for a term before writing it: one concept, one name. When a string quotes a button or a menu path, copy the label letter for letter from `hr.ts`.
 
