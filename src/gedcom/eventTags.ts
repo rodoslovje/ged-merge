@@ -10,7 +10,7 @@
 import type { Translate } from "../locales/i18n";
 import { firstChild } from "./node";
 import type { GedNode } from "./types";
-import { UPD_STAMP_TYPE, VENDOR_TAGS, VENDOR_TAG_ALIASES, isInternalEventType, vendorEventTypeInfo } from "./vendorTags";
+import { UPD_STAMP_TYPE, VENDOR_TAGS, VENDOR_TAG_ALIASES, inLanguage, isInternalEventType, vendorEventTypeInfo } from "./vendorTags";
 import { eventTakesText } from "../tools/conformance/allows";
 
 /** Individual event tags in canonical life-cycle order (birth → … → death).
@@ -279,7 +279,7 @@ export function customEventLabel(type: string | undefined, t: Translate, lang: s
   if (!raw) return "";
   const info = vendorEventTypeInfo(raw);
   if (info) {
-    const label = lang.startsWith("sl") ? info.label.sl : info.label.en;
+    const label = inLanguage(info.label, lang);
     return `${label} (${info.software})`;
   }
   // EVEN/FACT themselves say nothing a generic label doesn't already say.
@@ -300,7 +300,7 @@ export function customEventTooltip(type: string | undefined, t: Translate, lang:
   const raw = type?.trim() ?? "";
   const info = vendorEventTypeInfo(raw);
   if (!info) return undefined;
-  const meaning = lang.startsWith("sl") ? info.meaning.sl : info.meaning.en;
+  const meaning = inLanguage(info.meaning, lang);
   return t("event.vendorTypeTooltip", { type: raw, software: info.software, meaning });
 }
 
@@ -312,7 +312,7 @@ export function vendorEventTooltip(tag: string, t: Translate, lang: string): str
   if (!isNonStandardTag(tag)) return undefined;
   const info = VENDOR_TAGS[tag] ?? VENDOR_TAGS[VENDOR_TAG_ALIASES[tag]];
   if (!info) return t("event.vendorTooltip", { tag });
-  const meaning = lang.startsWith("sl") ? info.meaning.sl : info.meaning.en;
+  const meaning = inLanguage(info.meaning, lang);
   return t("event.vendorTooltip.known", { tag, software: info.software, meaning });
 }
 

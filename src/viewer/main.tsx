@@ -97,7 +97,7 @@ if (!tree.favicon && ownAddress) adoptSiteFavicon(exportSiteLink().url);
 // their page here: it says so, in both languages.
 // The statistics' hints say a name opens "in Edit"; here it opens the person's
 // page, so the words about Edit go.
-const IN_EDIT: Record<string, RegExp> = { en: / in Edit/g, sl: / v Urejanju/g };
+const IN_EDIT: Record<string, RegExp> = { en: / in Edit/g, sl: / v Urejanju/g, hr: / u Uređivanju/g };
 for (const lng of SUPPORTED_LANGUAGES) {
   i18n.addResource(lng, "translation", "relpath.openInEdit", i18n.t("site.person.open", { lng }));
   const bundle = i18n.getResourceBundle(lng, "translation") as Record<string, string>;

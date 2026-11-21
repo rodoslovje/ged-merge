@@ -38,8 +38,14 @@ export interface VendorTagInfo {
   /** Producing software, for display ("Brother's Keeper", "multiple programs"). */
   software: string;
   category: VendorTagCategory;
-  /** Short human meaning in both UI languages. */
-  meaning: { en: string; sl: string };
+  /** Short human meaning in each UI language. */
+  meaning: { en: string; sl: string; hr: string };
+}
+
+/** A registry text in the reader's UI language, English when it has none. */
+export function inLanguage(text: { en: string; sl?: string; hr?: string }, lang: string): string {
+  const code = lang.slice(0, 2);
+  return (code === "sl" ? text.sl : code === "hr" ? text.hr : undefined) || text.en;
 }
 
 const BK = "Brother's Keeper";
@@ -56,213 +62,213 @@ export const MULTI = "multiple programs";
 /** tag → classification. Keep alphabetical-ish within category blocks. */
 export const VENDOR_TAGS: Record<string, VendorTagInfo> = {
   // ── Identity ──────────────────────────────────────────────────────────────
-  _UID: { software: MULTI, category: "identity", meaning: { en: "unique record identifier (GEDCOM 7 UID)", sl: "enolični identifikator zapisa (GEDCOM 7 UID)" } },
-  _FID: { software: `${MFT}/FamilySearch`, category: "identity", meaning: { en: "FamilySearch person ID", sl: "FamilySearch ID osebe" } },
-  _FSFTID: { software: RM, category: "identity", meaning: { en: "FamilySearch Family Tree ID", sl: "FamilySearch Family Tree ID" } },
-  _APID: { software: ANC, category: "identity", meaning: { en: "Ancestry source-record ID", sl: "Ancestry ID izvornega zapisa" } },
-  _AMTID: { software: `${FTM}/${ANC}`, category: "identity", meaning: { en: "Ancestry Member Tree ID", sl: "Ancestry ID družinskega drevesa" } },
-  _WPID: { software: ANC, category: "identity", meaning: { en: "wife's Ancestry record ID", sl: "Ancestry ID zapisa žene" } },
-  _HPID: { software: ANC, category: "identity", meaning: { en: "husband's Ancestry record ID", sl: "Ancestry ID zapisa moža" } },
-  _FGRAVE: { software: BK, category: "identity", meaning: { en: "Find a Grave memorial ID", sl: "Find a Grave ID spomenika" } },
+  _UID: { software: MULTI, category: "identity", meaning: { en: "unique record identifier (GEDCOM 7 UID)", sl: "enolični identifikator zapisa (GEDCOM 7 UID)", hr: "jedinstveni identifikator zapisa (GEDCOM 7 UID)" } },
+  _FID: { software: `${MFT}/FamilySearch`, category: "identity", meaning: { en: "FamilySearch person ID", sl: "FamilySearch ID osebe", hr: "FamilySearch ID osobe" } },
+  _FSFTID: { software: RM, category: "identity", meaning: { en: "FamilySearch Family Tree ID", sl: "FamilySearch Family Tree ID", hr: "FamilySearch Family Tree ID" } },
+  _APID: { software: ANC, category: "identity", meaning: { en: "Ancestry source-record ID", sl: "Ancestry ID izvornega zapisa", hr: "Ancestry ID izvornog zapisa" } },
+  _AMTID: { software: `${FTM}/${ANC}`, category: "identity", meaning: { en: "Ancestry Member Tree ID", sl: "Ancestry ID družinskega drevesa", hr: "Ancestry ID obiteljskog stabla" } },
+  _WPID: { software: ANC, category: "identity", meaning: { en: "wife's Ancestry record ID", sl: "Ancestry ID zapisa žene", hr: "Ancestry ID zapisa supruge" } },
+  _HPID: { software: ANC, category: "identity", meaning: { en: "husband's Ancestry record ID", sl: "Ancestry ID zapisa moža", hr: "Ancestry ID zapisa supruga" } },
+  _FGRAVE: { software: BK, category: "identity", meaning: { en: "Find a Grave memorial ID", sl: "Find a Grave ID spomenika", hr: "Find a Grave ID spomen-obilježja" } },
 
   // ── Family status / pedigree ──────────────────────────────────────────────
-  _FREL: { software: `${FTM}/${ANC}/${BK}`, category: "familyStatus", meaning: { en: "child's relationship to father (natural/adopted/step)", sl: "otrokovo razmerje do očeta (biološki/posvojen/pastorek)" } },
-  _MREL: { software: `${FTM}/${ANC}/${BK}`, category: "familyStatus", meaning: { en: "child's relationship to mother (natural/adopted/step)", sl: "otrokovo razmerje do matere (biološki/posvojen/pastorek)" } },
-  _MSTAT: { software: BK, category: "familyStatus", meaning: { en: "how the partnership began (married/partners/single…)", sl: "kako se je zveza začela (poroka/partnerja/samski …)" } },
-  _MARRIED: { software: BK, category: "familyStatus", meaning: { en: "married flag (Y/N)", sl: "zastavica poroke (D/N)" } },
-  _NMR: { software: BK, category: "familyStatus", meaning: { en: "couple never married", sl: "par ni bil poročen" } },
-  _SEPR: { software: BK, category: "familyStatus", meaning: { en: "separation (couple split without divorce)", sl: "razhod (brez razveze)" } },
-  _STAT: { software: FTM, category: "familyStatus", meaning: { en: "marriage status", sl: "zakonski status" } },
-  _MEND: { software: FTM, category: "familyStatus", meaning: { en: "how the marriage ended", sl: "kako se je zakon končal" } },
-  _PEDI: { software: FH, category: "familyStatus", meaning: { en: "child-to-family pedigree (illegitimate/adopted…)", sl: "otrokov rodovniški status (nezakonski/posvojen …)" } },
-  _PREF: { software: WT, category: "familyStatus", meaning: { en: "preferred parent/child link", sl: "prednostna povezava starš–otrok" } },
-  _PRIMARY: { software: "PAF", category: "familyStatus", meaning: { en: "primary parent family", sl: "primarna družina staršev" } },
+  _FREL: { software: `${FTM}/${ANC}/${BK}`, category: "familyStatus", meaning: { en: "child's relationship to father (natural/adopted/step)", sl: "otrokovo razmerje do očeta (biološki/posvojen/pastorek)", hr: "odnos djeteta prema ocu (biološko/posvojeno/pastorče)" } },
+  _MREL: { software: `${FTM}/${ANC}/${BK}`, category: "familyStatus", meaning: { en: "child's relationship to mother (natural/adopted/step)", sl: "otrokovo razmerje do matere (biološki/posvojen/pastorek)", hr: "odnos djeteta prema majci (biološko/posvojeno/pastorče)" } },
+  _MSTAT: { software: BK, category: "familyStatus", meaning: { en: "how the partnership began (married/partners/single…)", sl: "kako se je zveza začela (poroka/partnerja/samski …)", hr: "kako je veza započela (brak/partneri/neoženjeni …)" } },
+  _MARRIED: { software: BK, category: "familyStatus", meaning: { en: "married flag (Y/N)", sl: "zastavica poroke (D/N)", hr: "oznaka braka (D/N)" } },
+  _NMR: { software: BK, category: "familyStatus", meaning: { en: "couple never married", sl: "par ni bil poročen", hr: "par nikad nije bio u braku" } },
+  _SEPR: { software: BK, category: "familyStatus", meaning: { en: "separation (couple split without divorce)", sl: "razhod (brez razveze)", hr: "rastava (bez razvoda)" } },
+  _STAT: { software: FTM, category: "familyStatus", meaning: { en: "marriage status", sl: "zakonski status", hr: "bračni status" } },
+  _MEND: { software: FTM, category: "familyStatus", meaning: { en: "how the marriage ended", sl: "kako se je zakon končal", hr: "kako je brak završio" } },
+  _PEDI: { software: FH, category: "familyStatus", meaning: { en: "child-to-family pedigree (illegitimate/adopted…)", sl: "otrokov rodovniški status (nezakonski/posvojen …)", hr: "rodoslovni status djeteta (izvanbračno/posvojeno …)" } },
+  _PREF: { software: WT, category: "familyStatus", meaning: { en: "preferred parent/child link", sl: "prednostna povezava starš–otrok", hr: "prvenstvena veza roditelj–dijete" } },
+  _PRIMARY: { software: "PAF", category: "familyStatus", meaning: { en: "primary parent family", sl: "primarna družina staršev", hr: "primarna obitelj roditelja" } },
 
   // ── Events (real genealogical content with DATE/PLAC) ─────────────────────
-  _INTE: { software: BK, category: "event", meaning: { en: "interment (placing of remains)", sl: "položitev v grob" } },
-  _FNRL: { software: BK, category: "event", meaning: { en: "funeral", sl: "pogreb" } },
-  _MILT: { software: `${BK}/${FTM}`, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
-  _MILI: { software: BK, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
-  _MEDC: { software: BK, category: "event", meaning: { en: "medical condition", sl: "zdravstveno stanje" } },
-  _COML: { software: BK, category: "event", meaning: { en: "common-law (unmarried) union", sl: "zunajzakonska skupnost" } },
-  _ELEC: { software: "Gramps", category: "event", meaning: { en: "elected to office", sl: "izvolitev" } },
-  _DEG: { software: "Gramps", category: "event", meaning: { en: "academic degree", sl: "akademski naziv" } },
-  _MDCL: { software: "Gramps", category: "event", meaning: { en: "medical condition", sl: "zdravstveno stanje" } },
-  _EMPLOY: { software: ANC, category: "event", meaning: { en: "employment", sl: "zaposlitev" } },
-  _ORDI: { software: ANC, category: "event", meaning: { en: "ordinance", sl: "obred" } },
-  _SHAN: { software: FH, category: "event", meaning: { en: "shared event — witness names", sl: "deljen dogodek — imena prič" } },
-  _SHAR: { software: FH, category: "event", meaning: { en: "shared event — witness reference", sl: "deljen dogodek — sklic na pričo" } },
+  _INTE: { software: BK, category: "event", meaning: { en: "interment (placing of remains)", sl: "položitev v grob", hr: "polaganje u grob" } },
+  _FNRL: { software: BK, category: "event", meaning: { en: "funeral", sl: "pogreb", hr: "sprovod" } },
+  _MILT: { software: `${BK}/${FTM}`, category: "event", meaning: { en: "military service", sl: "vojaška služba", hr: "vojna služba" } },
+  _MILI: { software: BK, category: "event", meaning: { en: "military service", sl: "vojaška služba", hr: "vojna služba" } },
+  _MEDC: { software: BK, category: "event", meaning: { en: "medical condition", sl: "zdravstveno stanje", hr: "zdravstveno stanje" } },
+  _COML: { software: BK, category: "event", meaning: { en: "common-law (unmarried) union", sl: "zunajzakonska skupnost", hr: "izvanbračna zajednica" } },
+  _ELEC: { software: "Gramps", category: "event", meaning: { en: "elected to office", sl: "izvolitev", hr: "izbor na dužnost" } },
+  _DEG: { software: "Gramps", category: "event", meaning: { en: "academic degree", sl: "akademski naziv", hr: "akademski stupanj" } },
+  _MDCL: { software: "Gramps", category: "event", meaning: { en: "medical condition", sl: "zdravstveno stanje", hr: "zdravstveno stanje" } },
+  _EMPLOY: { software: ANC, category: "event", meaning: { en: "employment", sl: "zaposlitev", hr: "zaposlenje" } },
+  _ORDI: { software: ANC, category: "event", meaning: { en: "ordinance", sl: "obred", hr: "obred" } },
+  _SHAN: { software: FH, category: "event", meaning: { en: "shared event — witness names", sl: "deljen dogodek — imena prič", hr: "zajednički događaj — imena svjedoka" } },
+  _SHAR: { software: FH, category: "event", meaning: { en: "shared event — witness reference", sl: "deljen dogodek — sklic na pričo", hr: "zajednički događaj — poveznica na svjedoka" } },
 
   // ── Attributes ────────────────────────────────────────────────────────────
-  _ATTR: { software: FH, category: "attribute", meaning: { en: "custom attribute", sl: "atribut po meri" } },
-  _NMAR: { software: BK, category: "attribute", meaning: { en: "person never married", sl: "oseba ni bila nikoli poročena" } },
-  _NLIV: { software: FH, category: "attribute", meaning: { en: "person is not living", sl: "oseba ni več živa" } },
-  _HEIG: { software: BK, category: "attribute", meaning: { en: "height", sl: "višina" } },
-  _WEIG: { software: BK, category: "attribute", meaning: { en: "weight", sl: "teža" } },
-  _PRMN: { software: BK, category: "attribute", meaning: { en: "permanent number / phone", sl: "stalna številka / telefon" } },
-  _ADNA: { software: BK, category: "attribute", meaning: { en: "DNA reference", sl: "sklic na DNK" } },
-  _PRIV: { software: `${MH}/${BK}`, category: "attribute", meaning: { en: "private flag — exclude from publishing", sl: "zasebno — izloči iz objave" } },
-  _TODO: { software: `${BK}/${FH}`, category: "attribute", meaning: { en: "research to-do item", sl: "raziskovalna naloga" } },
-  _LOCL: { software: FH, category: "attribute", meaning: { en: "to-do locality", sl: "kraj raziskovalne naloge" } },
-  _ADPF: { software: BK, category: "attribute", meaning: { en: "adopted by father", sl: "posvojil oče" } },
-  _ADPM: { software: BK, category: "attribute", meaning: { en: "adopted by mother", sl: "posvojila mati" } },
-  _MEMR: { software: BK, category: "attribute", meaning: { en: "memories note", sl: "spomini" } },
-  _SEX: { software: FH, category: "attribute", meaning: { en: "extended sex value", sl: "razširjena oznaka spola" } },
-  _WEBTAG: { software: FH, category: "attribute", meaning: { en: "web link", sl: "spletna povezava" } },
-  _EMAIL: { software: MULTI, category: "attribute", meaning: { en: "e-mail address", sl: "e-poštni naslov" } },
+  _ATTR: { software: FH, category: "attribute", meaning: { en: "custom attribute", sl: "atribut po meri", hr: "prilagođeni atribut" } },
+  _NMAR: { software: BK, category: "attribute", meaning: { en: "person never married", sl: "oseba ni bila nikoli poročena", hr: "osoba nikad nije bila u braku" } },
+  _NLIV: { software: FH, category: "attribute", meaning: { en: "person is not living", sl: "oseba ni več živa", hr: "osoba nije živa" } },
+  _HEIG: { software: BK, category: "attribute", meaning: { en: "height", sl: "višina", hr: "visina" } },
+  _WEIG: { software: BK, category: "attribute", meaning: { en: "weight", sl: "teža", hr: "težina" } },
+  _PRMN: { software: BK, category: "attribute", meaning: { en: "permanent number / phone", sl: "stalna številka / telefon", hr: "stalni broj / telefon" } },
+  _ADNA: { software: BK, category: "attribute", meaning: { en: "DNA reference", sl: "sklic na DNK", hr: "poveznica na DNK" } },
+  _PRIV: { software: `${MH}/${BK}`, category: "attribute", meaning: { en: "private flag — exclude from publishing", sl: "zasebno — izloči iz objave", hr: "privatno — izostavi iz objave" } },
+  _TODO: { software: `${BK}/${FH}`, category: "attribute", meaning: { en: "research to-do item", sl: "raziskovalna naloga", hr: "istraživački zadatak" } },
+  _LOCL: { software: FH, category: "attribute", meaning: { en: "to-do locality", sl: "kraj raziskovalne naloge", hr: "mjesto istraživačkog zadatka" } },
+  _ADPF: { software: BK, category: "attribute", meaning: { en: "adopted by father", sl: "posvojil oče", hr: "posvojio otac" } },
+  _ADPM: { software: BK, category: "attribute", meaning: { en: "adopted by mother", sl: "posvojila mati", hr: "posvojila majka" } },
+  _MEMR: { software: BK, category: "attribute", meaning: { en: "memories note", sl: "spomini", hr: "sjećanja" } },
+  _SEX: { software: FH, category: "attribute", meaning: { en: "extended sex value", sl: "razširjena oznaka spola", hr: "proširena oznaka spola" } },
+  _WEBTAG: { software: FH, category: "attribute", meaning: { en: "web link", sl: "spletna povezava", hr: "web-poveznica" } },
+  _EMAIL: { software: MULTI, category: "attribute", meaning: { en: "e-mail address", sl: "e-poštni naslov", hr: "adresa e-pošte" } },
 
   // ── Name forms ────────────────────────────────────────────────────────────
-  _MARNM: { software: MULTI, category: "name", meaning: { en: "married surname", sl: "priimek po poroki" } },
-  _AKA: { software: MULTI, category: "name", meaning: { en: "also-known-as name", sl: "znan(a) tudi kot" } },
-  _AKAN: { software: BK, category: "name", meaning: { en: "also-known-as name", sl: "znan(a) tudi kot" } },
-  _BIRN: { software: BK, category: "name", meaning: { en: "birth name", sl: "rojstno ime" } },
-  _MARN: { software: BK, category: "name", meaning: { en: "married name", sl: "ime po poroki" } },
-  _OTHN: { software: BK, category: "name", meaning: { en: "other name", sl: "drugo ime" } },
-  _SHON: { software: BK, category: "name", meaning: { en: "shown name (display form)", sl: "prikazno ime" } },
-  _FARN: { software: BK, category: "name", meaning: { en: "farm/house name (vulgo)", sl: "domače/hišno ime (vulgo)" } },
-  _CURN: { software: BK, category: "name", meaning: { en: "current name", sl: "sedanje ime" } },
-  _INDG: { software: BK, category: "name", meaning: { en: "indexed given name", sl: "indeksirano ime" } },
-  _ADPN: { software: BK, category: "name", meaning: { en: "adoptive name", sl: "ime po posvojitvi" } },
-  _SLDN: { software: BK, category: "name", meaning: { en: "soldier name", sl: "vojaško ime" } },
-  _FORMERNAME: { software: `${FH}/${MH}`, category: "name", meaning: { en: "former name", sl: "prejšnje ime" } },
-  _RNAME: { software: MH, category: "name", meaning: { en: "religious name", sl: "redovniško ime" } },
-  _RUFNAME: { software: "Gramps", category: "name", meaning: { en: "call name (Rufname)", sl: "klicno ime" } },
-  _CALL: { software: MULTI, category: "name", meaning: { en: "call name", sl: "klicno ime" } },
-  _NICK: { software: FH, category: "name", meaning: { en: "nickname", sl: "vzdevek" } },
-  _USED: { software: FH, category: "name", meaning: { en: "used name", sl: "uporabljano ime" } },
-  _FRKA: { software: FH, category: "name", meaning: { en: "formerly known as", sl: "prej znan(a) kot" } },
+  _MARNM: { software: MULTI, category: "name", meaning: { en: "married surname", sl: "priimek po poroki", hr: "prezime po udaji" } },
+  _AKA: { software: MULTI, category: "name", meaning: { en: "also-known-as name", sl: "znan(a) tudi kot", hr: "poznat(a) i kao" } },
+  _AKAN: { software: BK, category: "name", meaning: { en: "also-known-as name", sl: "znan(a) tudi kot", hr: "poznat(a) i kao" } },
+  _BIRN: { software: BK, category: "name", meaning: { en: "birth name", sl: "rojstno ime", hr: "rođeno ime" } },
+  _MARN: { software: BK, category: "name", meaning: { en: "married name", sl: "ime po poroki", hr: "ime po udaji" } },
+  _OTHN: { software: BK, category: "name", meaning: { en: "other name", sl: "drugo ime", hr: "drugo ime" } },
+  _SHON: { software: BK, category: "name", meaning: { en: "shown name (display form)", sl: "prikazno ime", hr: "prikazno ime" } },
+  _FARN: { software: BK, category: "name", meaning: { en: "farm/house name (vulgo)", sl: "domače/hišno ime (vulgo)", hr: "kućni nadimak (vulgo)" } },
+  _CURN: { software: BK, category: "name", meaning: { en: "current name", sl: "sedanje ime", hr: "sadašnje ime" } },
+  _INDG: { software: BK, category: "name", meaning: { en: "indexed given name", sl: "indeksirano ime", hr: "indeksirano ime" } },
+  _ADPN: { software: BK, category: "name", meaning: { en: "adoptive name", sl: "ime po posvojitvi", hr: "ime po posvojenju" } },
+  _SLDN: { software: BK, category: "name", meaning: { en: "soldier name", sl: "vojaško ime", hr: "vojničko ime" } },
+  _FORMERNAME: { software: `${FH}/${MH}`, category: "name", meaning: { en: "former name", sl: "prejšnje ime", hr: "prijašnje ime" } },
+  _RNAME: { software: MH, category: "name", meaning: { en: "religious name", sl: "redovniško ime", hr: "redovničko ime" } },
+  _RUFNAME: { software: "Gramps", category: "name", meaning: { en: "call name (Rufname)", sl: "klicno ime", hr: "ime od milja" } },
+  _CALL: { software: MULTI, category: "name", meaning: { en: "call name", sl: "klicno ime", hr: "ime od milja" } },
+  _NICK: { software: FH, category: "name", meaning: { en: "nickname", sl: "vzdevek", hr: "nadimak" } },
+  _USED: { software: FH, category: "name", meaning: { en: "used name", sl: "uporabljano ime", hr: "korišteno ime" } },
+  _FRKA: { software: FH, category: "name", meaning: { en: "formerly known as", sl: "prej znan(a) kot", hr: "prije poznat(a) kao" } },
 
   // ── Media / photo metadata ────────────────────────────────────────────────
-  _PRIM: { software: MULTI, category: "media", meaning: { en: "primary photo flag", sl: "glavna fotografija" } },
-  _PHOTO: { software: MH, category: "media", meaning: { en: "primary photo reference", sl: "sklic na glavno fotografijo" } },
-  _PHOTO_RIN: { software: MH, category: "media", meaning: { en: "photo record number", sl: "številka fotografije" } },
-  _FILESIZE: { software: MH, category: "media", meaning: { en: "media file size", sl: "velikost datoteke" } },
-  _POSITION: { software: MH, category: "media", meaning: { en: "photo crop rectangle", sl: "izrez fotografije" } },
-  _CUTOUT: { software: MH, category: "media", meaning: { en: "cropped-from-parent-photo flag", sl: "izrez iz nadrejene fotografije" } },
-  _PRIM_CUTOUT: { software: MH, category: "media", meaning: { en: "primary cutout flag", sl: "glavni izrez" } },
-  _PARENTRIN: { software: MH, category: "media", meaning: { en: "parent photo record number", sl: "številka nadrejene fotografije" } },
-  _PERSONALPHOTO: { software: MH, category: "media", meaning: { en: "personal photo flag", sl: "osebna fotografija" } },
-  _PARENTPHOTO: { software: MH, category: "media", meaning: { en: "parent photo flag", sl: "nadrejena fotografija" } },
-  _ALBUM: { software: MH, category: "media", meaning: { en: "photo album reference", sl: "sklic na album" } },
-  _PRIN: { software: MH, category: "media", meaning: { en: "album photo record number", sl: "številka fotografije v albumu" } },
-  _SCAN: { software: MH, category: "media", meaning: { en: "scanned-document flag", sl: "skeniran dokument" } },
-  _DESC: { software: MH, category: "media", meaning: { en: "album description", sl: "opis albuma" } },
-  _SEQ: { software: FH, category: "media", meaning: { en: "media display order", sl: "vrstni red predstavnosti" } },
-  _KEYS: { software: FH, category: "media", meaning: { en: "media keywords", sl: "ključne besede predstavnosti" } },
-  _ASID: { software: FH, category: "media", meaning: { en: "photo face/area set ID", sl: "ID območja na fotografiji" } },
-  _AREA: { software: FH, category: "media", meaning: { en: "photo face/area rectangle", sl: "območje na fotografiji" } },
-  _NOTE: { software: FH, category: "media", meaning: { en: "media note", sl: "opomba k predstavnosti" } },
-  _EXCL: { software: FH, category: "media", meaning: { en: "exclude from reports", sl: "izloči iz poročil" } },
-  _SCBK: { software: RM, category: "media", meaning: { en: "scrapbook flag", sl: "album izrezkov" } },
-  _THUM: { software: WT, category: "media", meaning: { en: "use as thumbnail", sl: "uporabi kot sličico" } },
-  _CROP: { software: ANC, category: "media", meaning: { en: "photo crop region", sl: "izrez fotografije" } },
-  _WDTH: { software: ANC, category: "media", meaning: { en: "image width", sl: "širina slike" } },
-  _HGHT: { software: ANC, category: "media", meaning: { en: "image height", sl: "višina slike" } },
-  _LEFT: { software: ANC, category: "media", meaning: { en: "crop left offset", sl: "levi odmik izreza" } },
-  _TOP: { software: ANC, category: "media", meaning: { en: "crop top offset", sl: "zgornji odmik izreza" } },
-  _STYPE: { software: ANC, category: "media", meaning: { en: "media file type", sl: "vrsta datoteke" } },
-  _SIZE: { software: ANC, category: "media", meaning: { en: "media file size", sl: "velikost datoteke" } },
-  _MTYPE: { software: ANC, category: "media", meaning: { en: "media kind (photo/document…)", sl: "vrsta predstavnosti (fotografija/dokument …)" } },
-  _ORIG: { software: ANC, category: "media", meaning: { en: "media origin collection", sl: "izvorna zbirka" } },
-  _FACE: { software: ANC, category: "media", meaning: { en: "face tag reference", sl: "oznaka obraza" } },
-  _PLACE: { software: MH, category: "media", meaning: { en: "media place", sl: "kraj predstavnosti" } },
-  _DATE: { software: MULTI, category: "media", meaning: { en: "media/source date", sl: "datum predstavnosti/vira" } },
+  _PRIM: { software: MULTI, category: "media", meaning: { en: "primary photo flag", sl: "glavna fotografija", hr: "glavna fotografija" } },
+  _PHOTO: { software: MH, category: "media", meaning: { en: "primary photo reference", sl: "sklic na glavno fotografijo", hr: "poveznica na glavnu fotografiju" } },
+  _PHOTO_RIN: { software: MH, category: "media", meaning: { en: "photo record number", sl: "številka fotografije", hr: "broj fotografije" } },
+  _FILESIZE: { software: MH, category: "media", meaning: { en: "media file size", sl: "velikost datoteke", hr: "veličina datoteke" } },
+  _POSITION: { software: MH, category: "media", meaning: { en: "photo crop rectangle", sl: "izrez fotografije", hr: "izrez fotografije" } },
+  _CUTOUT: { software: MH, category: "media", meaning: { en: "cropped-from-parent-photo flag", sl: "izrez iz nadrejene fotografije", hr: "izrez iz nadređene fotografije" } },
+  _PRIM_CUTOUT: { software: MH, category: "media", meaning: { en: "primary cutout flag", sl: "glavni izrez", hr: "glavni izrez" } },
+  _PARENTRIN: { software: MH, category: "media", meaning: { en: "parent photo record number", sl: "številka nadrejene fotografije", hr: "broj nadređene fotografije" } },
+  _PERSONALPHOTO: { software: MH, category: "media", meaning: { en: "personal photo flag", sl: "osebna fotografija", hr: "osobna fotografija" } },
+  _PARENTPHOTO: { software: MH, category: "media", meaning: { en: "parent photo flag", sl: "nadrejena fotografija", hr: "nadređena fotografija" } },
+  _ALBUM: { software: MH, category: "media", meaning: { en: "photo album reference", sl: "sklic na album", hr: "poveznica na album" } },
+  _PRIN: { software: MH, category: "media", meaning: { en: "album photo record number", sl: "številka fotografije v albumu", hr: "broj fotografije u albumu" } },
+  _SCAN: { software: MH, category: "media", meaning: { en: "scanned-document flag", sl: "skeniran dokument", hr: "skenirani dokument" } },
+  _DESC: { software: MH, category: "media", meaning: { en: "album description", sl: "opis albuma", hr: "opis albuma" } },
+  _SEQ: { software: FH, category: "media", meaning: { en: "media display order", sl: "vrstni red predstavnosti", hr: "redoslijed medija" } },
+  _KEYS: { software: FH, category: "media", meaning: { en: "media keywords", sl: "ključne besede predstavnosti", hr: "ključne riječi medija" } },
+  _ASID: { software: FH, category: "media", meaning: { en: "photo face/area set ID", sl: "ID območja na fotografiji", hr: "ID područja na fotografiji" } },
+  _AREA: { software: FH, category: "media", meaning: { en: "photo face/area rectangle", sl: "območje na fotografiji", hr: "područje na fotografiji" } },
+  _NOTE: { software: FH, category: "media", meaning: { en: "media note", sl: "opomba k predstavnosti", hr: "bilješka uz medij" } },
+  _EXCL: { software: FH, category: "media", meaning: { en: "exclude from reports", sl: "izloči iz poročil", hr: "izostavi iz izvješća" } },
+  _SCBK: { software: RM, category: "media", meaning: { en: "scrapbook flag", sl: "album izrezkov", hr: "spomenar" } },
+  _THUM: { software: WT, category: "media", meaning: { en: "use as thumbnail", sl: "uporabi kot sličico", hr: "koristi kao sličicu" } },
+  _CROP: { software: ANC, category: "media", meaning: { en: "photo crop region", sl: "izrez fotografije", hr: "izrez fotografije" } },
+  _WDTH: { software: ANC, category: "media", meaning: { en: "image width", sl: "širina slike", hr: "širina slike" } },
+  _HGHT: { software: ANC, category: "media", meaning: { en: "image height", sl: "višina slike", hr: "visina slike" } },
+  _LEFT: { software: ANC, category: "media", meaning: { en: "crop left offset", sl: "levi odmik izreza", hr: "lijevi odmak izreza" } },
+  _TOP: { software: ANC, category: "media", meaning: { en: "crop top offset", sl: "zgornji odmik izreza", hr: "gornji odmak izreza" } },
+  _STYPE: { software: ANC, category: "media", meaning: { en: "media file type", sl: "vrsta datoteke", hr: "vrsta datoteke" } },
+  _SIZE: { software: ANC, category: "media", meaning: { en: "media file size", sl: "velikost datoteke", hr: "veličina datoteke" } },
+  _MTYPE: { software: ANC, category: "media", meaning: { en: "media kind (photo/document…)", sl: "vrsta predstavnosti (fotografija/dokument …)", hr: "vrsta medija (fotografija/dokument …)" } },
+  _ORIG: { software: ANC, category: "media", meaning: { en: "media origin collection", sl: "izvorna zbirka", hr: "izvorna zbirka" } },
+  _FACE: { software: ANC, category: "media", meaning: { en: "face tag reference", sl: "oznaka obraza", hr: "oznaka lica" } },
+  _PLACE: { software: MH, category: "media", meaning: { en: "media place", sl: "kraj predstavnosti", hr: "mjesto medija" } },
+  _DATE: { software: MULTI, category: "media", meaning: { en: "media/source date", sl: "datum predstavnosti/vira", hr: "datum medija/izvora" } },
 
   // ── Source / citation ─────────────────────────────────────────────────────
-  _ITALIC: { software: BK, category: "citation", meaning: { en: "print source title in italics", sl: "naslov vira v ležečem tisku" } },
-  _PAREN: { software: BK, category: "citation", meaning: { en: "print source in parentheses", sl: "vir v oklepajih" } },
-  _QUAL: { software: `${RM}/${MFT}`, category: "citation", meaning: { en: "citation quality", sl: "kakovost navedbe" } },
-  _INFO: { software: `${RM}/${MFT}`, category: "citation", meaning: { en: "citation information type", sl: "vrsta podatka navedbe" } },
-  _SOUR: { software: MFT, category: "citation", meaning: { en: "citation source type", sl: "vrsta vira navedbe" } },
-  _TMPLT: { software: RM, category: "citation", meaning: { en: "source template fields", sl: "polja predloge vira" } },
-  _BIBL: { software: RM, category: "citation", meaning: { en: "bibliography form", sl: "bibliografska oblika" } },
-  _SUBQ: { software: RM, category: "citation", meaning: { en: "short-form citation", sl: "kratka navedba" } },
-  _EVDEF: { software: RM, category: "citation", meaning: { en: "event sentence definition", sl: "definicija stavka dogodka" } },
+  _ITALIC: { software: BK, category: "citation", meaning: { en: "print source title in italics", sl: "naslov vira v ležečem tisku", hr: "naslov izvora u kurzivu" } },
+  _PAREN: { software: BK, category: "citation", meaning: { en: "print source in parentheses", sl: "vir v oklepajih", hr: "izvor u zagradama" } },
+  _QUAL: { software: `${RM}/${MFT}`, category: "citation", meaning: { en: "citation quality", sl: "kakovost navedbe", hr: "kvaliteta navoda" } },
+  _INFO: { software: `${RM}/${MFT}`, category: "citation", meaning: { en: "citation information type", sl: "vrsta podatka navedbe", hr: "vrsta podatka navoda" } },
+  _SOUR: { software: MFT, category: "citation", meaning: { en: "citation source type", sl: "vrsta vira navedbe", hr: "vrsta izvora navoda" } },
+  _TMPLT: { software: RM, category: "citation", meaning: { en: "source template fields", sl: "polja predloge vira", hr: "polja predloška izvora" } },
+  _BIBL: { software: RM, category: "citation", meaning: { en: "bibliography form", sl: "bibliografska oblika", hr: "bibliografski oblik" } },
+  _SUBQ: { software: RM, category: "citation", meaning: { en: "short-form citation", sl: "kratka navedba", hr: "kratki navod" } },
+  _EVDEF: { software: RM, category: "citation", meaning: { en: "event sentence definition", sl: "definicija stavka dogodka", hr: "definicija rečenice događaja" } },
   // MyHeritage's own id for the source behind a citation — a collection number
   // ("10002") or a family-tree id ("1277274332-1"), never a media reference.
-  _MEDI: { software: MH, category: "citation", meaning: { en: "MyHeritage collection / family-tree ID of the source", sl: "MyHeritagev ID zbirke ali družinskega drevesa, iz katerega je vir" } },
-  _FIELD: { software: FH, category: "citation", meaning: { en: "source template field", sl: "polje predloge vira" } },
-  _SRCT: { software: FH, category: "citation", meaning: { en: "source template reference", sl: "sklic na predlogo vira" } },
-  _FOOT: { software: FH, category: "citation", meaning: { en: "footnote form", sl: "oblika opombe" } },
-  _ABBR: { software: FH, category: "citation", meaning: { en: "abbreviated source name", sl: "okrajšano ime vira" } },
+  _MEDI: { software: MH, category: "citation", meaning: { en: "MyHeritage collection / family-tree ID of the source", sl: "MyHeritagev ID zbirke ali družinskega drevesa, iz katerega je vir", hr: "MyHeritage ID zbirke ili obiteljskog stabla iz kojeg je izvor" } },
+  _FIELD: { software: FH, category: "citation", meaning: { en: "source template field", sl: "polje predloge vira", hr: "polje predloška izvora" } },
+  _SRCT: { software: FH, category: "citation", meaning: { en: "source template reference", sl: "sklic na predlogo vira", hr: "poveznica na predložak izvora" } },
+  _FOOT: { software: FH, category: "citation", meaning: { en: "footnote form", sl: "oblika opombe", hr: "oblik fusnote" } },
+  _ABBR: { software: FH, category: "citation", meaning: { en: "abbreviated source name", sl: "okrajšano ime vira", hr: "skraćeni naziv izvora" } },
   // On a MyHeritage SOUR this says where the source came from — "Smart
   // Matching", "Discovery", "Collection"; other programs use it more loosely.
-  _TYPE: { software: MULTI, category: "citation", meaning: { en: "kind of source (MyHeritage: Smart Matching / Discovery / Collection)", sl: "vrsta vira (MyHeritage: Smart Matching / Discovery / zbirka)" } },
+  _TYPE: { software: MULTI, category: "citation", meaning: { en: "kind of source (MyHeritage: Smart Matching / Discovery / Collection)", sl: "vrsta vira (MyHeritage: Smart Matching / Discovery / zbirka)", hr: "vrsta izvora (MyHeritage: Smart Matching / Discovery / zbirka)" } },
 
   // ── Software-internal bookkeeping ─────────────────────────────────────────
-  _UPD: { software: MH, category: "internal", meaning: { en: "last-updated timestamp", sl: "časovni žig zadnje spremembe" } },
-  _RINS: { software: MH, category: "internal", meaning: { en: "record-number summary", sl: "povzetek številk zapisov" } },
-  _RTLSAVE: { software: MH, category: "internal", meaning: { en: "right-to-left save marker", sl: "oznaka shranjevanja od desne proti levi" } },
-  _PROJECT_GUID: { software: MH, category: "internal", meaning: { en: "project identifier", sl: "identifikator projekta" } },
-  _EXPORTED_FROM_SITE_ID: { software: MH, category: "internal", meaning: { en: "exporting site ID", sl: "ID izvornega spletnega mesta" } },
-  _DESCRIPTION_AWARE: { software: MH, category: "internal", meaning: { en: "export format marker", sl: "oznaka oblike izvoza" } },
-  _TIMEZONE: { software: MH, category: "internal", meaning: { en: "export time zone", sl: "časovni pas izvoza" } },
-  _SM_MERGES: { software: MH, category: "internal", meaning: { en: "Smart-Match merge counter", sl: "števec združitev Smart Match" } },
-  _DISABLED: { software: MH, category: "internal", meaning: { en: "publish disabled flag", sl: "objava onemogočena" } },
-  _SITEADDRESS: { software: MH, category: "internal", meaning: { en: "published site address", sl: "naslov objavljenega mesta" } },
-  _SITENAME: { software: MH, category: "internal", meaning: { en: "published site name", sl: "ime objavljenega mesta" } },
-  _SITEID: { software: MH, category: "internal", meaning: { en: "published site ID", sl: "ID objavljenega mesta" } },
-  _DESCRIPTION: { software: MH, category: "internal", meaning: { en: "note edit marker", sl: "oznaka urejanja opombe" } },
-  _EVN: { software: BK, category: "internal", meaning: { en: "event sequence number", sl: "zaporedna številka dogodka" } },
-  _FLGS: { software: BK, category: "internal", meaning: { en: "user flag set", sl: "uporabniške zastavice" } },
-  _COLOR: { software: FH, category: "internal", meaning: { en: "display color", sl: "barva prikaza" } },
-  _ROOT: { software: FH, category: "internal", meaning: { en: "file root person", sl: "izhodiščna oseba datoteke" } },
-  _VAR: { software: MULTI, category: "internal", meaning: { en: "program variant marker", sl: "oznaka različice programa" } },
-  _SCHEMA: { software: FTM, category: "internal", meaning: { en: "custom fact schema", sl: "shema dejstev po meri" } },
-  _LIST: { software: BK, category: "internal", meaning: { en: "mailing-list flag", sl: "zastavica seznama" } },
-  _CLON: { software: ANC, category: "internal", meaning: { en: "cloned media bookkeeping", sl: "evidenca podvojene predstavnosti" } },
-  _OID: { software: ANC, category: "internal", meaning: { en: "media object ID", sl: "ID predstavnostnega objekta" } },
-  _TID: { software: ANC, category: "internal", meaning: { en: "source tree ID", sl: "ID izvornega drevesa" } },
-  _PID: { software: ANC, category: "internal", meaning: { en: "source person ID", sl: "ID izvorne osebe" } },
-  _MSER: { software: ANC, category: "internal", meaning: { en: "media series bookkeeping", sl: "evidenca serije predstavnosti" } },
-  _LKID: { software: ANC, category: "internal", meaning: { en: "media link ID", sl: "ID povezave predstavnosti" } },
-  _META: { software: ANC, category: "internal", meaning: { en: "media metadata XML", sl: "metapodatki predstavnosti (XML)" } },
-  _ATL: { software: ANC, category: "internal", meaning: { en: "attached-to-list flag", sl: "zastavica pripetosti" } },
-  _CREA: { software: ANC, category: "internal", meaning: { en: "creation timestamp", sl: "časovni žig nastanka" } },
+  _UPD: { software: MH, category: "internal", meaning: { en: "last-updated timestamp", sl: "časovni žig zadnje spremembe", hr: "vremenska oznaka zadnje izmjene" } },
+  _RINS: { software: MH, category: "internal", meaning: { en: "record-number summary", sl: "povzetek številk zapisov", hr: "sažetak brojeva zapisa" } },
+  _RTLSAVE: { software: MH, category: "internal", meaning: { en: "right-to-left save marker", sl: "oznaka shranjevanja od desne proti levi", hr: "oznaka spremanja zdesna nalijevo" } },
+  _PROJECT_GUID: { software: MH, category: "internal", meaning: { en: "project identifier", sl: "identifikator projekta", hr: "identifikator projekta" } },
+  _EXPORTED_FROM_SITE_ID: { software: MH, category: "internal", meaning: { en: "exporting site ID", sl: "ID izvornega spletnega mesta", hr: "ID izvorne web-stranice" } },
+  _DESCRIPTION_AWARE: { software: MH, category: "internal", meaning: { en: "export format marker", sl: "oznaka oblike izvoza", hr: "oznaka oblika izvoza" } },
+  _TIMEZONE: { software: MH, category: "internal", meaning: { en: "export time zone", sl: "časovni pas izvoza", hr: "vremenska zona izvoza" } },
+  _SM_MERGES: { software: MH, category: "internal", meaning: { en: "Smart-Match merge counter", sl: "števec združitev Smart Match", hr: "brojač spajanja Smart Match" } },
+  _DISABLED: { software: MH, category: "internal", meaning: { en: "publish disabled flag", sl: "objava onemogočena", hr: "objava onemogućena" } },
+  _SITEADDRESS: { software: MH, category: "internal", meaning: { en: "published site address", sl: "naslov objavljenega mesta", hr: "adresa objavljene stranice" } },
+  _SITENAME: { software: MH, category: "internal", meaning: { en: "published site name", sl: "ime objavljenega mesta", hr: "naziv objavljene stranice" } },
+  _SITEID: { software: MH, category: "internal", meaning: { en: "published site ID", sl: "ID objavljenega mesta", hr: "ID objavljene stranice" } },
+  _DESCRIPTION: { software: MH, category: "internal", meaning: { en: "note edit marker", sl: "oznaka urejanja opombe", hr: "oznaka uređivanja bilješke" } },
+  _EVN: { software: BK, category: "internal", meaning: { en: "event sequence number", sl: "zaporedna številka dogodka", hr: "redni broj događaja" } },
+  _FLGS: { software: BK, category: "internal", meaning: { en: "user flag set", sl: "uporabniške zastavice", hr: "korisničke oznake" } },
+  _COLOR: { software: FH, category: "internal", meaning: { en: "display color", sl: "barva prikaza", hr: "boja prikaza" } },
+  _ROOT: { software: FH, category: "internal", meaning: { en: "file root person", sl: "izhodiščna oseba datoteke", hr: "polazna osoba datoteke" } },
+  _VAR: { software: MULTI, category: "internal", meaning: { en: "program variant marker", sl: "oznaka različice programa", hr: "oznaka inačice programa" } },
+  _SCHEMA: { software: FTM, category: "internal", meaning: { en: "custom fact schema", sl: "shema dejstev po meri", hr: "shema prilagođenih činjenica" } },
+  _LIST: { software: BK, category: "internal", meaning: { en: "mailing-list flag", sl: "zastavica seznama", hr: "oznaka popisa za slanje" } },
+  _CLON: { software: ANC, category: "internal", meaning: { en: "cloned media bookkeeping", sl: "evidenca podvojene predstavnosti", hr: "evidencija kloniranih medija" } },
+  _OID: { software: ANC, category: "internal", meaning: { en: "media object ID", sl: "ID predstavnostnega objekta", hr: "ID medijskog objekta" } },
+  _TID: { software: ANC, category: "internal", meaning: { en: "source tree ID", sl: "ID izvornega drevesa", hr: "ID izvornog stabla" } },
+  _PID: { software: ANC, category: "internal", meaning: { en: "source person ID", sl: "ID izvorne osebe", hr: "ID izvorne osobe" } },
+  _MSER: { software: ANC, category: "internal", meaning: { en: "media series bookkeeping", sl: "evidenca serije predstavnosti", hr: "evidencija serije medija" } },
+  _LKID: { software: ANC, category: "internal", meaning: { en: "media link ID", sl: "ID povezave predstavnosti", hr: "ID poveznice medija" } },
+  _META: { software: ANC, category: "internal", meaning: { en: "media metadata XML", sl: "metapodatki predstavnosti (XML)", hr: "metapodaci medija (XML)" } },
+  _ATL: { software: ANC, category: "internal", meaning: { en: "attached-to-list flag", sl: "zastavica pripetosti", hr: "oznaka priloženosti popisu" } },
+  _CREA: { software: ANC, category: "internal", meaning: { en: "creation timestamp", sl: "časovni žig nastanka", hr: "vremenska oznaka nastanka" } },
   // Several programs' web link — on a person or a family, the page about
   // them; Ancestry also writes it for a media item's source. Content, not
   // bookkeeping: an internal tag would be stripped from incoming people.
   _URL: {
     software: MULTI,
     category: "attribute",
-    meaning: { en: "web address (a page about the person or family; a media item's source)", sl: "spletni naslov (stran o osebi ali družini, vir medija)" },
+    meaning: { en: "web address (a page about the person or family; a media item's source)", sl: "spletni naslov (stran o osebi ali družini, vir medija)", hr: "web-adresa (stranica o osobi ili obitelji, izvor medija)" },
   },
-  _DSCR: { software: ANC, category: "internal", meaning: { en: "media source description", sl: "opis vira predstavnosti" } },
-  _TREE: { software: ANC, category: "internal", meaning: { en: "source tree name", sl: "ime izvornega drevesa" } },
-  _ENV: { software: ANC, category: "internal", meaning: { en: "export environment", sl: "okolje izvoza" } },
-  _PLAC: { software: `${FH}/${MFT}`, category: "internal", meaning: { en: "place-dictionary record", sl: "zapis imenika krajev" } },
-  _GEO: { software: MFT, category: "internal", meaning: { en: "GeoNames place ID", sl: "GeoNames ID kraja" } },
-  _EVENT_DEFN: { software: "PAF", category: "internal", meaning: { en: "custom event definition", sl: "definicija dogodka po meri" } },
-  _NAME: { software: "Legacy", category: "internal", meaning: { en: "address name line", sl: "imenska vrstica naslova" } },
-  _STO: { software: MFT, category: "internal", meaning: { en: "storage location record", sl: "zapis mesta hrambe" } },
-  _STS: { software: MFT, category: "internal", meaning: { en: "storage state", sl: "stanje hrambe" } },
-  _LABL: { software: MFT, category: "internal", meaning: { en: "label record", sl: "zapis oznake" } },
-  _BKM: { software: MFT, category: "internal", meaning: { en: "bookmark", sl: "zaznamek" } },
-  _SIF: { software: MFT, category: "internal", meaning: { en: "media bookkeeping", sl: "evidenca predstavnosti" } },
-  _SMC: { software: MFT, category: "internal", meaning: { en: "media bookkeeping", sl: "evidenca predstavnosti" } },
-  _WT_OBJE_SORT: { software: WT, category: "internal", meaning: { en: "media sort order", sl: "vrstni red predstavnosti" } },
+  _DSCR: { software: ANC, category: "internal", meaning: { en: "media source description", sl: "opis vira predstavnosti", hr: "opis izvora medija" } },
+  _TREE: { software: ANC, category: "internal", meaning: { en: "source tree name", sl: "ime izvornega drevesa", hr: "naziv izvornog stabla" } },
+  _ENV: { software: ANC, category: "internal", meaning: { en: "export environment", sl: "okolje izvoza", hr: "okruženje izvoza" } },
+  _PLAC: { software: `${FH}/${MFT}`, category: "internal", meaning: { en: "place-dictionary record", sl: "zapis imenika krajev", hr: "zapis imenika mjesta" } },
+  _GEO: { software: MFT, category: "internal", meaning: { en: "GeoNames place ID", sl: "GeoNames ID kraja", hr: "GeoNames ID mjesta" } },
+  _EVENT_DEFN: { software: "PAF", category: "internal", meaning: { en: "custom event definition", sl: "definicija dogodka po meri", hr: "definicija prilagođenog događaja" } },
+  _NAME: { software: "Legacy", category: "internal", meaning: { en: "address name line", sl: "imenska vrstica naslova", hr: "redak s imenom u adresi" } },
+  _STO: { software: MFT, category: "internal", meaning: { en: "storage location record", sl: "zapis mesta hrambe", hr: "zapis mjesta pohrane" } },
+  _STS: { software: MFT, category: "internal", meaning: { en: "storage state", sl: "stanje hrambe", hr: "stanje pohrane" } },
+  _LABL: { software: MFT, category: "internal", meaning: { en: "label record", sl: "zapis oznake", hr: "zapis oznake" } },
+  _BKM: { software: MFT, category: "internal", meaning: { en: "bookmark", sl: "zaznamek", hr: "knjižna oznaka" } },
+  _SIF: { software: MFT, category: "internal", meaning: { en: "media bookkeeping", sl: "evidenca predstavnosti", hr: "evidencija medija" } },
+  _SMC: { software: MFT, category: "internal", meaning: { en: "media bookkeeping", sl: "evidenca predstavnosti", hr: "evidencija medija" } },
+  _WT_OBJE_SORT: { software: WT, category: "internal", meaning: { en: "media sort order", sl: "vrstni red predstavnosti", hr: "redoslijed medija" } },
 
   // ── MacFamilyTree non-underscore vendor tags ──────────────────────────────
   // MacFamilyTree exports several custom facts as bare (non-`_`) tags borrowed
   // from GEDCOM 5.5-EL or invented; without these entries the health check
   // would flag a MacFamilyTree file's own data as "unknown tags".
-  RACE: { software: MFT, category: "attribute", meaning: { en: "race / ethnicity", sl: "rasa / etnična pripadnost" } },
+  RACE: { software: MFT, category: "attribute", meaning: { en: "race / ethnicity", sl: "rasa / etnična pripadnost", hr: "rasa / etnička pripadnost" } },
   // A couple's separation, written bare by several programs (and Brother's
   // Keeper's _SEPR aliased to it): in neither 5.5.1 nor 7.0.
-  SEPA: { software: MULTI, category: "event", meaning: { en: "separation of a couple", sl: "ločeno življenje para" } },
+  SEPA: { software: MULTI, category: "event", meaning: { en: "separation of a couple", sl: "ločeno življenje para", hr: "odvojen život para" } },
   // GEDCOM 5.5-EL's source fields, which MacFamilyTree and its kin write on a
   // source record. Elsewhere GED Merge writes the standard's forms instead:
   // the repository link's CALN and the TITL (see `settleSourceFields`).
-  FILN: { software: MFT, category: "citation", meaning: { en: "source filing number (5.5-EL)", sl: "arhivska številka vira (5.5-EL)" } },
-  PERI: { software: MFT, category: "citation", meaning: { en: "periodical title (5.5-EL)", sl: "periodika / zbirka (5.5-EL)" } },
-  EDTN: { software: MFT, category: "citation", meaning: { en: "edition (5.5-EL)", sl: "izdaja (5.5-EL)" } },
-  SECG: { software: MFT, category: "name", meaning: { en: "second given name", sl: "drugo rojstno ime" } },
-  MISE: { software: MFT, category: "event", meaning: { en: "military service", sl: "vojaška služba" } },
-  NOBI: { software: MFT, category: "event", meaning: { en: "award / nobility title (5.5-EL)", sl: "priznanje / plemiški naziv (5.5-EL)" } },
-  PRIV: { software: MFT, category: "attribute", meaning: { en: "private flag — exclude from publishing", sl: "zasebno — izloči iz objave" } },
-  LATR: { software: MFT, category: "event", meaning: { en: "legal transaction", sl: "pravni posel" } },
-  DEED: { software: MFT, category: "event", meaning: { en: "deed / property record", sl: "listina / lastninski zapis" } },
-  ILL: { software: MFT, category: "event", meaning: { en: "illness", sl: "bolezen" } },
+  FILN: { software: MFT, category: "citation", meaning: { en: "source filing number (5.5-EL)", sl: "arhivska številka vira (5.5-EL)", hr: "arhivski broj izvora (5.5-EL)" } },
+  PERI: { software: MFT, category: "citation", meaning: { en: "periodical title (5.5-EL)", sl: "periodika / zbirka (5.5-EL)", hr: "naslov periodike (5.5-EL)" } },
+  EDTN: { software: MFT, category: "citation", meaning: { en: "edition (5.5-EL)", sl: "izdaja (5.5-EL)", hr: "izdanje (5.5-EL)" } },
+  SECG: { software: MFT, category: "name", meaning: { en: "second given name", sl: "drugo rojstno ime", hr: "drugo osobno ime" } },
+  MISE: { software: MFT, category: "event", meaning: { en: "military service", sl: "vojaška služba", hr: "vojna služba" } },
+  NOBI: { software: MFT, category: "event", meaning: { en: "award / nobility title (5.5-EL)", sl: "priznanje / plemiški naziv (5.5-EL)", hr: "priznanje / plemićka titula (5.5-EL)" } },
+  PRIV: { software: MFT, category: "attribute", meaning: { en: "private flag — exclude from publishing", sl: "zasebno — izloči iz objave", hr: "privatno — izostavi iz objave" } },
+  LATR: { software: MFT, category: "event", meaning: { en: "legal transaction", sl: "pravni posel", hr: "pravni posao" } },
+  DEED: { software: MFT, category: "event", meaning: { en: "deed / property record", sl: "listina / lastninski zapis", hr: "isprava / vlasnički zapis" } },
+  ILL: { software: MFT, category: "event", meaning: { en: "illness", sl: "bolezen", hr: "bolest" } },
 };
 
 /**
@@ -285,8 +291,8 @@ export interface VendorEventTypeInfo {
   software: string;
   category: VendorTagCategory;
   /** Short readable row label, in place of the raw type string. */
-  label: { en: string; sl: string };
-  meaning: { en: string; sl: string };
+  label: { en: string; sl: string; hr: string };
+  meaning: { en: string; sl: string; hr: string };
   /** Canonical `_MSTAT` value, for the partnership-status types. */
   mstat?: string;
 }
@@ -303,22 +309,22 @@ export const VENDOR_EVENT_TYPES: Record<string, VendorEventTypeInfo> = {
   "MYHERITAGE:REL_PARTNERS": {
     software: MH,
     category: "familyStatus",
-    label: { en: "Partners", sl: "Partnerja" },
-    meaning: { en: "the couple is recorded as partners, not as married", sl: "par je zabeležen kot partnerja in ne kot poročena" },
+    label: { en: "Partners", sl: "Partnerja", hr: "Partneri" },
+    meaning: { en: "the couple is recorded as partners, not as married", sl: "par je zabeležen kot partnerja in ne kot poročena", hr: "par je zabilježen kao partneri, a ne kao bračni par" },
     mstat: "Partners",
   },
   "MYHERITAGE:REL_UNKNOWN": {
     software: MH,
     category: "familyStatus",
-    label: { en: "Relationship unstated", sl: "Razmerje ni navedeno" },
-    meaning: { en: "the kind of relationship was left unset", sl: "vrsta razmerja ni bila izbrana" },
+    label: { en: "Relationship unstated", sl: "Razmerje ni navedeno", hr: "Odnos nije naveden" },
+    meaning: { en: "the kind of relationship was left unset", sl: "vrsta razmerja ni bila izbrana", hr: "vrsta odnosa nije odabrana" },
     mstat: "Unknown",
   },
   [UPD_STAMP_TYPE]: {
     software: MH,
     category: "internal",
-    label: { en: "Last updated", sl: "Zadnja sprememba" },
-    meaning: { en: "when the program last touched this record — bookkeeping, not a life event", sl: "kdaj je program nazadnje spremenil ta zapis — evidenca in ne življenjski dogodek" },
+    label: { en: "Last updated", sl: "Zadnja sprememba", hr: "Zadnja izmjena" },
+    meaning: { en: "when the program last touched this record — bookkeeping, not a life event", sl: "kdaj je program nazadnje spremenil ta zapis — evidenca in ne življenjski dogodek", hr: "kada je program zadnji put izmijenio ovaj zapis — evidencija, a ne životni događaj" },
   },
 };
 
@@ -344,16 +350,16 @@ const MFT_TEMPLATE_TAGS = new Set([
 const MFT_TEMPLATE_INFO: VendorTagInfo = {
   software: MFT,
   category: "internal",
-  meaning: { en: "source/place template machinery", sl: "predloge virov/krajev" },
+  meaning: { en: "source/place template machinery", sl: "predloge virov/krajev", hr: "predlošci izvora/mjesta" },
 };
 
 /** Account traces that must never leave the user's machine in a shared file. */
 const PRIVACY_INFO: Record<string, VendorTagInfo> = {
-  _PUBLISH: { software: MH, category: "privacy", meaning: { en: "site publish configuration (contains account e-mail)", sl: "nastavitve objave (vsebujejo e-pošto računa)" } },
-  _USERNAME: { software: MH, category: "privacy", meaning: { en: "account user name / e-mail", sl: "uporabniško ime / e-pošta računa" } },
-  _USER: { software: ANC, category: "privacy", meaning: { en: "account token", sl: "žeton računa" } },
-  _ENCR: { software: ANC, category: "privacy", meaning: { en: "encrypted account token", sl: "šifriran žeton računa" } },
-  _WT_USER: { software: WT, category: "privacy", meaning: { en: "editing user name", sl: "uporabniško ime urejevalca" } },
+  _PUBLISH: { software: MH, category: "privacy", meaning: { en: "site publish configuration (contains account e-mail)", sl: "nastavitve objave (vsebujejo e-pošto računa)", hr: "postavke objave (sadrže e-poštu računa)" } },
+  _USERNAME: { software: MH, category: "privacy", meaning: { en: "account user name / e-mail", sl: "uporabniško ime / e-pošta računa", hr: "korisničko ime / e-pošta računa" } },
+  _USER: { software: ANC, category: "privacy", meaning: { en: "account token", sl: "žeton računa", hr: "token računa" } },
+  _ENCR: { software: ANC, category: "privacy", meaning: { en: "encrypted account token", sl: "šifriran žeton računa", hr: "šifrirani token računa" } },
+  _WT_USER: { software: WT, category: "privacy", meaning: { en: "editing user name", sl: "uporabniško ime urejevalca", hr: "korisničko ime urednika" } },
 };
 
 /** Vendor tags carrying account traces — the privacy scrub removes these. */
@@ -451,12 +457,12 @@ export function vendorTagInfo(tag: string): VendorTagInfo | undefined {
   if (MFT_TEMPLATE_TAGS.has(tag)) return MFT_TEMPLATE_INFO;
   if (/^__FLAG_\d+$/.test(tag)) return VENDOR_TAGS._FLGS;
   if (/^_FA\d+$/.test(tag)) {
-    return { software: FTM, category: "internal", meaning: { en: "custom fact link", sl: "povezava dejstva po meri" } };
+    return { software: FTM, category: "internal", meaning: { en: "custom fact link", sl: "povezava dejstva po meri", hr: "poveznica prilagođene činjenice" } };
   }
   if (/^_COLOR\d+$/.test(tag)) return VENDOR_TAGS._COLOR;
   if (/^_LIST\d+$/.test(tag)) return VENDOR_TAGS._LIST;
   if (/^_SEN[A-Z]*$/.test(tag) || tag === "_DATE_TYPE" || tag === "_PLACE_TYPE" || tag === "_DESC_FLAG" || tag === "_CONF_FLAG") {
-    return { software: "PAF", category: "internal", meaning: { en: "event sentence template", sl: "predloga stavka dogodka" } };
+    return { software: "PAF", category: "internal", meaning: { en: "event sentence template", sl: "predloga stavka dogodka", hr: "predložak rečenice događaja" } };
   }
   return undefined;
 }

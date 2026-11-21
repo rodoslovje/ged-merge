@@ -126,7 +126,7 @@ export function standardFormIn(tag: string, version: "5.5.1" | "7.0"): { form: s
  *  no standard structure for the content. */
 export interface OwnTag {
   tag: string;
-  meaning: { en: string; sl: string };
+  meaning: { en: string; sl: string; hr: string };
   /** Where it appears, in English. */
   context: string;
 }
@@ -138,6 +138,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a GEDCOM 5.5.1 submission record (SUBN), kept when the file is converted to GEDCOM 7.0, which has no such record",
       sl: "zapis o oddaji (SUBN) iz GEDCOM 5.5.1, ohranjen ob pretvorbi datoteke v GEDCOM 7.0, ki takega zapisa nima",
+      hr: "zapis o predaji (SUBN) iz GEDCOM-a 5.5.1, zadržan pri pretvorbi datoteke u GEDCOM 7.0, koji takav zapis nema",
     },
     context: "a record of its own (level 0), and the header's line that points to it (HEAD._SUBN)",
   },
@@ -146,6 +147,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a source citation on a pointer to a shared note (a SOUR under NOTE @N1@, as GEDCOM 5.5 allowed), kept when the file is converted to GEDCOM 7.0, whose pointer to a shared note has no lines of its own",
       sl: "navedba vira pri kazalcu na zapis opombe (SOUR pod NOTE @N1@, kot ga je dovoljeval GEDCOM 5.5), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, kjer kazalec na zapis opombe nima svojih vrstic",
+      hr: "navod izvora uz pokazivač na zapis bilješke (SOUR pod NOTE @N1@, kako je dopuštao GEDCOM 5.5), zadržan pri pretvorbi datoteke u GEDCOM 7.0, u kojem pokazivač na zapis bilješke nema vlastitih redaka",
     },
     context: "under a pointer to a shared note (SNOTE @N1@ in GEDCOM 7.0, NOTE @N1@ in GEDCOM 5.5.1), with the citation's own lines beneath it",
   },
@@ -154,6 +156,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a reference number where GEDCOM 5.5.1 takes none — on the submitter record (GEDCOM 7.0 SUBM.REFN, or an EXID GEDCOM 5.5.1 has no tag for) or on a place (GEDCOM 7.0 PLAC.EXID) — kept in a GEDCOM 5.5.1 file",
       sl: "referenčna številka na mestu, kjer je GEDCOM 5.5.1 ne pozna: pri zapisu avtorja (SUBM.REFN iz GEDCOM 7.0 ali EXID, za katerega GEDCOM 5.5.1 nima oznake) ali pri kraju (PLAC.EXID iz GEDCOM 7.0); ohranjena je v datoteki GEDCOM 5.5.1",
+      hr: "referentni broj na mjestu na kojem ga GEDCOM 5.5.1 ne poznaje: uz zapis autora (SUBM.REFN iz GEDCOM-a 7.0 ili EXID za koji GEDCOM 5.5.1 nema oznaku) ili uz mjesto (PLAC.EXID iz GEDCOM-a 7.0); zadržan je u datoteci GEDCOM 5.5.1",
     },
     context: "on the submitter record (SUBM) or under a place (PLAC), with its TYPE beneath it",
   },
@@ -162,6 +165,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "the record's unique identifier (GEDCOM 7.0 UID), kept in a GEDCOM 5.5.1 file",
       sl: "enolični identifikator zapisa (UID iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      hr: "jedinstveni identifikator zapisa (UID iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1",
     },
     context: "on a record or an event, where GEDCOM 7.0 writes UID",
   },
@@ -170,6 +174,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a FamilySearch Family Tree person ID (GEDCOM 7.0 EXID of the FamilySearch type), kept in a GEDCOM 5.5.1 file",
       sl: "ID osebe v drevesu FamilySearch (EXID vrste FamilySearch iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      hr: "ID osobe u stablu FamilySearch (EXID vrste FamilySearch iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1",
     },
     context: "on a person record (INDI)",
   },
@@ -178,6 +183,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "when the record was created (GEDCOM 7.0 CREA), kept in a GEDCOM 5.5.1 file",
       sl: "datum nastanka zapisa (CREA iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      hr: "datum nastanka zapisa (CREA iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1",
     },
     context: "on a record, with a DATE line under it",
   },
@@ -186,6 +192,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "an event that did not happen (GEDCOM 7.0 NO), kept in a GEDCOM 5.5.1 file",
       sl: "dogodek, ki se ni zgodil (NO iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      hr: "događaj koji se nije dogodio (NO iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1",
     },
     context: "on a person or a family record; its value is the event's tag (NO MARR)",
   },
@@ -194,6 +201,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "the date an event is sorted by (GEDCOM 7.0 SDATE), kept in a GEDCOM 5.5.1 file",
       sl: "datum, po katerem se dogodek razvršča (SDATE iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      hr: "datum po kojem se događaj razvrstava (SDATE iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1",
     },
     context: "under an event",
   },
@@ -202,6 +210,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "the time of day of an event's date (GEDCOM 7.0 DATE.TIME), kept in a GEDCOM 5.5.1 file",
       sl: "ura dogodka (DATE.TIME iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+      hr: "vrijeme događaja (DATE.TIME iz GEDCOM-a 7.0), zadržano u datoteci GEDCOM 5.5.1",
     },
     context: "under an event's DATE",
   },
@@ -210,6 +219,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a restriction notice on a media record (GEDCOM 7.0 OBJE.RESN), kept in a GEDCOM 5.5.1 file",
       sl: "omejitev dostopa do medijskega zapisa (RESN pri OBJE iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+      hr: "ograničenje pristupa medijskom zapisu (RESN uz OBJE iz GEDCOM-a 7.0), zadržano u datoteci GEDCOM 5.5.1",
     },
     context: "on a media record (OBJE)",
   },
@@ -218,6 +228,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "the media type of a note's or a source transcript's text, such as text/html (GEDCOM 7.0 MIME), kept in a GEDCOM 5.5.1 file",
       sl: "vrsta vsebine besedila opombe ali prepisa vira, na primer text/html (MIME iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+      hr: "vrsta sadržaja teksta bilješke ili prijepisa izvora, na primjer text/html (MIME iz GEDCOM-a 7.0), zadržana u datoteci GEDCOM 5.5.1",
     },
     context: "under a NOTE, a shared note record, or a source's TEXT",
   },
@@ -226,6 +237,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "the language of a note, a source transcript or a place name (GEDCOM 7.0 LANG), kept in a GEDCOM 5.5.1 file",
       sl: "jezik opombe, prepisa vira ali imena kraja (LANG iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1",
+      hr: "jezik bilješke, prijepisa izvora ili naziva mjesta (LANG iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1",
     },
     context: "under a NOTE, a shared note record, a source's TEXT, or a place (PLAC)",
   },
@@ -234,6 +246,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a translation of a note, or a media file in another format (GEDCOM 7.0 TRAN), kept in a GEDCOM 5.5.1 file",
       sl: "prevod opombe ali medijska datoteka v drugem formatu (TRAN iz GEDCOM 7.0), ohranjena v datoteki GEDCOM 5.5.1",
+      hr: "prijevod bilješke ili medijska datoteka u drugom formatu (TRAN iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1",
     },
     context: "under a NOTE, a shared note record, or a media record's FILE",
   },
@@ -242,6 +255,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "the part of a photo that shows the person or family linked to it (GEDCOM 7.0 CROP), kept in a GEDCOM 5.5.1 file with the standard's own lines beneath it; Ancestry writes the same tag with lines of its own",
       sl: "del fotografije, ki prikazuje osebo ali družino, povezano z njo (CROP iz GEDCOM 7.0), ohranjen v datoteki GEDCOM 5.5.1 z vrsticami, kot jih določa standard; Ancestry isto oznako zapisuje s svojimi vrsticami",
+      hr: "dio fotografije koji prikazuje osobu ili obitelj povezanu s njom (CROP iz GEDCOM-a 7.0), zadržan u datoteci GEDCOM 5.5.1 s recima kakve propisuje standard; Ancestry istu oznaku zapisuje s vlastitim recima",
     },
     context: "under a link to a media record (OBJE @O1@), with TOP, LEFT, WIDTH and HEIGHT beneath it",
   },
@@ -250,6 +264,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a record number a program wrote below a record's own level (GEDCOM 5.5.1 RIN under an event or a citation), kept when the file is converted to GEDCOM 7.0, which has an identifier on records only",
       sl: "številka zapisa, ki jo je program zapisal pod ravnjo samega zapisa (RIN iz GEDCOM 5.5.1 pri dogodku ali navedbi vira), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, ki identifikator pozna samo pri zapisih",
+      hr: "broj zapisa koji je program zapisao ispod razine samog zapisa (RIN iz GEDCOM-a 5.5.1 uz događaj ili navod izvora), zadržan pri pretvorbi datoteke u GEDCOM 7.0, koji identifikator poznaje samo uz zapise",
     },
     context: "under an event, a citation or another line below a record's own level",
   },
@@ -258,6 +273,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "an Ancestral File number written below a record's own level (GEDCOM 5.5.1 AFN), kept when the file is converted to GEDCOM 7.0, which has an identifier on records only",
       sl: "številka iz zbirke Ancestral File, zapisana pod ravnjo samega zapisa (AFN iz GEDCOM 5.5.1), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, ki identifikator pozna samo pri zapisih",
+      hr: "broj iz zbirke Ancestral File zapisan ispod razine samog zapisa (AFN iz GEDCOM-a 5.5.1), zadržan pri pretvorbi datoteke u GEDCOM 7.0, koji identifikator poznaje samo uz zapise",
     },
     context: "under an event, a citation or another line below a record's own level",
   },
@@ -266,6 +282,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "a permanent record file number written below a record's own level (GEDCOM 5.5.1 RFN), kept when the file is converted to GEDCOM 7.0, which has an identifier on records only",
       sl: "stalna številka zapisa, zapisana pod ravnjo samega zapisa (RFN iz GEDCOM 5.5.1), ohranjena ob pretvorbi datoteke v GEDCOM 7.0, ki identifikator pozna samo pri zapisih",
+      hr: "stalni broj zapisa zapisan ispod razine samog zapisa (RFN iz GEDCOM-a 5.5.1), zadržan pri pretvorbi datoteke u GEDCOM 7.0, koji identifikator poznaje samo uz zapise",
     },
     context: "under an event, a citation or another line below a record's own level",
   },
@@ -274,6 +291,7 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
     meaning: {
       en: "the sex X — does not fit only male or only female (GEDCOM 7.0 SEX X) — kept beside SEX U in a GEDCOM 5.5.1 file",
       sl: "spol »Drugo« (SEX X iz GEDCOM 7.0) za osebo, ki ni samo moškega ali samo ženskega spola, ohranjen ob SEX U v datoteki GEDCOM 5.5.1",
+      hr: "spol „Drugo“ (SEX X iz GEDCOM-a 7.0) za osobu koja nije isključivo muškog ili isključivo ženskog spola, zadržan uz SEX U u datoteci GEDCOM 5.5.1",
     },
     context: "under SEX",
   },
@@ -488,7 +506,7 @@ export const SEEN_IN: Record<string, readonly string[]> = {
 export interface TermsEntry {
   vendor: string;
   tag: string;
-  meaning: { en: string; sl?: string };
+  meaning: { en: string; sl?: string; hr?: string };
   /** The program as the vendor-tag registry names it (`MacFamilyTree/FamilySearch`). */
   software: string;
   category?: VendorTagCategory;
