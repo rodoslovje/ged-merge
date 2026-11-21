@@ -75,8 +75,36 @@ export function captureBaseline(
   labelIndividual: (id: string) => string | undefined,
   labelFamily: (id: string) => string | undefined,
 ): SaveBaseline {
+  const steps = baselineSteps(dataset, labelIndividual, labelFamily);
+  for (;;) {
+    const next = steps.next();
+    if (next.done) return next.value;
+  }
+}
+
+/** Records fingerprinted between two pauses of {@link baselineSteps}. */
+const BASELINE_CHUNK = 256;
+
+/**
+ * {@link captureBaseline} as a pass that can be paused: it yields every few
+ * hundred records and returns the baseline at the end. The whole pass is two
+ * seconds on a file of half a million people — too long for one idle moment.
+ *
+ * The records must not change while a pass is paused: whoever is about to
+ * change one runs the pass to its end first.
+ */
+export function* baselineSteps(
+  dataset: Dataset,
+  labelIndividual: (id: string) => string | undefined,
+  labelFamily: (id: string) => string | undefined,
+): Generator<void, SaveBaseline, void> {
   const baseline: SaveBaseline = new Map();
+  let sinceYield = 0;
   for (const record of dataset.records) {
+    if (++sinceYield > BASELINE_CHUNK) {
+      sinceYield = 1;
+      yield;
+    }
     if (!record.xref) continue;
     const kind = record.tag === "INDI" ? "individual" : record.tag === "FAM" ? "family" : "record";
     const label =
