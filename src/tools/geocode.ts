@@ -10,6 +10,7 @@ import { applyPassSafely } from "./passSafety";
 import { HIGH_CONFIDENCE, lookupPlace, type GazCandidate, type GazetteerIndex } from "../geo/gazetteer";
 import { placeCountryFacet } from "../geo/placeCountry";
 import type { GeocodeDecision } from "../persist/geoDb";
+import { finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
 
 // The Geocode-places tool (MAPVIEW.md phase 2): scan the file's distinct
 // PLAC strings, propose gazetteer candidates for the ones without
@@ -279,6 +280,34 @@ export function scanGeocode(
   /** The country a value naming none stands in — see {@link countryOf}. */
   home = "",
 ): GeocodeScan {
+  return finish(geocodeSteps(dataset, index, decisions, home));
+}
+
+/** {@link scanGeocode} in slices: a whole-file pass and then a gazetteer
+ *  lookup per distinct place, with the page painting in between. */
+export function startGeocodeScan(
+  dataset: Dataset,
+  index: GazetteerIndex | undefined,
+  decisions: ReadonlyMap<string, GeocodeDecision>,
+  home = "",
+): SlicedBuild<GeocodeScan> {
+  return sliced(geocodeSteps(dataset, index, decisions, home));
+}
+
+/** Records read, and distinct places looked up, between two pauses. */
+const GEOCODE_RECORD_CHUNK = 512;
+const GEOCODE_PLACE_CHUNK = 32;
+/** The share of the scan that reading the records is taken to be. */
+const GEOCODE_READ_SHARE = 0.5;
+
+function* geocodeSteps(
+  dataset: Dataset,
+  index: GazetteerIndex | undefined,
+  decisions: ReadonlyMap<string, GeocodeDecision>,
+  home: string,
+): BuildSteps<GeocodeScan> {
+  const records = dataset.individuals.size + dataset.families.size || 1;
+  let seen = 0;
   const groups = new Map<
     string,
     {
@@ -315,16 +344,23 @@ export function scanGeocode(
       }
     });
   };
-  for (const indi of dataset.individuals.values()) visitRecord(indi.raw, [indi.id]);
-  for (const fam of dataset.families.values())
+  for (const indi of dataset.individuals.values()) {
+    if (++seen % GEOCODE_RECORD_CHUNK === 0) yield (GEOCODE_READ_SHARE * seen) / records;
+    visitRecord(indi.raw, [indi.id]);
+  }
+  for (const fam of dataset.families.values()) {
+    if (++seen % GEOCODE_RECORD_CHUNK === 0) yield (GEOCODE_READ_SHARE * seen) / records;
     visitRecord(fam.raw, [fam.husband, fam.wife].filter((id): id is string => !!id));
+  }
 
   const rows: GeocodeRow[] = [];
   const placed: GeocodeRow[] = [];
   let coveredDistinct = 0;
   let totalOccurrences = 0;
   let coveredOccurrences = 0;
+  let looked = 0;
   for (const [key, g] of groups) {
+    if (++looked % GEOCODE_PLACE_CHUNK === 0) yield GEOCODE_READ_SHARE + ((1 - GEOCODE_READ_SHARE) * looked) / (groups.size + 1);
     totalOccurrences += g.count;
     coveredOccurrences += g.count - g.missing;
     if (!g.missing) {

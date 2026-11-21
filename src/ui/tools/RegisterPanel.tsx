@@ -5,7 +5,8 @@ import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { loadDecisions, type GeocodeDecision } from "../../persist/geoDb";
 import { checkPlacesAgainstRegister, type RegisterCheckReport } from "../../tools/registerCheck";
-import { scanAddresses, type AddressRename } from "../../tools/addresses";
+import type { AddressRename } from "../../tools/addresses";
+import { useAddressRows } from "./useAddressRows";
 import { isOfflineQuery } from "../../geo/rn";
 import { createKinshipResolver } from "../../match/kinship";
 import { useDatasetDerivations } from "../DatasetDerivations";
@@ -141,11 +142,8 @@ export function RegisterPanel({
     fileCoords,
   } = usePlaceFields(dataset, { depth: FULL_CHAIN, ...(index ? { index } : {}) });
 
-  const addrRows = useMemo(
-    () => derivations?.addressRows() ?? scanAddresses(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
+  const addrRows = useAddressRows(dataset, scanGen);
+
   const kinship = useMemo(
     () =>
       startId && appSettings.showKinship
