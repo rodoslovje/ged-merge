@@ -16,6 +16,7 @@ import { childGroups, isBefore, planEntry } from "./narrative";
 import { narrativeEntry, narrativeLangFor, narrativeParagraph } from "./narrativeText";
 import { narrativeEn } from "./lang/en";
 import { narrativeSl } from "./lang/sl";
+import { narrativeHr } from "./lang/hr";
 import { reportToText } from "./text";
 
 function dataset(text: string) {
@@ -112,6 +113,50 @@ describe("sl date phrases", () => {
       "štiri otroke",
       "5 otrok",
       "101 otroka",
+    ]);
+  });
+});
+
+describe("hr date phrases", () => {
+  const phrase = (raw: string) => narrativeHr.datePhrase(parseDate(raw));
+  it.each([
+    // genitive months and a dotted year; a year alone gets "godine"
+    ["5 MAY 1848", "5. svibnja 1848."],
+    ["MAY 1848", "u svibnju 1848."],
+    ["1848", "1848. godine"],
+    ["ABT 1848", "oko 1848. godine"],
+    ["BEF 5 MAY 1848", "prije 5. svibnja 1848."],
+    ["AFT NOV 1848", "nakon studenoga 1848."],
+    // two bare years share one "godine"
+    ["BET 1848 AND 1850", "između 1848. i 1850. godine"],
+    ["BET MAY 1848 AND JUN 1850", "između svibnja 1848. i lipnja 1850."],
+    ["FROM 1848 TO 1850", "od 1848. godine do 1850. godine"],
+    ["@#DJULIAN@ 14 JAN 1700", "14. siječnja 1700. (po julijanskom kalendaru)"],
+    ["44 BCE", "44. pr. Kr."],
+  ])("%s → %s", (raw, expected) => {
+    expect(phrase(raw)).toBe(expected);
+  });
+
+  it("labels a date as a form would", () => {
+    expect(narrativeHr.dateLabel(parseDate("5 MAY 1848"))).toBe("5. svibnja 1848.");
+    expect(narrativeHr.dateLabel(parseDate("MAY 1848"))).toBe("svibanj 1848.");
+    expect(narrativeHr.dateLabel(parseDate("1848"))).toBe("1848.");
+    expect(narrativeHr.dateLabel(parseDate("EST 1848"))).toBe("oko 1848. godine (procijenjeno)");
+  });
+
+  it("reads typed Croatian month words", () => {
+    expect(narrativeHr.dateLabel(parseDate("5. svibnja 1848"))).toBe("5. svibnja 1848.");
+    expect(narrativeHr.dateLabel(parseDate("prije 3. ožujka 1900"))).toBe("prije 3. ožujka 1900.");
+  });
+
+  it("counts children with the collective numerals", () => {
+    expect([1, 2, 3, 4, 5, 21].map((n) => narrativeHr.childCount(n))).toEqual([
+      "jedno dijete",
+      "dvoje djece",
+      "troje djece",
+      "četvero djece",
+      "5 djece",
+      "21 dijete",
     ]);
   });
 });

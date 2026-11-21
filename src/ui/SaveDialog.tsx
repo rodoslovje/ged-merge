@@ -12,7 +12,7 @@ import { customEventLabel, eventDisplayLabel } from "../gedcom/eventTags";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
 import { EVENT_ORDER } from "../review/fields";
-import { MULTI, vendorTagInfo } from "../gedcom/vendorTags";
+import { MULTI, inLanguage, vendorTagInfo } from "../gedcom/vendorTags";
 import { charsetNotices } from "./charsetNotice";
 import { completeStructure, convertVersion, outputOptions, ownVersion, type OutputVersion } from "../save/outputFile";
 import { cloneNode } from "../gedcom/node";
@@ -614,7 +614,7 @@ export function SaveDialog({
               <ul className="preview-custom-tags">
                 {customTagEntries.map(([tag, nodes]) => {
                   const info = vendorTagInfo(tag);
-                  const meaning = info && (i18n.language.startsWith("sl") ? info.meaning.sl : info.meaning.en);
+                  const meaning = info && inLanguage(info.meaning, i18n.language);
                   return (
                     <li key={tag}>
                       <label>

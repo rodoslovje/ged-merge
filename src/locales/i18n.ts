@@ -2,17 +2,19 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import { en } from "./en";
 import { sl } from "./sl";
+import { hr } from "./hr";
 
-export const SUPPORTED_LANGUAGES = ["en", "sl"] as const;
+export const SUPPORTED_LANGUAGES = ["en", "sl", "hr"] as const;
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
 
 /** Each language's flag, and the language in its own name behind it — the
  *  language pickers. */
-export const LANGUAGE_FLAGS: Record<Language, string> = { en: "🇬🇧", sl: "🇸🇮" };
-export const LANGUAGE_NAMES: Record<Language, string> = { en: "English", sl: "Slovenščina" };
+export const LANGUAGE_FLAGS: Record<Language, string> = { en: "🇬🇧", sl: "🇸🇮", hr: "🇭🇷" };
+export const LANGUAGE_NAMES: Record<Language, string> = { en: "English", sl: "Slovenščina", hr: "Hrvatski" };
 export const LANGUAGE_LABELS: Record<Language, string> = {
   en: `${LANGUAGE_FLAGS.en} ${LANGUAGE_NAMES.en}`,
   sl: `${LANGUAGE_FLAGS.sl} ${LANGUAGE_NAMES.sl}`,
+  hr: `${LANGUAGE_FLAGS.hr} ${LANGUAGE_NAMES.hr}`,
 };
 
 /** Minimal shape of react-i18next's `t()` shared by helpers that take it. */
@@ -34,6 +36,7 @@ i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
     sl: { translation: sl },
+    hr: { translation: hr },
   },
   lng: detectLanguage(),
   fallbackLng: "en",
@@ -49,10 +52,15 @@ i18n.on("languageChanged", (lng) => localStorage.setItem(STORAGE_KEY, lng));
 // reloaded by hand — which reads as a missing translation rather than a stale
 // one. Re-register on every hot update instead. Stripped from the build.
 if (import.meta.hot) {
-  import.meta.hot.accept(["./en", "./sl"], (mods) => {
-    const [nextEn, nextSl] = mods as [{ en: typeof en } | undefined, { sl: typeof sl } | undefined];
+  import.meta.hot.accept(["./en", "./sl", "./hr"], (mods) => {
+    const [nextEn, nextSl, nextHr] = mods as [
+      { en: typeof en } | undefined,
+      { sl: typeof sl } | undefined,
+      { hr: typeof hr } | undefined,
+    ];
     i18n.addResourceBundle("en", "translation", nextEn?.en ?? en, true, true);
     i18n.addResourceBundle("sl", "translation", nextSl?.sl ?? sl, true, true);
+    i18n.addResourceBundle("hr", "translation", nextHr?.hr ?? hr, true, true);
     void i18n.changeLanguage(i18n.language); // nudge the listeners into re-rendering
   });
 }
