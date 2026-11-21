@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { FieldSuggestionIndex, type FieldSuggestions } from "./edit/fieldSuggestions";
 import type { ChangeJournal } from "../state/mainSync";
-import { scanAddresses, type AddressRow } from "../tools/addresses";
+import { startAddressScan, type AddressRow } from "../tools/addresses";
+import type { SlicedBuild } from "../tools/sliced";
 import { createKinshipResolver, type KinshipResolver } from "../match/kinship";
 import { buildAssociationIndex, type AssociationIndex } from "../gedcom/assoc";
 import {
@@ -40,6 +41,9 @@ export interface DatasetDerivations {
   fieldSuggestions: () => FieldSuggestions;
   /** The place+address rows of the whole file (the Addresses tab's unit). */
   addressRows: () => AddressRow[];
+  /** The same scan, to be run in slices (see `useAddressRows`); one per
+   *  version, so every panel that asks moves the same scan on. */
+  addressScan: () => SlicedBuild<AddressRow[]>;
   /** Every coordinate the file already carries — the faint context dots on
    *  every map these tools draw, and a whole-file pass that both the geocoding
    *  and the naming page were making one each of. */
@@ -93,10 +97,16 @@ export function DatasetDerivationsProvider({
   const value = useMemo<DatasetDerivations | null>(() => {
     if (!dataset) return null;
     const placeValues = lazy(() => collectPlaceValues(dataset));
+    const addressScan = lazy(() => startAddressScan(dataset));
     return {
       version,
       fieldSuggestions: lazy(() => suggestionIndex.get(dataset, changes, version)),
-      addressRows: lazy(() => scanAddresses(dataset)),
+      addressScan,
+      addressRows: () => {
+        const scan = addressScan();
+        scan.step(Infinity);
+        return scan.result!;
+      },
       fileCoords: lazy(() => collectFileCoords(dataset)),
       placeValues,
       homeCountry: lazy(() => detectHomeCountry(placeValues())),

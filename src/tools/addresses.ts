@@ -21,6 +21,7 @@ import { reconcilePlaceForm, sameWrittenCoord, setPlaceCoord } from "../gedcom/e
 import { removeChildren } from "../gedcom/node";
 import { addressPartNodes, addressText, eventAddressNode } from "../gedcom/address";
 import { renameInValue } from "./placeEdit";
+import { finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
 
 // Geocoding the address of an event, as opposed to the place around it.
 //
@@ -137,6 +138,22 @@ export interface AddressRow {
  * directly and listing it here would ask the same question twice.
  */
 export function scanAddresses(dataset: Dataset): AddressRow[] {
+  return finish(addressSteps(dataset));
+}
+
+/** {@link scanAddresses} in slices: two seconds of work on a file of half a
+ *  million people, with the page painting in between. */
+export function startAddressScan(dataset: Dataset): SlicedBuild<AddressRow[]> {
+  return sliced(addressSteps(dataset));
+}
+
+/** Records read between two pauses of the scan. */
+const ADDRESS_CHUNK = 512;
+
+function* addressSteps(dataset: Dataset): BuildSteps<AddressRow[]> {
+  // Both passes read every person and every family once.
+  const total = 2 * (dataset.individuals.size + dataset.families.size) || 1;
+  let seen = 0;
   // One decomposition per distinct PLAC+ADDR pair: a file that writes its
   // addresses in the place value has as many distinct values as events, and
   // both passes below ask the same question of every one of them.
@@ -170,8 +187,14 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
         else settlementCoords.set(place, new Set([at]));
       }
     });
-  for (const indi of dataset.individuals.values()) collect(indi.raw);
-  for (const fam of dataset.families.values()) collect(fam.raw);
+  for (const indi of dataset.individuals.values()) {
+    if (++seen % ADDRESS_CHUNK === 0) yield seen / total;
+    collect(indi.raw);
+  }
+  for (const fam of dataset.families.values()) {
+    if (++seen % ADDRESS_CHUNK === 0) yield seen / total;
+    collect(fam.raw);
+  }
 
   /**
    * True when this coordinate is the settlement's own — the one the file uses
@@ -249,9 +272,14 @@ export function scanAddresses(dataset: Dataset): AddressRow[] {
       for (const id of personIds) g.people.add(id);
     });
   };
-  for (const indi of dataset.individuals.values()) visit(indi.raw, [indi.id]);
-  for (const fam of dataset.families.values())
+  for (const indi of dataset.individuals.values()) {
+    if (++seen % ADDRESS_CHUNK === 0) yield seen / total;
+    visit(indi.raw, [indi.id]);
+  }
+  for (const fam of dataset.families.values()) {
+    if (++seen % ADDRESS_CHUNK === 0) yield seen / total;
     visit(fam.raw, [fam.husband, fam.wife].filter((id): id is string => !!id));
+  }
 
   return [...groups.entries()]
     .map(([key, g]) => ({

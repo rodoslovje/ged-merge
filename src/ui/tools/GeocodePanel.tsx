@@ -11,7 +11,7 @@ import {
   placeAddrKey,
   reconcileNoMatchAfterScan,
   reconcilePicksAfterScan,
-  scanGeocode,
+  startGeocodeScan,
   scanKeys,
   type GeocodeScan,
   type ChosenCoord,
@@ -30,7 +30,10 @@ import { PlaceLookupProvider } from "../edit/PlaceLookupContext";
 import { usePlaceFields } from "../edit/usePlaceFields";
 import { GazetteerSetup, useGazetteer } from "./GazetteerManager";
 import { AddressCoordsSection } from "./AddressCoordsSection";
-import { addressesByPlace, replaceLocality, scanAddresses, type AddressRename } from "../../tools/addresses";
+import { addressesByPlace, replaceLocality, type AddressRename } from "../../tools/addresses";
+import { built } from "../../tools/sliced";
+import { useSlicedBuild } from "../useSlicedBuild";
+import { useAddressRows } from "./useAddressRows";
 import { CoordConflicts } from "./CoordConflicts";
 import { CountryChips, countryFacet } from "./CountryChips";
 import { countrySpelling, type HomeCountryDetection } from "../../geo/homeCountry";
@@ -159,19 +162,20 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
       setScanGen((g) => g + 1);
     }
   }, [active, editVersion]);
-  // Deferred behind a paint (the same reason useToolsScans defers): the scan
-  // is a whole-file pass with a gazetteer lookup per distinct place, and run
-  // inside a render-time memo it blocked the frame that showed the page —
-  // seconds of white on an index-scale file. The page's loading state already
-  // covers the beat where `scan` is still null.
+  // In slices (see `tools/sliced`): the scan is a whole-file pass with a
+  // gazetteer lookup per distinct place — seconds on an index-scale file. The
+  // page's loading state covers the first one; a re-scan keeps the last
+  // result on screen until the new one is through.
+  // scanGen re-runs the scan after an apply mutates the dataset in place.
+  const scanBuild = useSlicedBuild<GeocodeScan | null>(
+    () => (decisions ? startGeocodeScan(dataset, index, decisions, home) : built(null)),
+    [dataset, index, decisions, scanGen, home],
+  );
   const [scan, setScan] = useState<GeocodeScan | null>(null);
+  const scanned = scanBuild.result;
   useEffect(() => {
-    if (!decisions) return;
-    // scanGen re-runs the scan after an apply mutates the dataset in place.
-    const id = window.setTimeout(() => setScan(scanGeocode(dataset, index, decisions, home)), 0);
-    return () => window.clearTimeout(id);
-
-  }, [dataset, index, decisions, scanGen, home]);
+    if (scanned) setScan(scanned);
+  }, [scanned]);
 
   // What this page's fields are built on: the file's own places (the same list
   // and canonical casing the Edit event fields complete from), the place+address
@@ -182,11 +186,8 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
 
   // The address rows the section below reviews — scanned here because the
   // Places/Addresses tab bar needs the count before the section renders.
-  const addrRows = useMemo(
-    () => derivations?.addressRows() ?? scanAddresses(dataset),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, scanGen],
-  );
+  const addrRows = useAddressRows(dataset, scanGen);
+
   // Kinship labels for the expanded row's people list — same resolver and
   // display gate (the Kinship display setting) as the Map's event panel.
   // scanGen keys the refresh: a merge or edit used to leave these labels
