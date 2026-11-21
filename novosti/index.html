@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../icons/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="../icons/app-icon-180.png" />
+    <meta name="theme-color" content="#151310" />
+    <title>Novosti — GED Merge | uređivanje, usporedba i spajanje datoteka GEDCOM</title>
+    <meta
+      name="description"
+      content="Što je novo u GED Mergeu, besplatnom alatu u pregledniku za uređivanje, usporedbu i spajanje datoteka GEDCOM — najnovije promjene prve."
+    />
+    <link rel="canonical" href="https://gedmerge.com/novosti/" />
+    <link rel="alternate" hreflang="en" href="https://gedmerge.com/changelog/" />
+    <link rel="alternate" hreflang="sl" href="https://gedmerge.com/posodobitve/" />
+    <link rel="alternate" hreflang="hr" href="https://gedmerge.com/novosti/" />
+    <link rel="alternate" hreflang="x-default" href="https://gedmerge.com/changelog/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Novosti — GED Merge" />
+    <meta property="og:description" content="Što je novo u GED Mergeu — najnovije promjene prve." />
+    <meta property="og:url" content="https://gedmerge.com/novosti/" />
+    <meta property="og:image" content="https://gedmerge.com/gedmerge-workbench.png" />
+    <meta property="og:image:width" content="2400" />
+    <meta property="og:image:height" content="1260" />
+    <meta property="og:site_name" content="GED Merge" />
+    <meta property="og:locale" content="hr_HR" />
+    <meta property="og:locale:alternate" content="en" />
+    <meta property="og:locale:alternate" content="sl_SI" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Novosti — GED Merge" />
+    <meta name="twitter:description" content="Što je novo u GED Mergeu — najnovije promjene prve." />
+    <meta name="twitter:image" content="https://gedmerge.com/gedmerge-workbench.png" />
+
+    <script>
+      // Set the theme before first paint to avoid a flash: saved choice, else
+      // the OS preference. Kept in sync with the main app (App.tsx).
+      (function () {
+        try {
+          var saved = localStorage.getItem("gedmerge.theme");
+          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
+    <script type="module" src="/src/changelog-entry.ts"></script>
+  </head>
+  <body>
+    <!-- ── Top header bar (matches the app) ─────────────────────────────────── -->
+    <header class="guide-topbar">
+      <div class="guide-topbar-inner">
+        <a class="gm-wordmark-link" href="../" aria-label="GED Merge">
+          <span class="gm-wordmark">
+            <span class="gm-wordmark-logo">
+              <svg width="33" height="33" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="9" y1="31" x2="9" y2="11" />
+                <line x1="9" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="11" x2="20" y2="23.5" />
+                <line x1="31" y1="31" x2="31" y2="11" />
+                <circle cx="9" cy="11" r="3.3" />
+                <circle cx="31" cy="11" r="3.3" />
+                <circle cx="20" cy="23.5" r="3.3" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span class="gm-wordmark-text"><span class="gm-wordmark-ged">GED</span><span class="gm-wordmark-merge">&nbsp;Merge</span></span>
+          </span>
+        </a>
+        <div class="guide-topbar-controls">
+          <button type="button" class="nav-btn icon-only" id="gm-theme" aria-label="Promijeni temu" title="Promijeni temu">🌙</button>
+          <a class="guide-lang" href="../changelog/" hreflang="en" lang="en">English</a>
+          <a class="guide-lang" href="../posodobitve/" hreflang="sl" lang="sl">Slovenščina</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="guide-shell changelog-shell">
+      <main class="guide-main">
+        <header class="guide-header">
+          <h1>Novosti</h1>
+          <p>Nove mogućnosti i veća poboljšanja u GED Mergeu, najnovije prve.</p>
+        </header>
+
+        <article class="guide-body changelog-body">
+          <section class="changelog-entry">
+            <h2>2026-11-20</h2>
+            <ul>
+              <li><strong>Cjelovito stablo prikazuje sve koji su povezani s nekom osobom</strong> — novi odabir <em>Cjelovito</em> u <em>Dijagrami → Stablo</em> crta krvne srodnike, njihove supružnike i obitelji supružnika kao numerirana stabla, svaku obiteljsku lozu samo jednom, a pri ispisu ih slaže na što manje listova.</li>
+              <li><strong>Brata ili sestru dodajte izravno iz retka braće i sestara</strong> — gumb <em>+ Dodaj brata/sestru</em> ispod roditelja u Uređivanju dodaje postojeću ili novu osobu u obitelj kao brata ili sestru.</li>
+              <li><strong>Spol nove osobe određuje se prema njezinu imenu</strong> — osoba dodana u Uređivanju označuje se kao muška ili ženska prema imenu koje upišete, a kad ime to ne otkriva, spol ostaje nepoznat.</li>
+              <li><strong>„Dodaj izvor“ po nazivu pronalazi izvor koji već postoji u datoteci</strong> — upišite naslov ili autora knjige u <em>+ Dodaj izvor</em> i navedite postojeći izvor s drugom stranicom, a <em>Navedi ponovno</em> uz navod dodaje još jedan na istom mjestu.</li>
+              <li><strong>Provjera navodi nekorištene zapise</strong> — novi filtar <em>Nekorišteni zapisi</em> imenuje bilješke, medije i izvore na koje ništa u datoteci ne upućuje.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-19</h2>
+            <ul>
+              <li><strong>3D mreža prikazuje cijelu obitelj odjednom</strong> — <em>Dijagrami → 3D mreža</em> crta krvne srodnike, jednu granu ili sve grane datoteke kao obitelji koje vise ispod svojih roditelja, obojene prema obiteljskoj lozi, državi ili prezimenu, s pretraživanjem i pločom osobe kao na ostalim dijagramima.</li>
+              <li><strong>Nepovezane grane preuzimaju se i uklanjaju skupno</strong> — grane iz Provjere mogu se označiti i preuzeti zajedno u jednoj datoteci GEDCOM, svaka u svojoj datoteci unutar jednog ZIP-a, ili ukloniti odjednom, a uz svaku granu stoje godine koje obuhvaća.</li>
+              <li><strong>Potražite osobu u Hrvatskom rodoslovnom indeksu</strong> — ploča <em>Pretraživanje</em> u Uređivanju navodi i uspoređuje njegova podudaranja jednako kao ona iz slovenskog indeksa, a u <em>Postavke › Napredno › Pretraga osoba</em> svaku stranicu za pretraživanje možete uključiti ili isključiti.</li>
+              <li><strong>Obiteljska web-stranica živu osobu može prikazati samo kao „živ“ ili „živa“</strong> — novi odabir pod <em>Žive osobe</em> objavljuje samo da osoba postoji, njezin spol i mjesto u obitelji, a imenuje je „živ“ ili „živa“, odnosno nedavno preminule „preminuo“ ili „preminula“.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-18</h2>
+            <ul>
+              <li><strong>Alat DNK priprema vaše stablo za stranice za testiranje DNK-a</strong> — <em>Alati → DNK</em> prikazuje očevu i majčinu lozu testirane osobe s najranijim poznatim pretkom u svakoj, spremne za kopiranje, i preuzima prezimena i mjesta njezinih predaka kao datoteku CSV za FamilyTreeDNA.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-17</h2>
+            <ul>
+              <li><strong>Potražite osobu u Slovenskom rodoslovnom indeksu</strong> — ploča <em>Pretraživanje</em> uz osobu u Uređivanju navodi podudaranja iz indeksa od najboljega nadalje, jedan redak po osobi bez obzira na to u koliko se stabala nalazi, uspoređuje svako s vašom osobom polje po polje i u nju prenosi retke koje označite, a podudaranje navodi kao izvor.</li>
+              <li><strong>Potražite osobu na FamilySearchu, Geniju i WikiTreeju</strong> — ista ploča otvara njihove stranice za pretraživanje s već upisanim imenom i godinama rođenja osobe.</li>
+              <li><strong>Vremenska crta prikazuje krvnu lozu po godinama</strong> — novi raspored <em>Crte generacija</em> postavlja pretke na godinu njihova rođenja tako da se stječu prema osobi, a potomke tako da se granaju ispod nje, s crtama života po želji, dok skrivene žive osobe stoje u desetljeću svojeg rođenja.</li>
+              <li><strong>Povijesni događaji na vremenskoj crti</strong> — <em>Povijesni događaji</em> u postavkama dijagrama označuju ratove, reforme i selidbe u državama u kojima su osobe s dijagrama živjele, i to dok su ondje živjele, ispod ravnala godina koje sada ostaje vidljivo dok se pomičete.</li>
+              <li><strong>Obiteljske loze lakše je razlikovati</strong> — loze četiriju djedova i baka na svakom su dijagramu plave, narančaste, zelene i ljubičaste, a prema njima se mogu obojiti i trake vremenske crte.</li>
+              <li><strong>Statistika prikazuje brakove među prezimenima</strong> — stranica <em>Imena</em> crta mrežu prezimena povezanih brakovima njihovih nositelja, rangira parove prezimena s najviše brakova i prikazuje najčešća prezimena desetljeće po desetljeće.</li>
+              <li><strong>Statistika prikazuje prosjeke po četvrtinama stoljeća</strong> — prosječna dob pri smrti, smrti djece, broj djece po obitelji i udaljenost selidbe računaju se po razdobljima od 25 godina umjesto po stoljećima, bez razdoblja s premalo podataka ili preblizu sadašnjosti da bi se mogla tumačiti, a dijagrami pregusti za vrijednost iznad svakog stupca dobivaju pomoćne crte.</li>
+              <li><strong>Spojena mjesta slijede nazive i pribadače vaše datoteke</strong> — povijesna krunovina i carstvo iznad sela u ulaznoj datoteci ustupaju mjesto općini i državi iz vaše datoteke, a nova kuća u selu čije kuće vaša datoteka smješta na jednu točku dobiva tu točku.</li>
+              <li><strong>Poveznice na Slovenski rodoslovni indeks postaju izvori</strong> — poveznica na osobu ili na pretraživanje na indeks.rodoslovje.si pretvara se u izvor nazvan po osobi i suradniku u čijem se stablu nalazi, i u <em>Uredi izvore</em> i u <em>Dodaj izvor</em>.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-16</h2>
+            <ul>
+              <li><strong>Podijelite svoje stablo kao obiteljsku web-stranicu</strong> — <em>Alati → Web-stranica</em> preuzima jednu stranicu HTML koju rođaci otvaraju s diska ili s bilo kojeg web-poslužitelja, s pretraživanjem, stranicom za svaku osobu, dijagramima, kartom i statistikom, a bez datoteke GEDCOM koju bi netko mogao odnijeti.</li>
+              <li><strong>Fotografije na obiteljskoj web-stranici</strong> — kad su označene <em>Fotografije</em>, web-stranica se preuzima kao ZIP sa stranicom i njezinim fotografijama, nikad s fotografijom na kojoj je skrivena osoba; stranica svake osobe prikazuje njezine fotografije s osobama označenima na njima, a vi mapu po mapu odabirete koje fotografije ulaze i koje pune traku na vrhu naslovne stranice.</li>
+              <li><strong>Podijeljena poveznica na obiteljsku web-stranicu prikazuje pretpregled</strong> — njezin naslov, vaše riječi i naslovnu fotografiju po vašem izboru, koja stoji i uz naslov na naslovnoj stranici; poveznica na dijagram srodstva imenuje obje osobe, web-stranici možete dati vlastitu ikonu i dopustiti tražilicama da je indeksiraju, web-stranica u zaglavlju i podnožju vodi na vašu glavnu rodoslovnu stranicu, a stranica osobe navodi i njezinu polubraću i polusestre.</li>
+              <li><strong>Stranica svake osobe vodi do njezinih dijagrama</strong> — mala karta njezinih mjesta i pločice za lepezu, vremensku crtu i srodstvo stoje uz ime, mjesto s koordinatom otvara se na maloj karti, osoba odabrana na dijagramu otvara svoju stranicu, uz svaki događaj stoji dob, a ondje rade i tipkovnički prečaci aplikacije.</li>
+              <li><strong>Vi odlučujete što web-stranica prikazuje</strong> — žive osobe i one koje su umrle u posljednjih 20 godina, kako traži slovenski ZVOP-2, izostavljaju se ili prikazuju inicijalima, imenom ili punim imenom i prezimenom; web-stranica obuhvaća sve osobe, krvne srodnike ili izravnu lozu, a izvori, bilješke, adrese, slojevi karte i preuzimanja ulaze samo kad ih odaberete.</li>
+              <li><strong>Statistika prikazuje gdje se obitelj rađala</strong> — stranica <em>Mjesta i selidbe</em>, koja zamjenjuje stranicu <em>Selidbe</em>, prikazuje najčešća mjesta rođenja desetljeće po desetljeće, rođenja po desetljećima obojena prema mjestu rođenja i tok od mjesta rođenja roditelja do mjesta rođenja njihove djece, po mjestima ili po državama.</li>
+              <li><strong>Dijagrame osobe otvorite tipkom</strong> — <span class="gm-key">P</span>, <span class="gm-key">L</span> i <span class="gm-key">G</span> otvaraju lepezu, vremensku crtu i kartu, dijagram srodstva seli se na <span class="gm-key">K</span>, na stranici dijagrama istim se tipkama prelazi s jednoga na drugi, a <span class="gm-key">S</span> otvara statistiku.</li>
+              <li><strong>Partneri se više ne nazivaju supružnicima</strong> — gdje datoteka ne bilježi vjenčanje, oznake srodstva kažu „Partner“ umjesto „Suprug“, „Supruga“ ili „Supružnik“.</li>
+              <li><strong>Filtrirajte po nazivu događaja i po uzroku smrti</strong> — u <em>Alati → Skupne radnje</em> filtri događaja osobe i zajednice primaju naziv ili vrijednost koju treba tražiti, poput prilagođenog događaja nazvanog „Odvojeni život“ ili zanimanja „ratar“, a novi filtar <em>Uzrok smrti</em> pronalazi zabilježeni uzrok ili onaj koji sadrži vaše riječi.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-15</h2>
+            <ul>
+              <li><strong>Spojite cijelu ulaznu datoteku sa svojom</strong> — uz odabir <em>Cijela datoteka</em> iznad popisa podudaranja spremanje unosi sve osobe iz ulazne datoteke s njihovim obiteljima, izvorima i bilješkama, spaja osobe koje potvrdite i pita što učiniti s mogućim podudaranjima koja niste pregledali.</li>
+              <li><strong>Zabilježite da se par nikad nije vjenčao</strong> — <em>+ Dodaj obiteljski događaj</em> završava skupinom <em>Nije se dogodilo</em>, svaka takva izjava zaseban je redak ispred događaja, a dijagrami uz vjenčanje označuju par koji se nikad nije vjenčao (⚯), koji se razveo (⚮) ili koji živi odvojeno (⚬⚬).</li>
+              <li><strong>Pogledajte što se preuzima u pozadini</strong> — kružić uz „Poništi“ navodi svako preuzimanje koje još traje, bez obzira na to u kojem je prikazu pokrenuto: traženje mjesta i adresa, stranice izvora i registre mjesta, svako s prikazom napretka.</li>
+              <li><strong>Preuzmite više registara mjesta odjednom</strong> — mjesta i adrese GURS-a i DGU-a preuzimaju se usporedno, svako s napretkom na vlastitom gumbu, a klik na gumb prekida preuzimanje.</li>
+              <li><strong>Preuzmite ili uklonite nepovezanu granu</strong> — <em>Nepovezane grane</em> sada navode svaku skupinu osoba koja nije povezana s glavnim stablom, prema njezinu najmlađem članu, a svaki redak preuzima cijelu granu kao datoteku GEDCOM ili je uklanja iz datoteke, kao što <em>Ukloni osobu</em> čini s nepovezanom osobom.</li>
+              <li><strong>Provjera procjenjuje datume koji nedostaju</strong> — osobi bez ključnih datuma nudi se procijenjeno rođenje, a novi nalaz <em>Vjenčanje bez datuma</em> nudi procijenjeno vjenčanje, oboje s istim datumom koji zapisuju skupne radnje procjene.</li>
+              <li><strong>Provjera ispravlja identifikatore zapisa i uklanja prilagođene oznake</strong> — <em>Ispravi identifikator</em> zapisu izvora, bilješke ili medija daje identifikator koji standard prihvaća, a sva upućivanja na zapis prate tu promjenu, dok <em>Ukloni oznaku</em> uklanja prilagođenu oznaku iz cijele datoteke.</li>
+              <li><strong>Skupne radnje pretvaraju i obiteljske događaje</strong> — <em>Pretvori vrstu događaja</em> pretvara i obiteljske događaje odabranih osoba, na primjer rastavu (<code>SEPA</code>) u imenovani događaj.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-14</h2>
+            <ul>
+              <li><strong>Procijenite datume vjenčanja skupno</strong> — skupna radnja <em>Dodaj procijenjeni datum vjenčanja (BEF, ABT)</em> vjenčanju bez datuma daje datum prema rođenju djece ili supružnika, a filtar <em>Zajednica</em> sada pronalazi vjenčanja bez datuma ili samo s procijenjenim datumom.</li>
+              <li><strong>Skupne radnje pronalaze rođenja koja još nemaju izvor</strong> — filtar <em>Izvori</em> sada se odnosi na jedan događaj, ploča prikazuje pronađene osobe uz filtre, a slike i izvori odabiru se upisivanjem dijela naziva.</li>
+              <li><strong>Imenujte lica na skupnoj fotografiji</strong> — preglednik fotografija sam pronalazi lica, na vašem računalu, a klikom na lice odabirete tko je to, pri čemu se najprije nudi uža obitelj osobe; svakom označenom području veličina se mijenja povlačenjem kutova.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-12</h2>
+            <ul>
+              <li><strong>Promijenite korijen karte iz popisa događaja</strong> — gumb sa stablom uz svaku osobu na ploči događaja karte prikazuje pretke i potomke te osobe, a ista ikona stabla zamjenjuje gumb „Korijen“ na ploči osobe ostalih dijagrama.</li>
+              <li><strong>Kućni broj upisan u mjesto premješta se u adresu</strong> — traženje <em>Žirovnica 7</em> u imenicima zapisuje puno mjesto, a <em>Žirovnica 7</em> stavlja u polje adrese.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-11</h2>
+            <ul>
+              <li><strong>Videovodiči na YouTubeu</strong> — <a href="https://www.youtube.com/@GEDMerge" target="_blank" rel="noopener">kanal GED Merge</a> korak po korak prikazuje program u radu, u <a href="https://www.youtube.com/watch?v=qEsR1sWkMNo&amp;list=PLXKQGQgTQGAY" target="_blank" rel="noopener">nizu vodiča</a> koji stalno raste.</li>
+              <li><strong>Pripovjedna izvješća razlikuju brak od izvanbračne zajednice</strong> — zajednica bez zabilježenog vjenčanja imenuje partnera i označena je s ⚯, a priča bilježi kasno vjenčanje, ponovni brak nakon udovištva, razvod ili rastavu.</li>
+              <li><strong>Svaka datoteka pamti svoju polaznu osobu</strong> — kad ponovno otvorite istu datoteku, vraća se polazna osoba koju ste za nju posljednji put odabrali.</li>
+              <li><strong>Autor datoteke može imati i vašu e-poštu i web-stranicu</strong> — upisujete ih uz svoje ime na novoj kartici „Uređivanje“ u Postavkama, a zapisuju se svugdje gdje GED Merge dodaje zapis o autoru.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-09</h2>
+            <ul>
+              <li><strong>Ponovno izračunajte podudaranja nakon uređivanja glavne datoteke</strong> — gumb ↻ uz filtar popisa podudaranja ponovno ocjenjuje datoteke i zadržava svaki potvrđeni, odbijeni i odgođeni par.</li>
+              <li><strong>Pretpregled spremanja navodi samo podudaranja koja vaša datoteka već ne potkrepljuje</strong> — supružnik, roditelj ili dijete koji u vašoj datoteci stoji na istom mjestu nije naveden.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-08</h2>
+            <ul>
+              <li><strong>Provjera navodi djecu rođenu prije vjenčanja roditelja</strong> — a vjenčanju koje datoteka samo procjenjuje daje datum prije rođenja najstarijeg djeteta.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-06</h2>
+            <ul>
+              <li><strong>Datoteke iz starijih rodoslovnih programa čitaju se ispravno, a spremanje u GEDCOM 7.0 pretvara i njihove navode, medije i svjedoke</strong> — datoteke programa Brother's Keeper označene kao ANSEL zadržavaju svoje č, š i ž, a otvaraju se i vrlo veliki izvozi iz MyHeritagea.</li>
+              <li><strong>Dijagrami obojeni prema mjestu rođenja grupiraju mjesta po državi i općini</strong> — svaka država dobiva vlastiti raspon nijansi, a svaka općina skupinu nijansi unutar njega, dok se legenda boja prelama u više redaka kako bi se vidjela svaka stavka.</li>
+              <li><strong>Ispisani dijagram zauzima veći dio papira</strong> — ispisuje se samo dio na kojem je dijagram nacrtan, a PDF se, kao i SVG, imenuje po dijagramu.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-04</h2>
+            <ul>
+              <li><strong>Vaši preci i potomci ističu se podebljanim slovima</strong> — i ime i oznaka srodstva; aplikacija i dijagrami imaju svaki svoj prekidač.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-02</h2>
+            <ul>
+              <li><strong>Dijagrami obojeni prema državi, mjestu rođenja ili prezimenu prikazuju najčešću vrijednost u osnovnoj boji dijagrama</strong> — susjedne države dobivaju srodne boje, a mjesta rođenja u istoj državi srodne nijanse.</li>
+              <li><strong>Izvoz GEDCOM iz dijagrama skriva žive osobe kad ih skriva i dijagram</strong> — kad je uključeno <em>Sakrij žive osobe</em>, svaka se zapisuje kao <em>&lt;living&gt;</em>, samo sa spolom i obiteljskim vezama.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-11-01</h2>
+            <ul>
+              <li><strong>Uređivanje prikazuje potvrđeno podudaranje onako kako će ga ostaviti spremanje</strong> — svako polje preuzeto iz ulazne datoteke i svaki srodnik kojeg spremanje povezuje pojavljuju se na svojem mjestu, u boji ulazne datoteke.</li>
+              <li><strong>Osoba koju ulazna datoteka dijeli na kopiju s roditeljima i kopiju s vlastitom obitelji spaja se u jedan zapis</strong> — znak ⧉ uz podudaranje i uz stupac „Ulazno“ navodi zapise od kojih je nastala.</li>
+              <li><strong>Traženje podudaranja čita i druga imena osobe, a potvrđeno podudaranje poravnava tu osobu među srodnicima</strong> — Milena poznata kao Helena sada se spaja s ulaznom Helenom, kao osoba, roditelj, partner ili dijete.</li>
+              <li><strong>Stupanj podudaranja i ono od čega se sastoji sada stoje uz ime u usporedbi i u stablu usporedbe</strong> — svaki je dio imenovan jednostavnim riječima.</li>
+              <li><strong>Usporedba označuje osobe koje dodaje grana prenesena iz stabla usporedbe, a roditelja ili partnera kojeg je dodalo potvrđeno podudaranje moguće je vratiti</strong> — istom oznakom „✓ dodano“ kakvu ima dodano dijete.</li>
+              <li><strong>Popis podudaranja i Duplikati mogu prikazati samo krvne srodnike, pretke ili potomke polazne osobe</strong> — isti odabir kao u Statistici.</li>
+              <li><strong>Duplikati najprije navode najsigurnije skupine</strong> — redoslijed prema veličini skupine dostupan je jednim odabirom.</li>
+              <li><strong>Datoteka ispuštena na karticu Spajanje otvara se kao ulazna datoteka</strong> — i Spajanje odmah prikazuje njezina podudaranja.</li>
+              <li><strong>Statistika dobiva nove dijagrame</strong> — mjesta vjenčanja, vjenčanja kroz vrijeme, dodatna imena i imena koja nedostaju, djecu po obitelji koja su odrasla ili umrla mlada, zanimanja po osobi i djecu predaka po generacijama.</li>
+              <li><strong>Statistika navodi najbliže slijepe ulice</strong> — pretke kojima nedostaje otac ili majka, od najbliže generacije nadalje, dok preci na više mjesta sada imenuju samo mjesto gdje se dvije loze susreću.</li>
+              <li><strong>Dijagrami statistike razdvajaju muškarce i žene</strong> — rođenja, smrti, potomci i zanimanja prikazani su u bojama spolova, a vjenčanja kao prva i kasnija.</li>
+              <li><strong>Provjera dodaje smrt koja nedostaje osobama koje bi danas imale više od 99 godina</strong> — smrt bez datuma, gumbom <em>Dodaj smrt</em> u svakom retku ili za sve odabrane zajedno.</li>
+              <li><strong>Odabrani prikaz datuma piše odrednice kao znakove</strong> — <em>~1850</em>, <em>&lt;1850</em>, <em>&gt;1850</em>, <em>1850–1860</em> za raspon i <em>1850 → 1860</em> za razdoblje, a polje datuma čita iste znakove kad ih upišete.</li>
+              <li><strong>Srodstvo imenuje srodnike po braku</strong> — supružnik srodnika i srodnici vašeg supružnika dobivaju vlastite oznake, od <em>Zet</em> i <em>Svekar / tast</em> do <em>Supruga nećaka</em>.</li>
+              <li><strong>GED Merge ima dopisnu listu za svoje korisnike</strong> — na <a href="https://groups.google.com/g/gedmerge" target="_blank" rel="noopener noreferrer">Google Groups</a>, a pridružujete joj se e-porukom na <a href="mailto:gedmerge+subscribe@googlegroups.com">gedmerge+subscribe@googlegroups.com</a>; Kontakt u podnožju sada je navodi uz adresu podrške.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-31</h2>
+            <ul>
+              <li><strong>Novi alat Statistika prikazuje vašu datoteku u brojkama na deset stranica</strong> — imena, životni vijek, obitelji, rođenja, smrti, zanimanja, selidbe, generacije i istraživanje, za cijelu datoteku ili za srodnike jedne osobe, suženo prema spolu, godinama rođenja, mjestu i državi.</li>
+              <li><strong>Svaki broj u Statistici navodi osobe iza sebe</strong> — retci potpunosti postaju radni popisi, par u srodstvu otvara dijagram srodstva između njih dvoje, a svaka kartica ili cijela stranica preuzima se kao CSV, SVG ili PNG.</li>
+              <li><strong>Statistika uspoređuje očevu i majčinu stranu</strong> — preci po generacijama i događaji s izvorom stoje jedni uz druge u bojama dviju loza.</li>
+              <li><strong>Pretraživanje i skupne radnje pronalaze osobe po tekstu u bilo kojem polju njihova zapisa</strong> — dovoljno je zanimanje, mjesto vjenčanja, stranica navoda ili riječ u bilješci.</li>
+              <li><strong>Izvor dodan dok se njegova poveznica još čita zapisuje se kad upit završi</strong> — točno kao da ste ga pričekali u dijalogu.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-25</h2>
+            <ul>
+              <li><strong>„Ujednači datoteku“ mijenja otvorenu datoteku i obavlja i popravke iz Provjere</strong> — promjene se unose u jednom koraku, a pretpregled spremanja prikazuje svaku od njih prije nego što se datoteka zapiše.</li>
+              <li><strong>Provjera zapisuje proširenja i polja izvora u standardnom obliku GEDCOM</strong> — <code>_UID</code>, <code>_FID</code> i prezime u braku u <code>_MARNM</code> postaju vlastite strukture verzije 7.0, a registarski broj izvora postaje signatura na njegovoj vezi sa spremištem.</li>
+              <li><strong>Svaka nestandardna oznaka vodi na stranicu koja je objašnjava</strong> — u Provjeri, uz događaj i u izbornicima događaja.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-24</h2>
+            <ul>
+              <li><strong>Svaka datoteka može strogo slijediti GEDCOM 5.5.1 ili 7.0 ili zadržati vlastite inačice</strong> — datoteka u koju drugi program i dalje zapisuje zadržava inačice tog programa, dok datoteka koja se drži standarda dobiva samo standardne retke, datume u standardnom obliku i spremanje u toj verziji.</li>
+              <li><strong>Provjera popravlja ono što je prije samo prijavljivala kao odstupanje od standarda</strong> — ustanova, mjesto i datumi izvora, datum fotografije, odnos djeteta prema obitelji, oznake promjena na događajima, navodi Smart Match iz MyHeritagea i stranice upisane pod pogrešnom oznakom premještaju se ondje gdje ih GEDCOM čuva, riječ po riječ.</li>
+              <li><strong>Popravci iz Provjere mogu se odabrati i pokrenuti zajedno</strong> — označite nalaze s kojima se slažete ili sve koji se mogu popraviti, i oni se izvode u jednom koraku, dok nalazi iste vrste stoje u jednom retku.</li>
+              <li><strong>Mjestima se mogu dati stari i prevedeni nazivi</strong> — stablo mjesta prikazuje druge nazive mjesta uz njega, pronalazi mjesto po njima i uređuje ih zajedno s jezikom za sve događaje odjednom, a Provjera predlaže jezik koji drugi programi izostavljaju.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-23</h2>
+            <ul>
+              <li><strong>Više standardnih događaja GEDCOM može se uređivati i spajati</strong> — među njima ređenje, krštenje odrasle osobe, blagoslov, bar i bat micva, poništenje braka, bračni ugovori i nagodbe, prebivalište i popis stanovništva kućanstva te obredi LDS-a, kao i navedena dob uz događaj i njegova adresa u označenim retcima.</li>
+              <li><strong>Datoteke se mogu spremiti kao GEDCOM 7.0 ili 5.5.1</strong> — cijela se datoteka pretvara pri spremanju, svaka spremljena datoteka ima zaglavlje koje standard zahtijeva, a datoteke GEDCOM 7 zadržavaju i prikazuju vlastite strukture: drugi spol, događaje koji se nisu dogodili, datume za razvrstavanje, vanjske identifikatore, prijevode imena i datume zapisane riječima.</li>
+              <li><strong>Provjera mjeri datoteku prema standardu GEDCOM</strong> — pronalazi ponovljene ili pogrešno smještene retke, pokazivače na pogrešnu vrstu zapisa i vrijednosti izvan popisa standarda za verziju koju navodi zaglavlje datoteke, a sigurne slučajeve ispravlja jednim klikom.</li>
+              <li><strong>Nestandardni datumi ispravljaju se jednim klikom</strong> — Provjera prepisuje datume poput <em>okoli 1850</em> ili <em>Abt. 1625</em> u oblik datuma vaše datoteke i navodi one kojima bi dan i mjesec mogli biti zamijenjeni, kako biste ih sami ispravili.</li>
+              <li><strong>Datumi izvora i fotografija upisuju se kao datumi događaja</strong> — godine koje izvor obuhvaća i datum fotografije dok pišete prikazuju se riječima i spremaju u obliku datuma vaše datoteke.</li>
+              <li><strong>Događaji mogu imati doba dana</strong> — vrijeme u 24-satnom obliku upisano nakon datuma (<em>5 MAR 1850 14:30</em>) sprema se kao vrijeme datuma GEDCOM.</li>
+              <li><strong>Vrlo velike datoteke učitavaju se i uspoređuju mnogo brže</strong> — u stablu od pola milijuna osoba podudaranja se pronalaze otprilike tri puta brže uz manje memorije, datoteka se učitava bez zamrzavanja zaslona, a cijela skupina duplikata spaja se u sekundama umjesto u minutama.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-22</h2>
+            <ul>
+              <li><strong>Datumi se mogu upisivati onako kako ih pišete</strong> — <em>5. 3. 1850</em>, <em>okoli 1850</em> ili <em>~1850</em> dok pišete prikazuje se riječima i sprema u obliku datuma vaše datoteke.</li>
+              <li><strong>Datumi se mogu prikazivati riječima ili u obliku po vašem izboru</strong> — na zaslonu može pisati <em>oko 5. ožujka 1850.</em> ili <em>5. 3. 1850.</em>, dok datoteka zadržava svoj oblik.</li>
+              <li><strong>Približni datumi pišu se kurzivom</strong> — godina koja počiva na datumu ABT, CAL, EST, BEF, AFT ili BET ispisana je kurzivom u svakom životnom vijeku na dijagramima, karticama, popisima i u izvješćima, a polje datuma u Uređivanju prelazi u kurziv dok sadrži takav datum.</li>
+              <li><strong>Provjera prijavljuje nemoguće i dvojbene datume</strong> — osim dana kojeg mjesec nema (<em>31 FEB 1850</em>), provjera strukture GEDCOM navodi obrnute raspone, dvoznamenkaste godine i datume zapisane drukčije od ostatka datoteke.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-21</h2>
+            <ul>
+              <li><strong>Uređivanje i Spajanje prikazuju još pet standardnih atributa GEDCOM</strong> — Društveni položaj, Broj brakova, Imovina, Identifikacijski broj i Broj socijalnog osiguranja prikazuju se, uspoređuju i dodaju kao i svaki drugi događaj.</li>
+              <li><strong>Nestandardni događaji odvojeni su od standardnih</strong> — oznaka događaja koju zapisuju samo neki programi (<em>_MILT</em>, <em>NOBI</em> i slično) ima vlastiti šuplji znak ◦, nosi svoju oznaku u nazivu i dolazi posljednja u svojoj skupini izbornika događaja.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-18</h2>
+            <ul>
+              <li><strong>Veze s nepotvrđenim podudaranjima označene su znakom ⚠</strong> — svaka ulazna osoba koju bi spremanje samo na prijedlog aplikacije pripojilo nekome tko je već u vašoj datoteci nosi ⚠ u usporedbi, u stablu usporedbe i u pretpregledu spremanja.</li>
+              <li><strong>Srodnici po braku među srodnicima pokazuju kako su ušli u obitelj</strong> — ispred partnera na ploči „Srodnici“ stoji ⚭ za brak, ⚮ za razvod ili ⚯ za izvanbračnu zajednicu, a rastava se crta kao ⚬⚬ gdje god se prikazuju događaji.</li>
+              <li><strong>Pretraživanje pronalazi osobu po ID-u zapisa</strong> — kad u pretraživanje osoba upišete <em>@I1262@</em> ili samo <em>I1262</em>, pronalazi se upravo ta osoba.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-16</h2>
+            <ul>
+              <li><strong>Uređivanje navodi srodnike osobe</strong> — ploča „Srodnici“ uz osobu navodi djedove i bake, stričeve, ujake i tete, bratiće i sestrične, nećake i unuke prema srodstvu i strani, onoliko generacija koliko postavite, a jednim klikom otvarate bilo koga od njih.</li>
+              <li><strong>Uređivanje prikazuje braću i sestre osobe</strong> — braća i sestre stoje ispod roditelja po redu rođenja, s osobom označenom među njima, slijede polubraća i polusestre iz druge obitelji roditelja, a jednim klikom otvarate bilo koga od njih.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-15</h2>
+            <ul>
+              <li><strong>Gornja traka stane u jedan redak</strong> — kartice načina stoje u sredini uz „Spremi“, „Poništi“ i „Ponovi“, dijagrami imaju istu traku, V otvara dijagrame iz bilo kojeg načina, a na telefonu se vrsta dijagrama, smjer, postavke i „Izvoz“ sklapaju u ☰ uz ime osobe.</li>
+              <li><strong>„Natrag“ napušta dijagrame u jednom koraku</strong> — osobe koje ste postavili kao korijen čuvaju se na popisu uz „Natrag“ sa strelicama ‹ ›, a tipke E, M i T otvaraju svoj način izravno s dijagrama.</li>
+              <li><strong>Polazna osoba postavlja se iz oznake srodstva</strong> — klik na srodstvo osobe uz njezino ime u Uređivanju vodi do polazne osobe ili polaznom postavlja ovu ili neku drugu osobu, a kad polazna osoba nije postavljena, na tom mjestu stoji oznaka <em>Postavi polaznu osobu</em>.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-04</h2>
+            <ul>
+              <li><strong>Osobe koje unosi spajanje mogu se urediti prije spremanja</strong> — dijete koje dodate uz potvrđeno podudaranje te ulazni roditelj ili partner kojeg vaša datoteka nema odmah ulaze u vašu datoteku, a podudaranje drugog roditelja prikazuje to dijete kao već dodano.</li>
+              <li><strong>Ikone izvora i poveznica odmah prikazuju opis, i na telefonu</strong> — opis se prikazuje čim mišem prijeđete preko ikone, a na zaslonu osjetljivom na dodir prikazuje ga prvi dodir, s gumbima za uređivanje izvora ili otvaranje njegove stranice.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-10-03</h2>
+            <ul>
+              <li><strong>Provjera pronalazi osobu zabilježenu kao dvaput rođenu ili umrlu</strong> — <em>Udvostručeno rođenje ili smrt</em> navodi svaki zapis s datumom i mjestom, a Uređivanje sada prikazuje svako rođenje kako biste pogrešno mogli ukloniti.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-09-21</h2>
+            <ul>
+              <li><strong>Zapis osobe i zapis obitelji mogu imenovati povezanu osobu</strong> — <em>+ Dodaj povezanu osobu</em> bilježi kuma, svjedoka ili podudaranje DNK-a koje ne pripada nijednom pojedinom događaju, svako s vlastitom bilješkom, gdje god to dopušta verzija GEDCOM vaše datoteke.</li>
+              <li><strong>Povezana osoba uređuje se ondje gdje stoji</strong> — uloga je polje s izrazom vaše datoteke, a strelica uz njega nudi rječnik, premještanje na jedan od događaja zapisa i uklanjanje.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-09-18</h2>
+            <ul>
+              <li><strong>Suvremenici crtaju prezimena vaše obitelji u prstenovima</strong> — novi raspored <em>Prezimena</em> dijeli svaki neprekinuti prsten krvne udaljenosti na po jedan pojas za svako prezime, od predaka na vrhu u smjeru kazaljke na satu preko pobočnih srodnika do potomstva, s oznakom na svakoj promjeni srodstva.</li>
+              <li><strong>Zanimanje, vjera, uzrok smrti i ostala ponavljajuća polja biraju se iz onoga što vaša datoteka već zapisuje</strong> — ulazak u polje nudi vrijednosti upravo tog polja, najčešće najprije, odvojene prema vrsti događaja, pa se zanimanje nikad ne dovršava iz vjere.</li>
+              <li><strong>Svaki događaj nosi svoj rodoslovni znak</strong> — <em>*</em> za rođenje, <em>⚭</em> za vjenčanje i <em>†</em> za smrt stoje na početku svakog retka događaja u Uređivanju, a u popisima mjesta i uz sliku stranice slijede ime i govore koji se od događaja te osobe ondje dogodio ili čiji događaj slika dokumentira.</li>
+              <li><strong>Ploča koordinata imenuje tko je još na toj adresi</strong> — osobe koje vaša datoteka bilježi na tom mjestu i adresi stoje uz kartu kao poveznice na njih, od najstarijih, gdje god se ploča otvori.</li>
+              <li><strong>Svaka ponuda na ploči koordinata numerirana je</strong> — vlastiti položaji iz datoteke i rezultati obaju pretraživanja nose broj koji ima njihova pribadača na karti, a u uskom prozoru stoje iznad nje.</li>
+              <li><strong>Pretpregled spremanja čita se i kao retci GEDCOM</strong> — prekidač uz <em>Promjene</em> prikazuje svaki zapis kao retke koje će datoteka primiti, svaki promijenjeni redak nasuprot onome koji zamjenjuje i ispod oznaka kojima pripada.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-09-15</h2>
+            <ul>
+              <li><strong>Svaki dijagram boji osobe prema vašem odabiru</strong> — nova postavka <em>Boja</em> boji prema generaciji, obiteljskoj lozi, spolu, tome je li osoba živa, državi, mjestu rođenja, prezimenu, dobi roditelja pri rođenju, životnom vijeku, stoljeću ili tome koliko je života potkrijepljeno izvorima, s legendom uz donji rub dijagrama.</li>
+              <li><strong>Dijagrami Lepeza i Krug crtaju i potomke</strong> — svaki prsten je generacija djece, isječak osobe širok je koliko i obiteljske loze koje završavaju ispod nje, svaki brak tanak je pojas nazvan po supružniku, a prstenovi blijede sa svakom generacijom.</li>
+              <li><strong>Stablo i Lepeza crtaju leptir-mašnu</strong> — kad je smjer <em>Oboje</em>, Stablo stavlja pretke s jedne strane osobe, a potomke s druge, a Lepeza dijeli jedan krug među njima, pretke gore i potomke dolje, razdijeljen prema tome koliko osoba ima svaka strana; Karta prikazuje obje grane zajedno, a Izvješće ispisuje svoja dva popisa jedan za drugim.</li>
+              <li><strong>Stablo i Lepeza dvije su vrste rodovnika</strong> — Mreža je sada izgled Stabla, a Krug izgled Lepeze, a biraju se u retku uz vrstu, pa traka kartica ima još samo sedam vrsta.</li>
+              <li><strong>Suvremenici se crtaju na karti</strong> — novi raspored <em>Karta</em> stavlja svakog krvnog srodnika u mjesto rođenja ili, ako toga nema, u najranije mjesto s koordinatama, u bojama dijagrama, a one bez koordinata navodi umjesto da nagađa gdje pripadaju.</li>
+              <li><strong>Lepeza potomaka nosi samo imena</strong> — ime predugo za svoj isječak gubi najprije prezime u braku, zatim prezime, a onda se izostavlja umjesto da se skrati na inicijal ili tri točke.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-09-14</h2>
+            <ul>
+              <li><strong>Provjera pronalazi par zabilježen u više obitelji i spaja zapise jednim klikom</strong> — nalaz imenuje partnera i zapise, a popravak prenosi svako dijete, događaj, bilješku i izvor u jednu obitelj.</li>
+              <li><strong>Pokop s datumom prije smrti se označuje</strong> — oba se datuma uspoređuju na dan točno, pa se uočava i pogreška unutar iste godine.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-09-13</h2>
+            <ul>
+              <li><strong>Izvoz rezultata pretraživanja s indeks.rodoslovje.si učitava se kao ulazna datoteka</strong> — tablica osoba ili obitelji koju indeks izvozi iz pretraživanja uspoređuje se s vašom datotekom kao druga datoteka GEDCOM, s partnerima, roditeljima i poveznicama na izvore uz svaki redak.</li>
+              <li><strong>Pretraživanje se odmah otvara u datoteci bilo koje veličine</strong> — popis osoba priprema se u pozadini nakon otvaranja datoteke i čuva do prvog uređivanja, pa u datoteci od pola milijuna osoba dijalog više ne zadržava stranicu sekundama, a ako ga otvorite prije nego što je popis spreman, prikazuje dokle je priprema stigla.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-09-10</h2>
+            <ul>
+              <li><strong>Datoteka koja stranice matičnih knjiga navodi njihovom poveznicom prepoznaje se i tako se u nju zapisuje</strong> — navod čija je stranica adresa same stranice (tako je čuva webtrees) čita se pri učitavanju i prikazuje u sažetku datoteke, a svaki navod koji spajanje ili „Dodaj izvor“ zapisuje u takvu datoteku uzima poveznicu kao stranicu, bez zapisa slike, prema novom retku <em>Navedena stranica</em> u Postavkama › GEDCOM.</li>
+              <li><strong>Ulazni navod koji stranicu matične knjige imenuje adresom zapisuje se onako kako vaša datoteka navodi tu stranicu</strong> — kao navod knjige koju vaša datoteka već čuva, s brojem stranice i njezinom slikom, a ne kao prepisana adresa; stranica podudaranja čita ga kao stranicu koju već navodite, a ne kao izvor koji treba dodati.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-09-09</h2>
+            <ul>
+              <li><strong>Bilješke zapisane kao HTML sada se čitaju kao oblikovani tekst</strong> — bilješka koju MyHeritage, Gramps ili Family Historian čuvaju kao HTML prikazuje u Uređivanju svoje odlomke, poveznice, podebljane riječi i zalijepljenu tablicu iz matične knjige; tablica usporedbe, izvješća i pretraživanje koriste njezin čisti tekst bez oznaka i kodova znakova, a sama bilješka ostaje bajt po bajt onakva kakva je bila dok je ne uredite.</li>
+              <li><strong>Bilješka se uređuje na mjestu, s malom alatnom trakom za oblikovanje</strong> — podebljano, kurziv, podcrtano, popisi i poveznice udaljeni su jedan klik, uređena bilješka HTML zapisuje se natrag kao čist, minimalan HTML bez stilskog balasta programa koji ju je izvezao, a bilješka s običnim tekstom ostaje običan tekst dok je ne oblikujete.</li>
+              <li><strong>Bilješka od više redaka stoji uz polja svojeg događaja</strong> — polja se slažu u drugi redak uz nju, umjesto da bilješka stoji sama ispod njih, pa događaj s dugom bilješkom zauzima manje mjesta na stranici.</li>
+              <li><strong>Velike datoteke učitavaju se i pretražuju za duplikate mnogo brže</strong> — datoteka od pola milijuna osoba otvara se otprilike za trećinu brže nego prije, a traženje duplikata prolazi kroz nju za manje od dvije trećine dosadašnjeg vremena, s potpuno istim rezultatima.</li>
+              <li><strong>Uobičajeno ime više samo po sebi ne čini podudaranje sigurnim</strong> — traženje podudaranja i traženje duplikata sada broje koliko osoba u datotekama nosi isto puno ime, pa dva zapisa <em>Janez Novak</em> kojima je zajednička samo procijenjena godina ostaju na popisu kao srednje podudaranje, dok rijetko ime ili puni datum rođenja i dalje postižu visok stupanj.</li>
+              <li><strong>Polja mjesta i adrese pronalaze mjesto prema dijelu svake riječi</strong> — kao pri traženju osobe, dijelovi idu bilo kojim redom i bez dijakritičkih znakova, pa <em>Zg Bitnj</em> pronalazi Zgornje Bitnje, a <em>pok Zg</em> Pokopališče Zgornje Bitnje; okviri za pretraživanje iznad stabla mjesta, popisi geokodiranja, registra i adresa te izvori na isti način čitaju ono što upišete.</li>
+              <li><strong>Svaki je prečac zapisan ondje gdje je njegova kontrola</strong> — opisi alata navode tipku za vašu platformu, popis prečaca otvara se gumbom ? u zaglavlju, počinje tipkama koje rade ondje gdje se nalazite i ispisuje se na jednoj stranici A4, a početna stranica kaže gdje ga pronaći.</li>
+              <li><strong>Svaki se popis pomiče tipkama ↑ i ↓, a dijagram obilazi obitelj s ⌥ i strelicama</strong> — Enter otvara usporedbu podudaranja, gdje 1, 2 i 3 za istaknuto polje zadržavaju glavno, uzimaju ulazno ili zadržavaju oboje; do osobe na dijagramu dolazi se tipkom Tab, odabire se tipkom Enter i otvara u Uređivanju tipkom E, dijagram se pomiče strelicama, a niz kartica mijenja se tipkama ← i →.</li>
+              <li><strong>Svaki dijalog odgovara na ⌘/Ctrl+Enter i otvara se na glavnom gumbu</strong> — Esc zatvara izbornik bez napuštanja stranice iza njega, <strong>F</strong> prikazuje filtre podudaranja, <strong>D</strong> prelazi preko para duplikata, a do redaka birača srodnika, traženja u registru te alatne trake i lokota bilješke dolazi se tipkom Tab.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-09-02</h2>
+            <ul>
+              <li><strong>Indeks matične knjige učitava se kao ulazna datoteka</strong> — slovenske tablice za indeksiranje matičnih knjiga vjenčanih i krštenih na Matricula Online postaju parovi s vjenčanjima te djeca s rođenjima, krštenjima i roditeljima, pri čemu su braća i sestre već okupljeni u jednu obitelj, a objavljena datoteka <em>.xlsx</em> otvara se bez prethodnog spremanja u CSV.</li>
+              <li><strong>Bilješke indeksera čitaju se ondje gdje slijede obrazac projekta</strong> — roditelji koje navode postaju obitelji, dob pri vjenčanju približna godina rođenja, a svjedoci i kumovi dodaju se događaju; sama bilješka uvijek se prenosi cijela.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-31</h2>
+            <ul>
+              <li><strong>Svaki događaj može imenovati osobe koje su bile prisutne, a nisu srodnici</strong> — izbornik <strong>+ Dodaj</strong> uz događaj dobiva stavku <strong>Povezana osoba</strong>, koja bilježi kuma, svjedoka, službenu osobu, susjeda ili ulogu opisanu vašim riječima; osoba koje nema u vašem stablu u datoteci GEDCOM 7 navodi se samo imenom, a ispod popisa događaja navedeni su, obrnuto, svi događaji koji imenuju <em>ovu</em> osobu.</li>
+              <li><strong>Spajanje uz osobe koje uvozi donosi i kumove i svjedoke</strong> — svaki upućuje na zapis u koji se pretvorila njegova osoba, a kumovi ulaznog događaja pregledavaju se i odabiru kao i svako drugo polje.</li>
+              <li><strong>Provjera čita osobe koje događaj imenuje</strong> — prijavljuje kuma navedenog bez uloge, osobu navedenu kao vlastitog svjedoka te osobu rođenu nakon događaja na kojem je prisutna ili umrlu prije njega.</li>
+              <li><strong>Karta crta granice godine koju gledate</strong> — oznaka „Granice“ polaže teritorije iz OpenHistoricalMapa preko karte za godinu na kojoj završava vremenski prozor, pa mjesto pokazuje carstvo, krunovinu ili kotar kojemu je pripadalo kad je zapis nastao, a pomicanje klizača odmah ih ponovno iscrtava.</li>
+              <li><strong>Datumi u julijanskom kalendaru čitaju se kao datumi.</strong> Datum koji je u datoteci označen kao julijanski — ili kao datum prije nove ere — sada svoju godinu daje razvrstavanju, dijagramima, dobi i stupnju podudaranja, a nijedan datum zapisan u kalendaru koji standard navodi više nije među nečitljivima.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-30</h2>
+            <ul>
+              <li><strong>Novi dijagram Suvremenici prikazuje svakog krvnog srodnika prema tome koliko vam je blizak</strong> — kotač vas stavlja u središte, a udaljenost od njega mjeri veze rođenjem (roditelj 1, brat ili sestra 2, stric 3, bratić 4), dok je svaki isječak jedna loza vaših djedova i baka; Trake prikazuju iste osobe kao trake životnog vijeka razvrstane prema toj udaljenosti, a oba se prikaza otvaraju na srodnicima čiji su se životi preklapali s vašim.</li>
+              <li><strong>Stablo mjesta smješta mjesto na kartu</strong> — koordinata retka ili, kad je nema, blijeda pribadača otvara cijelu ploču koordinata s kartom, pretraživanjem registra i OpenStreetMapa te ručnim unosom, a zapisuje, mijenja ili briše položaj svakog zapisa koji navodi to mjesto.</li>
+              <li><strong>Sva tri alata za mjesta otvaraju isti zaslon koordinata</strong> — radni popisi geokodiranja i provjera imenovanja sada otvaraju istu ploču kao događaji u Uređivanju, pa se selo koje ne poznaje nijedan imenik može smjestiti izravno iz provjere imenovanja.</li>
+              <li><strong>Okvir za preimenovanje u stablu mjesta dovršava iz vaše datoteke i registara</strong> — vrijednost koja ne imenuje državu može se preimenovati u mjesto koje vaša datoteka već zapisuje ili u odgovor imenika, koji sa sobom donosi cijeli niz i koordinatu.</li>
+              <li><strong>Ulica zapisana kao mjesto dijeli se na mjesto i adresu</strong> — gdje svaki zapis pod retkom ima istu vrijednost, okvir za preimenovanje u stablu ima polje „Adresa“ uz mjesto, pa „?/Grosova ulica 18“ postaje Kokrica, Kranj, Slovenija, a ulica odlazi u redak adrese samog događaja.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-29</h2>
+            <ul>
+              <li><strong>Knjige se čitaju dok pregledavate, a ne pri spremanju</strong> — stranica izvora koja će trebati potvrđenom podudaranju dohvaća se od trenutka potvrde, pa spremanje odmah otvara pretpregled umjesto da čeka mrežu.</li>
+              <li><strong>Izvor s groblja dolazi na pokop koji dokumentira</strong> — pregledava se pod pokopom koji donosi ulazni zapis, čak i ako vaša datoteka još nema vlastiti, a poveznica na grob iz CSV-a s podudaranjima već stiže na taj pokop.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-28</h2>
+            <ul>
+              <li><strong>Spojena poveznica zapisuje se kao zalijepljena</strong> — navod u koji se pretvara sada nosi sliku navedene stranice i kvalitetu dokaza koju daje sama stranica, a uz dopušteno pretraživanje na mreži izvor stvoren za nju imenuje se prema stranici knjige, a ne prema adresi.</li>
+              <li><strong>Spajanje prenosi i izvore samog para</strong> — izvori i poveznice ulaznog zapisa obitelji pregledavaju se pod tom obitelji, a stranica matične knjige vjenčanih dolazi na vjenčanje samog para.</li>
+              <li><strong>Ulazno mjesto čita se prema kući koju imenuje</strong> — vrijednost koja počinje župom umjesto naseljem smješta se u naselje po kojem vaša datoteka poznaje tu kuću, a župa se zadržava kao ustanova događaja.</li>
+              <li><strong>Polje „Ustanova“ dovršava se iz onih koje vaša datoteka već imenuje</strong> — župe i uredi koje bilježe njezini događaji nude se dok pišete.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-25</h2>
+            <ul>
+              <li><strong>Navod bilježi koliko je dobar njegov dokaz</strong> — „Dodaj izvor“ i „Uredi izvor“ imaju kvalitetu uz stranicu, a prepoznata poveznica je predlaže: snimku matične knjige kao primarni izvor, indeks ili stranicu groba kao sekundarni, stablo drugog istraživača kao upitno.</li>
+              <li><strong>Dijalozi izvora pokazuju u koji se zapis upisuje svako polje</strong> — polja samog izvora dolaze prva, a naslovi imenuju skupine ispod njih — Gdje se čuva, Navod, Poveznica — pa je jasno do kojeg zapisa dopire promjena.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-23</h2>
+            <ul>
+              <li><strong>Okvir „Adresa“ u popisu mjesta pretražuje registar adresa</strong> — dovršava iz kuća koje vaša datoteka već zapisuje u tom mjestu i dolazi do onoga što imenik naselja ne može sadržavati: kućnog broja ili gradske četvrti koju registar vodi kao ulicu unutar grada.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-22</h2>
+            <ul>
+              <li><strong>„Uredi izvore“ stavlja stranice matičnih knjiga ondje gdje pripadaju.</strong> Gdje vaša datoteka prikazuje stranicu uz činjenicu koju dokumentira, popis sada imenuje svaki navod bez stranice i svaku stranicu koju njezina knjiga ne sadrži, a jedan korak ispravlja oboje.</li>
+              <li><strong>Popisi izvora postaju kartice s vlastitim filtrom.</strong> Duplikati, spremišta, izvori i stranice dobivaju svaki svoju karticu i okvir za pretraživanje koji — kao onaj za geokodiranje — pronalazi i retke za osobu po imenu.</li>
+              <li><strong>Adresa se uklanja iz svih događaja u svojoj kući u jednom koraku.</strong> Ispraznite okvir za preimenovanje adrese u popisu geokodiranja i njegov gumb ponudit će <em>Ukloni adresu</em>, pa adresu koja samo ponavlja naselje u kojem stoji više ne treba brisati osobu po osobu.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-21</h2>
+            <ul>
+              <li><strong>Poveznica koju donosi spajanje postaje pravi izvor.</strong> Poveznica dobiva zapis izvora sa slikom stranice, a navod se pripaja događaju koji njezina matična knjiga dokumentira — indeks grobova pokopu, osmrtnica smrti — kad vaša datoteka već ima taj događaj i ondje čuva svoje navode.</li>
+              <li><strong>Strelicama obilazite obitelj u Uređivanju.</strong> Držite <span class="gm-key">⌥</span> i pritisnite strelicu da biste otvorili oca, dijete ili brata ili sestru — uz <span class="gm-key">⇧</span> majku, najmlađe dijete ili partnera.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-20</h2>
+            <ul>
+              <li><strong>Stranicu zapisa na FamilySearchu možete zamijeniti slikom iza nje.</strong> Zalijepite poveznicu na sliku u uređivač <span class="gm-glyph">✎</span> izvora i zbirka, arhiv, film i broj slike ispunit će polja, a primjena usmjerava medije u vašoj datoteci na tu sliku — stranica koju imenuje samo vlastita poveznica čeka neoznačena dok joj ne date ime.</li>
+              <li><strong>Spremljena poveznica na FamilySearch nosi sliku i zbirku bez kojih je kopirana.</strong> Broj stranice koji je upit pronašao zapisuje se natrag u poveznicu kao njezin <em>i=</em>, pa sljedeće pokretanje čita stranicu iz same poveznice umjesto da ponovno pita stranicu FamilySearch.</li>
+              <li><strong>Spremište pod kojim će stajati novi izvor odabire se u njegovu uređivaču.</strong> Redak <span class="gm-glyph">✎</span> u „Uredi izvore“ otvara se na onome što bi alat sam odabrao i prihvaća bilo koje spremište vaše datoteke, prijedlog stranice ili nijedno.</li>
+              <li><strong>Slike stranica nazivaju se po knjizi čija su stranica.</strong> Snimka koju je stranica nazvala po sebi — svaka od njih <em>FamilySearch.org</em> ili samo adresa — pri uređivanju izvora dobiva naziv izvora i broj stranice, dok se naslov koji ste sami napisali ne mijenja.</li>
+              <li><strong>Ime napisano latinski i ime napisano slovenski računaju se kao jedno ime.</strong> Jernej i Bartholomeus, Neža i Agnes, Gašper i Kaspar vrijede kao isto ime u stupnju podudaranja, u sparenim popisima srodnika i u Duplikatima, a dijete čiju godinu rođenja dvije datoteke čitaju s godinu-dvije razlike sada se poravnava s vlastitim zapisom umjesto s bratom ili sestrom iz iste godine.</li>
+              <li><strong>Spajanje zapisuje mjesta s koordinatama koje vaša datoteka već poznaje.</strong> Mjesto preneseno iz ulazne datoteke dobiva položaj koji to isto mjesto i adresa već imaju u vašoj datoteci, pa spojeni događaji stoje na karti uz sve ostalo.</li>
+              <li><strong>Rezultati pretraživanja prikazuju fotografiju svake osobe.</strong> Kad je povezana mapa medija, svaka osoba koju pretraživanje ⌕ pronađe ima malu fotografiju uz ime — svoje označeno područje na skupnoj fotografiji — pa se imenjaci razlikuju na prvi pogled.</li>
+              <li><strong>Popis potomaka u cijelosti predstavlja svakog partnera.</strong> Redak ⚭ sada navodi životni vijek partnera te imena njegova oca i majke, a zajednica bez zabilježenog datuma vjenčanja i dalje navodi partnera.</li>
+              <li><strong>Spremanje preuzima samo GEDCOM.</strong> Izvješće o promjenama — iste promjene koje je pretpregled upravo prikazao — preuzima se samo kad ga ondje označite, a odabir se pamti za sljedeći put.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-19</h2>
+            <ul>
+              <li><strong>Izvori s FamilySearcha čuvaju se pod jednim spremištem po mjestu.</strong> Novi odjeljak u „Uredi izvore“ okuplja zapise koje je datoteka čuvala po zbirkama pod državom iz koje potječu — odnosno pod saveznom državom, gdje se zapisi države objavljuju po saveznim državama — i uklanja spremišta koja ostanu prazna.</li>
+              <li><strong>Druga stranica filma s FamilySearcha pridružuje se izvoru koji taj film već ima.</strong> Film i zbirka kojima stranica pripada određuju o kojem je izvoru riječ, pa stranice kopirane s različitih adresa više ne završavaju kao zasebni izvori.</li>
+              <li><strong>Zapis izvora sam se ispunjava iz vlastite poveznice.</strong> <em>Dohvati ponovno</em> u uređivaču još jednom učitava stranicu u polja, a ona koja GEDCOM za izvor ne definira sada nose prigušenu <strong>*</strong> koja imenuje redak u koji se zapisuju.</li>
+              <li><strong>Svaki redak u „Uredi izvore“ otvara zapis koji imenuje.</strong> <span class="gm-glyph">✎</span> uz duplikat, izvor koji se premješta ili spremište države otvara isti uređivač kao stablo izvora, a redak čiji je podatak poveznica ima ↗ koji otvara stranicu.</li>
+              <li><strong>Poveznice priložene kao mediji mogu se uređivati i uklanjati.</strong> Takva se poveznica prikazuje kao zasebna oznaka 🔗 uz ikone izvora, klik na nju otvara dijalog <em>Uredi poveznicu</em> s URL-om, a kad mišem prijeđete preko bilo koje oznake poveznice, pojavljuje se ↗ koji izravno otvara stranicu.</li>
+              <li><strong>Događaj se ispunjava samo tipkovnicom.</strong> <span class="gm-key">Enter</span> vodi redak od datuma do mjesta i dalje do gumba <strong>+ Dodaj</strong>, čiji se izbornik otvara ponovnim pritiskom na <span class="gm-key">Enter</span> ili kombinacijom <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">D</span> s bilo kojeg mjesta u retku.</li>
+              <li><strong>Escape napušta polje u koje upisujete</strong> i zadržava upisano, pa vas <span class="gm-key">⌫</span> može vratiti na prethodnu osobu — kao i <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span>, i to bez napuštanja polja.</li>
+              <li><strong>Spol osobe postavlja se jednom kombinacijom tipki</strong> — <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">X</span> daje ♂, zatim ♀, zatim ?.</li>
+              <li><strong>Dijalog „Dodaj izvor“ potvrđuje se tipkovnicom</strong> — <span class="gm-key">Ctrl</span><span class="gm-key">Enter</span> pritišće <em>Dodaj</em> ili <em>Spremi</em> iz bilo kojeg polja, a sam <span class="gm-key">Enter</span> to čini iz jednorednih polja.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-18</h2>
+            <ul>
+              <li><strong>Prijedlozi mjesta slijede stil svake zemlje u vašoj datoteci.</strong> Ponuda ima onoliko razina koliko ih imaju vaša mjesta u toj zemlji — četiri za datoteku koja piše <em>Chicago, Cook, Illinois, United States</em> uz slovenska mjesta s tri razine — a nadređena mjesta napisana su na vaš način, pa se ondje gdje su vaši okruzi napisani bez dodatka <em>Kane County</em> nudi kao <em>Kane</em>.</li>
+              <li><strong>Imenovanje prepoznaje mjesto upisano unutar drugoga</strong> — četvrt ili zaselak koji stoji iznad vlastitog naselja, <em>West Pullman, Chicago, …</em>, dobiva redak <em>Mjesto u mjestu</em> koji nudi naselje, a suvišni naziv premješta se u adresni redak događaja.</li>
+              <li><strong>Imenovanje skupno uklanja prazne razine mjesta</strong> — vrijednost koju je potvrdio registar, a nosi prazno mjesto između zareza iz izvoza, nudi se kraća za jednu razinu, a <em>Preuzmi službene nazive</em> preuzima ih sve odjednom.</li>
+              <li><strong>Imenovanje bilježi izbor između istoimenih mjesta koordinatom</strong> — odgovor koji je već napisan onako kako piše vaša datoteka nudi <em>Upiši koordinatu</em>, a položaj označava na koje se od istoimenih mjesta misli.</li>
+              <li><strong>Traženje u imeniku sada završava svaki padajući izbornik mjesta</strong> — potražiti se može i mjesto koje vaša datoteka već piše, radi koordinate i punog lanca koji registar donosi.</li>
+              <li><strong>Pronađena adresa stavlja kućni broj ondje gdje ga stavlja njezina zemlja</strong> — <em>12100 Eggleston Avenue</em> u Americi, <em>Hafnarjeva pot 21</em> u Sloveniji.</li>
+              <li><strong>Alati za održavanje čuvaju datume promjena.</strong> Prolazi kroz cijelu datoteku — „Ujednači datoteku“, „Imenovanje“, „Geokodiranje“, popravci alata „Provjera“, uređivanje izvora — ostavljaju oznaku promjene svakog zapisa (CHAN ili _UPD) kakva je bila, a novu upisuju samo vaše izmjene i spajanja.</li>
+              <li><strong>U Uređivanju se vidi kada je zapis posljednji put promijenjen</strong> — podnožje kartice osobe prikazuje datum promjene koji bilježi sama datoteka.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-17</h2>
+            <ul>
+              <li><strong>„Dodaj izvor“ čita navod koji FamilySearch sastavlja za snimku</strong> — zalijepite ga i zbirka, broj snimke, ustanova koja je čuva i broj filma popunit će svoja polja, a predlaže se i spremište same zbirke, pod nazivom koji možete urediti prije nego što se stvori.</li>
+              <li><strong>Oznake srodstva koriste prave rodbinske nazive</strong> — prapradjedovi i prabake ispisani su riječima, slovenski dobiva svoje tradicionalne nazive (stari stric, pranečak, bratranec v 2. kolenu), a kratice ×N / +N sada su objašnjene u §7 uputa.</li>
+              <li><strong>„+ Dodaj partnera“ može započeti novu zajednicu</strong> — kada svaka obitelj već ima partnera, još jedna kartica nakon posljednje obitelji stvara novu.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-16</h2>
+            <ul>
+              <li><strong>Događaj može imati više bilježaka, a uređivač ih prikazuje sve</strong> — svaka je pločica s vlastitim 🔒, uređivanje ili brisanje jedne ostavlja ostale na mjestu, a druga bilješka na događaju više nije nevidljiva.</li>
+              <li><strong>„Ujednači datoteku“ može sve postojeće bilješke iskazati u jednom obliku</strong> — odaberite zajedničke zapise ili tekst u samom zapisu, posebno za bilješke zapisa i bilješke događaja, i prolaz pretvara datoteku u taj oblik.</li>
+              <li><strong>Nova bilješka piše se onako kako vaša datoteka piše bilješke</strong> — kao zajednički zapis na koji upućuju vaše osobe ili izravno u zapisu, pa se više ne ističe među bilješkama koje već imate.</li>
+              <li><strong>Skupne radnje mogu filtrirati osobe prema sadržaju bilježaka i prema privatnosti</strong> — <em>Bilješka sadrži facebook.com</em> pronalazi svakoga tko ima tu poveznicu, uspoređujući s bilješkom onako kako je napisana, pa se bilješka koja je samo poveznica pronalazi po bilo kojem svojem dijelu, a još dva filtra izdvajaju privatne zapise i osobe s privatnom bilješkom.</li>
+              <li><strong>Pregled prije spremanja označava što ostaje privatno</strong> — svaka privatna osoba, događaj i bilješka na popisu nosi 🔒 koji joj daje uređivač, a bilješka kojoj ste upravo promijenili privatnost to i kaže umjesto da ne prikaže ništa.</li>
+              <li><strong>Zbirke grobova i grobalja sada se čitaju kao zapisi o pokopu</strong> — „Ujednači datoteku“ navodi njihov obuhvat kao pokop, a njihovi navodi smještaju se na događaj pokopa osobe.</li>
+</ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-15</h2>
+            <ul>
+              <li><strong>Poveznica na snimku u FamilySearchu sada sama popunjava izvor</strong> — zalijepite poveznicu na stranicu knjige i zbirka, župa, matica, godine, arhiv i broj snimke stižu iz FamilySearcha bez prijave, izvor se veže uz spremište koje vaša datoteka vodi za tu zbirku, a ondje gdje jedna knjiga sadrži dvije matice vi odlučujete kojoj stranica pripada.</li>
+              <li><strong>„Uredi izvore“ sada upisuje u otvorenu datoteku</strong> — jedan klik primjenjuje pretvorbu poveznica i spajanje duplikata na vašu datoteku kao jedan korak, koji se sprema sa svime ostalim, umjesto da stigne kao zasebno preuzimanje GEDCOM-a.</li>
+              <li><strong>„Uredi izvore“ sada skuplja stranice knjige u jedan izvor</strong> — stotine poveznica FamilySearcha na pojedinačne snimke postaju jedan izvor po matici, a svaka poveznica navod stranice na njemu, čim pretraživanja pokažu kojoj knjizi pripada svaka stranica.</li>
+              <li><strong>Izvori mogu navesti svoj obuhvat na način standarda GEDCOM</strong> — nova postavka GEDCOM-a upisuje obuhvat matice kao standardnu strukturu DATA, s jednim unosom za svaku maticu spojene knjige, ili zadržava vlastita polja vašeg programa, a „Ujednači datoteku“ usklađuje postojeće izvore s odabirom.</li>
+              <li><strong>Spremanje sada navodi svaki zapis koji mijenja, dodaje ili uklanja</strong> — pregled i preuzeto izvješće, napokon na vašem jeziku, sve ih imenuju i broje te navode što je novododani izvor donio sa sobom.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-08-13</h2>
+            <ul>
+              <li><strong>Cijela skupina duplikata sada se spaja odjednom</strong> — osoba upisana osam puta postaje jedan zapis, a srodnici upisani jednako često spajaju se zajedno s njom kada ih označite, u jednom koraku.</li>
+              <li><strong>Svaki popravak u Provjeri sada se nudi u retku samog nalaza</strong> — riješite one s kojima se slažete jedan po jedan i odmah vidite koje bi zapise dotaknuo skupni popravak.</li>
+              <li><strong>Provjera sada vraća zamijenjene supružnike u njihove uloge</strong> — jedan klik za obitelj u kojoj je muškarac upisan kao supruga, a žena kao suprug.</li>
+              <li><strong>Datoteka iz MyHeritagea sada se čita jasnim riječima i sama održava svoje oznake promjena</strong> — nevjenčani par prikazuje se kao „Partneri (MyHeritage)“ umjesto kao kod, a brak kao „Vjenčanje (MARR)“, dok oznaka posljednje izmjene iz programa nestaje s popisa događaja i umjesto toga osvježava se na svakom zapisu koji spremite.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-08-12</h2>
+            <ul>
+              <li><strong>Uvoz grane sada dodaje njezine osobe kao zasebne zapise</strong> — s osobom koju već imate spaja ih samo ondje gdje bi dva zapisa mogla biti ista osoba, a pregled prije spremanja navodi svako spajanje koje je napravio po vlastitoj procjeni, a ne po vašoj.</li>
+              <li><strong>Popis adresa sada pronalazi kuću napisanu na dva načina i nudi njihovo spajanje</strong> — vaša bilješka iza broja, jedan od dvaju naziva koje je ostavila preimenovana ulica ili skraćeno napisana ulica, a svaki prijedlog kaže što bi postao.</li>
+              <li><strong>Provjera imenovanja sada navodi svaki nalaz, a adresu možete upisati i sami</strong> — ✎ pokraj kuće prepisuje je na svakom događaju koji se ondje zbio, a nijedan nalaz više ne čeka iza okvira za pretraživanje.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-08-11</h2>
+            <ul>
+              <li><strong>„Vremenska crta“ sada obuhvaća onoliko generacija koliko kaže postavka „Generacije“, u oba smjera odjednom</strong> — djedovi i bake otvaraju dijagram, a unuci ga zatvaraju, svatko označen točnim srodstvom, svaki par stoji zajedno, a kasniji brak ulazi na dan vjenčanja.</li>
+              <li><strong>„Lepeza“ i „Krug“ sada crtaju osam prstenova i broje sve koji stoje iznad njih</strong> — najudaljeniji prsten nosi oznaku „+N“ koja dijagram iscrtava iznova od tog pretka.</li>
+              <li><strong>Dijagrami sada pišu imena onako kako određuje „Prikaz imena“ i dobivaju vlastiti prekidač „Prezime u braku“</strong> — stablo predaka može ispisati samo djevojačka prezimena, dok ostatak aplikacije i dalje prikazuje oba.</li>
+              <li><strong>Skrivanje živih osoba sada skriva i njihove brakove</strong> — par s jednim živim partnerom ni na jednom dijagramu ne prikazuje godinu ni mjesto vjenčanja.</li>
+              <li><strong>Tipka H crta dijagram za vašu polaznu osobu</strong> — na svakoj vrsti: stablima predaka, vremenskoj crti, dijagramu srodstva, karti i izvješću.</li>
+              <li><strong>Osobe uvezene iz CSV-a s podudaranjima sada stižu sa spolom, iščitanim iz osobnog imena</strong> — izvoz indeksa uopće nema stupac za spol, pa Marija sada stiže kao žena, a Jurij kao muškarac, dok ime koje može biti i jedno i drugo ostaje prazno umjesto da se pogađa.</li>
+              <li><strong>Ploča za usporedbu sada crveno označava neslaganje oko imena ili godine rođenja</strong> — polja koja odlučuju jesu li dva zapisa uopće ista osoba, istom crvenom bojom kojom stablo usporedbe označava čvor te osobe.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-08-09</h2>
+            <ul>
+              <li><strong>Datoteka koja nigdje ne navodi zemlju sada se smješta prema imenicima koje ste učitali</strong> — datoteka koja tisuće puta piše Kranj i Poljane, a Sloveniju nikad, prepoznaje se kao slovenska jer upravo slovenski imenik sadrži njezina mjesta, a Postavke kažu je li odgovor došao iz datoteke ili iz imenika.</li>
+              <li><strong>Odgovori provjere imenovanja sada navode općinu i zemlju</strong> — šest istoimenih sela čita se kao šest različitih mjesta umjesto kao šest jednakih redaka, a odabir jednoga upisuje ga u cijelosti, u rasporedu vaše datoteke, osim ako vaša vrijednost kaže nešto što registar ne može sastaviti.</li>
+              <li><strong>Okvir za preimenovanje u provjeri imenovanja sada prima adresu i pita registre</strong> — ispravite naselje, premjestite kuću u vlastiti redak ADDR događaja i iz imenika dovršite naziv koji vaša datoteka nikad nije napisala, zajedno s koordinatom, u jednom koraku.</li>
+              <li><strong>Provjera imenovanja sada premješta događaje kuće u naselje pod kojim je vodi registar</strong> — prijedlog se prihvaća na samom nalazu, ondje gdje ga čitate, umjesto da se ručno ponavlja na kartici „Adrese“.</li>
+              <li><strong>Imenici mjesta sada se mogu preuzeti bez dopuštanja mrežnih pretraživanja</strong> — preuzimanje objavljenog skupa podataka neke zemlje ne odaje ništa o vašoj datoteci, pa se GURS, DGU i OpenStreetMap uvijek nude.</li>
+              <li><strong>Karta sada navodi kuću u kojoj se događaj zbio</strong> — adresa stoji uz mjesto na popisu oznaka i u skočnom opisu, pa se devet događaja na koordinati jednog sela čita kao kuće kakve doista jesu.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-08</h2>
+            <ul>
+              <li><strong>Za mjesto koje ne navodi zemlju sada se uzima da je u zemlji vaše datoteke</strong> — zemlja se iščitava iz datoteke (ona koju navodi većina njezinih mjesta, a vidi se i mijenja pod Postavke → GEDCOM), takva se mjesta grupiraju pod njom, traže se samo u imenicima te zemlje, provjera usklađenosti napokon ih može ocijeniti, a zemlju vam može i upisati u njih.</li>
+              <li><strong>Gumbi zemalja iznad popisa mjesta i adresa sada navode zemlje</strong> — po jedan gumb sa zastavom za svaku zemlju, na vašem jeziku bez obzira na to kako je piše vaša datoteka; mjesto zapisano do razine Ohija ili Tasmanije ubraja se u zemlju kojoj pripada, a svetac zaštitnik ili zalutali datum ne ubrajaju se ni u jednu zemlju.</li>
+              <li><strong>Adresa koja jednu kuću bilježi pod dva naziva sada se provjerava kao dvije adrese</strong> — <em>Labore 4 / Škofjeloška 4</em> preuzima pravopis registra za polovicu koju registar još poznaje i zadržava povijesni naziv pokraj nje.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-07</h2>
+            <ul>
+              <li><strong>Vaša mjesta sada se mogu provjeriti prema učitanim imenicima mjesta</strong> — svako mjesto u zemlji koju pokriva neki od njih uspoređuje se s njim, a ono što se ne slaže navodi se s nazivom iz registra koji možete preuzeti umjesto svojega: naziv koji registar ne poznaje, onaj koji piše drukčije, naselje koje vodi pod drugom upravnom jedinicom, kućna adresa koja je završila unutar mjesta i koordinata daleko od mjesta kamo registar smješta to mjesto.</li>
+              <li><strong>I adrese se sada mogu usporediti s registrom</strong> — usklađenost je zasebna stranica pokraj Geokodiranja, a njezina kartica adresa navodi ulice koje registar piše drukčije i kuće koje vodi pod drugim selom, svaku stavlja na kartu i sve ih u jednom koraku može prepisati pravopisom registra.</li>
+              <li><strong>Mjesto napisano sa svojim okrugom sada se tako i čita</strong> — provjera usklađenosti uspoređuje nadređeno mjesto s registrom na razini koju pišu vaša mjesta, nudi ispravak na toj istoj razini i vašim riječima te pokazuje kako oznake <code>FORM</code> vaše datoteke nazivaju svaki dio mjesta.</li>
+              <li><strong>Mjesto koje navodi okrug, a ne selo, sada se prepoznaje kao takvo</strong> — za njega se ne traži naselje, a ondje gdje je okrug napisan dvaput ili je neka razina ostala prazna, redak nudi isto mjesto kraće za jedan zarez.</li>
+              <li><strong>Slovenske i hrvatske adrese sada se mogu smjestiti prema registru pohranjenom u vašem pregledniku</strong> — jednom preuzmite kućne brojeve neke zemlje i popis adresa sam ih traži čim se otvori, svaku na njezinoj zgradi, bez mreže i bez pritiskanja ičega.</li>
+              <li><strong>Kuću na koju nijedan registar nikad neće odgovoriti sada možete odložiti</strong> — staro numeriranje ili davno nestalo imanje napušta radni popis adresa i više se ne broji kao preostali posao, a vraća se kad god to zatražite.</li>
+              <li><strong>Skraćeni nazivi sela sada se podudaraju s punim oblikom</strong> — <em>Sp. Idrija</em> pronalazi <em>Spodnja Idrija</em> iz registra, a isto razumijevanje kratica Sv., Zg., Sr., Vel., Mal., Dol. i Gor. vrijedi u provjeri usklađenosti, pretraživanjima i širem pretraživanju.</li>
+              <li><strong>„Traži šire“ sada pronalazi i mjesto koje ste pogrešno napisali</strong> — nazive koji samo nalikuju napisanomu, a koje nijedno pretraživanje po pravopisu ne može pronaći: <em>Mrkopolje</em> pronalazi <em>Mrkopalj</em> iz registra.</li>
+              <li><strong>Mjesto se sada priprema za upis odabirom koordinate</strong> — potvrdni okvir nestao je s popisa mjesta, otvoreni redak stiže sa svojom kartom, a svaki popis geokodiranja istim riječima i na istom mjestu kaže što je napravio njegov posljednji upis.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-06</h2>
+            <ul>
+              <li><strong>Podudarni roditelji sada određuju koja je ulazna osoba doista to dijete</strong> — odgovarajuća osoba unutar podudarne obitelji ima prednost pred istoimenim strancem bez datuma i mjesta, a nitko se ne uparuje s osobom koja se vjenčala nakon što je umrla.</li>
+              <li><strong>Brak s nekim drugim spaja se kao zasebna obitelj.</strong> Pregled stavlja ulaznu zajednicu čiji je partner očito druga osoba pokraj postojećeg braka umjesto preko njega, pa potvrda dodaje tog partnera i njihovu djecu kao drugu obitelj, a prvu ostavlja netaknutom.</li>
+              <li><strong>Uvoz grane sada se zaustavlja ondje gdje se dvije datoteke ne slažu oko roditelja</strong> — ulazni roditelj i preci iznad njega ostaju izvan umjesto da u vašoj datoteci završe ni s kim nepovezani, a pregled prije spremanja navodi tko je zadržan i što je ostalo izvan.</li>
+              <li><strong>Prva slova svakog imena pronalaze osobu.</strong> Svaki okvir u koji upisujete ime — birači srodnika, pretraživanje, polazna osoba, traženje na dijagramu, popis podudaranja — podudara svaku riječ zasebno, bilo kojim redoslijedom i s neobveznim dijakritičkim znakovima, pa <em>sebas kala</em> pronalazi Sebastjana Kalana.</li>
+              <li><strong>Gumb Natrag u pregledniku vodi vas unatrag kroz osobe koje ste otvorili</strong> u Uređivanju, jednu po jednu, a za napuštanje stranice pita tek kad više nema kamo natrag.</li>
+              <li><strong>Provjera otkriva dijete rođeno nakon smrti roditelja</strong> — pogrešna obiteljska veza ili datum koji pripada nekom drugom, često istoimenom dojenčetu.</li>
+              <li><strong>Upit za mapu s medijima nudi tri odgovora</strong> — poveži sada, kasnije ili nikad više — a obavijest preglednika o „prijenosu“ dobiva potvrdni okvir <em>Ne upozoravaj više</em>; oboje se može vratiti u Postavkama.</li>
+              <li><strong>Stablo koje ste započeli od nule samo dobiva ime</strong> — prva osoba koju dodate postaje polazna osoba, a i preuzimanje i otvorena datoteka dobivaju njezino prezime umjesto <code>new-tree</code>.</li>
+              <li><strong>Zapisi mjesta sada se otvaraju klikom na njihov broj</strong> — otvaranje mjesta prikazuje mjesta ispod njega, ✎ za preimenovanje stoji pokraj njegova naziva, a preimenovanje dovršava samo iz susjednih naziva, nikad iz kuća drugoga grada.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-05</h2>
+            <ul>
+              <li><strong>Unos tipkovnicom od početka do kraja.</strong> Enter vodi od imena preko datuma rođenja do mjesta rođenja, a ⌥⇧ dodaje događaje, bilješke, izvore, medije, imena i srodnike bez napuštanja polja u koje upisujete.</li>
+              <li><strong>Gumbi za brzo dodavanje događaja premješteni su ispod popisa događaja</strong>, na ⌥⇧1–9; događaj koji osoba može imati samo jednom vodi do retka u kojem je već upisan.</li>
+              <li><strong>Navođenje obaju roditelja pridružuje dijete njihovoj postojećoj obitelji</strong> — dijete se smješta uz njihovu ostalu djecu, a ne u drugi zapis za isti par.</li>
+              <li><strong>Nova supruga može preuzeti muževo prezime kao prezime po udaji</strong> — po želji, u Postavkama.</li>
+              <li><strong>Traženje osoba izgleda kao kartice osoba</strong> — boja spola, životni vijek, oznaka zapisa — i pronalazi osobu po bilo kojem njezinu imenu.</li>
+              <li><strong>Padajući izbornici usklađeni su s aplikacijom</strong>, s grupiranim naslovima, ✓ uz trenutačni odabir i upravljanjem tipkovnicom.</li>
+              <li><strong>Tražilica mjesta nudi i samo mjesto</strong>, iznad njegovih kuća, i donosi vlastitu koordinatu mjesta.</li>
+              <li><strong>Dijagram „Mreža“ gušće slaže potomke</strong>, s jednim deblom koje se od para grana prema svoj njihovoj djeci.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-04</h2>
+            <ul>
+              <li><strong>Smjestite cijelo selo na jednu koordinatu.</strong> Označite adrese na koje nijedan registar ne može odgovoriti — staro numeriranje, davno nestalo imanje — odaberite jedan položaj i sve ga preuzimaju u jednom koraku. Upišite početak naziva kako biste označili samo kuće koje ga dijele.</li>
+              <li><strong>Pregledava se svaka adresa, ne samo one s brojem.</strong> Zaselak bez kućnog broja, kuća poznata po nazivu imanja, adresa u inozemstvu — sve su na popisu, označene <em>samo ručno</em>, i mogu se smjestiti kao i ostale.</li>
+              <li><strong>OpenStreetMap smješta adrese koje registar ne može.</strong> Zaselak, kuća bez broja, adresa u inozemstvu — pretražite OSM iz retka; istoimeni pogoci razlikuju se po tome što jesu i po numeriranim pribadačama na jednoj karti.</li>
+              <li><strong>Pretraživanja mjesta odgovaraju na jeziku same datoteke.</strong> Datoteci koja piše <em>United States</em> odgovara se na engleskom, onoj koja piše <em>Slovenija</em> na slovenskom, bez obzira na jezik sučelja — pa naziv iz registra odgovara datoteci u koju ulazi.</li>
+              <li><strong>Svaka adresa pokazuje položaj koji ima</strong> — vlastiti ili onaj naselja koji nasljeđuje. Adresa otvara jednu ploču s kartom za odabir, pretraživanjem registra i ručnim unosom; ondje pronađene kuće navode se u retku.</li>
+              <li><strong>Popisi geokodiranja zadržavaju samo nesmještena mjesta i kuće.</strong> Mjesto ili kuća koja ima svoj položaj napušta radni popis; označite <em>Prikaži već smještena</em> kako biste vratili gotova — da provjerite položaj ili odaberete bolji koji ga zamjenjuje.</li>
+              <li><strong>Preimenovana ulica traži se pod oba naziva.</strong> Adresa zapisana kao <em>Labore 4 / Škofjeloška 4</em> čita se kao dvije cijele adrese, a registar se pita za svaku.</li>
+              <li><strong>Pribadača označava svaki položaj.</strong> Koordinate sada nose pribadaču karte gdje god su ispisane — na popisima geokodiranja, u padajućim izbornicima i skočnim opisima karte — pa se brojevi čitaju kao mjesto na terenu, prigušeni dok se ondje ništa ne smjesti, a zeleni kad se smjesti.</li>
+              <li><strong>Hrvatska mjesta iz službenog registra.</strong> Postavke › Karta preuzimaju 24 000 hrvatskih naselja, sela i zaselaka iz Registra geografskih imena, svako s nazivom svoje županije — prepoznatim i na engleskom — te s talijanskim, mađarskim i povijesnim nazivima.</li>
+            </ul>
+          </section>
+
+          <section class="changelog-entry">
+            <h2>2026-08-03</h2>
+            <ul>
+              <li><strong>Geokodiranje razvrstano po zemljama.</strong> Gumbi iznad popisa geokodiranja pokazuju udio svake zemlje i sužavaju popis na jednu, drugi ga dijele prema preostalom poslu — pouzdano, moguće, dvosmisleno, bez prijedloga, riješeno — a broj u retku otvara njegove osobe.</li>
+              <li><strong>Geokodiranje poznaje nazive s nadređenim mjestom.</strong> Mjesto napisano sa svojom općinom sada pronalazi duži naziv iz registra — Vinji vrh pod Semičem pronalazi Vinji Vrh pri Semiču — a svaki prijedlog navodi svoju općinu.</li>
+              <li><strong>Preuzmite službeni naziv.</strong> Redak podudaran s dužim nazivom iz registra — Cerovec pod Semičem s Cerovec pri Črešnjevcu — preuzima ga jednim klikom, a jedan gumb odjednom preimenuje sve prikazane pouzdane retke, zajedno s koordinatama.</li>
+              <li><strong>Mjesta i adrese izmjenjuju se kao kartice.</strong> Dva popisa na stranici geokodiranja stoje iza kartica s brojem redaka, pa adrese više ne čekaju ispod tisuću mjesta; okvir za pretraživanje sužava onaj koji je otvoren.</li>
+              <li><strong>Popis adresa filtrira se prema stanju pretraživanja.</strong> Oznake dijele kućne adrese na još nepretražene, one s rezultatima, one bez rezultata i odabrane te broje što svaki klik prikazuje, a broj osoba uz adresu otvara osobe iza nje.</li>
+              <li><strong>„Odaberi pouzdana“ i za adrese.</strong> Jedan klik priprema svaku adresu na koju je registar odgovorio s točno jednom kućom; pogodak koji registar vodi pod drugim naseljem ostaje za pregled.</li>
+              <li><strong>Preimenujte adresu.</strong> ✎ u retku adrese prepisuje je na svakom događaju u toj kući — bilo u retku ADDR ili u zbijenoj vrijednosti mjesta — i dovršava iz drugih adresa u tom mjestu, pa se dvostruki zapisi stapaju u jedan redak.</li>
+              <li><strong>Strana mjesta prikazuju svoju regiju.</strong> Preuzeti imenici mjesta sada sadrže okrug ili saveznu državu svakog mjesta — hrvatsku županiju, austrijsku saveznu zemlju (Bundesland) — koji se prikazuje pokraj kandidata, u pravopisu vaše datoteke kad ona navodi tu jedinicu, i razlikuje istoimena mjesta.</li>
+              <li><strong>Odaberite oblik zareza u nazivima mjesta.</strong> Postavke › GEDCOM sada određuju između <em>Kranj, Slovenija</em> i <em>Kranj,Slovenija</em>, a „Ujednači i skupno uredi“ upisuje vaš izbor kroz cijelu datoteku.</li>
+              <li><strong>Nova mjesta kažu što su njihove razine.</strong> Mjesto preuzeto iz registra ili odabrano među onima koje vaša datoteka već ima sada nosi standardni redak FORM koji imenuje svaku razinu — riječima vaše datoteke za svaku zemlju, <em>Place,Upravna Enota,Country</em> ili <em>Place,Bundesland,Country</em>.</li>
+              <li><strong>Sinkronizirani prikaz karte.</strong> Birač „Slojevi“ može podijeliti kartu na dvije polovice koje se pomiču zajedno, a svaka crta vlastiti odabir slojeva, s istim oznakama događaja na obje. Izvoz u PNG sprema par jedan uz drugi.</li>
+              <li><strong>Dodajte sve besplatne slojeve karte odjednom.</strong> Izbornik predložaka u Postavkama završava stavkom koja dodaje sve slojeve koje još nemate, a popis „Slojevi“ na karti može se pomicati kad postane dug.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-08-02</h2>
+            <ul>
+              <li><strong>Mjerilo na karti.</strong> Dolje lijevo pokazuje kolika je neka duljina sa zaslona na terenu — pitanje koje katastarski slojevi neprestano otvaraju jer sama razina zumiranja na njega ne odgovara.</li>
+              <li><strong>Franciskanski katastar u mjerilu 1:2880.</strong> Trideset i dvije općine iz Arhiva Republike Slovenije: neprekinut niz od Škofje Loke preko Kranja do Šenčura i Nakla, sedam u Beloj krajini, dvije u Dolenjskoj te Ljubljana s tri predgrađa.</li>
+              <li><strong>Imenici mjesta premješteni su u Postavke › Karta.</strong> Ondje ih dodajte iz GURS-a, iz bilo koje zemlje koju odaberete u OpenStreetMapu ili iz datoteke GeoNames i vidite što je učitano. „Geokodiranje mjesta“ upućuje na njih.</li>
+              <li><strong>Velike zemlje preuzimaju se po regijama.</strong> Ondje gdje OpenStreetMap ne može odjednom poslati cijelu zemlju — recimo Sjedinjene Američke Države — GED Merge navodi njezine regije i dohvaća onu koju odaberete, ili sve redom, u isti imenik.</li>
+              <li><strong>CSV s podudaranjima: i srodnici u retku su podudaranja.</strong> Partneri, roditelji i djeca navedeni u retku sada se nude kao zasebni kandidati, a osoba koju CSV navodi više puta stiže kao jedan povezan zapis.</li>
+              <li><strong>Skupni filtri za imena, srodnike i zajednice koji nedostaju.</strong> Filtrirajte osobe prema dijelu imena koji zapis nema, prema tome imaju li partnera, djecu ili roditelje te prema onome što bilježe njihove zajednice — bez vjenčanja ili bez ikakva događaja.</li>
+              <li><strong>Skupna radnja: prezimena po udaji prema partnerima.</strong> Svaka zajednica pridonosi prezime svojeg partnera, redoslijedom brakova, napisano onako kako ih datoteka već piše; osobe čija zajednica ne bilježi vjenčanje stižu neoznačene, pa odlučujete vi.</li>
+              <li><strong>Enter završava uređivanje polja.</strong> Sprema ono što ste upisali i vraća tipkovnicu, pa E, M ili T mijenja način rada odmah nakon uređivanja (bilješke zadržavaju Enter za nove retke).</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-08-01</h2>
+            <ul>
+              <li><strong>Skupne radnje na filtriranim osobama.</strong> U Alatima složite filtre (slika, dob, srodstvo, događaj koji nedostaje …), a zatim u jednom koraku za svako podudaranje priložite medije, navedite izvor, označite osobe kao preminule ili pretvorite vrste događaja; spremljeni filtri prikazuju trenutačne brojeve.</li>
+              <li><strong>Osobe bez datuma mogu dobiti procijenjenu godinu rođenja.</strong> Nova skupna radnja upisuje datum rođenja ABT procijenjen prema roditeljima, braći i sestrama, supružniku ili djeci s datumima, uz pregled godine za svaku osobu na popisu podudaranja; ponovno pokretanje seže dalje, preko već upisanih procjena.</li>
+              <li><strong>Provjera pronalazi događaje izvan životnog vijeka osobe.</strong> Zanimanje s datumom prije rođenja ili prebivalište ili vjenčanje nakon smrti sada se navode na osobi; pokop, kremacija i ostavinski postupak smiju slijediti nakon smrti.</li>
+              <li><strong>Provjera označava žive starije od 99 godina.</strong> Navodi se osoba bez zapisa o smrti, a rođena prije više od 99 godina — gotovo uvijek nedostaje smrt, a skupna radnja označavanja preminulih zatvara takve slučajeve.</li>
+              <li><strong>Izvore dodajte i uređujte pod Alati → Izvori.</strong> <em>Dodaj izvor</em> upisuje zapis koji još nitko ne navodi, sa spremištem koje se samo prepoznaje i može se odabrati; <span class="gm-glyph">✎</span> u retku izvora ili spremišta uređuje ga na licu mjesta.</li>
+              <li><strong>Mediji izvora prikazuju se kao ladice sa slikama.</strong> Kad je mapa s medijima učitana, stranice, isječci i nepriloženi mediji izvora postaju sličice s brojem upotreba; prikaz slike otvara se s uredivim pojedinostima i osobama koje na nju upućuju pokraj nje.</li>
+              <li><strong>Stvorite spremište izravno u dijalogu izvora.</strong> Stavka <em>Novo spremište…</em> padajućeg izbornika „Spremište“ prima naziv i upisuje izvor pod njim — pri dodavanju izvora ili pri premještanju postojećega pomoću <span class="gm-glyph">✎</span>.</li>
+              <li><strong>Obitelji osobe slijede redoslijed brakova.</strong> Uređivanje, dijagrami, vremenska crta i izvješća sada navode zajednice prema datumu vjenčanja; vjenčanje bez datuma zauzima mjesto prema rođenjima svoje djece.</li>
+              <li><strong>Prikazuje se svako prezime po udaji.</strong> Osoba koja je stupila u brak više puta sada nosi sva prezimena po udaji, odvojena zarezima istim redoslijedom brakova, gdje god je uključeno <em>Prikaži prezime po udaji</em>.</li>
+              <li><strong>Vaše izmjene sada imaju prednost pred potvrđenim podudaranjem.</strong> Polje koje promijenite nakon potvrde zadržava vašu vrijednost umjesto da se pri spremanju prepiše, a pregled svako polje koje je ostavio netaknutim navodi pod <em>Zadržani vaši podaci</em>.</li>
+              <li><strong>Identifikatori FamilySearcha prikazuju se na osobi u Uređivanju.</strong> Oznaka vodi na stranicu osobe u FamilySearchu i uređuje se na licu mjesta; usporedba u Spajanju sada također prikazuje i prenosi te identifikatore.</li>
+              <li><strong>Roditeljska obitelj bez ijednog roditelja može se ukloniti.</strong> Njezin vlastiti <span class="gm-glyph danger">−</span> odvaja osobu od zaostale obitelji, a Provjera takve obitelji navodi zajedno sa zapisima obitelji u kojima nema nikoga.</li>
+              <li><strong>Početna stranica sada prikazuje cijelu radionicu.</strong> Četiri kartice načina rada — Uređivanje, Spajanje, Dijagrami i karte, Alati — zamjenjuju popis značajki, a pokraj njih su ključni podaci o aplikaciji i njezine najnovije promjene.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-31</h2>
+            <ul>
+              <li><strong>Geokodiranje adresa izdvaja kuću iz mjesta.</strong> Datoteke koje ne pišu adresni redak — <em>Črni vrh 35</em> ili kuća zbijena u vrijednost mjesta — sada dobivaju isto grupirano pretraživanje registra, svrstano pod svoje naselje.</li>
+              <li><strong>Ručno smjestite adresu.</strong> Svaki redak adrese sada nosi pribadaču karte: upišite koordinatu, odaberite točku na karti ili u OpenStreetMapu potražite kuću koju registar ne poznaje.</li>
+              <li><strong>Kuće stoje pod svojim naseljem.</strong> Vrijednost mjesta koja sadrži kućni broj (<em>Krupa 7</em>) sada se u stablu mjesta svrstava pod <em>Krupa</em>, umjesto da stoji pokraj nje.</li>
+              <li><strong>Sloj Spezialkarte sada pokriva cijelu Monarhiju.</strong> Uključeno je svih 805 listova habsburške izmjere 1:75&nbsp;000, od Češke do Transilvanije, svaki smješten u suvremene koordinate umjesto u vlastite koordinate izmjere.</li>
+              <li><strong>Pogledajte osnovnu kartu prije nego što je odaberete.</strong> Postavke → Karta sada crtaju uzorak odabrane pozadine, a preko nje svaki sloj označen kao <em>Zadano</em>. Označavanje sloja premješta uzorak na područje koje sloj pokriva, uz zumiranje na kojem se crta.</li>
+              <li><strong>Pronađite osobu u Izvješću ili na Karti.</strong> Oba sada imaju okvir za traženje kao i dijagrami: Izvješće skače na numerirani unos, a Karta leti do događaja i otvara ga. Na Karti radi i naziv mjesta.</li>
+              <li><strong>Ctrl/Cmd+F otvara okvir za pretraživanje onoga što gledate</strong> — popisa podudaranja, popisa u Alatima, dijagrama ili Karte. Gdje prikaz nema takav okvir, kao i prije preuzima ugrađeno traženje preglednika.</li>
+              <li><strong>Aplikacija stane na mobitel.</strong> Gornja traka sada je jedan redak — kartice načina rada i izbornik <span class="gm-glyph">☰</span> s učitanim datotekama, polaznom osobom i gumbima zaglavlja — a dijagram ili karta preko cijele stranice zauzimaju cijeli zaslon.</li>
+              <li><strong>Dijagrami se zumiraju štipanjem.</strong> Na zaslonu osjetljivom na dodir dva prsta zumiraju bilo koji dijagram prema točki štipanja; jedan prst pomiče kao i prije.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-30</h2>
+            <ul>
+              <li><strong>Provjera pronalazi odvojene skupine.</strong> Do devet osoba povezanih samo međusobno i ni s kim drugim u datoteci sada se navodi jednom, na najmlađem članu — odatle treba početi tražiti kamo skupina pripada.</li>
+              <li><strong>Provjera pronalazi osobe s dva para roditelja.</strong> Osoba koja je istodobno biološko dijete u dvjema obiteljima sada se navodi, s imenima obaju parova. Posvojiteljske i udomiteljske veze ostaju netaknute.</li>
+              <li><strong>Pregled prije spremanja kaže kada se mijenja kodiranje vaše datoteke.</strong> Datoteka pročitana kao ANSEL, ANSI ili Windows-1250 sprema se kao UTF-8, a Provjera i pregled to sada kažu, pa znate da treba provjeriti uvozi li se i dalje u druge programe.</li>
+              <li><strong>Uklonite viseće poveznice jednim klikom.</strong> Novi popravak uklanja pokazivače čiji ciljni zapis nedostaje — navode izvora, bilježaka i medija, asocijacije te obiteljske veze unutar događaja. Može se poništiti, kao i svaki drugi popravak.</li>
+              <li><strong>Ponovljeni preci označeni su na Lepezi i Krugu.</strong> Gdje su se vjenčali bratići i sestrične, zajednički preci ispunjavaju dva isječka; drugi sada na vanjskom rubu nosi oznaku <span class="gm-badge rep round">→</span> koja vas vodi do onoga koji crta njihovu lozu.</li>
+              <li><strong>Natrag vas vraća na dijagram s kojeg ste došli.</strong> Promjena korijena dijagrama — <em>Postavi kao korijen</em>, oznaka <span class="gm-badge rep">+7</span>, pogodak traženja izvan dijagrama — sada je zaseban korak, pa Natrag ponovno prolazi kroz osobe koje ste postavljali kao korijen.</li>
+              <li><strong>Odaberite pozadinu karte.</strong> Postavke → Karta sada nude pet pozadina za koje ne treba račun: CARTO, OpenStreetMap, reljefnu te Esrijevu satelitsku i topografsku. Reljef pokazuje dolinu u kojoj je obitelj ostala, a satelitska snimka stoji li kuća još.</li>
+              <li><strong>Mjesta prikazuju svoje koordinate.</strong> Stablo mjesta ispisuje koordinatu koju datoteka ima za svako mjesto; kliknite je za malu kartu. Mjesto zapisano na dvije različite točke označeno je njihovim brojem, a obje su označene pribadačom.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-29</h2>
+            <ul>
+              <li><strong>Svaki se dijagram sada ispisuje na papir koji odaberete.</strong> Ispis bilo kojeg dijagrama — uključujući kružne i vremenske — sada počinje pitanjem na koji papir ispisujete i prilagođuje mu dijagram.</li>
+              <li><strong>Ispišite dijagram na velikom papiru.</strong> Popis papira sada seže do <strong>A2, A1 i A0</strong>, a <strong>Prilagođeno</strong> prima bilo koju veličinu u milimetrima, pa se rola za ploter ispisuje kao jedan golem list.</li>
+              <li><strong>Ispis sada ispunjava papir.</strong> Svaki se list sada skalira tako da ispuni stranicu, a nova veličina <strong>Jedan list</strong> smanjuje cijeli dijagram na jedan odabrani list, bez rezanja.</li>
+              <li><strong>Oštar tekst u izvezenim dijagramima.</strong> Imena u izvezenom dijagramu ostaju pravi tekst umjesto slike, pa PDF ostaje oštar koliko god ga zumirali i ispisuje se u nekoliko sekundi.</li>
+              <li><strong>Odaberite čije roditelje zadržava spojeni duplikat.</strong> Usporedba duplikata sada ima jedan izbor u bloku <strong>Roditelji</strong> — zadržati roditelje lijevog zapisa, preuzeti kandidatove ili zadržati obje obitelji — umjesto da uvijek prenosi obje roditeljske obitelji.</li>
+              <li><strong>Spojite udvostručenu granu pravim redoslijedom.</strong> Srodnici koji su na svakoj strani zaseban zapis sada dolaze sa stupnjem podudaranja i potvrdnim okvirom: označeni se spajaju prvi, pa se njihove dvostruke obitelji stapaju u jednu.</li>
+              <li><strong>Spojite i udvostručenu djecu.</strong> Djeca koja su na svakoj strani zaseban zapis sada se pojavljuju sa stupnjem podudaranja i potvrdnim okvirom, a označena se spajaju nakon para, kad dijele isti par roditelja.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-28</h2>
+            <ul>
+              <li><strong>Odaberite koliko generacija dijagram prikazuje.</strong> Dijagram potomaka crtao je svaku generaciju koju je mogao pronaći, a u velikom stablu svaka daljnja generacija umnožava ono što je na zaslonu. Postavke dijagrama (<span class="gm-glyph">⚙</span>) sada imaju <strong>Generacije</strong>: spustite se od <em>Sve</em> i Stablo, Mreža, Lepeza, Krug, Izvješće i Karta mjesta zaustavljaju se toliko generacija od korijenske osobe — prikaz glasi <em>4 od 9</em>, pa uvijek vidite koliko je izostavljeno. Gdje je dijagram odrezan, posljednja nacrtana osoba nosi oznaku <span class="gm-badge rep">+7</span> koja broji potomke (ili pretke) koji nisu prikazani; kliknite je i dijagram se nastavlja od te osobe. Zaglavlja stranica i svaki izvoz navode nacrtane generacije, a skraćeno izvješće završava retkom o onima koje je izostavilo.</li>
+              <li><strong>Ispišite širok dijagram na više listova.</strong> Obiteljski dijagram koji se na zaslonu ugodno pomiče rijetko preživi stiskanje na jednu stranicu — prilagođen formatu A4, imena postaju nečitljiva. Stablo i Mreža sada u izborniku „Izvoz“ nude <strong>PDF na listovima</strong>: odaberite papir (A4, A3 ili Letter), usmjerenje i veličinu ispisa, pogledajte koliko će listova dijagram zauzeti i ispišite komplet — dijagram predaka udvostručuje širinu sa svakom generacijom, pa veličina ispisa zapravo odlučuje hoće li to biti pet listova ili pedeset. Reže se na granama, nikad usred okvira — grana koja ne stane nastavlja se na vlastitom listu, a osoba kod koje je odrezana zadržava numerirani krug <span class="gm-badge rep round">3</span> koji upućuje na list na kojem se loza nastavlja. Svaki list u zaglavlju ima svoj broj i podatak odakle se nastavlja, a svi se ispisuju u istom mjerilu, pa se ispisani komplet može slijepiti u jedan dijagram.</li>
+              <li><strong>Pronađite osobu na otvorenom dijagramu.</strong> Okvir za traženje na svakoj stranici dijagrama pomiče prikaz na osobu koju upišete i nakratko je istakne, s brojačem i <span class="gm-glyph">‹</span> <span class="gm-glyph">›</span> za više položaja koje zauzima zajednički predak — dok bi pretraživanje cijele datoteke umjesto toga iznova nacrtalo dijagram oko nje. Ako ime nije na ovom dijagramu, ali jest u vašoj datoteci, okvir jednim klikom nudi tu osobu.</li>
+              <li><strong>Nitko se ne crta ni ne broji dvaput.</strong> Gdje su se dva potomka iste osobe vjenčala međusobno, djeca tog para crtala su se pod oba roditelja, a broj potomaka u skladu s time rastao. Grana se sada crta samo na prvom položaju; kasniji položaj zadržava osobu i njezin brak, ali ostaje prazan i nosi oznaku <span class="gm-badge rep round">→</span> koju možete kliknuti da biste otišli na položaj na kojem je grana nacrtana — a brojevi Preci / Potomci broje osobe.</li>
+              <li><strong>Dodajte osobu koja nije povezana ni s kim.</strong> Dosad se nova osoba mogla samo „roditi“ u stablu kao nečiji otac, majka, partner ili dijete. Gumb <span class="gm-glyph">＋</span> u zaglavlju — ili tipka <span class="gm-key">N</span> — sada stvara osobu koja nije povezana ni s kim, što je potrebno za početak nove grane; a pretraživanje koje nikoga ne pronađe nudi dodavanje imena koje ste upravo upisali. Početna stranica dobiva i <strong>Započni novo stablo</strong>, pokraj oglednih stabala, pa stablo koje još nigdje ne postoji može početi svojom prvom osobom umjesto uvozom.</li>
+              <li><strong>Popravite prekinutu poveznicu ondje gdje je pronađete.</strong> Svaki nalaz prekinute poveznice u Provjeri sada ima vlastiti gumb <strong>Ukloni poveznicu</strong>, pa jedan mrtvi pokazivač može nestati bez popravljanja cijele datoteke — poveznica na obitelj koja više ne postoji nevidljiva je u Uređivanju jer nepostojeća obitelj ondje ništa ne crta.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-27</h2>
+            <ul>
+              <li><strong>Dodajte mjesto koje vaša datoteka nikad nije koristila, iz registara.</strong> Polje mjesta na događaju dosad je poznavalo samo mjesta koja su već u vašoj datoteci. Upišite mjesto koje još nikad nije vidjelo i popis sada završava stavkom <strong>Potraži ovo mjesto u registrima</strong> — u uvezenom imeniku mjesta te, uz pristanak na mrežna pretraživanja, u slovenskom registru adresa (GURS), GOV-u i OpenStreetMapu. Svaka ponuda stiže napisana onako kako vaša datoteka piše mjesta (isti raspored, razdjelnik, pravopis zemlje i broj razina upravnih jedinica), a odabir jedne u jednom koraku popunjava mjesto, kućnu adresu ako ste upisali broj koji registar prepoznaje te njezinu koordinatu.</li>
+              <li><strong>I polje adrese traži kuće.</strong> Upišite <em>21</em> ili <em>Hafnarjeva pot 21</em> u adresu događaja i isti redak u GURS-u i OpenStreetMapu traži tu kuću <em>unutar mjesta događaja</em>. Ponuda glasi <em>mjesto · adresa</em> i nosi naselje pod kojim registar doista vodi kuću — pa ondje gdje ulica pripada gradu koji je progutao vaše selo, prihvaćanje ponude ispravlja mjesto zajedno s adresom i koordinatom. Potrebna su mrežna pretraživanja; kućni brojevi nisu u izvanmrežnom imeniku mjesta.</li>
+              <li><strong>Razdvojite mjesto u kojem se krije zasebno naselje.</strong> Kada datoteka cijeli zaselak bilježi pod susjednim mjestom — svaki <em>Klošter 12</em> pod <em>Gradac, Metlika, Slovenia</em>, obično zato što je ondje pošta — svaka skupina mjesta u <em>Geokodiranje mjesta › Adrese</em> sada nudi <strong>Premjesti u drugo mjesto…</strong>: označite adrese koje pripadaju drugamo, navedite odredište i premjestit će se samo ti događaji. Preimenovanje cijelog mjesta, koje bi premjestilo i događaje koji ondje doista pripadaju, više nije jedina mogućnost.</li>
+              <li><strong>Alati za geokodiranje također dovršavaju mjesto iz registara.</strong> Okvir za preimenovanje u <em>Geokodiranje mjesta</em> i odredište u <strong>Premjesti u drugo mjesto…</strong> sada su isto polje mjesta kao u Uređivanju, pa se mjesto koje vaša datoteka nikad nije napisala može potražiti u imeniku mjesta, GURS-u, GOV-u ili OpenStreetMapu i preuzeti u cijelosti — lanac, adresu i koordinatu. Preimenovana vrijednost smješta se u istom koraku, a premještene adrese dobivaju vlastitu koordinatu odredišta (iz registra ili onu koju vaša datoteka već bilježi za njega) umjesto da izgube koordinatu koju su imale.</li>
+              <li><strong>GURS kaže u kojem je naselju adresa doista.</strong> Kućni broj koji registar adresa ne može pronaći pod naseljem koje navodi vaša datoteka sada se traži i kao zasebno naselje. Tako se kuća pronalazi — a ondje gdje je registar vodi drugdje, skupina to javlja (<em>6 adresa nalazi se u Klošteru (Metlika), a ne u Gradcu</em>) i nudi već ispunjeno premještanje. Samo za slovenska mjesta, uz isti pristanak na mrežna pretraživanja kao i za druga pretraživanja registara.</li>
+              <li><strong>Isti naziv, druga općina.</strong> Slovenski imenik mjesta sada sadrži občinu svakog naselja, pa se dvije <em>Soteske</em> razlikuju — <em>Soteska (Kamnik)</em> i <em>Soteska (Dolenjske Toplice)</em> — umjesto da se obje podudaraju 100 % bez ičega po čemu bi se moglo birati. Gdje vaše mjesto navodi i općinu, pravo se odabire automatski. Rezultati GOV-a na isti način navode nadređeno mjesto. Jednom ponovno preuzmite slovenski imenik mjesta kako biste dobili občine.</li>
+              <li><strong>Jedan oblik za cijelu stranicu geokodiranja.</strong> Popisi mjesta, adresa i proturječja sada otvaraju istu vrstu retka, kartu crtaju tek kad se zatraži i skupljaju odabire dok ih vlastiti gumb popisa na vrhu ne upiše. I kandidati iz svih izvora čitaju se jednako — <em>Stopiče (Novo mesto)</em>, <em>Stožice (Ljubljana)</em> — umjesto da jedan ispisuje cijeli lanac adrese.</li>
+              <li><strong>Riješite proturječne koordinate na karti.</strong> Gdje jedno mjesto i adresa imaju dvije koordinate, <em>Geokodiranje mjesta</em> proširuje redak u kartu čiji numerirani krugovi broje svoje događaje — odstupanje se odmah vidi. Odaberite pravu (ili kliknite kartu) i svaki se događaj prepisuje na nju.</li>
+              <li><strong>Jedna koordinata za sve događaje na istoj adresi.</strong> Smještanje događaja čije mjesto i adresu dijele i drugi događaji sada nudi upis te koordinate na sve njih — zadano označeno — pa se kuća označuje jednom, a ne događaj po događaj.</li>
+              <li><strong>Zadani slojevi karte.</strong> Sloj označen kao <em>Zadano</em> pod Postavke → Karta uključuje se gdje god se crta karta: svaka Karta mjesta otvara se s njim već uključenim, a prikazuju ga i male karte osobe i geokodiranja — pa omiljenu kartu (recimo katastar ili povijesnu izmjeru) više ne treba svaki put iznova označavati.</li>
+              <li><strong>Slojevi karte slažu se redoslijedom koji odaberete.</strong> Popis slojeva sada je redoslijed slaganja — prvi je na vrhu — a gumbima ▲▼ u Postavkama možete ga promijeniti. Kućni brojevi ili granice čestica više ne nestaju ispod povijesne karte uključene u isto vrijeme.</li>
+              <li><strong>Kliknite male karte za pojedinosti sloja.</strong> Karte osobe i geokodiranja sada odgovaraju na klik kao i velika karta — kad je uključen zadani sloj kućnih brojeva, klik na zgradu daje njezinu službenu adresu, a da ne napuštate osobu koju uređujete.</li>
+              <li><strong>Prilagodite kartu onome što je ucrtano.</strong> Treći gumb ispod kontrola zumiranja uokviruje sve što je trenutačno nacrtano — na Karti mjesta jednako kao na malim kartama osobe i geokodiranja. Skočni opisi oznaka sada navode i mjesto, a za pojedinačni događaj i uličnu adresu.</li>
+              <li><strong>Raspored za mobitel vraća zaslon vašim podacima.</strong> Na mobitelu je okvir oko sadržaja postao veći od samog sadržaja. Šest alata u Alatima, koji su kao naslagane kartice ispunjavali cijeli prvi zaslon, sada su jedan red oznaka koje povlačite u stranu — Provjera odmah prikazuje prve nalaze. Stranice dijagrama i karte dugo ime drže u dva retka umjesto u četiri, birač vrste dijagrama pomiču umjesto da ga odrežu i izostavljaju podnožje stranice, pa karta sada dobiva znatno više zaslona. Drugdje podnožje više ne stoji prikovano preko vašeg popisa — stranica se pomiče kao cjelina, zaglavlje ostaje na mjestu, a podnožje dolazi na kraju sadržaja. Razmaci u cijeloj aplikaciji su manji, a dugo ime više ne gura polja uređivača preko desnog ruba.</li>
+              <li><strong>Brojač podudaranja prati filtar.</strong> U Spajanju strelice <em>‹ ›</em> pokraj podudaranja kreću se kroz filtrirani popis, ali brojač pokraj njih čitao je nefiltrirani — pa je filtar koji je sakrio sve i dalje pokazivao „1 od 34“ pokraj dviju strelica koje nisu ništa radile. Brojač i strelice sada opisuju isti popis.</li>
+              <li><strong>Kopirajte događaj u druge zapise.</strong> Padajući izbornik vrste događaja sada nudi <strong>Kopiraj događaj u…</strong>, popis s potvrdnim okvirima zapisa u koje događaj može otići — osoba za osobni događaj, obitelji za obiteljski, s kućanstvom same osobe na vrhu. Prenosi se cijeli događaj (datum, mjesto s koordinatom, adresa, bilješke, izvori), pa novozabilježeno prebivalište u jednom koraku stiže do ostatka obitelji.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-26</h2>
+            <ul>
+              <li><strong>Srednja Europa 1797., prije Napoleona.</strong> Novi predložak slojeva crta Schraemblovu <em>Neueste Generalkarte von Deutschland</em> (Beč, 1797.): njemačke zemlje, Alpe i sjeverni Jadran u posljednjim godinama Svetoga Rimskog Carstva, s tadašnjim teritorijima, granicama i njemačkim nazivima mjesta. Seže generaciju dalje u prošlost od svih dosadašnjih slojeva, koji su počinjali 1820.</li>
+              <li><strong>Detaljna topografska karta Slovenije, do mjerila 1:2500.</strong> Sloj GURS <em>Topografska karta</em> sada je obojena <em>Osnovna karta</em> koju crta i sam preglednik državne geodetske uprave — jedan sloj koji ostaje čitljiv od cijele zemlje do 1:2500, gdje se pojavljuju pojedine zgrade, izohipse, granice polja, putovi i toponimi. Zamjenjuje prethodni predložak 1:50&nbsp;000.</li>
+              <li><strong>I stariji topografski plan 1:5000.</strong> Zaseban predložak dodaje crno-bijeli <em>Temeljni topografski načrt</em> 1:5000, koji bilježi zgrade, raspored polja i putove svoje vlastite, ranije izmjere — korisno ondje gdje suvremena karta više ne prikazuje ono što je poznavao vaš predak.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-25</h2>
+            <ul>
+              <li><strong>Provjera otkriva djecu s dva oca istodobno.</strong> Nova provjera označava majku čija se djeca s jednim partnerom vremenski isprepliću s djecom s drugim — u životu nemoguće, a obično je riječ o djetetu ili cijeloj skupini braće i sestara pripojenoj pogrešnoj obitelji. Uzastopni brakovi i posvojena djeca ostaju netaknuti.</li>
+              <li><strong>Koordinate točne do kuće iz registra adresa.</strong> Gdje mjesto ili adresa događaja navodi kućni broj (<em>Šentvid pri Stični 23</em>), slovenski registar adresa (GURS) sada označuje pravu zgradu umjesto središta naselja. Pribadača pokraj mjesta u Uređivanju otvara malu kartu za pregled koordinate.</li>
+              <li><strong>Provjera razlikuje adrese.</strong> Koordinate se sada procjenjuju po mjestu <em>i</em> adresi, pa se dvije adrese u jednom naselju opravdano mogu razlikovati — dok se isto mjesto i adresa s dvije različite koordinate prijavljuju kao proturječje, što i jesu.</li>
+              <li><strong>Koordinate slovenskih mjesta jednim klikom.</strong> Alati → Geokodiranje mjesta sada mogu dohvatiti svih 6035 slovenskih naselja izravno iz registra državne geodetske uprave (GURS), bez traženja datoteke imenika mjesta. Dolaze i dvojezični talijanski i mađarski nazivi, pa <em>Isola</em> pronalazi <em>Izola</em>. Podaci se pohranjuju u vašem pregledniku, pa rade i izvan mreže.</li>
+              <li><strong>Traženje duplikata nosi se s velikim datotekama.</strong> Popis sada počinje od visokog stupnja podudaranja (≥&nbsp;85), pa ostaje kratak i upotrebljiv, a birač stupnja na zahtjev otkriva slabija podudaranja. Zapisi koji svi izgledaju kao ista osoba <strong>grupiraju se u skupine</strong> — istoimena „usporedna grana“ sažima se u jedan redak koji možete pregledati par po par ili ga odjednom odbaciti gumbom <strong>Odbaci sve</strong>. Svaki par prikazuje i GEDCOM oznake obaju zapisa, pa je istoimene dvojnike lako razlikovati.</li>
+              <li><strong>Slojevi karte WMS.</strong> Karta mjesta sada može crtati slojeve OGC&nbsp;WMS preko osnovne karte, ne samo predloške pločica — s predlošcima na jedan klik za državne karte GURS-a: povijesni i suvremeni ortofoto, topografska karta, katastarske čestice i katastarske općine, kućni brojevi, naselja i općine. Nekoliko slojeva odgovara na <strong>klik na kartu</strong>: kućni brojevi daju punu adresu (ulica, broj, naselje, poštanski broj), čestica svoj broj, katastarsku općinu i površinu, a sloj katastarskih općina naziv katastarske općine (<em>katastrska občina</em>) s njezinim brojem.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-22</h2>
+            <ul>
+              <li><strong>Spremljene datoteke sada nose datum</strong> (<code>{yourfile}.2026-07-22.gedmerge.ged</code>), pa se uzastopne verzije slažu po datumu i nikad ne prepisuju jedna drugu.</li>
+              <li><strong>Istospolni parovi su prepoznati.</strong> Kartice roditelja označene su kao <em>Roditelj</em> umjesto Otac/Majka, a Provjera više ne označava stvarni istospolni brak.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-19</h2>
+            <ul>
+              <li><strong>Geokodiranje poštuje zemlju</strong> navedenu u mjestu, pa se naziv mjesta više ne podudara s nekim mjestom u pogrešnoj zemlji.</li>
+              <li><strong>Provjera</strong> označava mjesta geokodirana u nekim zapisima, ali ne i u drugima, i jednim klikom popunjava nedostajuće koordinate iz datoteke.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-18</h2>
+            <ul>
+              <li><strong>Slojevi povijesnih karata.</strong> Dodajte vlastite povijesne slojeve pločica pod Postavke → Karta, uz ugrađeni predložak na jedan klik za Sloveniju, Hrvatsku i Bosnu 1877. – 1918. (habsburška <em>Spezialkarte 1:75 000</em>).</li>
+              <li><strong>Geokodiranje mjesta sada može pretraživati i na mreži</strong> — OpenStreetMap za adrese i GOV (Genealogical Gazetteer) za povijesne, višejezične nazive mjesta, uz upis trajne oznake <code>_GOV</code> natrag u datoteku.</li>
+              <li><strong>Životni putovi na Karti mjesta.</strong> Put svake osobe od rođenja preko prebivališta i brakova do smrti crta se kao linija sa strelicama smjera, a klizač godina s dvama gumbima omogućuje pregledavanje razdoblja.</li>
+              <li>Uređivanje prikazuje malu kartu događaja osobe duž njezina životnog puta.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-17</h2>
+            <ul>
+              <li><strong>Novi dijagram: Karta mjesta.</strong> Događaji predaka ili potomaka osobe pojavljuju se kao grupirane oznake, prema koordinatama koje datoteka već ima, uz izvoz snimke u PNG.</li>
+              <li><strong>Geokodiranje mjesta</strong> (Alati → Mjesta): usporedite nazive mjesta u datoteci s izvanmrežnim imenikom mjesta i upišite prihvaćene koordinate u GEDCOM.</li>
+              <li><strong>Podrška za privatne podatke.</strong> Zapisi, bilješke i mediji označeni kao privatni prikazuju prekidač 🔒 i poštuju se posvuda — u dijagramima, izvješćima, spajanju i alatu „Uredi izvore“.</li>
+              <li><strong>Zajedničke bilješke zadržavaju identitet kroz izmjene</strong>, pa sve što upućuje na zajedničku bilješku vidi promjenu, a struktura pokazivača bez gubitaka prolazi spremanje i ponovno učitavanje.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-16</h2>
+            <ul>
+              <li><strong>Prilagođeni događaji (EVEN) sada su podržani i na obiteljima</strong>, prikazani pod vlastitim naslovom u Uređivanju, u usporedbi za spajanje i pri spajanju.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-15</h2>
+            <ul>
+              <li><strong>Nova kartica Postavke → GEDCOM.</strong> Nadjačajte bilo koju prepoznatu konvenciju datoteke — oblike datuma i mjesta, alternativna imena, zapise izvora, navode i poveznice na stranice te jezike za Matriculu i Geneanet.</li>
+              <li><strong>Dodaj izvor</strong> razumije poveznice arhiva: prepoznati URL unaprijed popunjava naslov, autora, mjesto, arhiv, signaturu i stranicu.</li>
+              <li>Mnoge <strong>nove vrste poveznica</strong> koje prepoznaje alat „Uredi izvore“ — BillionGraves, dLib.si, Google Books, YouTube, Newspapers.com, Wikipedia, Slovenska biografija i druge.</li>
+              <li>Alat <strong>Počisti izvore</strong> preimenovan je u <strong>Uredi izvore</strong>; njegovi se izvori sada mogu ručno uređivati, a mrtve poveznice označiti za uklanjanje.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-14</h2>
+            <ul>
+              <li><strong>Novi alat: Uredi izvore</strong> (Alati → Izvori). Poveznice na arhive razasute po datoteci — Matricula, Geneanet, Find a Grave, FamilySearch i druge — grupiraju se po knjizi, grobu ili zapisu i pretvaraju u prave zapise izvora s navodima stranica.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-13</h2>
+            <ul>
+              <li><strong>Šira podrška za GEDCOM datoteke drugih programa.</strong> Atributi osobe koji su prije bili nevidljivi — referentni brojevi, titule, vjeroispovijest, državljanstvo, tjelesni opis, opće činjenice te pogrebni, vojni i zdravstveni događaji — sada se prikazuju u Uređivanju i spajaju kao i svaki drugi događaj.</li>
+              <li><strong>Podudaranje prepoznaje identifikatore zapisa</strong> (<strong>_UID</strong>/<strong>UID</strong>) i identifikatore osoba u FamilySearchu: dva zapisa s istim identifikatorom podudaraju se sa sigurnošću (🔑), čak i među različitim programima.</li>
+              <li><strong>Prijelaz između verzija GEDCOM-a.</strong> Ulazna datoteka u drugoj verziji (5.5.1 ⇄ 7.0) pri učitavanju se prevodi u verziju vaše glavne datoteke, pa spojeni zapisi ostaju valjani.</li>
+              <li>Bolji prikaz fotografija iz drugih programa — poštuju se oznaka glavne fotografije, izrezi lica, redoslijed i ključne riječi.</li>
+              <li>Provjera sada objašnjava prilagođene oznake koje drugi programi ostavljaju u datoteci, umjesto da ih samo navodi.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-12</h2>
+            <ul>
+              <li><strong>Analize u Alatima rade u pozadini.</strong> Provjera, Duplikati, Ujednačavanje i Izvori više ne zamrzavaju aplikaciju na velikim datotekama, a gotovi rezultati čuvaju se dok mijenjate kartice.</li>
+              <li>Nova mogućnost <strong>Dob</strong> na dijagramima i izvješćima: dob svake osobe prikazuje se uz njezin životni vijek i datume događaja.</li>
+              <li><strong>Pretraživanje sada zanemaruje dijakritičke znakove</strong> — upis <em>Ziva</em> pronalazi <em>Živa</em>, a <em>Skofja</em> pronalazi <em>Škofja</em>.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-11</h2>
+            <ul>
+              <li><strong>Znatno sažetije Uređivanje.</strong> Svaki događaj stane u jedan redak, a dodatne pojedinosti dodaju se izbornikom <strong>+ Dodaj</strong> koji se pojavljuje tek kad se mišem prijeđe preko retka, pa prazna polja više ne zatrpavaju prikaz.</li>
+              <li><strong>Potpuno uređivanje tipkovnicom:</strong> tipkom Tab prelazite kroz sva polja, a Enter otvara izbornike vrste događaja, „Spol“ i „+ Dodaj“.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-10</h2>
+            <ul>
+              <li>Alati → Duplikati dobivaju radnju <strong>Odbaci</strong>: odbačeni parovi pamte se i mogu se kasnije pregledati i vratiti.</li>
+              <li>Podnožje sada prikazuje verziju aplikacije, s poveznicom na ovaj popis promjena.</li>
+              <li>Novi gumb <strong>Provjeri</strong> (Chrome/Edge): provjerava je li se učitana datoteka promijenila na disku i nudi njezino ponovno učitavanje.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-06</h2>
+            <ul>
+              <li>Nova postavka Postavke → Prikaz → <strong>Prikaži dob</strong>: dob uz životni vijek i datume događaja te potpuna razdioba na godine, mjesece i dane u skočnim opisima.</li>
+              <li>Fotografije se sada posvuda zovu <strong>mediji</strong>, uz podršku za datoteke SVG i PDF, izravno povlačenje datoteka u aplikaciju i označavanje područja osobe na skupnoj fotografiji kako bi poslužilo kao njezina sličica.</li>
+              <li>Izvješća su dobila izvoz u RTF, neobvezni sadržaj i skrivanje živih osoba.</li>
+              <li>Dodana je podrška za GEDCOM datoteke izvezene iz MyHeritagea.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-04</h2>
+            <ul>
+              <li>Nova vrsta dijagrama <strong>Izvješće</strong>: izvješće o precima Ahnentafel i registar potomaka u stilu NGSQ, svako dostupno kao sažeti popis ili kao tekuća pripovjedna proza — na engleskom i slovenskom.</li>
+              <li>Središte dijagrama sada okuplja dijagrame Stablo, Mreža, Lepeza, Krug, Vremenska crta, Srodstvo i Izvješće u jednom nizu kartica, sa zajedničkim izbornikom izvoza GEDCOM / SVG / PDF.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-07-01</h2>
+            <ul>
+              <li>GED Merge je sada aplikacija koja se može instalirati i potpuno radi izvan mreže (PWA).</li>
+              <li>Neobvezna lokalna pohrana: uključite je i ponovno učitavanje stranice vraća vaše učitane datoteke i napredak.</li>
+              <li>Dodano je globalno pretraživanje cijele datoteke.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-06-30</h2>
+            <ul>
+              <li>Postavite <strong>polaznu osobu</strong> i pogledajte sve osobe poredane po udaljenosti srodstva, označene bojom po očevoj ili majčinoj lozi.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-06-29</h2>
+            <ul>
+              <li>Provjera sada označava petlje u rodoslovlju (osoba koja je sama sebi predak) i neslaganja spola i uloge.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-06-28</h2>
+            <ul>
+              <li>Uz obiteljsko stablo dodane su vrste dijagrama Mreža, Lepeza i Krug.</li>
+            </ul>
+          </section>
+          <section class="changelog-entry">
+            <h2>2026-06-27</h2>
+            <ul>
+              <li>Dodani su dijagram srodstva i alat Privatnost, koji prikriva žive osobe prije nego što podijelite datoteku.</li>
+              <li>Svaki se dijagram sada može izvesti kao SVG ili PDF.</li>
+            </ul>
+          </section>
+        </article>
+
+        <div class="guide-cta">
+          <p>Spremni urediti, usporediti ili spojiti vlastitu GEDCOM datoteku?</p>
+          <a href="../">Otvori GED Merge</a>
+        </div>
+      </main>
+    </div>
+
+    <!-- ── Footer (matches the app) ─────────────────────────────────────────── -->
+    <footer class="app-footer guide-footer">
+      <a href="https://luka.renko.fyi" target="_blank" rel="noopener noreferrer">© 2026 Luka Renko</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../upute/">Upute za uporabu</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../privatnost/">Privatnost</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../uvjeti/">Uvjeti</a>
+      <span class="app-footer-sep">·</span>
+      <a class="app-footer-link" href="../uvjeti/#contact">Kontakt</a>
+    </footer>
+
+    <script>
+      // Theme toggle for the header button. Shares the app's "gedmerge.theme"
+      // key, so the choice carries over to the app and survives reloads.
+      (function () {
+        var btn = document.getElementById("gm-theme");
+        if (!btn) return;
+        function render() {
+          btn.textContent = document.documentElement.getAttribute("data-theme") === "dark" ? "🌙" : "☀️";
+        }
+        render();
+        btn.addEventListener("click", function () {
+          var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+          document.documentElement.setAttribute("data-theme", next);
+          try { localStorage.setItem("gedmerge.theme", next); } catch (e) {}
+          render();
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -4,6 +4,7 @@ import { App } from "./App.tsx";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { installBusyCursorOnPress } from "./ui/busyCursor";
+import { docPage } from "./ui/docPages";
 // Load order matters (see design README): fonts + tokens before the app's
 // index.css so they redefine --bg/--text/etc., then components.css last so its
 // overrides win the cascade.
@@ -20,13 +21,13 @@ import "./locales/i18n";
 // bounce straight back here.
 const legalPage = new URLSearchParams(window.location.search).get("legal");
 if (legalPage === "privacy" || legalPage === "terms") {
-  let sl = false;
+  let lang: string | null = null;
   try {
-    sl = localStorage.getItem("gedmerge.lang") === "sl";
+    lang = localStorage.getItem("gedmerge.lang");
   } catch {
     // Storage blocked (private mode, embedded webview) — fall back to English.
   }
-  const slug = legalPage === "privacy" ? (sl ? "zasebnost/" : "privacy/") : sl ? "pogoji/" : "terms/";
+  const slug = docPage(legalPage, lang);
   window.location.replace(new URL(slug, window.location.href).toString());
 }
 
