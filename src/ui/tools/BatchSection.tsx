@@ -107,6 +107,7 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
 
 /** Stable empty rows for the renders before the build has finished. */
 const NO_ROWS: BatchRow[] = [];
+const NO_MEDIA: MediaOption[] = [];
 
 export function BatchSection({ dataset, editVersionRef, active, onNavigate, onApplyPatches, startId }: Props) {
   const { t } = useTranslation();
@@ -210,7 +211,16 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     [saved, rows, ctx],
   );
 
+  // Listing every local media file reads the whole file too (0.6 s on half a
+  // million people), so it waits for a media filter or action — chosen here
+  // or kept in a saved filter, whose references are checked against the list.
+  const wantsMedia =
+    asks("media") ||
+    action?.kind === "addMedia" ||
+    action?.kind === "removeMedia" ||
+    saved.some((f) => f.action?.kind === "removeMedia");
   const mediaOptions = useMemo<MediaOption[]>(() => {
+    if (!wantsMedia) return NO_MEDIA;
     const sharedByFile = new Map<string, string>();
     for (const rec of dataset.records) {
       if (rec.tag !== "OBJE" || !rec.xref) continue;
@@ -224,7 +234,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       title: f.title,
     })).map((o) => ({ ...o, key: mediaOptionKey(o) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  }, [dataset, ver]);
+  }, [dataset, ver, wantsMedia]);
 
   /** Images in the connected media folder that the file does not use yet —
    *  offered by the attach action beside the file's own, so a picture already
