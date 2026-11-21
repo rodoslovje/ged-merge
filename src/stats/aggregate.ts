@@ -1,4 +1,5 @@
 import { foldSearch } from "../ui/globalSearch";
+import { finish, sliced, type BuildSteps, type SlicedBuild } from "../tools/sliced";
 
 import type { FamilyFacts, PersonFacts } from "./facts";
 import type { ScopedFacts } from "./scope";
@@ -331,7 +332,29 @@ function distinctRefs(s: ScopedFacts): { places: number; sources: number; media:
   return { places: places.size, sources: sources.size, media: media.size };
 }
 
+/** The overview at once — see {@link startOverview} for the build in slices. */
 export function overview(s: ScopedFacts): Overview {
+  return finish(overviewSteps(s));
+}
+
+/** The overview, built in slices: a second and a half of work on a file of
+ *  half a million people, with the page painting in between. */
+export function startOverview(s: ScopedFacts): SlicedBuild<Overview> {
+  return sliced(overviewSteps(s));
+}
+
+/** People walked between two pauses of the overview's own loop. */
+const OVERVIEW_CHUNK = 4096;
+/** The whole-scope passes the overview pauses after, following its own walk —
+ *  and one more, so that progress stays short of 1 until the result is there. */
+const OVERVIEW_PARTS = 19;
+/** The share of the work that the walk over the people is taken to be. */
+const WALK_SHARE = 0.2;
+
+function* overviewSteps(s: ScopedFacts): BuildSteps<Overview> {
+  let part = 0;
+  // One pause after each whole-scope pass below.
+  const next = () => WALK_SHARE + (1 - WALK_SHARE) * Math.min(1, ++part / OVERVIEW_PARTS);
   const male: string[] = [];
   const female: string[] = [];
   const unknownSex: string[] = [];
@@ -345,7 +368,9 @@ export function overview(s: ScopedFacts): Overview {
   const ages: number[] = [];
   const by = birthYearOf(s);
   const age = ageAtDeathOf(s);
-  for (const p of s.people) {
+  for (let i = 0; i < s.people.length; i++) {
+    if (i > 0 && i % OVERVIEW_CHUNK === 0) yield (WALK_SHARE * i) / s.people.length;
+    const p = s.people[i];
     (p.sex === "M" ? male : p.sex === "F" ? female : unknownSex).push(p.id);
     if (p.deceased) deceased.push(p.id);
     else if (p.living) living.push(p.id);
@@ -362,6 +387,7 @@ export function overview(s: ScopedFacts): Overview {
       if (p.sex === "F" && (!oldestFemale || a > oldestFemale.age)) oldestFemale = { id: p.id, age: a };
     }
   }
+  yield next();
   let largestFamily: Overview["largestFamily"];
   // A parent's children over all their unions, each child once.
   const childrenOf = new Map<string, Set<string>>();
@@ -374,6 +400,7 @@ export function overview(s: ScopedFacts): Overview {
       for (const child of f.children) kids.add(child);
     }
   }
+  yield next();
   const mostChildren = (sex: "M" | "F") => {
     let best: { id: string; children: number } | undefined;
     for (const [id, kids] of childrenOf) {
@@ -382,8 +409,39 @@ export function overview(s: ScopedFacts): Overview {
     }
     return best;
   };
+  const mostChildrenMale = mostChildren("M");
+  const mostChildrenFemale = mostChildren("F");
+  yield next();
   const surnames = rankNames(s.people, "surname");
+  yield next();
   const givens = new Set(s.people.map((p) => p.givenKey).filter(Boolean));
+  yield next();
+  const refs = distinctRefs(s);
+  yield next();
+  const name = share(s.people, (p) => p.hasName);
+  yield next();
+  const birthDate = share(s.people, (p) => p.hasBirthDate);
+  yield next();
+  const birthPlace = share(s.people, (p) => p.hasBirthPlace);
+  yield next();
+  const deathDate = share(s.people.filter((p) => p.deceased), (p) => p.hasDeathDate);
+  yield next();
+  const parents = share(s.people, (p) => p.hasParents);
+  yield next();
+  const place = share(s.people, (p) => p.hasPlace);
+  yield next();
+  const mapped = share(s.people, (p) => p.mapped);
+  yield next();
+  const source = share(s.people, (p) => p.hasSource);
+  yield next();
+  const topGivenMale = rankNames(s.people.filter((p) => p.sex === "M"), "given").slice(0, OVERVIEW_TOP);
+  yield next();
+  const topGivenFemale = rankNames(s.people.filter((p) => p.sex === "F"), "given").slice(0, OVERVIEW_TOP);
+  yield next();
+  const topBirthPlaces = rankText(s.people, (p) => [p.birthPlace], (p) => p.id).slice(0, OVERVIEW_TOP);
+  yield next();
+  const topBirthCountries = rankCountries(s.people);
+  yield next();
   return {
     people: s.people.length,
     families: s.families.length,
@@ -397,28 +455,19 @@ export function overview(s: ScopedFacts): Overview {
     surnames: surnames.length,
     givenNames: givens.size,
     countries: countries.size,
-    ...distinctRefs(s),
-    completeness: {
-      name: share(s.people, (p) => p.hasName),
-      birthDate: share(s.people, (p) => p.hasBirthDate),
-      birthPlace: share(s.people, (p) => p.hasBirthPlace),
-      deathDate: share(s.people.filter((p) => p.deceased), (p) => p.hasDeathDate),
-      parents: share(s.people, (p) => p.hasParents),
-      place: share(s.people, (p) => p.hasPlace),
-      mapped: share(s.people, (p) => p.mapped),
-      source: share(s.people, (p) => p.hasSource),
-    },
+    ...refs,
+    completeness: { name, birthDate, birthPlace, deathDate, parents, place, mapped, source },
     topSurnames: surnames.slice(0, OVERVIEW_TOP),
-    topGivenMale: rankNames(s.people.filter((p) => p.sex === "M"), "given").slice(0, OVERVIEW_TOP),
-    topGivenFemale: rankNames(s.people.filter((p) => p.sex === "F"), "given").slice(0, OVERVIEW_TOP),
-    topBirthPlaces: rankText(s.people, (p) => [p.birthPlace], (p) => p.id).slice(0, OVERVIEW_TOP),
-    topBirthCountries: rankCountries(s.people),
+    topGivenMale,
+    topGivenFemale,
+    topBirthPlaces,
+    topBirthCountries,
     ageAtDeath: mean(ages),
     oldestMale,
     oldestFemale,
     largestFamily: largestFamily && largestFamily.children > 0 ? largestFamily : undefined,
-    mostChildrenMale: mostChildren("M"),
-    mostChildrenFemale: mostChildren("F"),
+    mostChildrenMale,
+    mostChildrenFemale,
     childrenPerFamily: mean(s.families.map((f) => f.children.length)),
   };
 }

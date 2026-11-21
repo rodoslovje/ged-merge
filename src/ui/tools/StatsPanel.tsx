@@ -14,8 +14,9 @@ import {
   lifespanStats,
   nameKindsStats,
   namesStats,
-  overview,
+  startOverview,
   type Bucket,
+  type Overview,
   type PeriodPoint,
   type Share,
 } from "../../stats/aggregate";
@@ -215,7 +216,10 @@ export function StatsPanel({
     return [...byCode.values()];
   }, [base]);
 
-  const ov = useMemo(() => (scoped && page === "tree" ? overview(scoped) : undefined), [scoped, page]);
+  // In slices too: once the facts are there, the overview alone is a second
+  // and a half of work on such a file.
+  const ovBuild = useSlicedBuild<Overview | null>(() => (scoped && page === "tree" ? startOverview(scoped) : built(null)), [scoped, page]);
+  const ov = ovBuild.result ?? undefined;
   const names = useMemo(() => (scoped && page === "names" ? namesStats(scoped) : undefined), [scoped, page]);
   const surnameGrid = useMemo(() => (scoped && page === "names" ? surnameDecades(scoped) : undefined), [scoped, page]);
   const wed = useMemo(() => (scoped && page === "names" ? surnameMarriages(scoped) : undefined), [scoped, page]);
@@ -839,6 +843,9 @@ export function StatsPanel({
         <p className="tools-clean">{t("stats.nobody")}</p>
       ) : (
       <div className={`stats-grid${toneClass(scopeTone)}`}>
+        {page === "tree" && !ov && (
+          <ToolsLoading label={t("stats.running")} progress={{ done: Math.round(ovBuild.progress * 100), total: 100 }} />
+        )}
         {ov && (
           <>
             <section className="stats-card wide stats-tiles">

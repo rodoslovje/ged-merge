@@ -30,7 +30,8 @@ export function useSlicedBuild<T>(start: () => SlicedBuild<T>, deps: DependencyL
     const run = () => {
       const done = build.step(SLICE_MS);
       const now = done ? 100 : Math.floor(build.progress * 100);
-      if (now !== percent) {
+      // The end always shows: a build may report 100 % a step before it is done.
+      if (done || now !== percent) {
         percent = now;
         setShown((n) => n + 1);
       }

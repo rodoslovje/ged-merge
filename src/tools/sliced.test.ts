@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import type { Individual } from "../gedcom/types";
+import { overview, startOverview } from "../stats/aggregate";
 import { buildStatsFacts, startStatsFacts } from "../stats/facts";
+import { applyCountry, DEFAULT_SCOPE, scopeFacts } from "../stats/scope";
 import { buildBatchRows, startBatchRows } from "./batch";
 import { built, finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
 
@@ -88,6 +90,17 @@ describe("the whole-file builds, in slices", () => {
     expect(result).toEqual(buildStatsFacts(ds, "si", 2026));
     expect(result.people).toHaveLength(PEOPLE);
     expect(result.families).toHaveLength(PEOPLE / 2);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b));
+    expect(progress.every((p) => p >= 0 && p < 1)).toBe(true);
+  });
+
+  it("the statistics overview comes out the same as built at once", () => {
+    const facts = buildStatsFacts(ds, "si", 2026);
+    const scoped = applyCountry(facts, scopeFacts(facts, DEFAULT_SCOPE, null, undefined), DEFAULT_SCOPE);
+    const { result, slices, progress } = drip(startOverview(scoped));
+    expect(slices).toBeGreaterThan(5);
+    expect(result).toEqual(overview(scoped));
+    expect(result.people).toBe(PEOPLE);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(progress.every((p) => p >= 0 && p < 1)).toBe(true);
   });
