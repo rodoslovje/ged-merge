@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { appendFileSync, copyFileSync } from "fs";
+import { appendFileSync, copyFileSync, readdirSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { PWA_DIST } from "../../playwright.pwa.config";
@@ -48,6 +48,34 @@ test("the installed app starts and loads a file with no network", async ({ page,
   await page.goto("guide/");
   await expect(page.locator("h1").first()).toBeVisible();
   await expect(page.locator(".landing-b")).toHaveCount(0);
+});
+
+test("what is fetched only on use is there with no network too", async ({ page, context }) => {
+  // The sample trees, the landing page's pictures, and face detection's wasm
+  // and model: none is asked for as the app starts, so only the precache can
+  // have brought them.
+  const dist = path.join(ROOT, "dist");
+  const urls = (readdirSync(dist, { recursive: true }) as string[])
+    .map((f) => f.split(path.sep).join("/"))
+    .filter((f) => /\.(jpg|ged|wasm|tflite)$/.test(f));
+  for (const ext of ["jpg", "ged", "wasm", "tflite"]) {
+    expect(urls.filter((u) => u.endsWith(`.${ext}`)).length, ext).toBeGreaterThan(0);
+  }
+
+  await openControlled(page);
+  await context.setOffline(true);
+  const missing = await page.evaluate(async (list) => {
+    const out: string[] = [];
+    for (const url of list) {
+      const ok = await fetch(url).then(
+        (r) => r.ok,
+        () => false,
+      );
+      if (!ok) out.push(url);
+    }
+    return out;
+  }, urls);
+  expect(missing).toEqual([]);
 });
 
 test("a new deploy is offered as a toast, and Reload switches to it", async ({ page }) => {

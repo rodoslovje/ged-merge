@@ -54,15 +54,18 @@ export default defineConfig({
       workbox: {
         // Precache the app shell, the gedcom.worker chunk, the bundled IBM Plex
         // woff2 fonts, and the multi-page guide/index.html + navodila/index.html
-        // outputs → every page works offline.
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+        // outputs → every page works offline. So do the parts fetched only on
+        // use: the sample trees (ged), the landing page's map pictures (jpg)
+        // and face detection (its wasm and tflite model).
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2,jpg,ged,wasm,tflite}"],
         // The extension-tag reference pages (hundreds of them) and the
         // not-found page are for visitors following a URI, not for the
         // offline app: keep them out of the precache.
         globIgnores: ["terms/*/**/*.html", "404.html"],
         // The main chunk has outgrown Workbox's 2 MiB default; past the limit it
         // is silently left out of the precache, and the build fails on that.
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        // The largest file is the face-detection wasm, at 9.2 MiB.
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
         // Root navigations fall back to the app shell; the standalone guide
         // and changelog pages are precached, so keep them off the fallback.
         navigateFallback: "index.html",
