@@ -598,3 +598,18 @@
     overflow-wrap: anywhere;
   }
 }
+
+/* Three languages: on a phone the top bar holds the wordmark, the theme
+   button and two language links, which only fit a little tighter. */
+@media (max-width: 560px) {
+  .guide-topbar-inner {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .guide-topbar-controls {
+    gap: 10px;
+  }
+  .gm-wordmark-text {
+    font-size: 19px;
+  }
+}
