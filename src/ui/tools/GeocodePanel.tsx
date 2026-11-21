@@ -270,7 +270,7 @@ export function GeocodePanel({ dataset, active, editVersion, onApplyGeocode, onA
   // Kovačič" has no place name to type, and the rows do know whose events they
   // stand for. Terms match in any order, as in every other name box here — and
   // a place is read the same way, so "Zg Bitnj" finds Zgornje Bitnje.
-  const personNames = usePersonNameIndex(dataset);
+  const personNames = usePersonNameIndex(dataset, !!query);
   const terms = useQueryTerms(query);
   // Which kind of work is on screen, and which country — two chip rows above
   // the list. Both narrow only the place list; the search box stays the

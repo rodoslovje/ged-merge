@@ -4,7 +4,7 @@ import type { Dataset, GeoCoord, Translation } from "../../gedcom/types";
 import { translationLine } from "../../gedcom/translation";
 import { ownVersion } from "../../save/outputFile";
 import { PlaceTranslationsEditor } from "./PlaceTranslationsEditor";
-import { buildPlaceTree, collectNodeUseIds, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
+import { buildPlaceTree, collectNodeUseIds, startPlaceTree, type PlaceNode, type PlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "../../tools/places";
 import { previewPlaceRename, type PlaceRenamePreview } from "../../tools/placeEdit";
 import type { ToolView } from "../ToolsView";
 import { scanAddresses, type AddressRename } from "../../tools/addresses";
@@ -13,6 +13,7 @@ import { GeocodePanel } from "./GeocodePanel";
 import { RegisterPanel } from "./RegisterPanel";
 import { countGeocodePending, placeAddrKey, type FileCoord, type GeoAssignment, type OfficialRename } from "../../tools/geocode";
 import { countryCodeOfName, flagEmoji } from "../../geo/placeCountry";
+import { FIRST_SLICE_MS, SLICE_MS } from "../useSlicedBuild";
 import { AddressSplitField, RenameEditor, ToolsLoading, TreeSearch, UsageList, useDebounced } from "./shared";
 import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
@@ -179,12 +180,31 @@ export function PlacesPanel({
     setQuery("");
   }, [dataset]);
 
+  // Built in slices (see `tools/sliced`): the walk over every record is two
+  // seconds on a file of half a million people.
+  const [building, setBuilding] = useState(0);
   useEffect(() => {
-    if (active && !tree) {
-      const built = buildPlaceTree(dataset);
-      setTree(built);
-      setOpen(initialPlaceOpen(built.roots));
-    }
+    if (!active || tree) return;
+    const build = startPlaceTree(dataset);
+    let timer: number | undefined;
+    let percent = 0;
+    const run = (budgetMs: number) => {
+      if (build.step(budgetMs)) {
+        const built = build.result!;
+        setTree(built);
+        setOpen(initialPlaceOpen(built.roots));
+        setBuilding(0);
+        return;
+      }
+      const now = Math.floor(build.progress * 100);
+      if (now !== percent) setBuilding((percent = now));
+      timer = window.setTimeout(() => run(SLICE_MS), 0);
+    };
+    // A file of ordinary size is through within the first slice.
+    run(FIRST_SLICE_MS);
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, [active, tree, dataset]);
 
   // Expanding a place opens it and then keeps drilling through any single-child
@@ -353,7 +373,7 @@ export function PlacesPanel({
   const geocodePending = pending?.places ?? 0;
   const addressPending = pending?.addresses ?? 0;
 
-  if (!tree) return <ToolsLoading label={t("tools.running")} />;
+  if (!tree) return <ToolsLoading label={t("tools.running")} progress={building > 0 ? { done: building, total: 100 } : undefined} />;
 
   if (view === "register")
     return (

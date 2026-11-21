@@ -6,6 +6,7 @@ import { overview, startOverview } from "../stats/aggregate";
 import { buildStatsFacts, startStatsFacts } from "../stats/facts";
 import { applyCountry, DEFAULT_SCOPE, scopeFacts } from "../stats/scope";
 import { buildBatchRows, startBatchRows } from "./batch";
+import { buildPlaceTree, startPlaceTree } from "./places";
 import { built, finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
 
 function* count(to: number): BuildSteps<number[]> {
@@ -101,6 +102,15 @@ describe("the whole-file builds, in slices", () => {
     expect(slices).toBeGreaterThan(5);
     expect(result).toEqual(overview(scoped));
     expect(result.people).toBe(PEOPLE);
+    expect(progress).toEqual([...progress].sort((a, b) => a - b));
+    expect(progress.every((p) => p >= 0 && p < 1)).toBe(true);
+  });
+
+  it("the place tree comes out the same as built at once", () => {
+    const { result, slices, progress } = drip(startPlaceTree(ds));
+    expect(slices).toBeGreaterThan(3);
+    expect(result).toEqual(buildPlaceTree(ds));
+    expect(result.totalUses).toBe(PEOPLE);
     expect(progress).toEqual([...progress].sort((a, b) => a - b));
     expect(progress.every((p) => p >= 0 && p < 1)).toBe(true);
   });
