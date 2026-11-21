@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { GedNode, Dataset } from "../gedcom/types";
 import type { RecordPatch } from "../ui/historyTypes";
 import { cloneNode, nodesEqual, recordLookup } from "../gedcom/node";
-import { captureBaseline, type SaveBaseline } from "../gedcom/fingerprint";
+import { baselineSteps, type SaveBaseline } from "../gedcom/fingerprint";
 import { displayName } from "../match/relatives";
 import {
   bumpSubstantiveCounts,
@@ -22,6 +22,17 @@ export interface SharedRecordSnapshot {
   value: GedNode;
   owner?: { kind: RecordKind; id: string };
 }
+
+/** How long the baseline pass may be kept waiting by a busy page: long at its
+ *  start, which follows a load, shorter between its slices. */
+const IDLE_START_TIMEOUT_MS = 20000;
+const IDLE_SLICE_TIMEOUT_MS = 1000;
+/** The least an idle slice does, when the browser says no time is left. */
+const IDLE_MIN_MS = 2;
+/** Slice budget and gap where there is no idle callback: small slices, well
+ *  apart, so the page stays fluid. */
+const FALLBACK_BUDGET_MS = 6;
+const FALLBACK_GAP_MS = 30;
 
 export function useDirtyTracking() {
   const [changedPersonIds, setChangedPersonIds] = useState<Set<string>>(new Set());
@@ -44,6 +55,8 @@ export function useDirtyTracking() {
   const baseline = useRef<SaveBaseline>(new Map());
   /** The dataset whose fingerprint pass is still owed (see takeBaseline). */
   const pendingBaseline = useRef<Dataset | null>(null);
+  /** That pass, once begun: it runs in idle slices, and holds its place here. */
+  const baselinePass = useRef<Generator<void, SaveBaseline, void> | null>(null);
 
   // Raw-node snapshots taken at first-dirty time, used to detect when a record
   // has returned to its pre-edit state and to revert Remove from save.
@@ -109,49 +122,72 @@ export function useDirtyTracking() {
     }
   }
 
-  /** Run `cb` once the browser is idle — after the load's first paint — or
-   *  shortly after where the browser has no idle callback (tests, Safari). */
-  function whenIdle(cb: () => void) {
-    // A long timeout: with the edit paths guarding the baseline themselves,
-    // the pass may wait out the whole first render of a big file rather than
-    // land in the middle of it.
-    if (typeof requestIdleCallback === "function") requestIdleCallback(() => cb(), { timeout: 20000 });
-    else setTimeout(cb, 100);
+  /** Run `cb` once the browser is idle, with the milliseconds it may use —
+   *  or shortly after, where the browser has no idle callback (tests, Safari). */
+  function whenIdle(cb: (budgetMs: number) => void, first: boolean) {
+    if (typeof requestIdleCallback === "function") {
+      // A long timeout for the start: with the edit paths guarding the
+      // baseline themselves, the pass may wait out the whole first render of
+      // a big file rather than land in the middle of it.
+      requestIdleCallback(
+        (deadline) => cb(Math.max(deadline?.timeRemaining() ?? 0, IDLE_MIN_MS)),
+        { timeout: first ? IDLE_START_TIMEOUT_MS : IDLE_SLICE_TIMEOUT_MS },
+      );
+    } else setTimeout(() => cb(FALLBACK_BUDGET_MS), first ? 100 : FALLBACK_GAP_MS);
   }
 
   /** Re-fingerprint the whole file as the baseline every later save is audited
    *  against. One pass over the records, at the three moments the baseline
    *  really moves: a file loads, a save lands, a cached session is restored.
    *
-   *  Taken lazily: the pass hashes every character of the file (1.6 s of a
-   *  500k-person load, on the main thread, before the first person could
-   *  paint), and nothing reads the baseline until the first edit or the save.
-   *  So the load only notes which dataset to fingerprint and asks for an idle
-   *  moment; {@link ensureBaseline} runs the pass then, or sooner from the
-   *  first entry point that needs it — always before the records change,
+   *  Taken lazily: the pass hashes every character of the file (2 s on a
+   *  500k-person file, on the main thread), and nothing reads the baseline
+   *  until the first edit or the save. So the load only notes which dataset to
+   *  fingerprint; the pass then runs in idle moments, a slice at a time — in
+   *  one piece it froze the page just as the first person appeared.
+   *  {@link ensureBaseline} runs what is left of it at once, from the first
+   *  entry point that needs the baseline — always before the records change,
    *  since every edit path snapshots through {@link captureSnapshotsForPush}. */
   function takeBaseline(dataset: Dataset) {
     pendingBaseline.current = dataset;
+    baselinePass.current = null;
     baseline.current = new Map();
-    whenIdle(() => {
-      if (pendingBaseline.current === dataset) ensureBaseline();
-    });
+    const slice = (budgetMs: number) => {
+      // A later load, or an edit that ran the pass to its end, owns it now.
+      if (pendingBaseline.current !== dataset) return;
+      if (!runBaselinePass(dataset, performance.now() + budgetMs)) whenIdle(slice, false);
+    };
+    whenIdle(slice, true);
   }
 
-  /** The baseline, fingerprinted now if the load left it pending. */
-  function ensureBaseline(): SaveBaseline {
-    const dataset = pendingBaseline.current;
-    if (!dataset) return baseline.current;
-    pendingBaseline.current = null;
+  /** Move the pending pass over `dataset` on until `deadline` (always by one
+   *  step at least); true once the baseline is in place. */
+  function runBaselinePass(dataset: Dataset, deadline: number): boolean {
     const nameOf = (id: string | undefined) => {
       const indi = id ? dataset.individuals.get(id) : undefined;
       return indi ? displayName(indi.names[0]) : undefined;
     };
-    baseline.current = captureBaseline(dataset, nameOf, (id) => {
+    const pass = (baselinePass.current ??= baselineSteps(dataset, nameOf, (id) => {
       const fam = dataset.families.get(id);
       if (!fam) return undefined;
       return [nameOf(fam.husband), nameOf(fam.wife)].filter(Boolean).join(" + ") || undefined;
-    });
+    }));
+    do {
+      const next = pass.next();
+      if (next.done) {
+        baseline.current = next.value;
+        pendingBaseline.current = null;
+        baselinePass.current = null;
+        return true;
+      }
+    } while (performance.now() < deadline);
+    return false;
+  }
+
+  /** The baseline, with what is left of a pending pass run now. */
+  function ensureBaseline(): SaveBaseline {
+    const dataset = pendingBaseline.current;
+    if (dataset) runBaselinePass(dataset, Infinity);
     return baseline.current;
   }
 
@@ -293,6 +329,7 @@ export function useDirtyTracking() {
     loadedFamilyIds.current = new Set();
     baseline.current = new Map();
     pendingBaseline.current = null;
+    baselinePass.current = null;
     personSnapshots.current = new Map();
     familySnapshots.current = new Map();
     recordSnapshots.current = new Map();

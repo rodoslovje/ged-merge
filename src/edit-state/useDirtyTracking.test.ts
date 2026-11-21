@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "../testing/fakeReact";
 import { useDirtyTracking } from "./useDirtyTracking";
 import { buildDataset } from "../gedcom/builder";
+import { captureBaseline, recordFingerprint } from "../gedcom/fingerprint";
 import { cloneNode } from "../gedcom/node";
 import { parseGedcom } from "../gedcom/parser";
 import type { Dataset, GedNode } from "../gedcom/types";
@@ -245,6 +246,80 @@ describe("useDirtyTracking", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  describe("on a file too large for one idle moment", () => {
+    // 1,200 people: several pauses of the pass.
+    const BIG = [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      ...Array.from({ length: 1200 }, (_, i) => [`0 @I${i}@ INDI`, `1 NAME Ana${i} /Kos/`]).flat(),
+      "0 TRLR", "",
+    ].join("\n");
+    /** Idle callbacks as the browser would queue them, run one at a time by
+     *  the test; each finds no time left, so it does the least a slice does. */
+    function idleQueue() {
+      const queue: Array<() => void> = [];
+      vi.stubGlobal("requestIdleCallback", (cb: (d: { timeRemaining: () => number }) => void) => {
+        queue.push(() => cb({ timeRemaining: () => 0 }));
+      });
+      // Each look at the clock finds a slice's time used up.
+      let clock = 0;
+      vi.spyOn(performance, "now").mockImplementation(() => (clock += 100));
+      return queue;
+    }
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it("takes the baseline a slice at a time, and has none until the pass is through", () => {
+      const queue = idleQueue();
+      const ds = load(BIG);
+      const h = mount(ds);
+      let slices = 0;
+      while (queue.length) {
+        expect(h.result.current.baseline.current.size).toBe(0);
+        queue.shift()!();
+        slices++;
+      }
+      expect(slices).toBeGreaterThan(3);
+      expect(h.result.current.baseline.current).toEqual(captureBaseline(ds, (id) => `Ana${id.slice(2, -1)} Kos`, () => undefined));
+    });
+
+    it("an edit in the middle of the pass gets the whole baseline, taken before the record changes", () => {
+      const queue = idleQueue();
+      const ds = load(BIG);
+      const h = mount(ds);
+      queue.shift()!();
+      queue.shift()!();
+      // The last person: well past where the pass has got to. As App does it,
+      // the snapshot — and with it the baseline — comes before the change.
+      const raw = ds.individuals.get("@I1199@")!.raw;
+      const loaded = recordFingerprint(raw);
+      const before = cloneNode(raw);
+      const after = cloneNode(raw);
+      after.children[0].value = "Marija /Kos/";
+      const patch: RecordPatch = { type: "individual", id: "@I1199@", before, after };
+      h.result.current.captureSnapshotsForPush([patch]);
+      applyRecordPatches(ds, [patch], "redo");
+      const base = h.result.current.baseline.current;
+      expect(base.size).toBe(1200);
+      expect(base.get("@I1199@")).toEqual({ hash: loaded, kind: "individual", label: "Ana1199 Kos" });
+      expect(recordFingerprint(ds.individuals.get("@I1199@")!.raw)).not.toBe(loaded);
+      // The slices still queued find nothing left to do.
+      while (queue.length) queue.shift()!();
+      expect(h.result.current.baseline.current).toBe(base);
+    });
+
+    it("a new load drops the pass of the file before it", () => {
+      const queue = idleQueue();
+      const h = mount(load(BIG));
+      queue.shift()!();
+      const next = load();
+      h.result.current.resetOnLoad(next);
+      while (queue.length) queue.shift()!();
+      expect([...h.result.current.baseline.current.keys()]).toEqual(["@I1@", "@I2@", "@F1@", "@S1@", "@S2@"]);
+    });
   });
 
   it("serialize → hydrate restores the tracking a cached session needs", () => {
