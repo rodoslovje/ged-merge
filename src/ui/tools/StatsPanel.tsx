@@ -2,7 +2,9 @@ import { useDeferredValue, useEffect, useMemo, useState, type ReactNode } from "
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { computeKinship, computeLineSides } from "../../tools/batch";
-import { buildStatsFacts, type StatsFacts } from "../../stats/facts";
+import { startStatsFacts, type StatsFacts } from "../../stats/facts";
+import { built } from "../../tools/sliced";
+import { useSlicedBuild } from "../useSlicedBuild";
 import { applyCountry, DEFAULT_SCOPE, narrowScoped, scopeFacts, STATS_WHO, type StatsScope } from "../../stats/scope";
 import {
   ADULT_AGE,
@@ -12,8 +14,9 @@ import {
   lifespanStats,
   nameKindsStats,
   namesStats,
-  overview,
+  startOverview,
   type Bucket,
+  type Overview,
   type PeriodPoint,
   type Share,
 } from "../../stats/aggregate";
@@ -177,15 +180,18 @@ export function StatsPanel({
   // returns — and only then, so a return without an edit walks nothing.
   const [seenVersion, setSeenVersion] = useState(editVersion);
   useEffect(() => { if (active) setSeenVersion(editVersion); }, [active, editVersion]);
-  // seenVersion keys the rows: the dataset is mutated in place.
-  const facts = useMemo(() => {
-    if (!ready) return undefined;
+  // seenVersion keys the rows: the dataset is mutated in place. Built in
+  // slices — seconds of work on a file of half a million people — and kept,
+  // so a return with the file unchanged walks nothing.
+  const factsBuild = useSlicedBuild<StatsFacts | null>(() => {
+    if (!ready) return built(null);
     const hit = cachedFacts(dataset, seenVersion, home);
-    if (hit) return hit;
-    const built = buildStatsFacts(dataset, home);
-    factsCache.set(dataset, { version: seenVersion, home, facts: built });
-    return built;
+    return hit ? built(hit) : startStatsFacts(dataset, home);
   }, [ready, dataset, seenVersion, home]);
+  const facts = factsBuild.result ?? undefined;
+  useEffect(() => {
+    if (facts && !cachedFacts(dataset, seenVersion, home)) factsCache.set(dataset, { version: seenVersion, home, facts });
+  }, [facts, dataset, seenVersion, home]);
   const lined = scope.who !== "all";
   // Whose line the statistics follow: the app's start person until another is
   // picked here. The choice is the statistics' own and moves nothing else.
@@ -210,7 +216,10 @@ export function StatsPanel({
     return [...byCode.values()];
   }, [base]);
 
-  const ov = useMemo(() => (scoped && page === "tree" ? overview(scoped) : undefined), [scoped, page]);
+  // In slices too: once the facts are there, the overview alone is a second
+  // and a half of work on such a file.
+  const ovBuild = useSlicedBuild<Overview | null>(() => (scoped && page === "tree" ? startOverview(scoped) : built(null)), [scoped, page]);
+  const ov = ovBuild.result ?? undefined;
   const names = useMemo(() => (scoped && page === "names" ? namesStats(scoped) : undefined), [scoped, page]);
   const surnameGrid = useMemo(() => (scoped && page === "names" ? surnameDecades(scoped) : undefined), [scoped, page]);
   const wed = useMemo(() => (scoped && page === "names" ? surnameMarriages(scoped) : undefined), [scoped, page]);
@@ -242,7 +251,10 @@ export function StatsPanel({
   // A list belongs to the numbers it was picked from.
   useEffect(() => setPick(null), [scope, page, facts]);
 
-  if (!facts || !scoped) return <ToolsLoading label={t("stats.running")} />;
+  if (!facts || !scoped) {
+    const percent = Math.round(factsBuild.progress * 100);
+    return <ToolsLoading label={t("stats.running")} progress={factsBuild.result === undefined && percent > 0 ? { done: percent, total: 100 } : undefined} />;
+  }
 
   const num = (n: number) => n.toLocaleString(lang);
   const dec = (n: number) => n.toLocaleString(lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
@@ -831,6 +843,9 @@ export function StatsPanel({
         <p className="tools-clean">{t("stats.nobody")}</p>
       ) : (
       <div className={`stats-grid${toneClass(scopeTone)}`}>
+        {page === "tree" && !ov && (
+          <ToolsLoading label={t("stats.running")} progress={{ done: Math.round(ovBuild.progress * 100), total: 100 }} />
+        )}
         {ov && (
           <>
             <section className="stats-card wide stats-tiles">

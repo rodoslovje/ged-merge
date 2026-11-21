@@ -10052,7 +10052,8 @@ button.tools-count-toggle[aria-pressed="true"] { color: var(--accent); }
 .stats-card-note { color: var(--muted); font-size: 0.8rem; }
 .stats-empty { margin: 0; font-size: 0.85rem; }
 /* A note standing in a card's place in the grid, across its whole width. */
-.stats-grid > .stats-note { grid-column: 1 / -1; }
+.stats-grid > .stats-note,
+.stats-grid > .tools-loading { grid-column: 1 / -1; }
 
 .stats-tiles { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px; }
 .stats-tile {

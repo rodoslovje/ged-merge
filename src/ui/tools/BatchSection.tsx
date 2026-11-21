@@ -13,7 +13,8 @@ import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
   applyBatchAction,
-  buildBatchRows,
+  startBatchRows,
+  type BatchRow,
   computeKinship,
   computeLineSides,
   matchesBatch,
@@ -42,7 +43,8 @@ import { useConfirmDialog } from "../useConfirmDialog";
 import { SearchSelect } from "../SearchSelect";
 import { useMediaFolder } from "../MediaFolderContext";
 import { basename, sameMediaFile } from "../mediaPath";
-import { ToolsIntro } from "./shared";
+import { ToolsIntro, ToolsLoading } from "./shared";
+import { useSlicedBuild } from "../useSlicedBuild";
 
 /**
  * Tools → Normalize & batch → Batch actions: stackable filters over the whole
@@ -103,6 +105,10 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
   return ref.xref || ref.file ? NEW_KEY : "";
 }
 
+/** Stable empty rows for the renders before the build has finished. */
+const NO_ROWS: BatchRow[] = [];
+const NO_MEDIA: MediaOption[] = [];
+
 export function BatchSection({ dataset, editVersionRef, active, onNavigate, onApplyPatches, startId }: Props) {
   const { t } = useTranslation();
   const formatOverrides = useFormatOverrides();
@@ -119,17 +125,29 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const [ver, setVer] = useState(() => editVersionRef.current);
   if (active && ver !== editVersionRef.current) setVer(editVersionRef.current);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  const rows = useMemo(() => buildBatchRows(dataset, nameOf), [dataset, nameOf, ver]);
+  // Built in slices: seconds of work on a file of half a million people, with
+  // the page painting in between. `ver` stands in for in-place dataset edits.
+  const rowsBuild = useSlicedBuild(() => startBatchRows(dataset, nameOf), [dataset, nameOf, ver]);
+  const rows = rowsBuild.result ?? NO_ROWS;
+  const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
+  const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
+  // The two walks over the whole file relative to the start person — 2.4 s
+  // together on a file of half a million people — are made only once a
+  // filter asks for them, in the builder or among the saved ones (whose
+  // counts are shown): most visits use neither.
+  const asks = (kind: BatchCriterion["kind"]) =>
+    criteria.some((c) => c.kind === kind) || saved.some((f) => f.criteria.some((c) => c.kind === kind));
+  const wantsLine = asks("line");
+  const wantsKinship = asks("kinship");
   const lineSides = useMemo(
-    () => (startId ? computeLineSides(dataset, startId) : null),
+    () => (startId && wantsLine ? computeLineSides(dataset, startId) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-    [dataset, startId, ver],
+    [dataset, startId, ver, wantsLine],
   );
   const kinship = useMemo(
-    () => (startId ? computeKinship(dataset, startId) : null),
+    () => (startId && wantsKinship ? computeKinship(dataset, startId) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-    [dataset, startId, ver],
+    [dataset, startId, ver, wantsKinship],
   );
   /** Kinship-to-start labels for the result rows ("Show kinship" setting),
    *  resolved lazily per rendered row and cached inside the resolver. */
@@ -176,13 +194,11 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
   }, [rows]);
 
-  const [criteria, setCriteria] = useState<BatchCriterion[]>([]);
   const [action, setAction] = useState<BatchActionSpec | null>(null);
   /** Unchecked match ids — everyone matching is selected by default. */
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const { confirmDialog, confirmDialogElement } = useConfirmDialog();
   const [done, setDone] = useState<{ changed: number; skipped: number } | null>(null);
-  const [saved, setSaved] = useState<SavedBatchFilter[]>(loadSavedFilters);
   const [saveName, setSaveName] = useState("");
   /** The saved filter currently loaded into the builder — its conditions and
    *  action show below. Cleared as soon as the builder is edited by hand. */
@@ -195,7 +211,16 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     [saved, rows, ctx],
   );
 
+  // Listing every local media file reads the whole file too (0.6 s on half a
+  // million people), so it waits for a media filter or action — chosen here
+  // or kept in a saved filter, whose references are checked against the list.
+  const wantsMedia =
+    asks("media") ||
+    action?.kind === "addMedia" ||
+    action?.kind === "removeMedia" ||
+    saved.some((f) => f.action?.kind === "removeMedia");
   const mediaOptions = useMemo<MediaOption[]>(() => {
+    if (!wantsMedia) return NO_MEDIA;
     const sharedByFile = new Map<string, string>();
     for (const rec of dataset.records) {
       if (rec.tag !== "OBJE" || !rec.xref) continue;
@@ -209,7 +234,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
       title: f.title,
     })).map((o) => ({ ...o, key: mediaOptionKey(o) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ver stands in for in-place dataset edits
-  }, [dataset, ver]);
+  }, [dataset, ver, wantsMedia]);
 
   /** Images in the connected media folder that the file does not use yet —
    *  offered by the attach action beside the file's own, so a picture already
@@ -456,6 +481,10 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
   const needsStart =
     (criteria.some((c) => c.kind === "line") && !lineSides) ||
     (criteria.some((c) => c.kind === "kinship") && !kinship);
+
+  if (!rowsBuild.result) {
+    return <ToolsLoading label={t("tools.running")} progress={{ done: Math.round(rowsBuild.progress * 100), total: 100 }} />;
+  }
 
   return (
     <div className="batch-section">
