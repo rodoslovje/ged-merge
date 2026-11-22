@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { buildCalendar, byDay, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
-import { CELL_NAMES, factDate, factSentence, monthName, yearsAgo, type CellNames, type PersonWords } from "../../calendar/text";
+import { CELL_NAMES, nameAndKinship, factDate, factSentence, monthName, yearsAgo, type CellNames, type PersonWords } from "../../calendar/text";
 import { createKinshipResolver } from "../../match/kinship";
 import { primaryName } from "../../match/relatives";
-import { lifespanOf } from "../../gedcom/lifespan";
+import { isDeceased, lifespanOf } from "../../gedcom/lifespan";
 import { ChartPage } from "../ChartPage";
 import { ChartRootTitle } from "../ChartRootTitle";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -154,14 +154,26 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     const path = photoPath(id);
     const url = path ? urls.get(path) : undefined;
     if (!url) return undefined;
+    // The name and the kinship ("Tim Novak, great-grandson"), so whoever looks
+    // at the page knows who is who; the years only for the dead.
     const p = mainDs.individuals.get(id);
-    const years = lifespanOf(p);
-    return { url, caption: `${words.name(id)}${years ? ` (${years})` : ""}` };
+    const years = isDeceased(p) ? lifespanOf(p) : "";
+    return { url, caption: `${nameAndKinship(words, id)}${years ? ` (${years})` : ""}` };
   }, [photoPath, urls, mainDs, words]);
 
-  /** A month's picture until one is chosen: its first suggested person's photo. */
-  const monthPicture = (i: number): Picture =>
-    monthPictures[i] ?? { kind: "photos", items: monthPeople[i].slice(0, 1).map((id) => ({ kind: "person", id })), collage: "scattered" };
+  // The people whose birthday or wedding anniversary the month marks, with a photo.
+  const monthCelebrated = useMemo(
+    () => data.months.map((m) => withPhoto(m.entries.filter((e) => e.kind !== "memorial").flatMap((e) => e.ids)).slice(0, MAX_PHOTOS)),
+    [data.months, withPhoto],
+  );
+  /** A month's picture until one is chosen: a collage of everyone it
+   *  celebrates — so the page shows the faces behind its birthdays — or, with
+   *  none of them pictured, its first suggested person. */
+  const monthPicture = (i: number): Picture => {
+    if (monthPictures[i]) return monthPictures[i];
+    const ids = monthCelebrated[i].length ? monthCelebrated[i] : monthPeople[i].slice(0, 1);
+    return { kind: "photos", items: ids.map((id) => ({ kind: "person", id })), collage: "scattered" };
+  };
 
   const factsOf = useCallback((i: number): Fact[] => {
     const m = data.months[i];
