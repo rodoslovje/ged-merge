@@ -45,3 +45,35 @@ test("the family calendar walks from settings to a review of every page", async 
   await expect(page.locator(".cal-review .cal-page")).toHaveCount(13);
   await expect(page.getByRole("button", { name: /Print/ })).toBeVisible();
 });
+
+// With the workspace kept in the browser, the calendar's work comes back after
+// leaving the kind; without it, the wizard says how to keep it.
+test("the calendar's work is kept while the workspace is", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("gedmerge.settings", JSON.stringify({ persistWorkspace: true })));
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FAMILY);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await page.locator(".charts-open-btn").click();
+  await page.getByRole("tab", { name: "Calendar" }).click();
+  await expect(page.locator(".cal-panel")).not.toContainText("Remember my work");
+  await page.getByRole("radio", { name: /Sea/ }).click();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByLabel("Dedication").fill("For Ana");
+
+  await page.getByRole("tab", { name: "Tree" }).click();
+  await page.getByRole("tab", { name: "Calendar" }).click();
+  await expect(page.getByRole("radio", { name: /Sea/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.getByLabel("Dedication")).toHaveValue("For Ana");
+});
+
+test("without a kept workspace the wizard says how to keep the work", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FAMILY);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await page.locator(".charts-open-btn").click();
+  await page.getByRole("tab", { name: "Calendar" }).click();
+  await expect(page.locator(".cal-panel")).toContainText("Remember my work in this browser");
+});

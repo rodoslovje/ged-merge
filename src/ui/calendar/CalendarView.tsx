@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
-import { buildCalendar, byDay, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
+import { buildCalendar, byDay, factKey, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
 import { CELL_NAMES, nameAndKinship, factDate, factSentence, monthName, yearsAgo, type CellNames, type PersonWords } from "../../calendar/text";
 import { createKinshipResolver } from "../../match/kinship";
@@ -27,6 +27,8 @@ import { ANCESTOR_KEY_PREFIX } from "../../chart/treeLayout";
 import { buildSiblingRow } from "../../chart/siblingRow";
 import { embedImages, escapeHtml, prepareDiagram, printDocument, siteLinkOf } from "../exportSvg";
 import { storedSiteAddress } from "../../publish/stored";
+import { clearSavedCalendars, readSavedCalendar, writeSavedCalendar } from "../../calendar/stored";
+import { useSettingsSlice } from "../SettingsContext";
 import { PrinterIcon } from "../icons/FormatIcons";
 import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
 import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
@@ -84,6 +86,99 @@ function laidTree(tree: TreeNode | undefined, ancestors: boolean, nodeH: number)
 }
 
 type CountryChoice = HolidayCountry | "none";
+
+const PERSIST_KEYS = ["persistWorkspace"] as const;
+
+/** Everything the reader chooses in the wizard. */
+interface CalendarWork {
+  format: CalendarFormat;
+  scheme: CalendarScheme;
+  cellNames: CellNames;
+  showAge: boolean;
+  captions: boolean;
+  large: boolean;
+  country: CountryChoice;
+  opts: CalendarOptions;
+  cover: Picture;
+  dedication: string;
+  /** Per month: the picture chosen, or undefined for the month's default. */
+  monthPictures: (Picture | undefined | null)[];
+  /** Per month: the facts picked (by {@link factKey}), or undefined for the default. */
+  monthFacts: (string[] | undefined | null)[];
+}
+
+function defaultWork(lang: string, thisYear: number): CalendarWork {
+  return {
+    format: "wallTop",
+    scheme: "gedmerge",
+    cellNames: "given",
+    showAge: true,
+    captions: true,
+    large: false,
+    country: lang === "hr" ? "hr" : lang === "sl" ? "si" : "none",
+    // From September on, the calendar is for the year to come.
+    opts: { year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear, scope: 1, partners: true, memorial: "off" },
+    cover: { kind: "fan" },
+    dedication: "",
+    monthPictures: [],
+    monthFacts: [],
+  };
+}
+
+/** A picture as it can be kept: one's own files left out (their addresses
+ *  last only for this visit). */
+function keptPicture(pic: Picture | undefined | null): Picture | null {
+  if (!pic) return null;
+  return pic.kind === "photos" ? { ...pic, items: pic.items.filter((it) => it.kind === "person") } : pic;
+}
+
+function keptWork(w: CalendarWork): Record<string, unknown> {
+  return { ...w, cover: keptPicture(w.cover), monthPictures: w.monthPictures.map(keptPicture) };
+}
+
+/** A kept picture, when it still reads as one. */
+function readPicture(v: unknown): Picture | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const p = v as { kind?: unknown; items?: unknown; collage?: unknown };
+  if (!PICTURE_KINDS.includes(p.kind as Picture["kind"])) return undefined;
+  if (p.kind !== "photos") return { kind: p.kind as Exclude<Picture["kind"], "photos"> };
+  const items = Array.isArray(p.items)
+    ? p.items.filter((it): it is PhotoItem => !!it && typeof it === "object" && (it as PhotoItem).kind === "person" && typeof (it as { id?: unknown }).id === "string")
+    : [];
+  const collage = COLLAGE_STYLES.includes(p.collage as CollageStyle) ? (p.collage as CollageStyle) : "scattered";
+  return { kind: "photos", items, collage };
+}
+
+/** `saved` laid over `base`, field by field: anything of the wrong kind (an
+ *  older version, a hand edit) keeps the base's value. */
+function mergeWork(base: CalendarWork, saved: Record<string, unknown>): CalendarWork {
+  const pick = <K extends keyof CalendarWork>(k: K, ok: (v: unknown) => boolean): CalendarWork[K] =>
+    (ok(saved[k]) ? saved[k] : base[k]) as CalendarWork[K];
+  const one = (list: readonly unknown[]) => (v: unknown) => list.includes(v);
+  const bool = (v: unknown) => typeof v === "boolean";
+  const o = saved.opts && typeof saved.opts === "object" ? (saved.opts as Record<string, unknown>) : {};
+  return {
+    format: pick("format", one(CALENDAR_FORMATS)),
+    scheme: pick("scheme", one(CALENDAR_SCHEMES)),
+    cellNames: pick("cellNames", one(CELL_NAMES)),
+    showAge: pick("showAge", bool),
+    captions: pick("captions", bool),
+    large: pick("large", bool),
+    country: pick("country", one(["none", ...HOLIDAY_COUNTRIES])),
+    opts: {
+      year: typeof o.year === "number" ? o.year : base.opts.year,
+      scope: SCOPES.includes(o.scope as CalendarScope) ? (o.scope as CalendarScope) : base.opts.scope,
+      partners: typeof o.partners === "boolean" ? o.partners : base.opts.partners,
+      memorial: MEMORIALS.includes(o.memorial as MemorialMode) ? (o.memorial as MemorialMode) : base.opts.memorial,
+    },
+    cover: readPicture(saved.cover) ?? base.cover,
+    dedication: typeof saved.dedication === "string" ? saved.dedication : "",
+    monthPictures: Array.isArray(saved.monthPictures) ? saved.monthPictures.slice(0, 12).map(readPicture) : [],
+    monthFacts: Array.isArray(saved.monthFacts)
+      ? saved.monthFacts.slice(0, 12).map((v) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : undefined))
+      : [],
+  };
+}
 type PhotoItem = { kind: "person"; id: string } | { kind: "file"; url: string; name: string };
 /** What fills a page's picture area: photos (one, or a collage), or a chart. */
 type Picture =
@@ -99,25 +194,51 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const nameOf = useNameOf();
   const thisYear = new Date().getFullYear();
   const [step, setStep] = useState(0);
-  const [format, setFormat] = useState<CalendarFormat>("wallTop");
-  const [scheme, setScheme] = useState<CalendarScheme>("gedmerge");
-  const [cellNames, setCellNames] = useState<CellNames>("given");
-  const [showAge, setShowAge] = useState(true);
-  const [captions, setCaptions] = useState(true);
-  const [large, setLarge] = useState(false);
+
+  // The whole work in one state: kept per file and recipient while the
+  // workspace is kept in the browser, and restored when either comes back.
+  const { persistWorkspace } = useSettingsSlice(PERSIST_KEYS);
+  const defaults = useMemo(() => defaultWork(i18n.language, thisYear), [i18n.language, thisYear]);
+  const restore = useCallback(
+    (base: CalendarWork) => {
+      const saved = persistWorkspace && mainFileName ? readSavedCalendar(mainFileName, rootId) : undefined;
+      // A recipient with nothing kept keeps the settings, not the choices.
+      return saved ? mergeWork(base, saved) : { ...base, cover: defaults.cover, dedication: "", monthPictures: [], monthFacts: [] };
+    },
+    [persistWorkspace, mainFileName, rootId, defaults],
+  );
+  const [work, setWork] = useState<CalendarWork>(() => restore(defaults));
+  const workKey = `${mainFileName ?? ""} ${rootId}`;
+  const [loadedKey, setLoadedKey] = useState(workKey);
+  useEffect(() => {
+    if (loadedKey === workKey) return;
+    setWork((w) => restore(w));
+    setLoadedKey(workKey);
+  }, [workKey, loadedKey, restore]);
+  // Saved only once the state is the one loaded for this key, so a switch of
+  // recipient never writes the last one's work under the new one's name.
+  useEffect(() => {
+    if (!persistWorkspace) { clearSavedCalendars(); return; }
+    if (mainFileName && loadedKey === workKey) writeSavedCalendar(mainFileName, rootId, keptWork(work));
+  }, [work, persistWorkspace, mainFileName, rootId, loadedKey, workKey]);
+
+  const { format, scheme, cellNames, showAge, captions, large, country, opts, cover, dedication, monthPictures, monthFacts } = work;
+  const patch = (p: Partial<CalendarWork>) => setWork((w) => ({ ...w, ...p }));
+  const setFormat = (format: CalendarFormat) => patch({ format });
+  const setScheme = (scheme: CalendarScheme) => patch({ scheme });
+  const setCellNames = (cellNames: CellNames) => patch({ cellNames });
+  const setShowAge = (showAge: boolean) => patch({ showAge });
+  const setCaptions = (captions: boolean) => patch({ captions });
+  const setLarge = (large: boolean) => patch({ large });
+  const setCountry = (country: CountryChoice) => patch({ country });
+  const setOpts = (opts: CalendarOptions) => patch({ opts });
+  const setCover = (cover: Picture) => patch({ cover });
+  const setDedication = (dedication: string) => patch({ dedication });
+  const setMonthPictures = (f: (prev: CalendarWork["monthPictures"]) => CalendarWork["monthPictures"]) =>
+    setWork((w) => ({ ...w, monthPictures: f(w.monthPictures) }));
+  const setMonthFacts = (f: (prev: CalendarWork["monthFacts"]) => CalendarWork["monthFacts"]) =>
+    setWork((w) => ({ ...w, monthFacts: f(w.monthFacts) }));
   const entryOpts = useMemo(() => ({ names: cellNames, age: showAge, large }), [cellNames, showAge, large]);
-  const [country, setCountry] = useState<CountryChoice>(() => (i18n.language === "hr" ? "hr" : i18n.language === "sl" ? "si" : "none"));
-  const [opts, setOpts] = useState<CalendarOptions>(() => ({
-    // From September on, the calendar is for the year to come.
-    year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear,
-    scope: 1,
-    partners: true,
-    memorial: "off",
-  }));
-  const [cover, setCover] = useState<Picture>({ kind: "fan" });
-  const [dedication, setDedication] = useState("");
-  const [monthPictures, setMonthPictures] = useState<(Picture | undefined)[]>([]);
-  const [monthFacts, setMonthFacts] = useState<(number[] | undefined)[]>([]);
 
   const root = mainDs.individuals.get(rootId);
   // The family website's address, as set in Tools → Website for this file.
@@ -128,12 +249,6 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const data = useMemo(() => buildCalendar(mainDs, rootId, opts, thisYear), [mainDs, rootId, opts, thisYear]);
   const holidays = useMemo(() => (country === "none" ? [] : holidaysFor(country, opts.year)), [country, opts.year]);
 
-  // A new recipient or new settings make new suggestions: the choices made for
-  // the old ones would point at people no longer on the calendar.
-  useEffect(() => {
-    setMonthPictures([]);
-    setMonthFacts([]);
-  }, [rootId, opts]);
 
   const kinship = useMemo(() => createKinshipResolver(mainDs, rootId, t), [mainDs, rootId, t]);
   const words: PersonWords = useMemo(() => ({
@@ -247,7 +362,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const factsOf = useCallback((i: number): Fact[] => {
     const m = data.months[i];
     const picked = monthFacts[i];
-    return picked ? picked.map((k) => m.candidates[k]).filter(Boolean).sort(byDay) : m.facts;
+    return picked ? m.candidates.filter((f) => picked.includes(factKey(f))).sort(byDay) : m.facts;
   }, [data.months, monthFacts]);
 
   // The cover's fan: the recipient's ancestors above, descendants below, and
@@ -362,8 +477,9 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const toggleFact = (i: number, k: number) => setMonthFacts((prev) => {
     const next = [...prev];
     const m = data.months[i];
-    const cur = next[i] ?? m.facts.map((f) => m.candidates.indexOf(f));
-    next[i] = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+    const cur = next[i] ?? m.facts.map(factKey);
+    const key = factKey(m.candidates[k]);
+    next[i] = cur.includes(key) ? cur.filter((x) => x !== key) : [...cur, key];
     return next;
   });
 
@@ -507,7 +623,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     );
   } else {
     const m = data.months[monthIndex];
-    const picked = monthFacts[monthIndex] ?? m.facts.map((f) => m.candidates.indexOf(f));
+    const picked = monthFacts[monthIndex] ?? m.facts.map(factKey);
     panel = (
       <>
         <h3 className="cal-panel-head">{t("calendar.photo")}</h3>
@@ -524,7 +640,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
             {m.candidates.map((f, k) => (
               <li key={k}>
                 <label className="cal-check">
-                  <input type="checkbox" checked={picked.includes(k)} onChange={() => toggleFact(monthIndex, k)} />
+                  <input type="checkbox" checked={picked.includes(factKey(f))} onChange={() => toggleFact(monthIndex, k)} />
                   <span>
                     <span className="cal-fact-when-ui">{factDate(t, i18n.language, f.date)} · {yearsAgo(t, f.yearsAgo)}</span>
                     {" "}{factSentence(t, words, f)}
@@ -560,6 +676,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           {step !== REVIEW_STEP && (
             <button type="button" className="cal-link" onClick={() => setStep(REVIEW_STEP)}>{t("calendar.toReview")}</button>
           )}
+          {!persistWorkspace && <p className="settings-hint">{t("calendar.notKept")}</p>}
         </div>
         <div className={`cal-preview cal-preview-${format}`}>
           {step === REVIEW_STEP ? preview : <div className="cal-sheet">{preview}</div>}
