@@ -47,7 +47,8 @@ export const CALENDAR_CSS = `
 .cal-grid th { font-weight: 700; font-size: 0.75em; color: var(--accent); text-align: left; padding: 0.25em 0.4em;
   background: color-mix(in srgb, var(--accent) 12%, var(--paper)); }
 .cal-grid th.cal-sun { color: var(--holiday); }
-.cal-grid td { position: relative; border: 0.06em solid var(--rule); vertical-align: top; padding: 0.2em 0.3em 0.2em; overflow: hidden; }
+.cal-grid td { position: relative; border: 0.06em solid var(--rule); vertical-align: top; padding: 0; overflow: hidden; }
+.cal-cell { position: absolute; inset: 0; padding: 0.2em 0.3em; overflow: hidden; }
 .cal-mems { position: absolute; left: 0.3em; right: 0.3em; bottom: 0.2em; display: flex; flex-direction: column-reverse; }
 .cal-grid thead th { height: 1.2em; }
 .cal-grid td.cal-sat { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
