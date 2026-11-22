@@ -31,8 +31,9 @@ const MapChart = lazy(() => import("./map/MapChart"));
 
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
  *  (pedigrees, then the timeline) first, then the two-person relationship, then
- *  the contemporaries wheel, then the places map, then the text reports. */
-export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report", "network", "calendar"];
+ *  the contemporaries wheel, the places map and the 3D network, then the two
+ *  made for paper side by side: the text report and the family calendar. */
+export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "network", "report", "calendar"];
 /** The family website's kinds: no Calendar, which shows the birthdays of the living. */
 export const PUBLISHED_HUB_KINDS: ChartKind[] = HUB_KINDS.filter((k) => k !== "calendar");
 
