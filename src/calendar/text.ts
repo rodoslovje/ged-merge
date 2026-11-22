@@ -88,13 +88,18 @@ export function entryCell(t: Translate, words: PersonWords, e: DayEntry, opts: E
   return opts.age && e.years !== undefined ? `${names} ${e.years}` : names;
 }
 
+/** "Tim Novak, great-grandson" — the name, then the kinship to the recipient. */
+export function nameAndKinship(words: PersonWords, id: string): string {
+  const k = words.kinship(id);
+  return k ? `${words.name(id)}, ${lowerFirst(k)}` : words.name(id);
+}
+
 /** The full line under the grid: day, full names, kinship, the number. */
 export function entryLine(t: Translate, words: PersonWords, e: DayEntry, opts: EntryOptions): string {
   const name =
     e.ids.length === 2
       ? t("calendar.couple", { a: words.name(e.ids[0]), b: words.name(e.ids[1]) })
       : words.name(e.ids[0]);
-  const k = e.ids.length === 1 ? words.kinship(e.ids[0]) : undefined;
   const years = opts.age && e.years !== undefined ? ` (${e.years})` : "";
-  return `${k ? `${name}, ${lowerFirst(k)}` : name}${years}`;
+  return `${e.ids.length === 1 ? nameAndKinship(words, e.ids[0]) : name}${years}`;
 }
