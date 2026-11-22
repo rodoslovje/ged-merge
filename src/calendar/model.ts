@@ -275,6 +275,10 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
   return { months, people: [...people] };
 }
 
+/** A fact's identity — what it is, about whom, on which date — stable when
+ *  the year or the settings change and the scores move. */
+export const factKey = (f: Fact) => `${f.kind}|${f.ids.join(",")}|${f.date.raw}`;
+
 /** Day order within a month; an undated day first. */
 export const byDay = (a: Fact, b: Fact) => (a.date.day ?? 0) - (b.date.day ?? 0);
 
