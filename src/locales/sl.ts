@@ -2659,6 +2659,8 @@ export const sl = {
   "tree.shape": "Oblika",
   "tree.shape.fan": "Pahljača",
   "tree.shape.circle": "Krog",
+  "tree.siblings": "Sorojenci",
+  "tree.siblings.tooltip": "Ob krogu se prikažejo sorojenci osebe v sredini: starejši na levi, mlajši na desni. Polbratje in polsestre imajo črtkan rob.",
   "tree.settings.alignment": "Usmeritev",
   "tree.settings.alignment.lr": "Levo → desno",
   "tree.settings.alignment.tb": "Zgoraj → spodaj",

@@ -24,6 +24,7 @@ import { TreeSvg } from "../TreeSvg";
 import { flatten, layout, nodeHeight } from "../../chart/treeLayout";
 import type { TreeNode } from "../../chart/personTree";
 import { ANCESTOR_KEY_PREFIX } from "../../chart/treeLayout";
+import { buildSiblingRow } from "../../chart/siblingRow";
 import { embedImages, escapeHtml, prepareDiagram, printDocument, siteLinkOf } from "../exportSvg";
 import { storedSiteAddress } from "../../publish/stored";
 import { PrinterIcon } from "../icons/FormatIcons";
@@ -247,12 +248,14 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     return picked ? picked.map((k) => m.candidates[k]).filter(Boolean).sort(byDay) : m.facts;
   }, [data.months, monthFacts]);
 
-  // The cover's fan: the recipient's ancestors above, descendants below.
+  // The cover's fan: the recipient's ancestors above, descendants below, and
+  // their brothers and sisters at the sides.
   const trees = useBloodTrees(mainDs, rootId, FAN_GENERATIONS);
+  const siblings = useMemo(() => (root ? buildSiblingRow(t, root, mainDs, nameOf) : undefined), [t, root, mainDs, nameOf]);
   const { settings } = useChartSettings();
   const fanDisplay = useMemo(() => ({ ...settings, ...FAN_DISPLAY_OFF }), [settings]);
   const noPhoto = useCallback(() => false, []);
-  const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, hasPhoto: noPhoto, display: fanDisplay });
+  const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, siblings, hasPhoto: noPhoto, display: fanDisplay });
   const { fan: fanAnc } = useFanChart(trees.ancestors, "fan", { mode: "ancestors", hasPhoto: noPhoto, display: fanDisplay });
   const { fan: fanDesc } = useFanChart(trees.descendants, "fan", { mode: "descendants", hasPhoto: noPhoto, display: fanDisplay });
   const fanBody = (chart: FanChart | undefined, desc: (key: string, gen: number) => boolean) =>

@@ -260,7 +260,8 @@ function Segment({
         d={seg.d}
         fill={fill}
         stroke={selected ? color : `color-mix(in srgb, ${fill} 78%, var(--text))`}
-        strokeWidth={selected ? 2.5 : 0.75}
+        strokeWidth={selected ? 2.5 : seg.half ? 1.25 : 0.75}
+        strokeDasharray={seg.half ? "4 3" : undefined}
       />
       {seg.photo && (
         <g transform={`translate(${seg.photo.cx},${seg.photo.cy}) rotate(${seg.photo.rot})`}>
@@ -287,7 +288,7 @@ function Segment({
       ) : (
         <g transform={seg.labelTransform}>
           {seg.lines.map((l, i) => (
-            <text key={i} {...lineProps(l)} x={0} y={l.dy} textAnchor="middle" dominantBaseline="middle">
+            <text key={i} {...lineProps(l)} x={0} y={l.dy} textAnchor={l.anchor ?? "middle"} dominantBaseline="middle">
               <YearsText text={l.text} approx={l.approx} svg />
             </text>
           ))}
