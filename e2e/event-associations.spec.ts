@@ -227,3 +227,35 @@ test("an event added this session is named with its date in the move menu", asyn
   // the role, a click away from an edit.
   expect(items.some((i) => /Remove this person/.test(i))).toBe(true);
 });
+
+test("hovering an associate does not change its width", async ({ page }) => {
+  // The ▾ beside the role used to grow from nothing on hover. The last
+  // associate on a full line then wrapped to the next, out from under the
+  // pointer, shrank back and wrapped again: the row flickered and the ▾
+  // could not be caught. It now fades in at a width it always holds.
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const bapm = page.locator(".edit-event").filter({ hasText: "Baptism" }).first();
+  await bapm.locator(".edit-event-addfield").click();
+  await page.getByRole("option", { name: "Association" }).click();
+  await bapm.locator(".relative-picker-input").fill("Jozefa");
+  await bapm.getByRole("button", { name: /Jozefa/ }).first().click();
+  const chip = bapm.locator(".edit-event-assoc");
+  await expect(chip).toHaveCount(1);
+  await bapm.locator(".edit-assoc-role-field").blur();
+
+  // The row's own hover reveals (field labels, "+ Add") are in place first,
+  // so whatever changes when the associate itself is hovered is the chip's.
+  await bapm.locator(".edit-event-date").first().hover();
+  const menu = chip.locator(".edit-assoc-role-menu");
+  await expect(menu).toHaveCSS("opacity", "0");
+  const before = await chip.evaluate((e) => e.getBoundingClientRect().width);
+
+  await chip.locator(".edit-assoc-role-field").hover();
+  await expect(menu).toHaveCSS("opacity", "1");
+  expect(await chip.evaluate((e) => e.getBoundingClientRect().width)).toBeCloseTo(before, 0);
+});
