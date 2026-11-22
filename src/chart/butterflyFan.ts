@@ -120,11 +120,15 @@ export function buildButterflyChart(
 
 const SIBLING_R_IN = ROOT_R + 8;
 const SIBLING_FONT = FONT_BY_GEN[2];
-/** Room at either end of a sibling's label, inside its wedge. */
+/** Room between a sibling's label and its wedge's inner end… */
 const SIBLING_PAD = 12;
+/** …and its outer end, where the label sits. */
+const SIBLING_PAD_OUT = 6;
 
-/** A label line's rough length in px — wide enough for the bold name face. */
-const lineLength = (text: string) => text.length * SIBLING_FONT * 0.56;
+/** A label line's rough length in px — wide enough for the bold name face;
+ *  the lifespan line is set smaller (see FanChartBody). */
+const lineLength = (text: string, kind: "name" | "years" = "name") =>
+  text.length * SIBLING_FONT * 0.56 * (kind === "years" ? 0.85 : 1);
 
 /** The sibling wedges' outer radius: as deep as the longest one-line label
  *  needs, at least the first ring and at most the first two — so the wedges
@@ -132,8 +136,8 @@ const lineLength = (text: string) => text.length * SIBLING_FONT * 0.56;
 function siblingLabels(row: Sibling[], opts: FanChartOptions): { rOut: number } | undefined {
   if (row.length === 0) return undefined;
   const { dispOf } = fanResolvers(opts);
-  const longest = Math.max(...row.flatMap(({ node }) => labelTexts({ ...dispOf(node), place: undefined }, false).map((l) => lineLength(l.text))));
-  const rOut = Math.min(SIBLING_R_OUT, Math.max(ROOT_R + PHOTO_RING_W, SIBLING_R_IN + longest + 2 * SIBLING_PAD + 6));
+  const longest = Math.max(...row.flatMap(({ node }) => labelTexts({ ...dispOf(node), place: undefined }, false).map((l) => lineLength(l.text, l.kind))));
+  const rOut = Math.min(SIBLING_R_OUT, Math.max(ROOT_R + PHOTO_RING_W, SIBLING_R_IN + longest + SIBLING_PAD + SIBLING_PAD_OUT + 6));
   return { rOut };
 }
 
@@ -141,7 +145,7 @@ function siblingLabels(row: Sibling[], opts: FanChartOptions): { rOut: number } 
  *  counter-clockwise end's far side — the top of the left notch, the bottom
  *  of the right one. Their labels read outward, as the deep rings' do — at
  *  the notches, which sit near the horizontal, that is nearly level text —
- *  and sit towards the outer end, where the wedge is widest. */
+ *  and every line ends flush at the outer end, where the wedge is widest. */
 function siblingSegments(
   row: Sibling[],
   start: number,
@@ -160,7 +164,7 @@ function siblingSegments(
   const rMid = (rIn + rOut) / 2;
   const fontPx = SIBLING_FONT;
   const lo = rIn + SIBLING_PAD;
-  const hi = rOut - SIBLING_PAD;
+  const hi = rOut - SIBLING_PAD_OUT;
   return row.map(({ node, half }, i) => {
     // Counter-clockwise: the first sibling takes the wedge at the far end.
     const a0 = start + SIBLING_GAP + (row.length - 1 - i) * delta;
@@ -170,7 +174,8 @@ function siblingSegments(
     const disp = { ...dispOf(node), place: undefined };
     const texts = labelTexts(disp, lineLength(disp.name) > hi - lo);
     const n = texts.length;
-    const len = Math.min(hi - lo, Math.max(...texts.map((l) => lineLength(l.text))));
+    const lens = texts.map((l) => Math.min(hi - lo, lineLength(l.text, l.kind)));
+    const len = Math.max(...lens);
     // The label's centre: its outer end at the wedge's outer padding.
     const rLabel = hi - len / 2;
     const gap = Math.min(round(fontPx * 1.22), Math.max(1, (rLabel * delta - 2) / n));
@@ -188,7 +193,13 @@ function siblingSegments(
       fontPx,
       curved: false,
       labelTransform: `translate(${round(cx + rLabel * Math.cos(mid))},${round(cy + rLabel * Math.sin(mid))}) rotate(${round(deg)})`,
-      lines: texts.map((l, j) => ({ ...l, dy: round((j - (n - 1) / 2) * gap) })),
+      // Each line shifted outward to end flush with the longest: the rotated
+      // frame's x runs outward, or inward where the label is flipped.
+      lines: texts.map((l, j) => ({
+        ...l,
+        dy: round((j - (n - 1) / 2) * gap),
+        dx: round(((len - lens[j]) / 2) * (flip ? -1 : 1)),
+      })),
       badge: { x: round(cx + (rIn + 12) * Math.cos(mid)), y: round(cy + (rIn + 12) * Math.sin(mid)) },
       ...(half ? { half } : null),
     };
