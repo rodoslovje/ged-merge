@@ -40,6 +40,7 @@ import { ChartExportMenu } from "./ChartExportMenu";
 import { FileTextIcon, PrinterIcon } from "./icons/FormatIcons";
 import { ChartSettings } from "./ChartSettings";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useLivingNameOf } from "./useLivingName";
 import { useStableHandler } from "./edit/useStableHandler";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { ChartRootTitle } from "./ChartRootTitle";
@@ -172,9 +173,11 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
   const privacy = settings.privacyLiving;
   const redacted = useCallback((e: ReportEntry) => privacy && e.living, [privacy]);
   const kinship = useMemo(() => createKinshipResolver(mainDs, currentRootId, t), [mainDs, currentRootId, t]);
+  const keptNameOf = useLivingNameOf();
   const livingNameOf = useCallback(
-    (p: { id: string; sex: Sex }) => kinship.label(p.id) || livingLabelFor(t, p.sex),
-    [kinship, t],
+    (p: { id: string; sex: Sex }) =>
+      keptNameOf(mainDs.individuals.get(p.id)) || kinship.label(p.id) || livingLabelFor(t, p.sex),
+    [kinship, t, keptNameOf, mainDs],
   );
   // Table of contents up top: one row per generation, linked to its section
   // in every rendering (page scroll, text lines, RTF bookmarks, print anchors).

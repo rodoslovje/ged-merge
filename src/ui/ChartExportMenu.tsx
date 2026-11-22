@@ -50,7 +50,7 @@ export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, ca
   const { t } = useTranslation();
   // The author a branch file without a submitter is given.
   const author = submitterOf(useSettingsSlice(AUTHOR_KEYS));
-  const { privacyLiving } = useChartSettings().settings;
+  const { privacyLiving, livingName } = useChartSettings().settings;
   // The branch file is written in the version the main file saves in.
   const { target } = useTargetFormat();
   const [sheetDialog, setSheetDialog] = useState(false);
@@ -63,7 +63,7 @@ export function ChartExportMenu({ disabled, slug, title = "", legend, gedcom, ca
       label: t("export.gedcom", { count: gedcom.personIds.length }),
       title: t("tree.exportGedcom.tooltip"),
       // Living people the chart keeps private stay private in the file too.
-      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug, target, author, privacyLiving),
+      onSelect: () => exportChartGedcom(gedcom.ds, gedcom.personIds, slug, target, author, privacyLiving ? livingName : undefined),
     });
   }
   if (canvasRef) {

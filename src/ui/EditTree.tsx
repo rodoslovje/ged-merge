@@ -23,6 +23,7 @@ import { AXIS_TINT, CHART_AXES, fanPosition, indexPositions, type NodePosition }
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
+import { useLivingNameOf } from "./useLivingName";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
@@ -132,6 +133,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // Names read as the Name-display settings say (married surname, order, …) —
   // the same formatter the lists, the timeline and the reports use.
   const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
+  const livingNameOf = useLivingNameOf();
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only the fan
   // kind (fan / circle) is radial.
@@ -458,12 +460,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           kinshipDirect: directOf(n),
           living: n.living,
           livingLabel: livingLabelFor(t, n.sex),
+          livingName: n.living ? livingNameOf(n.main) : undefined,
         },
         n.sex,
         t("tree.node.clickHint"),
       );
     },
-    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf, directOf],
+    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf, directOf, livingNameOf],
   );
 
   // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,

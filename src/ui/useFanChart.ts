@@ -6,6 +6,7 @@ import { buildButterflyChart } from "../chart/butterflyFan";
 import type { TreeNode } from "../chart/personTree";
 import type { ChartDirection } from "../chart/treeLayout";
 import { ageStandalone, livingLabelFor, type NodeDisplayOptions } from "../chart/nodeDisplay";
+import { useLivingNameOf } from "./useLivingName";
 
 // Shared wiring for the radial (fan / circle) chart type in the Edit and
 // Compare trees: build the FanChart from the (prebuilt) tree of the current
@@ -44,13 +45,15 @@ export function useFanChart(
   const { t } = useTranslation();
   const livingLabelOf = useCallback((n: TreeNode) => livingLabelFor(t, n.sex), [t]);
   const ageTextOf = useCallback((n: TreeNode) => (n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined), [t]);
+  const livingNameOfIndi = useLivingNameOf();
+  const livingNameOf = useCallback((n: TreeNode) => livingNameOfIndi(n.main ?? n.incoming), [livingNameOfIndi]);
   const fan = useMemo(() => {
     if (!tree) return undefined;
-    const o = { hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf };
+    const o = { hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf, livingNameOf };
     if (mode === "both" && other) return buildButterflyChart(tree, other, o);
     const build = mode === "descendants" ? buildDescendantFanChart : buildFanChart;
     return build(tree, shape, o);
-  }, [tree, other, mode, shape, hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf]);
+  }, [tree, other, mode, shape, hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf, livingNameOf]);
   const nodes = useMemo(() => {
     const m = new Map<string, FanSegment>();
     for (const s of fan?.segments ?? []) m.set(s.key, s);

@@ -220,6 +220,9 @@ export interface FanChartOptions {
   /** Relationship of a node to the chart root ("Father", "Grandmother", …),
    *  shown in place of a redacted living person's name. */
   kinshipOf?: (node: TreeNode) => string | undefined;
+  /** The name a redacted living person keeps under the privacy setting's name
+   *  choice (see `NodeDisplayInput.livingName`). */
+  livingNameOf?: (node: TreeNode) => string | undefined;
 }
 
 /** The per-node display resolvers both radial layouts share: which fields a
@@ -244,7 +247,9 @@ export function fanResolvers(opts: FanChartOptions): {
   const dispOf = (node: TreeNode): NodeDisplay => {
     // Kinship is only used to label a redacted living person (the fan has no
     // kinship line of its own), so resolve it only then.
-    const kinship = display.privacyLiving && node.living ? opts.kinshipOf?.(node) : undefined;
+    const redacted = display.privacyLiving && node.living;
+    const livingName = redacted ? opts.livingNameOf?.(node) : undefined;
+    const kinship = redacted && !livingName ? opts.kinshipOf?.(node) : undefined;
     return nodeDisplay(display, {
       name: node.name,
       years: node.years,
@@ -255,6 +260,7 @@ export function fanResolvers(opts: FanChartOptions): {
       kinship,
       living: node.living,
       livingLabel: livingLabelOf(node),
+      livingName,
     });
   };
   /** The hover text: the full name and lifespan regardless of what the wedge
@@ -270,6 +276,7 @@ export function fanResolvers(opts: FanChartOptions): {
       kinship: opts.kinshipOf?.(node),
       living: node.living,
       livingLabel: livingLabelOf(node),
+      livingName: display.privacyLiving && node.living ? opts.livingNameOf?.(node) : undefined,
     });
   return { display, hasPhoto, dispOf, titleOf };
 }

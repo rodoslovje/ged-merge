@@ -5,6 +5,7 @@ import { LABEL_LINE_H, NODE_W, PAD, type Flat, type Placed } from "../chart/tree
 import { PANEL_TITLE_H, type PanelBox } from "../chart/completeTree";
 import { ageStandalone, APPROX_YEAR, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { YearsText } from "./YearsText";
+import { useLivingNameOf } from "./useLivingName";
 import type { Lineage } from "../match/kinship";
 import type { MediaRefContext } from "./MediaViewer";
 import { NodeBadge, nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
@@ -92,6 +93,7 @@ export const TreeSvg = memo(function TreeSvg({
 }: Props) {
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
+  const livingNameOf = useLivingNameOf();
   return (
     <svg className="tree-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
@@ -138,6 +140,7 @@ export const TreeSvg = memo(function TreeSvg({
           // than after the lifespan: it belongs to the node, not to its status
           // row, and there it can't collide with the badges above.
           const repeatTo = showRepeat && n.repeat ? n.repeatOf : undefined;
+          const livingName = display.privacyLiving && n.living ? livingNameOf(n.main ?? n.incoming) : undefined;
           return (
             <g
               key={n.key}
@@ -170,6 +173,7 @@ export const TreeSvg = memo(function TreeSvg({
                     kinship: kinshipOf?.(n),
                     living: n.living,
                     livingLabel: livingLabelFor(t, n.sex),
+                    livingName,
                   })}\n${t("tree.node.clickHint")}`}
                 </title>
               )}
@@ -188,6 +192,7 @@ export const TreeSvg = memo(function TreeSvg({
                 photo={{ node: n, mainRecords, compareRecords, mainRefCtx, compareRefCtx }}
                 display={display}
                 living={n.living}
+                livingName={livingName}
                 nodeH={nodeH}
                 badges={badges}
               />

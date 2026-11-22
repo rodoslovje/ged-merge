@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, formatMarriage, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
 import { marriageOf } from "./personTree";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
@@ -94,6 +94,12 @@ describe("nodeDisplay", () => {
   it("falls back to the Living placeholder when no kinship is known", () => {
     const d = nodeDisplay(opts({ privacyLiving: true }), { ...base, kinship: undefined, living: true });
     expect(d.name).toBe("Living");
+  });
+
+  it("writes the name the privacy choice keeps in place of the kinship", () => {
+    const d = nodeDisplay(opts({ privacyLiving: true }), { ...base, living: true, livingName: "J. N." });
+    expect(d).toMatchObject({ name: "J. N.", years: undefined, place: undefined, kinship: undefined, showPhoto: false });
+    expect(nodeTooltip(opts({ privacyLiving: true }), { ...base, living: true, livingName: "J. N." })).toBe("J. N.");
   });
 
   it("leaves living people untouched when privacy is off", () => {

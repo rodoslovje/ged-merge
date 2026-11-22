@@ -24,6 +24,7 @@ import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { TimelineLayoutTabs } from "./ChartKindTabs";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useLivingNameOf } from "./useLivingName";
 import { useBloodTrees } from "./useBloodTrees";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
@@ -83,6 +84,7 @@ interface Placed extends LineagePoint, ChartNode {
 export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNavigate, kindSwitcher, onRootChange }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
+  const livingNameOf = useLivingNameOf();
   const changeRoot = useStableHandler(onRootChange);
   const limit = settings.maxGenerations;
   const reduced = usePublishedSettings()?.reduced;
@@ -218,8 +220,10 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
   const kinship = useMemo(() => (startId ? createKinshipResolver(mainDs, startId, t) : undefined), [mainDs, startId, t]);
   const nameFor = useCallback(
     (p: LineagePoint) =>
-      redacted(p.node) ? (p.node.main && kinship?.label(p.node.main.id)) || livingLabelFor(t, p.node.sex) : p.node.name,
-    [redacted, kinship, t],
+      redacted(p.node)
+        ? (settings.privacyLiving && livingNameOf(p.node.main)) || (p.node.main && kinship?.label(p.node.main.id)) || livingLabelFor(t, p.node.sex)
+        : p.node.name,
+    [redacted, kinship, t, settings.privacyLiving, livingNameOf],
   );
 
   // Every point in pixels; labels greedily, nearest generations first, each

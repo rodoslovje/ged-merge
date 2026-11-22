@@ -32,6 +32,7 @@ import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
+import { useLivingNameOf } from "./useLivingName";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { YearsText } from "./YearsText";
 import { ArrowIcon } from "./icons/ArrowIcon";
@@ -75,6 +76,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   const { t } = useTranslation();
   const { settings } = useChartSettings();
   const formatName = useNameOf(marriedNameOverride(settings.showMarriedName));
+  const livingNameOf = useLivingNameOf();
   const [optionIdx, setOptionIdx] = useState(0);
   // Either endpoint can be swapped on this page without touching the app's start
   // person; the local picks reset whenever the page is (re)opened for a new pair.
@@ -223,12 +225,13 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
           kinshipDirect: kinshipOf.direct(b.id),
           living: isPresumedLiving(indi, mainDs) || !!indi?.private,
           livingLabel: livingLabelFor(t, b.sex),
+          livingName: livingNameOf(indi),
         },
         b.sex,
         t("tree.node.clickHint"),
       );
     },
-    [nodesByKey, mainDs, settings, t, kinshipOf],
+    [nodesByKey, mainDs, settings, t, kinshipOf, livingNameOf],
   );
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
@@ -388,6 +391,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         photo={indi ? { node: { main: { raw: indi.raw } }, mainRecords: mainDs.records, mainRefCtx: { dataset: mainDs, onNavigate } } : undefined}
                         display={settings}
                         living={isPresumedLiving(indi, mainDs) || !!indi?.private}
+                        livingName={livingNameOf(indi)}
                         nodeH={nodeH}
                       />
                     </g>
