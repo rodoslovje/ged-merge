@@ -2383,6 +2383,8 @@ export const en = {
   "tree.shape": "Shape",
   "tree.shape.fan": "Fan",
   "tree.shape.circle": "Circle",
+  "tree.siblings": "Siblings",
+  "tree.siblings.tooltip": "Show the brothers and sisters of the person in the centre beside the circle: the older on the left, the younger on the right. Half-siblings have a dashed outline.",
   "tree.settings.alignment": "Alignment",
   "tree.settings.alignment.lr": "Left → Right",
   "tree.settings.alignment.tb": "Top → Bottom",
@@ -3953,4 +3955,8 @@ export const en = {
   "calendar.stats.oldest_F": "Oldest known ancestor: {{name}} ({{year}})",
   "calendar.stats.surname": "Most common surname: {{name}}",
   "calendar.captions": "Show names on the photos",
+  "calendar.picture.treeDesc": "Tree of descendants",
+  "calendar.picture.treeAnc": "Tree of ancestors",
+  "calendar.dedication": "Dedication",
+  "calendar.dedication.placeholder": "For Mum, with love — from all of us",
 };

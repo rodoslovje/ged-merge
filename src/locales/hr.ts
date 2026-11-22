@@ -2492,6 +2492,8 @@ export const hr = {
   "tree.shape": "Oblik",
   "tree.shape.fan": "Lepeza",
   "tree.shape.circle": "Krug",
+  "tree.siblings": "Braća i sestre",
+  "tree.siblings.tooltip": "Uz krug se prikazuju braća i sestre osobe u sredini: stariji lijevo, mlađi desno. Polubraća i polusestre imaju isprekidan obrub.",
   "tree.settings.alignment": "Usmjerenje",
   "tree.settings.alignment.lr": "Lijevo → desno",
   "tree.settings.alignment.tb": "Gore → dolje",
@@ -4162,4 +4164,8 @@ export const hr = {
   "calendar.stats.oldest_F": "Najstarija poznata pretkinja: {{name}} ({{year}})",
   "calendar.stats.surname": "Najčešće prezime: {{name}}",
   "calendar.captions": "Prikaži imena na fotografijama",
+  "calendar.picture.treeDesc": "Stablo potomaka",
+  "calendar.picture.treeAnc": "Stablo predaka",
+  "calendar.dedication": "Posveta",
+  "calendar.dedication.placeholder": "Za mamu, s ljubavlju — svi tvoji",
 };

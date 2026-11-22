@@ -54,7 +54,7 @@ export const DEFAULT_PHOTO_RINGS = 3;
 // A dedicated thin "collar" ring reserved between generations for the marriage
 // label (only when a marriage field is shown). The couple's collar sits at the
 // inner edge of their (the parents') ring, centred under husband + wife.
-const COLLAR_W = 26;
+export const COLLAR_W = 26;
 // From this couple-generation the collar's narrow arc can't hold "year, place" on
 // one line, so the year and place stack on two concentric lines instead.
 const MARRIAGE_TWO_LINE_FROM = 6;
@@ -77,6 +77,9 @@ export interface FanLine {
   arc?: string;
   /** Straight-segment y offset within the rotated label group. */
   dy?: number;
+  /** Straight-segment text anchor, when the lines align at one end rather
+   *  than centre on the label's anchor point. */
+  anchor?: "start" | "end";
 }
 
 export interface FanSegment {
@@ -125,6 +128,10 @@ export interface FanSegment {
   /** Fill strength (percent of the state colour mixed into the panel); the
    *  descendant chart pales each generation outward. Default 16. */
   tint?: number;
+  /** A half-sibling of the root (the bowtie's notches): the parent they
+   *  share. Drawn with a broken outline, so they read apart from the root's
+   *  full brothers and sisters. */
+  half?: "father" | "mother";
   /** The ring cap of the half this segment belongs to, when the chart joins
    *  two halves with caps of their own (the radial bowtie); else the chart's
    *  {@link FanChart.maxGen} applies. */

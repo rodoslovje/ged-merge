@@ -4,6 +4,7 @@ import { buildFanChart, type FanChart, type FanSegment, type FanShape } from "..
 import { buildDescendantFanChart } from "../chart/descendantFan";
 import { buildButterflyChart } from "../chart/butterflyFan";
 import type { TreeNode } from "../chart/personTree";
+import type { SiblingRow } from "../chart/siblingRow";
 import type { ChartDirection } from "../chart/treeLayout";
 import { ageStandalone, livingLabelFor, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { useLivingNameOf } from "./useLivingName";
@@ -34,6 +35,8 @@ export function useFanChart(
     mode?: ChartDirection;
     /** The descendants, for "both". */
     other?: TreeNode;
+    /** The root's brothers and sisters, drawn in the notches of "both". */
+    siblings?: SiblingRow;
     /** Whether a node has a photo file (reserves the inner-ring photo slot). */
     hasPhoto: (n: TreeNode) => boolean;
     display: NodeDisplayOptions;
@@ -41,7 +44,7 @@ export function useFanChart(
     kinshipOf?: (n: TreeNode) => string | undefined;
   },
 ): FanChartState {
-  const { mode = "ancestors", other, hasPhoto, display, kinshipOf } = opts;
+  const { mode = "ancestors", other, siblings, hasPhoto, display, kinshipOf } = opts;
   const { t } = useTranslation();
   const livingLabelOf = useCallback((n: TreeNode) => livingLabelFor(t, n.sex), [t]);
   const ageTextOf = useCallback((n: TreeNode) => (n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined), [t]);
@@ -50,10 +53,10 @@ export function useFanChart(
   const fan = useMemo(() => {
     if (!tree) return undefined;
     const o = { hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf, livingNameOf };
-    if (mode === "both" && other) return buildButterflyChart(tree, other, o);
+    if (mode === "both" && other) return buildButterflyChart(tree, other, o, siblings);
     const build = mode === "descendants" ? buildDescendantFanChart : buildFanChart;
     return build(tree, shape, o);
-  }, [tree, other, mode, shape, hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf, livingNameOf]);
+  }, [tree, other, siblings, mode, shape, hasPhoto, display, livingLabelOf, ageTextOf, kinshipOf, livingNameOf]);
   const nodes = useMemo(() => {
     const m = new Map<string, FanSegment>();
     for (const s of fan?.segments ?? []) m.set(s.key, s);

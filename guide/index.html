@@ -2631,7 +2631,8 @@
               <strong>Both</strong>, which draws the bowtie. On the Tree the ancestors sit on one side of the person
               and the descendants on the other, in either look; on the Fan the two share one full circle, ancestors
               above and descendants below, split in proportion to how many each side has and parted by a notch at
-              either side; the Map plots both branches' places together, and the Report prints the Ahnentafel and the
+              either side. Tick <strong>Siblings</strong> and the notches hold the person's brothers and sisters, the
+              older on the left and the younger on the right, with half-siblings in a dashed outline; the Map plots both branches' places together, and the Report prints the Ahnentafel and the
               descendant register one after the other. The Tree adds a fourth choice, <strong>Complete</strong>, whose
               count is everyone connected to the person: blood relatives, the people they married and those spouses' own
               families. Each family line is drawn once, as a tree hanging from its topmost ancestor, in a numbered frame;
@@ -2693,9 +2694,12 @@
               <li><strong>Names</strong> (Contemporaries only) — whether the closest relatives are named on the
                 chart; see <a href="#contemporaries">below</a>.</li>
               <li><strong>Facts</strong> and <strong>Structure</strong> (Report only) — see <a href="#reports">below</a>.</li>
-              <li><strong>Privacy</strong> — <em>Hide living people</em> redacts anyone inferred to be living, showing
-                only their relationship or “Living” (see <a href="#privacy">§18</a>), so the diagram is safe to
-                share. A marriage goes with them: a couple with one living partner shows no year or place, on any
+              <li><strong>Privacy</strong> — chooses what is left of anyone inferred to be living (see
+                <a href="#privacy">§18</a>): <em>Relationship</em> shows only their relationship to the start person
+                or “Living”, <em>Initials</em>, <em>Given name</em> and <em>Full name</em> keep that much of the name,
+                and <em>All details</em> shows them in full. Except under <em>All details</em> their dates, places and
+                photo stay hidden, so the diagram is safe to share. These are the same choices the family website offers
+                (<a href="#tools">§10</a>). A marriage goes with them: a couple with one living partner shows no year or place, on any
                 diagram, because a wedding is as much that person's data as their own birth.</li>
             </ul>
             <p>
@@ -2738,9 +2742,10 @@
               as the map does, and <span class="gm-key">Shift</span> double-click to zoom back out; double-clicking a
               person opens them instead, as a single click would. Every kind carries an
               <strong>Export</strong> menu, always led by <strong>GEDCOM</strong> — it downloads just the people
-              currently drawn, as a standalone file a friend can merge into their own tree. With <em>Hide living
-              people</em> on, the file hides them too: each is written as <em>&lt;living&gt;</em> with only their sex and
-              family links, and a couple with a living partner keeps no marriage details. What follows depends on the
+              currently drawn, as a standalone file a friend can merge into their own tree. Unless
+              <em>Privacy</em> is set to <em>All details</em>, the file hides living people too: each is written with
+              only the part of the name the setting keeps (<em>&lt;living&gt;</em> under <em>Relationship</em>), their
+              sex and family links, and a couple with a living partner keeps no marriage details. What follows depends on the
               kind: the diagrams offer <strong>SVG</strong> (a sharp, infinitely scalable image) and <strong>PDF</strong>
               (asks which paper you're printing on, then opens your browser's print dialog, where you choose <em>Save as
               PDF</em>); the <strong>Map</strong> offers <strong>PNG</strong> instead; and the <strong>Report</strong>
@@ -2826,7 +2831,7 @@
               here and on the bars.
             </p>
             <p>
-              With <em>Hide living people</em> on, a living person's year never shows. On either layout they stand at
+              Unless <em>Privacy</em> is set to <em>All details</em>, a living person's year never shows. On either layout they stand at
               the middle of their birth decade, ±5 years from the truth, with a dashed bar or lifeline to today; siblings
               who land on the same year step two years apart. On the family website, people published without details
               keep no date of their own: they stand where their generation puts them, within 25 years.
@@ -2903,7 +2908,7 @@
               <strong>Alive in</strong> and drag the year to dim everyone who had not been born yet, or was already
               gone — the people hold their places, so the wave of who was around reads as movement rather than the chart
               rebuilding. <em>Generations</em> (<a href="#charts">§11</a>) caps the blood distance here, and
-              <em>Hide living people</em> (<a href="#privacy">§18</a>) takes the names of anyone presumed living while
+              <em>Privacy</em> (<a href="#privacy">§18</a>) takes or shortens the names of anyone presumed living while
               leaving their mark on the chart, since a ring and a wedge give nothing away.
             </p>
             <p>
@@ -3042,8 +3047,8 @@
                 themselves.</li>
               <li><strong>Privacy</strong> — the base map is <em>opt-in</em>: until you allow tiles (one click on
                 the map, or Settings › Map), the map draws on a built-in offline world outline and nothing leaves
-                your device. The chart-settings <em>Hide living people</em> toggle removes their markers and paths
-                entirely.</li>
+                your device. Any chart-settings <em>Privacy</em> choice except <em>All details</em> removes their
+                markers and paths entirely.</li>
               <li><strong>Export</strong> — <strong>PNG</strong> snapshots the current view (tiles, overlays, paths and
                 markers, with the required attribution burned in). In the synchronized view the menu offers three
                 images instead: both halves side by side as one picture, or either half alone — the pieces cover
@@ -3186,7 +3191,7 @@
                 day the living stand at the top, in the scheme's colour, and the memorial days at the foot, in dark
                 grey.</li>
               <li><strong>Cover</strong> — the same choices as a month, the fan of ancestors and descendants
-                to begin with.</li>
+                to begin with. <em>Dedication</em> writes a few words of your own under the name.</li>
               <li><strong>Months</strong> — to begin with, a month's picture is a collage of everyone whose birthday
                 or anniversary it marks, each photo captioned with the name and the kinship, so the faces go with the
                 dates; <em>Show names on the photos</em> turns the captions off. A person's own photo is picked
@@ -3194,7 +3199,7 @@
                 or add your own: up to five, which then make a collage, <em>Tidy</em> in rows or <em>Scattered</em> as
                 leaning prints. A single photo of another shape than the space, such as a portrait above a wide month,
                 is shown whole on a blurred copy of itself. Instead of photos, the picture can be a fan chart of the
-                ancestors, the descendants or both, or <em>The family in numbers</em>: the children, grandchildren
+                ancestors, the descendants or both, a tree of the descendants or of the ancestors, or <em>The family in numbers</em>: the children, grandchildren
                 and further descendants, the known ancestors, the blood relatives, the oldest known ancestor and the
                 most common surname. The charts show the living by name only, without years or age. Under <em>From the family's past</em>, tick the moments its page tells: births,
                 weddings and deaths of the family's dead in that month, with round anniversaries and the direct line
@@ -3898,8 +3903,9 @@
             <h3>Sharing without living people</h3>
             <p>
               To share a tree or a chart, two features hide people who should stay private. Charts and reports have a
-              <strong>Hide living people</strong> option (<a href="#charts">§11</a>) that redacts anyone inferred to be
-              living — and anyone explicitly marked private — showing only their relationship or “Living”. For a whole
+              <strong>Privacy</strong> setting (<a href="#charts">§11</a>) that redacts anyone inferred to be living,
+              keeping only their relationship or “Living”, their initials, their given name or their full name. Anyone
+              explicitly marked private shows only their relationship, whatever the choice. For a whole
               file, <span class="gm-pill">Tools</span> › <strong>Privacy</strong> (<a href="#tools">§10</a>) produces a
               redacted copy: it infers who is likely living, flags declared-private people too, and lets you sanitize,
               rename or remove them and strip file-level identifiers before download.

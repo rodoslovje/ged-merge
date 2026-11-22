@@ -20,7 +20,11 @@ import { mediaKindOf } from "../mediaPath";
 import { useBloodTrees } from "../useBloodTrees";
 import { useFanChart } from "../useFanChart";
 import { FanChartBody } from "../FanChartBody";
+import { TreeSvg } from "../TreeSvg";
+import { flatten, layout, nodeHeight } from "../../chart/treeLayout";
+import type { TreeNode } from "../../chart/personTree";
 import { ANCESTOR_KEY_PREFIX } from "../../chart/treeLayout";
+import { buildSiblingRow } from "../../chart/siblingRow";
 import { embedImages, escapeHtml, prepareDiagram, printDocument, siteLinkOf } from "../exportSvg";
 import { storedSiteAddress } from "../../publish/stored";
 import { PrinterIcon } from "../icons/FormatIcons";
@@ -68,13 +72,24 @@ const FAN_DISPLAY_OFF = {
   showKinship: false, showPhoto: false, livingNameOnly: true, showMarriageDate: false, showMarriagePlace: false,
 } as const;
 
+/** A tree's largest scale on the page: a 220-px box at most 12 em wide. */
+const TREE_EM_PER_PX = 12 / 220;
+
+/** A tree laid out for a page: descendants top-down, ancestors left to right. */
+function laidTree(tree: TreeNode | undefined, ancestors: boolean, nodeH: number) {
+  if (!tree) return undefined;
+  const alignment = ancestors ? "lr" : "tb";
+  const laid = layout(tree, alignment, nodeH);
+  return { ...laid, flat: flatten(laid.root, alignment, "curve", nodeH, undefined, ancestors) };
+}
+
 type CountryChoice = HolidayCountry | "none";
 type PhotoItem = { kind: "person"; id: string } | { kind: "file"; url: string; name: string };
 /** What fills a page's picture area: photos (one, or a collage), or a chart. */
 type Picture =
   | { kind: "photos"; items: PhotoItem[]; collage: CollageStyle }
-  | { kind: "fan" | "fanAnc" | "fanDesc" | "stats" };
-const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "stats"];
+  | { kind: "fan" | "fanAnc" | "fanDesc" | "treeDesc" | "treeAnc" | "stats" };
+const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats"];
 
 const sameItem = (a: PhotoItem, b: PhotoItem) =>
   a.kind === "person" ? b.kind === "person" && a.id === b.id : b.kind === "file" && a.url === b.url;
@@ -99,6 +114,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     memorial: "off",
   }));
   const [cover, setCover] = useState<Picture>({ kind: "fan" });
+  const [dedication, setDedication] = useState("");
   const [monthPictures, setMonthPictures] = useState<(Picture | undefined)[]>([]);
   const [monthFacts, setMonthFacts] = useState<(number[] | undefined)[]>([]);
 
@@ -233,12 +249,14 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     return picked ? picked.map((k) => m.candidates[k]).filter(Boolean).sort(byDay) : m.facts;
   }, [data.months, monthFacts]);
 
-  // The cover's fan: the recipient's ancestors above, descendants below.
+  // The cover's fan: the recipient's ancestors above, descendants below, and
+  // their brothers and sisters at the sides.
   const trees = useBloodTrees(mainDs, rootId, FAN_GENERATIONS);
+  const siblings = useMemo(() => (root ? buildSiblingRow(t, root, mainDs, nameOf) : undefined), [t, root, mainDs, nameOf]);
   const { settings } = useChartSettings();
   const fanDisplay = useMemo(() => ({ ...settings, ...FAN_DISPLAY_OFF }), [settings]);
   const noPhoto = useCallback(() => false, []);
-  const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, hasPhoto: noPhoto, display: fanDisplay });
+  const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, siblings, hasPhoto: noPhoto, display: fanDisplay });
   const { fan: fanAnc } = useFanChart(trees.ancestors, "fan", { mode: "ancestors", hasPhoto: noPhoto, display: fanDisplay });
   const { fan: fanDesc } = useFanChart(trees.descendants, "fan", { mode: "descendants", hasPhoto: noPhoto, display: fanDisplay });
   const fanBody = (chart: FanChart | undefined, desc: (key: string, gen: number) => boolean) =>
@@ -252,10 +270,36 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         nativeTooltip={false}
       />
     ) : undefined;
+  // The trees: descendants top-down, the root above them; ancestors as the
+  // classic pedigree, the root on the left and each generation to its right.
+  const treeNodeH = nodeHeight(fanDisplay);
+  const treeDesc = useMemo(() => laidTree(trees.descendants, false, treeNodeH), [trees.descendants, treeNodeH]);
+  const treeAnc = useMemo(() => laidTree(trees.ancestors, true, treeNodeH), [trees.ancestors, treeNodeH]);
+  const treeBody = (t: ReturnType<typeof laidTree>, desc: boolean) =>
+    t ? (
+      // A small tree keeps its boxes at a reading size instead of blowing a
+      // lone box up across the whole picture.
+      <div className="cal-tree" style={{ maxWidth: `${t.width * TREE_EM_PER_PX}em`, maxHeight: `${t.height * TREE_EM_PER_PX}em` }}>
+      <TreeSvg
+        flat={t.flat}
+        width={t.width}
+        height={t.height}
+        selectedKey={null}
+        onSelect={() => {}}
+        colorOf={(n) => (desc && n.key !== t.root.key ? "var(--node-desc)" : "var(--node-main)")}
+        mainRecords={mainDs.records}
+        display={fanDisplay}
+        nodeH={treeNodeH}
+        nativeTooltip={false}
+      />
+      </div>
+    ) : undefined;
   const charts = {
     fan: fanBody(fan, (key, gen) => gen > 0 && !key.startsWith(ANCESTOR_KEY_PREFIX)),
     fanAnc: fanBody(fanAnc, () => false),
     fanDesc: fanBody(fanDesc, (_key, gen) => gen > 0),
+    treeDesc: treeBody(treeDesc, true),
+    treeAnc: treeBody(treeAnc, false),
   };
   const stats = useMemo(() => familyStats(mainDs, rootId, thisYear), [mainDs, rootId, thisYear]);
 
@@ -271,7 +315,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   };
 
   const coverPage = (
-    <CoverPage format={format} scheme={scheme} year={opts.year} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} />
+    <CoverPage format={format} scheme={scheme} year={opts.year} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} dedication={dedication} />
   );
   const monthPage = (i: number) => (
     <MonthPages
@@ -427,6 +471,16 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   } else if (step === 1) {
     panel = (
       <>
+        <label className="cal-field">
+          <span>{t("calendar.dedication")}</span>
+          <textarea
+            className="settings-text-input"
+            rows={2}
+            value={dedication}
+            placeholder={t("calendar.dedication.placeholder")}
+            onChange={(e) => setDedication(e.target.value)}
+          />
+        </label>
         <PicturePicker people={coverPeople} value={cover} onChange={setCover} personPhoto={personPhoto} words={words} />
       </>
     );

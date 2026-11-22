@@ -51,7 +51,8 @@ import { ChartSettings } from "./ChartSettings";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { marriedNameOverride, pedigreeVariant, useChartSettings } from "./ChartSettingsContext";
-import { PedigreeVariantTabs } from "./ChartKindTabs";
+import { FanSiblingsToggle, PedigreeVariantTabs } from "./ChartKindTabs";
+import { buildSiblingRow } from "../chart/siblingRow";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { familyStepFor, isEditableTarget, isModalOpen } from "../keyboard/shortcuts";
@@ -177,6 +178,12 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       descendants: rootPerson ? buildPersonTree(t, rootPerson, undefined, mainDs, EMPTY_DS, EMPTY_MAPS, "descendants", undefined, nameOf) : undefined,
     }),
     [t, rootPerson, mainDs, nameOf],
+  );
+  // The root's brothers and sisters, for the radial bowtie's notches.
+  const siblingsOn = bowtie && radial && settings.fanSiblings;
+  const siblings = useMemo(
+    () => (siblingsOn && rootPerson ? buildSiblingRow(t, rootPerson, mainDs, nameOf) : undefined),
+    [siblingsOn, t, rootPerson, mainDs, nameOf],
   );
   // How deep each direction goes, and the trees as the generation limit leaves
   // them. The full trees stay behind them for the head-counts and the "of N"
@@ -352,7 +359,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? tree : undefined,
     settings.fanShape,
-    { mode: bowtie ? "both" : mode, other: bowtie ? shown.descendants : undefined, hasPhoto, display, kinshipOf: fanKinshipOf },
+    { mode: bowtie ? "both" : mode, other: bowtie ? shown.descendants : undefined, siblings, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
   // Where every drawn person sits (generation, family line), for the Color
@@ -641,6 +648,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
             onChange={(k) => (k === "complete" ? onCompleteChange?.(true) : chooseDirection(k))}
             items={directions}
           />
+          {bowtie && radial && <FanSiblingsToggle />}
         </>
       }
       controlsRight={
