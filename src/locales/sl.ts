@@ -4427,4 +4427,6 @@ export const sl = {
   "calendar.stats.oldest_F": "Najstarejša znana prednica: {{name}} ({{year}})",
   "calendar.stats.surname": "Najpogostejši priimek: {{name}}",
   "calendar.captions": "Pokaži imena na fotografijah",
+  "calendar.picture.treeDesc": "Drevo potomcev",
+  "calendar.picture.treeAnc": "Drevo prednikov",
 };
