@@ -23,6 +23,8 @@ test("the family calendar walks from settings to a review of every page", async 
   const next = page.getByRole("button", { name: "Next", exact: true });
   await next.click();
   await expect(page.locator(".cal-preview .cal-chart svg")).toHaveCount(1);
+  await page.getByLabel("Dedication").fill("For Ana, with love");
+  await expect(page.locator(".cal-preview .cal-dedication")).toHaveText("For Ana, with love");
 
   // March: the recipient's own birthday, and her mother's as a relative's line.
   for (let i = 0; i < 3; i++) await next.click();

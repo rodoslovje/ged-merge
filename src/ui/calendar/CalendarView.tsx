@@ -114,6 +114,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     memorial: "off",
   }));
   const [cover, setCover] = useState<Picture>({ kind: "fan" });
+  const [dedication, setDedication] = useState("");
   const [monthPictures, setMonthPictures] = useState<(Picture | undefined)[]>([]);
   const [monthFacts, setMonthFacts] = useState<(number[] | undefined)[]>([]);
 
@@ -314,7 +315,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   };
 
   const coverPage = (
-    <CoverPage format={format} scheme={scheme} year={opts.year} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} />
+    <CoverPage format={format} scheme={scheme} year={opts.year} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} dedication={dedication} />
   );
   const monthPage = (i: number) => (
     <MonthPages
@@ -470,6 +471,16 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   } else if (step === 1) {
     panel = (
       <>
+        <label className="cal-field">
+          <span>{t("calendar.dedication")}</span>
+          <textarea
+            className="settings-text-input"
+            rows={2}
+            value={dedication}
+            placeholder={t("calendar.dedication.placeholder")}
+            onChange={(e) => setDedication(e.target.value)}
+          />
+        </label>
         <PicturePicker people={coverPeople} value={cover} onChange={setCover} personPhoto={personPhoto} words={words} />
       </>
     );

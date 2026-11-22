@@ -3952,4 +3952,6 @@ export const en = {
   "calendar.captions": "Show names on the photos",
   "calendar.picture.treeDesc": "Tree of descendants",
   "calendar.picture.treeAnc": "Tree of ancestors",
+  "calendar.dedication": "Dedication",
+  "calendar.dedication.placeholder": "For Mum, with love — from all of us",
 };

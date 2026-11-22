@@ -4431,4 +4431,6 @@ export const sl = {
   "calendar.captions": "Pokaži imena na fotografijah",
   "calendar.picture.treeDesc": "Drevo potomcev",
   "calendar.picture.treeAnc": "Drevo prednikov",
+  "calendar.dedication": "Posvetilo",
+  "calendar.dedication.placeholder": "Za mamo, z ljubeznijo — vsi tvoji",
 };
