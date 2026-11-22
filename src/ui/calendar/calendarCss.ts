@@ -76,6 +76,12 @@ export const CALENDAR_CSS = `
 .cal-round .cal-glyph { color: var(--glyph-anniversary); }
 .cal-lower { display: flex; align-items: flex-start; gap: 1.6em; margin-top: 0.8em; flex: 0 0 auto; }
 .cal-lower:empty { display: none; }
+/* Either one alone takes the whole width: the list in three columns, the
+   moments from the past in two. */
+.cal-lower > .cal-list:only-child { columns: 3; }
+.cal-lower > .cal-facts:only-child { columns: 2; column-gap: 2em; }
+.cal-facts:only-child h4 { column-span: all; }
+.cal-facts:only-child .cal-fact { break-inside: avoid; }
 .cal-lower > * { flex: 1 1 0; min-width: 0; }
 .cal-list { font-size: 0.72em; columns: 2; column-gap: 1.4em; }
 .cal-list div { break-inside: avoid; margin-bottom: 0.15em; }

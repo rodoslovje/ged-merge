@@ -98,6 +98,8 @@ interface CalendarWork {
   showAge: boolean;
   captions: boolean;
   large: boolean;
+  showList: boolean;
+  showFacts: boolean;
   country: CountryChoice;
   opts: CalendarOptions;
   cover: Picture;
@@ -116,6 +118,8 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     showAge: true,
     captions: true,
     large: false,
+    showList: true,
+    showFacts: true,
     country: lang === "hr" ? "hr" : lang === "sl" ? "si" : "none",
     // From September on, the calendar is for the year to come.
     opts: { year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear, scope: 1, partners: true, memorial: "off" },
@@ -165,6 +169,8 @@ function mergeWork(base: CalendarWork, saved: Record<string, unknown>): Calendar
     showAge: pick("showAge", bool),
     captions: pick("captions", bool),
     large: pick("large", bool),
+    showList: pick("showList", bool),
+    showFacts: pick("showFacts", bool),
     country: pick("country", one(["none", ...HOLIDAY_COUNTRIES])),
     opts: {
       year: typeof o.year === "number" ? o.year : base.opts.year,
@@ -231,6 +237,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const setShowAge = (showAge: boolean) => patch({ showAge });
   const setCaptions = (captions: boolean) => patch({ captions });
   const setLarge = (large: boolean) => patch({ large });
+  const setShowList = (showList: boolean) => patch({ showList });
+  const setShowFacts = (showFacts: boolean) => patch({ showFacts });
   const setCountry = (country: CountryChoice) => patch({ country });
   const setOpts = (opts: CalendarOptions) => patch({ opts });
   const setCover = (cover: Picture) => patch({ cover });
@@ -469,6 +477,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       site={site}
       words={words}
       entryOpts={entryOpts}
+      showList={work.showList}
+      showFacts={work.showFacts}
     />
   );
 
@@ -583,6 +593,14 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         <label className="cal-check">
           <input type="checkbox" checked={large} onChange={(e) => setLarge(e.target.checked)} />
           <span>{t("calendar.large")}</span>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={work.showList} disabled={large} onChange={(e) => setShowList(e.target.checked)} />
+          <span>{t("calendar.showList")}</span>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={work.showFacts} onChange={(e) => setShowFacts(e.target.checked)} />
+          <span>{t("calendar.showFacts")}</span>
         </label>
         <label className="cal-check">
           <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} />

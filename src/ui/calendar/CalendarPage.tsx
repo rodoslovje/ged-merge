@@ -71,6 +71,10 @@ interface MonthProps {
   site?: string;
   words: PersonWords;
   entryOpts: EntryOptions;
+  /** Show the list of the month's people under the grid. */
+  showList: boolean;
+  /** Show the moments from the family's past. */
+  showFacts: boolean;
 }
 
 /** One month: one page, or two for the wall calendar bound in the middle. */
@@ -88,8 +92,8 @@ export function MonthPages(props: MonthProps) {
           <Head {...props} />
           <div className="cal-grid-wrap"><Grid {...props} /></div>
           <div className="cal-lower">
-            {!large && <DayList {...props} />}
-            <Facts {...props} />
+            {!large && props.showList && <DayList {...props} />}
+            {props.showFacts && <Facts {...props} />}
           </div>
           <Legend />
           <Footer site={props.site} />
@@ -105,7 +109,7 @@ export function MonthPages(props: MonthProps) {
           <Head {...props} />
           <div className="cal-grid-wrap"><Grid {...props} /></div>
           <div className="cal-lower">
-            <Facts {...props} />
+            {props.showFacts && <Facts {...props} />}
           </div>
           <Footer site={props.site} />
         </div>
@@ -118,8 +122,8 @@ export function MonthPages(props: MonthProps) {
       <Head {...props} />
       <div className="cal-grid-wrap"><Grid {...props} /></div>
       <div className="cal-lower">
-        {!large && <DayList {...props} />}
-        <Facts {...props} />
+        {!large && props.showList && <DayList {...props} />}
+        {props.showFacts && <Facts {...props} />}
       </div>
       <Legend />
       <Footer site={props.site} />
