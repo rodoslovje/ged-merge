@@ -19,11 +19,15 @@ import { useBloodTrees } from "../useBloodTrees";
 import { useFanChart } from "../useFanChart";
 import { FanChartBody } from "../FanChartBody";
 import { ANCESTOR_KEY_PREFIX } from "../../chart/treeLayout";
-import { escapeHtml, prepareDiagram, printDocument } from "../exportSvg";
+import { embedImages, escapeHtml, prepareDiagram, printDocument, siteLinkOf } from "../exportSvg";
+import { storedSiteAddress } from "../../publish/stored";
 import { PrinterIcon } from "../icons/FormatIcons";
 import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
 import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
 import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, type PagePhoto } from "./CalendarPage";
+import { PhotoArea } from "./PhotoArea";
+import { Segmented } from "../Segmented";
+import { COLLAGE_STYLES, MAX_PHOTOS, type CollageStyle } from "../../calendar/collage";
 
 // The Charts hub's "Calendar" kind: a family calendar to give as a present,
 // seen from the hub's root person (the one who gets it). A wizard — settings,
@@ -33,6 +37,8 @@ import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, ty
 
 interface Props {
   mainDs: Dataset;
+  /** The main file's name, for the family website's address in the footer. */
+  mainFileName?: string;
   rootId: string;
   backLabel: string;
   onBack: () => void;
@@ -52,10 +58,15 @@ const REVIEW_STEP = MONTH_STEP0 + 12;
 const FAN_DISPLAY_OFF = { showKinship: false, showPhoto: false } as const;
 
 type CountryChoice = HolidayCountry | "none";
-type PhotoChoice = { kind: "person"; id: string } | { kind: "file"; url: string; name: string } | { kind: "none" };
-type CoverChoice = PhotoChoice | { kind: "fan" };
+type PhotoItem = { kind: "person"; id: string } | { kind: "file"; url: string; name: string };
+/** What fills a page's picture area: photos (one, or a collage), or a chart. */
+type Picture = { kind: "photos"; items: PhotoItem[]; collage: CollageStyle } | { kind: "fan" };
+const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan"];
 
-export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, kindSwitcher }: Props) {
+const sameItem = (a: PhotoItem, b: PhotoItem) =>
+  a.kind === "person" ? b.kind === "person" && a.id === b.id : b.kind === "file" && a.url === b.url;
+
+export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, onRootChange, kindSwitcher }: Props) {
   const { t, i18n } = useTranslation();
   const nameOf = useNameOf();
   const thisYear = new Date().getFullYear();
@@ -73,18 +84,23 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
     partners: true,
     memorial: "off",
   }));
-  const [cover, setCover] = useState<CoverChoice>({ kind: "fan" });
-  const [monthPhotos, setMonthPhotos] = useState<(PhotoChoice | undefined)[]>([]);
+  const [cover, setCover] = useState<Picture>({ kind: "fan" });
+  const [monthPictures, setMonthPictures] = useState<(Picture | undefined)[]>([]);
   const [monthFacts, setMonthFacts] = useState<(number[] | undefined)[]>([]);
 
   const root = mainDs.individuals.get(rootId);
+  // The family website's address, as set in Tools → Website for this file.
+  const site = useMemo(() => {
+    const address = mainFileName ? storedSiteAddress(mainFileName) : undefined;
+    return address ? siteLinkOf(address).label : undefined;
+  }, [mainFileName]);
   const data = useMemo(() => buildCalendar(mainDs, rootId, opts, thisYear), [mainDs, rootId, opts, thisYear]);
   const holidays = useMemo(() => (country === "none" ? [] : holidaysFor(country, opts.year)), [country, opts.year]);
 
   // A new recipient or new settings make new suggestions: the choices made for
   // the old ones would point at people no longer on the calendar.
   useEffect(() => {
-    setMonthPhotos([]);
+    setMonthPictures([]);
     setMonthFacts([]);
   }, [rootId, opts]);
 
@@ -138,12 +154,9 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
     return { url, caption: `${words.name(id)}${years ? ` (${years})` : ""}` };
   }, [photoPath, urls, mainDs, words]);
 
-  const toPhoto = useCallback((c: PhotoChoice | undefined, fallback: string[]): PagePhoto | undefined => {
-    if (!c) return fallback.map(personPhoto).find(Boolean);
-    if (c.kind === "file") return { url: c.url };
-    if (c.kind === "person") return personPhoto(c.id);
-    return undefined;
-  }, [personPhoto]);
+  /** A month's picture until one is chosen: its first suggested person's photo. */
+  const monthPicture = (i: number): Picture =>
+    monthPictures[i] ?? { kind: "photos", items: monthPeople[i].slice(0, 1).map((id) => ({ kind: "person", id })), collage: "scattered" };
 
   const factsOf = useCallback((i: number): Fact[] => {
     const m = data.months[i];
@@ -168,15 +181,16 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
     />
   ) : undefined;
 
+  const renderPicture = (pic: Picture): React.ReactNode => {
+    if (pic.kind === "fan") return <div className="cal-chart">{fanNode}</div>;
+    const photos = pic.items
+      .map((it): PagePhoto | undefined => (it.kind === "file" ? { url: it.url } : personPhoto(it.id)))
+      .filter((x): x is PagePhoto => !!x);
+    return <PhotoArea photos={photos} collage={pic.collage} />;
+  };
+
   const coverPage = (
-    <CoverPage
-      format={format}
-      scheme={scheme}
-      year={opts.year}
-      name={root ? nameOf(root) : ""}
-      fan={cover.kind === "fan" ? fanNode : undefined}
-      photo={cover.kind === "fan" ? undefined : toPhoto(cover, [rootId])}
-    />
+    <CoverPage format={format} scheme={scheme} year={opts.year} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} />
   );
   const monthPage = (i: number) => (
     <MonthPages
@@ -187,7 +201,8 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
       month={data.months[i]}
       facts={factsOf(i)}
       holidays={holidays}
-      photo={toPhoto(monthPhotos[i], monthPeople[i])}
+      picture={renderPicture(monthPicture(i))}
+      site={site}
       words={words}
       entryOpts={entryOpts}
     />
@@ -197,13 +212,19 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
   const print = async () => {
     const el = reviewRef.current;
     if (!el) return;
+    // Photos point at object URLs, which mean nothing outside this page: each
+    // goes into the print document as data, read once however often it is used.
+    const images = new Map<string, string>();
     const pages = await Promise.all(Array.from(el.querySelectorAll<HTMLElement>(".cal-page")).map(async (page) => {
       const clone = page.cloneNode(true) as HTMLElement;
-      // The fan is drawn with the app's stylesheet; the print document has
-      // none, so it goes over as a standalone SVG with its styles baked in.
-      const liveSvg = page.querySelector<SVGSVGElement>(".cal-fan svg");
-      const slot = clone.querySelector(".cal-fan");
-      if (liveSvg && slot) slot.innerHTML = new XMLSerializer().serializeToString((await prepareDiagram(liveSvg)).clone);
+      // A chart is drawn with the app's stylesheet; the print document has
+      // none, so each goes over as a standalone SVG with its styles baked in.
+      const live = page.querySelectorAll<SVGSVGElement>(".cal-chart svg");
+      const slots = clone.querySelectorAll(".cal-chart");
+      for (let k = 0; k < live.length; k++) {
+        if (slots[k]) slots[k].innerHTML = new XMLSerializer().serializeToString((await prepareDiagram(live[k])).clone);
+      }
+      await embedImages(clone, images);
       return clone.outerHTML;
     }));
     const title = `${t("calendar.cover.title")} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
@@ -211,7 +232,7 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
 <style>${CALENDAR_CSS}${calendarPrintCss(PAPER[format])}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
   };
 
-  const pick = (i: number, c: PhotoChoice) => setMonthPhotos((prev) => { const next = [...prev]; next[i] = c; return next; });
+  const setMonthPicture = (i: number, pic: Picture) => setMonthPictures((prev) => { const next = [...prev]; next[i] = pic; return next; });
   const toggleFact = (i: number, k: number) => setMonthFacts((prev) => {
     const next = [...prev];
     const m = data.months[i];
@@ -321,18 +342,7 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
   } else if (step === 1) {
     panel = (
       <>
-        <PhotoPicker
-          people={coverPeople}
-          value={cover}
-          onChange={setCover}
-          personPhoto={personPhoto}
-          words={words}
-          extra={
-            <button type="button" className={`cal-choice${cover.kind === "fan" ? " active" : ""}`} onClick={() => setCover({ kind: "fan" })}>
-              {t("calendar.cover.fan")}
-            </button>
-          }
-        />
+        <PicturePicker people={coverPeople} value={cover} onChange={setCover} personPhoto={personPhoto} words={words} />
       </>
     );
     preview = coverPage;
@@ -357,10 +367,10 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
     panel = (
       <>
         <h3 className="cal-panel-head">{t("calendar.photo")}</h3>
-        <PhotoPicker
+        <PicturePicker
           people={monthPeople[monthIndex]}
-          value={monthPhotos[monthIndex] ?? (monthPeople[monthIndex][0] ? { kind: "person", id: monthPeople[monthIndex][0] } : { kind: "none" })}
-          onChange={(c) => c.kind !== "fan" && pick(monthIndex, c)}
+          value={monthPicture(monthIndex)}
+          onChange={(pic) => setMonthPicture(monthIndex, pic)}
           personPhoto={personPhoto}
           words={words}
         />
@@ -415,55 +425,84 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
   );
 }
 
-/** Choose a page's picture: a suggested person's photo, a file of your own, or none. */
-function PhotoPicker<C extends CoverChoice>({
-  people, value, onChange, personPhoto, words, extra,
+/** Choose what fills a page's picture area: photos — a suggested person's, or
+ *  files of your own, up to {@link MAX_PHOTOS}, laid out as a collage when
+ *  there are several — or a chart. */
+function PicturePicker({
+  people, value, onChange, personPhoto, words,
 }: {
   people: string[];
-  value: C | PhotoChoice;
-  onChange: (c: CoverChoice) => void;
+  value: Picture;
+  onChange: (pic: Picture) => void;
   personPhoto: (id: string) => PagePhoto | undefined;
   words: PersonWords;
-  extra?: React.ReactNode;
 }) {
   const { t } = useTranslation();
   const media = useMediaFolder();
   const fileRef = useRef<HTMLInputElement>(null);
+  const photos = value.kind === "photos" ? value : { kind: "photos" as const, items: [], collage: "scattered" as CollageStyle };
+  const toggle = (it: PhotoItem) => {
+    const has = photos.items.some((x) => sameItem(x, it));
+    const items = has ? photos.items.filter((x) => !sameItem(x, it)) : [...photos.items, it].slice(-MAX_PHOTOS);
+    onChange({ ...photos, items });
+  };
+  const files = photos.items.filter((x): x is Extract<PhotoItem, { kind: "file" }> => x.kind === "file");
   return (
-    <div className="cal-photo-picker">
-      {extra}
-      {people.map((id) => {
-        const p = personPhoto(id);
-        const active = value.kind === "person" && value.id === id;
-        return (
-          <button key={id} type="button" className={`cal-thumb${active ? " active" : ""}`} title={words.name(id)} onClick={() => onChange({ kind: "person", id })}>
-            {p ? <img src={p.url} alt="" /> : <span>{words.given(id)}</span>}
-          </button>
-        );
-      })}
-      {value.kind === "file" && (
-        <button type="button" className="cal-thumb active" title={value.name}>
-          <img src={value.url} alt="" />
-        </button>
-      )}
-      <button type="button" className="cal-choice" onClick={() => fileRef.current?.click()}>{t("calendar.photo.own")}</button>
-      <button type="button" className={`cal-choice${value.kind === "none" ? " active" : ""}`} onClick={() => onChange({ kind: "none" })}>{t("calendar.photo.none")}</button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onChange({ kind: "file", url: URL.createObjectURL(f), name: f.name });
-          e.target.value = "";
-        }}
+    <div className="cal-picture-picker">
+      <Segmented
+        label={t("calendar.picture")}
+        value={value.kind}
+        onChange={(k) => onChange(k === "photos" ? photos : { kind: k })}
+        items={PICTURE_KINDS.map((k) => ({ key: k, label: t(`calendar.picture.${k}`) }))}
       />
-      {!media.folderName && (
-        <p className="settings-hint">
-          {t("calendar.photo.noFolder")}{" "}
-          <button type="button" className="cal-link" onClick={() => void media.openFolder()}>{t("calendar.photo.linkFolder")}</button>
-        </p>
+      {value.kind === "photos" && (
+        <>
+          <div className="cal-photo-picker">
+            {people.map((id) => {
+              const p = personPhoto(id);
+              const active = photos.items.some((x) => x.kind === "person" && x.id === id);
+              return (
+                <button key={id} type="button" aria-pressed={active} className={`cal-thumb${active ? " active" : ""}`} title={words.name(id)} onClick={() => toggle({ kind: "person", id })}>
+                  {p ? <img src={p.url} alt="" /> : <span>{words.given(id)}</span>}
+                </button>
+              );
+            })}
+            {files.map((f) => (
+              <button key={f.url} type="button" aria-pressed className="cal-thumb active" title={f.name} onClick={() => toggle(f)}>
+                <img src={f.url} alt="" />
+              </button>
+            ))}
+            <button type="button" className="cal-choice" onClick={() => fileRef.current?.click()}>{t("calendar.photo.own")}</button>
+            <button type="button" className={`cal-choice${photos.items.length ? "" : " active"}`} onClick={() => onChange({ ...photos, items: [] })}>{t("calendar.photo.none")}</button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                const added = [...(e.target.files ?? [])].map((f): PhotoItem => ({ kind: "file", url: URL.createObjectURL(f), name: f.name }));
+                if (added.length) onChange({ ...photos, items: [...photos.items, ...added].slice(-MAX_PHOTOS) });
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <p className="settings-hint">{t("calendar.photo.max", { n: MAX_PHOTOS })}</p>
+          {photos.items.length > 1 && (
+            <Segmented
+              label={t("calendar.collage")}
+              value={photos.collage}
+              onChange={(collage) => onChange({ ...photos, collage })}
+              items={COLLAGE_STYLES.map((k) => ({ key: k, label: t(`calendar.collage.${k}`) }))}
+            />
+          )}
+          {!media.folderName && (
+            <p className="settings-hint">
+              {t("calendar.photo.noFolder")}{" "}
+              <button type="button" className="cal-link" onClick={() => void media.openFolder()}>{t("calendar.photo.linkFolder")}</button>
+            </p>
+          )}
+        </>
       )}
     </div>
   );
