@@ -394,9 +394,15 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
   // parse) changes — but not on every render, so the user's own edits to a
   // field afterward (without touching the textarea again) aren't clobbered.
   // Skipped while editing an existing citation (no textarea to parse).
+  // A new link drops the previous link's lookup answer. Only a new link: the
+  // answer can name the film that makes the link match an existing source,
+  // and dropping it on that match would lose the match again — the form then
+  // flips between the full entry and "matches an existing source" forever.
+  useEffect(() => {
+    if (!editing) setFetched(undefined);
+  }, [editing, normalizedUrl]);
   useEffect(() => {
     if (editing) return;
-    setFetched(undefined);
     const preselectCreate = !match && !repoDefault?.xref && Boolean(repoDefault?.createName) && layoutPrefersRepos;
     const repoPre = match ? "" : repoDefault?.xref ?? (preselectCreate ? "@create@" : "");
     // The archive's id — a Geneanet view, a Matricula book — goes in the one
