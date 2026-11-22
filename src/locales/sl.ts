@@ -4084,7 +4084,7 @@ export const sl = {
   "shortcuts.item.home": "Pojdi na izhodiščno osebo (urejanje)",
   "shortcuts.item.back": "Nazaj, enako kot gumb Nazaj v brskalniku — prejšnja oseba (urejanje), ujemanje, iz katerega ste odprli sorodnika (združevanje), prejšnja stran v Orodjih ali izhod iz diagrama; kombinacija deluje tudi iz polja v urejanju",
   "shortcuts.group.charts": "Strani z diagrami",
-  "shortcuts.item.chartKind": "Preklopi vrsto diagrama (drevo … poročilo)",
+  "shortcuts.item.chartKind": "Preklopi vrsto diagrama (drevo … koledar)",
   "shortcuts.item.chartDirection": "Predniki / potomci",
   "shortcuts.item.chartZoom": "Povečaj / pomanjšaj",
   "shortcuts.item.chartZoomReset": "Ponastavi povečavo na 100 %",

@@ -3615,7 +3615,7 @@ export const en = {
   "shortcuts.item.home": "Go to the start person (Edit)",
   "shortcuts.item.back": "Back, the same step as the browser's Back button — the person before (Edit), the match you opened a relative from (Merge), the Tools page before, or leave a chart page; the chord goes back from inside a field too (Edit)",
   "shortcuts.group.charts": "Chart pages",
-  "shortcuts.item.chartKind": "Switch chart kind (Tree … Report)",
+  "shortcuts.item.chartKind": "Switch chart kind (Tree … Calendar)",
   "shortcuts.item.chartDirection": "Ancestors / descendants",
   "shortcuts.item.chartZoom": "Zoom in / out",
   "shortcuts.item.chartZoomReset": "Reset zoom to 100%",

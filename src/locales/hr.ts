@@ -3820,7 +3820,7 @@ export const hr = {
   "shortcuts.item.home": "Idi na polaznu osobu (uređivanje)",
   "shortcuts.item.back": "Natrag, isto kao gumb Natrag u pregledniku — prethodna osoba (uređivanje), podudaranje iz kojeg ste otvorili srodnika (spajanje), prethodna stranica u Alatima ili izlaz iz dijagrama; kombinacija radi i iz polja koje uređujete",
   "shortcuts.group.charts": "Stranice s dijagramima",
-  "shortcuts.item.chartKind": "Promijeni vrstu dijagrama (stablo … izvješće)",
+  "shortcuts.item.chartKind": "Promijeni vrstu dijagrama (stablo … kalendar)",
   "shortcuts.item.chartDirection": "Preci / potomci",
   "shortcuts.item.chartZoom": "Uvećaj / umanji",
   "shortcuts.item.chartZoomReset": "Vrati uvećanje na 100 %",
