@@ -4441,4 +4441,6 @@ export const sl = {
   "calendar.large": "Velika pisava — imena s sorodstvom, za starejše bralce",
   "calendar.legend.round": "okrogel rojstni dan ali jubilej",
   "calendar.notKept": "Izbire veljajo, dokler ne zapustite te strani. Če jih želite ohraniti, v Nastavitvah vklopite »Zapomni si moje delo v tem brskalniku«.",
+  "calendar.showList": "Seznam oseb meseca pod mesecem",
+  "calendar.showFacts": "Dogodki iz družinske zgodovine",
 };

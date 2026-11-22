@@ -4171,4 +4171,6 @@ export const hr = {
   "calendar.large": "Veliki tisak — imena sa srodstvom, za starije čitatelje",
   "calendar.legend.round": "okrugli rođendan ili jubilej",
   "calendar.notKept": "Odabiri vrijede dok ne napustite ovu stranicu. Ako ih želite zadržati, u Postavkama uključite „Zapamti moj rad u ovom pregledniku“.",
+  "calendar.showList": "Popis osoba mjeseca ispod mjeseca",
+  "calendar.showFacts": "Događaji iz obiteljske povijesti",
 };

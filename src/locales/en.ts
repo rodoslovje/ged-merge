@@ -3962,4 +3962,6 @@ export const en = {
   "calendar.large": "Large print — names with the kinship, for an older reader",
   "calendar.legend.round": "round birthday or jubilee",
   "calendar.notKept": "Your choices last until you leave this page. To keep them, turn on “Remember my work in this browser” in Settings.",
+  "calendar.showList": "List of the month's people under the month",
+  "calendar.showFacts": "Moments from the family's past",
 };
