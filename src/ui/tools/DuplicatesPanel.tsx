@@ -324,10 +324,19 @@ export function DuplicatesPanel({
   // call it without re-subscribing; the live set is read through a mirror ref.
   const expandedClustersRef = useRef(expandedClusters);
   expandedClustersRef.current = expandedClusters;
+  const clustersRef = useRef(clusters);
+  clustersRef.current = clusters;
   const toggleCluster = useCallback((id: string, rowIndex?: number) => {
     const willExpand = !expandedClustersRef.current.has(id);
     setExpandedClusters((s) => toggledIn(s, id));
     if (willExpand && rowIndex !== undefined) pinRowToTop(rowIndex);
+    // Folding a cluster closes its open comparison too — otherwise that pair
+    // stays visible under the collapsed header and the fold looks broken.
+    if (!willExpand) {
+      const open = expandedRef.current;
+      const c = clustersRef.current.find((x) => x.id === id);
+      if (open && c?.pairs.some((p) => `${p.aId}-${p.bId}` === open)) setExpanded(null);
+    }
   }, [pinRowToTop]);
 
   // Same for a single pair's comparison: opening it pins its row to the top.
