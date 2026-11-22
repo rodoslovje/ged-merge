@@ -29,7 +29,7 @@ test("the family calendar walks from settings to a review of every page", async 
   // March: the recipient's own birthday, and her mother's as a relative's line.
   for (let i = 0; i < 3; i++) await next.click();
   await expect(page.locator(".cal-step-label")).toHaveText(/^March/);
-  await expect(page.locator(".cal-preview .cal-list")).toContainText("Marija Kos, mother (65)");
+  await expect(page.locator(".cal-preview .cal-list")).toContainText("Marija K., mother (65)"); // the living by the default "Given name and surname initial"
 
   // June offers the grandfather's birth, wedding and death; the centenary of
   // his death is picked, and the wedding can be added beside it.

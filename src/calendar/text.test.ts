@@ -50,3 +50,16 @@ describe("entryLine", () => {
     expect(entryLine(t, words, e, { names: "given", age: false })).toBe("Ana Novak, sister");
   });
 });
+
+describe("a memorial day", () => {
+  const memorial = { kind: "memorial" as const, day: 5, ids: ["b"], deathYear: 1980 };
+  it("names the dead in full with the year of the death, whatever the choices", () => {
+    expect(entryCell(t, words, memorial, { names: "given", age: false })).toBe("Marko Horvat 1980");
+    expect(entryCell(t, words, memorial, { names: "initials", age: true })).toBe("Marko Horvat 1980");
+    expect(entryLine(t, words, memorial, { names: "given", age: false })).toBe("Marko Horvat (1980)");
+  });
+
+  it("names them alone when the year is not known", () => {
+    expect(entryCell(t, words, { kind: "memorial", day: 5, ids: ["b"] }, { names: "given", age: true })).toBe("Marko Horvat");
+  });
+});

@@ -32,8 +32,11 @@ export interface DayEntry {
   day: number;
   /** One person; two for an anniversary (husband first). */
   ids: string[];
-  /** The age turned, years married, or years since the death — when the year is known. */
+  /** The age turned or the years married — when the year is known. */
   years?: number;
+  /** A memorial day's year of the death, when known — written on every
+   *  memorial, as the dead are remembered by it. */
+  deathYear?: number;
 }
 
 export type FactKind = "birth" | "marriage" | "death";
@@ -219,7 +222,7 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
         const degree = pos ? Math.max(pos.up, pos.down) : 1;
         if (degree > opts.memorial) continue;
       }
-      add(death.month, { kind: "memorial", day: clampDay(year, death.month, death.day), ids: [id], years: death.year !== undefined ? year - death.year : undefined });
+      add(death.month, { kind: "memorial", day: clampDay(year, death.month, death.day), ids: [id], deathYear: death.year });
       people.add(id);
     }
   }

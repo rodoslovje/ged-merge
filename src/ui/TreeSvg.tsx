@@ -5,7 +5,7 @@ import { LABEL_LINE_H, NODE_W, PAD, type Flat, type Placed } from "../chart/tree
 import { PANEL_TITLE_H, type PanelBox } from "../chart/completeTree";
 import { ageStandalone, APPROX_YEAR, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { YearsText } from "./YearsText";
-import { useLivingNameOf } from "./useLivingName";
+import { useLivingNameOf, type LivingNameOf } from "./useLivingName";
 import type { Lineage } from "../match/kinship";
 import type { MediaRefContext } from "./MediaViewer";
 import { NodeBadge, nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
@@ -59,6 +59,8 @@ interface Props {
   /** The Complete Tree's panel frames, drawn behind the connectors — each
    *  titled with its number and its topmost person. */
   panels?: PanelBox[];
+  /** The view's own naming of the living, in place of the privacy setting's. */
+  livingNameOf?: LivingNameOf;
 }
 
 // Memoized: the canvas re-renders on every scroll/zoom tick (viewport state),
@@ -90,10 +92,11 @@ export const TreeSvg = memo(function TreeSvg({
   tint,
   nativeTooltip = true,
   panels,
+  livingNameOf: livingNameOverride,
 }: Props) {
   const { t } = useTranslation();
   const modifiedLetter = t("edit.tree.modified").charAt(0);
-  const livingNameOf = useLivingNameOf();
+  const livingNameOf = useLivingNameOf(livingNameOverride);
   return (
     <svg className="tree-svg" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img">
       <g transform={`translate(${PAD},${PAD})`}>
