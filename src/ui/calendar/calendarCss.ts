@@ -97,6 +97,7 @@ export const CALENDAR_CSS = `
 .cal-cover .cal-picture { flex: 1 1 auto; width: 100%; }
 .cal-chart { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .cal-chart svg { width: 100%; height: 100%; }
+.cal-tree { width: 100%; height: 100%; }
 .cal-desk { flex-direction: row; gap: 1.6em; }
 .cal-desk .cal-picture { width: 38%; height: 100%; }
 .cal-desk .cal-side { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }

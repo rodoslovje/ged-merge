@@ -3948,4 +3948,6 @@ export const en = {
   "calendar.stats.oldest_F": "Oldest known ancestor: {{name}} ({{year}})",
   "calendar.stats.surname": "Most common surname: {{name}}",
   "calendar.captions": "Show names on the photos",
+  "calendar.picture.treeDesc": "Tree of descendants",
+  "calendar.picture.treeAnc": "Tree of ancestors",
 };
