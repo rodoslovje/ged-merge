@@ -36,6 +36,7 @@ import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
 import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, type PagePhoto } from "./CalendarPage";
 import { PhotoArea } from "./PhotoArea";
 import { StatsCard } from "./StatsCard";
+import { BackPage, WhoIsWho, YearOverview } from "./BackPage";
 import { familyStats } from "../../calendar/stats";
 import type { FanChart } from "../../chart/fanLayout";
 import { Segmented } from "../Segmented";
@@ -68,7 +69,8 @@ const GROUP_NAMES = 4;
 const FAN_GENERATIONS = 4;
 /** Steps: settings, cover, twelve months, review. */
 const MONTH_STEP0 = 2;
-const REVIEW_STEP = MONTH_STEP0 + 12;
+const BACK_STEP = MONTH_STEP0 + 12;
+const REVIEW_STEP = BACK_STEP + 1;
 /** The calendar's charts hang on a wall: the living show by the names choice only — no
  *  years or age — and no couple's wedding year is written. */
 const FAN_DISPLAY_OFF = {
@@ -104,6 +106,9 @@ interface CalendarWork {
   opts: CalendarOptions;
   cover: Picture;
   dedication: string;
+  back: Back;
+  /** The givers' own line in the back page's colophon. */
+  signature: string;
   /** Per month: the picture chosen, or undefined for the month's default. */
   monthPictures: (Picture | undefined | null)[];
   /** Per month: the facts picked (by {@link factKey}), or undefined for the default. */
@@ -125,6 +130,8 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     opts: { year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear, scope: 1, partners: true, memorial: "off" },
     cover: { kind: "fan" },
     dedication: "",
+    back: { kind: "overview" },
+    signature: "",
     monthPictures: [],
     monthFacts: [],
   };
@@ -180,6 +187,10 @@ function mergeWork(base: CalendarWork, saved: Record<string, unknown>): Calendar
     },
     cover: readPicture(saved.cover) ?? base.cover,
     dedication: typeof saved.dedication === "string" ? saved.dedication : "",
+    back: saved.back && typeof saved.back === "object" && BACK_KINDS.includes((saved.back as Back).kind)
+      ? { kind: (saved.back as Back).kind } as Back
+      : base.back,
+    signature: typeof saved.signature === "string" ? saved.signature : "",
     monthPictures: Array.isArray(saved.monthPictures) ? saved.monthPictures.slice(0, 12).map(readPicture) : [],
     monthFacts: Array.isArray(saved.monthFacts)
       ? saved.monthFacts.slice(0, 12).map((v) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : undefined))
@@ -191,6 +202,10 @@ type PhotoItem = { kind: "person"; id: string } | { kind: "file"; url: string; n
 type Picture =
   | { kind: "photos"; items: PhotoItem[]; collage: CollageStyle }
   | { kind: "fan" | "fanAnc" | "fanDesc" | "treeDesc" | "treeAnc" | "stats" };
+/** What the back page shows: the year at a glance, who is who, nothing, or a
+ *  chart or the numbers, as a month's picture can. */
+type Back = { kind: "overview" } | { kind: "gallery" } | { kind: "none" } | Exclude<Picture, { kind: "photos" }>;
+const BACK_KINDS: Back["kind"][] = ["overview", "gallery", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats", "none"];
 const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats"];
 
 const sameItem = (a: PhotoItem, b: PhotoItem) =>
@@ -210,7 +225,9 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     (base: CalendarWork) => {
       const saved = persistWorkspace && mainFileName ? readSavedCalendar(mainFileName, rootId) : undefined;
       // A recipient with nothing kept keeps the settings, not the choices.
-      return saved ? mergeWork(base, saved) : { ...base, cover: defaults.cover, dedication: "", monthPictures: [], monthFacts: [] };
+      return saved
+        ? mergeWork(base, saved)
+        : { ...base, cover: defaults.cover, dedication: "", back: defaults.back, signature: "", monthPictures: [], monthFacts: [] };
     },
     [persistWorkspace, mainFileName, rootId, defaults],
   );
@@ -243,6 +260,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const setOpts = (opts: CalendarOptions) => patch({ opts });
   const setCover = (cover: Picture) => patch({ cover });
   const setDedication = (dedication: string) => patch({ dedication });
+  const setBack = (back: Back) => patch({ back });
+  const setSignature = (signature: string) => patch({ signature });
   const setMonthPictures = (f: (prev: CalendarWork["monthPictures"]) => CalendarWork["monthPictures"]) =>
     setWork((w) => ({ ...w, monthPictures: f(w.monthPictures) }));
   const setMonthFacts = (f: (prev: CalendarWork["monthFacts"]) => CalendarWork["monthFacts"]) =>
@@ -464,6 +483,40 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const coverPage = (
     <CoverPage format={format} scheme={scheme} year={opts.year} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} dedication={dedication} />
   );
+  // Who is who: everyone the calendar celebrates who has a portrait, in the
+  // order of the year, one picture each.
+  const galleryPeople = useMemo(() => {
+    const ids: string[] = [];
+    for (const m of data.months) for (const e of m.entries) if (e.kind !== "memorial") for (const id of e.ids) if (!ids.includes(id)) ids.push(id);
+    const seen = new Set<string>();
+    return ids
+      .map((id) => personPhoto(id))
+      .filter((p): p is PagePhoto => !!p && !seen.has(p.url) && !!seen.add(p.url));
+  }, [data.months, personPhoto]);
+  const made = useMemo(
+    () => new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long", year: "numeric" }).format(new Date()),
+    [i18n.language],
+  );
+  const back = work.back;
+  const backPage = back.kind === "none" ? null : (
+    <BackPage
+      format={format}
+      scheme={scheme}
+      title={back.kind === "overview" ? String(opts.year) : t(`calendar.back.${back.kind}`)}
+      signature={work.signature}
+      made={made}
+      site={site}
+    >
+      {back.kind === "overview" ? (
+        <YearOverview months={data.months} words={words} entryOpts={entryOpts} />
+      ) : back.kind === "gallery" ? (
+        <WhoIsWho people={galleryPeople} />
+      ) : (
+        renderPicture(back)
+      )}
+    </BackPage>
+  );
+
   const monthPage = (i: number) => (
     <MonthPages
       key={i}
@@ -521,6 +574,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     step === 0 ? t("calendar.step.settings")
       : step === 1 ? t("calendar.step.cover")
         : step === REVIEW_STEP ? t("calendar.step.review")
+          : step === BACK_STEP ? t("calendar.step.back")
           : `${monthName(i18n.language, monthIndex + 1)} (${monthIndex + 1}/12)`;
 
   let panel: React.ReactNode;
@@ -660,8 +714,34 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       <div className="cal-review" ref={reviewRef}>
         <div className="cal-sheet">{coverPage}</div>
         {data.months.map((_, i) => <div key={i} className="cal-sheet cal-review-month">{monthPage(i)}</div>)}
+        {backPage && <div className="cal-sheet">{backPage}</div>}
       </div>
     );
+  } else if (step === BACK_STEP) {
+    panel = (
+      <>
+        <label className="cal-field">
+          <span>{t("calendar.back")}</span>
+          <select value={work.back.kind} onChange={(e) => setBack({ kind: e.target.value } as Back)}>
+            {BACK_KINDS.map((k) => (
+              <option key={k} value={k}>{k === "overview" || k === "gallery" || k === "none" ? t(`calendar.back.${k}`) : t(`calendar.picture.${k}`)}</option>
+            ))}
+          </select>
+        </label>
+        {work.back.kind !== "none" && (
+          <label className="cal-field">
+            <span>{t("calendar.signature")}</span>
+            <input
+              className="settings-text-input"
+              value={work.signature}
+              placeholder={t("calendar.signature.placeholder")}
+              onChange={(e) => setSignature(e.target.value)}
+            />
+          </label>
+        )}
+      </>
+    );
+    preview = backPage ?? <p className="settings-hint">{t("calendar.back.none")}</p>;
   } else {
     const m = data.months[monthIndex];
     const picked = monthFacts[monthIndex] ?? m.facts.map(factKey);

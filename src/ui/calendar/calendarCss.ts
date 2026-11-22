@@ -107,6 +107,21 @@ export const CALENDAR_CSS = `
 .cal-cover .cal-stats { font-size: 1.6em; gap: 1.4em; }
 .cal-stats-lines { font-size: 0.85em; color: var(--ink); display: flex; flex-direction: column; gap: 0.2em; }
 .cal-cover { align-items: center; text-align: center; }
+.cal-back-title { font-size: 2em; color: var(--accent); text-align: center; margin-bottom: 0.6em; }
+.cal-back-body { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.cal-back-body > .cal-chart, .cal-back-body > .cal-stats, .cal-back-body > .cal-photo-empty { flex: 1 1 auto; }
+.cal-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(13em, 1fr)); gap: 0.9em 1.4em; font-size: 0.78em; align-content: start; }
+.cal-overview-head { color: var(--accent); font-weight: 700; border-bottom: 0.06em solid var(--rule); margin-bottom: 0.25em; }
+.cal-overview-entry { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.35; }
+.cal-overview-entry b { display: inline-block; min-width: 1.7em; }
+.cal-overview-entry.cal-memorial { color: var(--remembrance); }
+.cal-overview-entry.cal-round { font-weight: 700; }
+.cal-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(8em, 1fr)); gap: 0.9em; align-content: start; }
+.cal-gallery-item { margin: 0; text-align: center; }
+.cal-gallery-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 0.3em; }
+.cal-gallery-item figcaption { font-size: 0.72em; margin-top: 0.25em; line-height: 1.2; }
+.cal-colophon { text-align: center; font-size: 0.8em; color: var(--muted); margin-top: 0.9em; }
+.cal-signature { font-style: italic; font-size: 1.25em; color: var(--ink); margin-bottom: 0.2em; }
 .cal-cover-title { font-size: 3em; color: var(--accent); margin: 0.4em 0 0.1em; }
 .cal-cover-year { font-size: 2em; color: var(--muted); }
 .cal-cover-name { font-size: 1.4em; margin: 0.6em 0 0.8em; }
