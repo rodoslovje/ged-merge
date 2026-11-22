@@ -15,6 +15,8 @@ import { KinshipChart } from "./KinshipChart";
 import { ReportView } from "./ReportView";
 import { NetworkChart } from "./NetworkChart";
 import { StartPersonSelector } from "./StartPersonSelector";
+import { CalendarView } from "./calendar/CalendarView";
+import { usePublishedView } from "./PublishedView";
 
 // The Map is the one kind with a heavyweight dependency (Leaflet + the offline
 // world outline), so it loads as its own chunk on first use.
@@ -30,7 +32,9 @@ const MapChart = lazy(() => import("./map/MapChart"));
 /** The hub's kinds, in tab (and digit-shortcut) order — the per-person charts
  *  (pedigrees, then the timeline) first, then the two-person relationship, then
  *  the contemporaries wheel, then the places map, then the text reports. */
-export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report", "network"];
+export const HUB_KINDS: ChartKind[] = [...PEDIGREE_KINDS, "timeline", "relationship", "kin", "map", "report", "network", "calendar"];
+/** The family website's kinds: no Calendar, which shows the birthdays of the living. */
+export const PUBLISHED_HUB_KINDS: ChartKind[] = HUB_KINDS.filter((k) => k !== "calendar");
 
 interface Props {
   mainDs: Dataset;
@@ -66,7 +70,11 @@ interface Props {
 
 export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, onRelationFromChange, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode, direction: hostDirection, onDirectionChange }: Props) {
   const { t } = useTranslation();
-  const { settings, setKind } = useChartSettings();
+  const { settings: stored, setKind } = useChartSettings();
+  const published = usePublishedView();
+  const kinds = published ? PUBLISHED_HUB_KINDS : HUB_KINDS;
+  // A Calendar left open in the app never opens on the family website.
+  const settings = published && stored.kind === "calendar" ? { ...stored, kind: stored.type } : stored;
   // The user's ancestors/descendants/both choice — owned here (not by
   // EditTree) so it survives kind switches, including a relationship
   // round-trip that remounts the pedigree chart. Every kind that has a
@@ -92,7 +100,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
   // of Edit's "go home". Registered here rather than per chart because the hub
   // owns the root; standing on them already, the key does nothing.
   useChartShortcuts({
-    kinds: HUB_KINDS,
+    kinds,
     onKind: setKind,
     onLeave: showingPrompt ? onBack : undefined,
     onHome: startId && startId !== rootId ? () => onRootChange(startId) : undefined,
@@ -100,7 +108,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
 
   const kindSwitcher = (
     <ChartKindTabs
-      kinds={HUB_KINDS}
+      kinds={kinds}
       value={settings.kind}
       onChange={setKind}
     />
@@ -119,6 +127,19 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
         kindSwitcher={kindSwitcher}
         mode={direction}
         onModeChange={setDirection}
+      />
+    );
+  }
+
+  if (settings.kind === "calendar") {
+    return (
+      <CalendarView
+        mainDs={mainDs}
+        rootId={rootId}
+        backLabel={backLabel}
+        onBack={onBack}
+        onRootChange={onRootChange}
+        kindSwitcher={kindSwitcher}
       />
     );
   }

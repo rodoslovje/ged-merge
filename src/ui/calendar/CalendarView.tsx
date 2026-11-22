@@ -1,0 +1,428 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { Dataset } from "../../gedcom/types";
+import { buildCalendar, byDay, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
+import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
+import { factDate, factSentence, monthName, yearsAgo, type PersonWords } from "../../calendar/text";
+import { createKinshipResolver } from "../../match/kinship";
+import { primaryName } from "../../match/relatives";
+import { lifespanOf } from "../../gedcom/lifespan";
+import { ChartPage } from "../ChartPage";
+import { ChartRootTitle } from "../ChartRootTitle";
+import { StartPersonSelector } from "../StartPersonSelector";
+import { sexClass } from "../sex";
+import { useNameOf } from "../SettingsContext";
+import { useChartSettings } from "../ChartSettingsContext";
+import { useMediaFolder } from "../MediaFolderContext";
+import { collectFirstFilePath } from "../PersonMedia";
+import { useBloodTrees } from "../useBloodTrees";
+import { useFanChart } from "../useFanChart";
+import { FanChartBody } from "../FanChartBody";
+import { ANCESTOR_KEY_PREFIX } from "../../chart/treeLayout";
+import { escapeHtml, prepareDiagram, printDocument } from "../exportSvg";
+import { PrinterIcon } from "../icons/FormatIcons";
+import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
+import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, type PagePhoto } from "./CalendarPage";
+
+// The Charts hub's "Calendar" kind: a family calendar to give as a present,
+// seen from the hub's root person (the one who gets it). A wizard — settings,
+// then the cover, then each month with its picture and its moments from the
+// family's past picked from a few suggestions, then a last look and print.
+// Not on the family website: it shows the birthdays of the living.
+
+interface Props {
+  mainDs: Dataset;
+  rootId: string;
+  backLabel: string;
+  onBack: () => void;
+  onRootChange: (id: string) => void;
+  kindSwitcher?: React.ReactNode;
+}
+
+const SCOPES: CalendarScope[] = ["descendants", 0, 1, 2, 3];
+const MEMORIALS: MemorialMode[] = ["off", "lifetime", 1, 2];
+/** How many people's photos a page offers. */
+const PHOTO_CHOICES = 8;
+/** Generations each way on the cover's fan. */
+const FAN_GENERATIONS = 4;
+/** Steps: settings, cover, twelve months, review. */
+const MONTH_STEP0 = 2;
+const REVIEW_STEP = MONTH_STEP0 + 12;
+const FAN_DISPLAY_OFF = { showKinship: false, showPhoto: false } as const;
+
+type CountryChoice = HolidayCountry | "none";
+type PhotoChoice = { kind: "person"; id: string } | { kind: "file"; url: string; name: string } | { kind: "none" };
+type CoverChoice = PhotoChoice | { kind: "fan" };
+
+export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, kindSwitcher }: Props) {
+  const { t, i18n } = useTranslation();
+  const nameOf = useNameOf();
+  const thisYear = new Date().getFullYear();
+  const [step, setStep] = useState(0);
+  const [format, setFormat] = useState<CalendarFormat>("wallTop");
+  const [country, setCountry] = useState<CountryChoice>(() => (i18n.language === "hr" ? "hr" : i18n.language === "sl" ? "si" : "none"));
+  const [opts, setOpts] = useState<CalendarOptions>(() => ({
+    // From September on, the calendar is for the year to come.
+    year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear,
+    scope: 1,
+    partners: true,
+    memorial: "off",
+  }));
+  const [cover, setCover] = useState<CoverChoice>({ kind: "fan" });
+  const [monthPhotos, setMonthPhotos] = useState<(PhotoChoice | undefined)[]>([]);
+  const [monthFacts, setMonthFacts] = useState<(number[] | undefined)[]>([]);
+
+  const root = mainDs.individuals.get(rootId);
+  const data = useMemo(() => buildCalendar(mainDs, rootId, opts, thisYear), [mainDs, rootId, opts, thisYear]);
+  const holidays = useMemo(() => (country === "none" ? [] : holidaysFor(country, opts.year)), [country, opts.year]);
+
+  // A new recipient or new settings make new suggestions: the choices made for
+  // the old ones would point at people no longer on the calendar.
+  useEffect(() => {
+    setMonthPhotos([]);
+    setMonthFacts([]);
+  }, [rootId, opts]);
+
+  const kinship = useMemo(() => createKinshipResolver(mainDs, rootId, t), [mainDs, rootId, t]);
+  const words: PersonWords = useMemo(() => ({
+    name: (id) => { const p = mainDs.individuals.get(id); return p ? nameOf(p) : id; },
+    given: (id) => {
+      const p = mainDs.individuals.get(id);
+      return primaryName(p!)?.given?.split(/\s+/)[0] || (p ? nameOf(p) : id);
+    },
+    kinship: (id) => (id === rootId ? undefined : kinship.label(id)),
+    sex: (id) => mainDs.individuals.get(id)?.sex,
+  }), [mainDs, nameOf, kinship, rootId]);
+
+  // Photos: each person's first image, resolved through the linked media folder.
+  const media = useMediaFolder();
+  const photoPath = useCallback(
+    (id: string) => { const p = mainDs.individuals.get(id); return p ? collectFirstFilePath(p.raw, mainDs.records) : null; },
+    [mainDs],
+  );
+  const [urls, setUrls] = useState<Map<string, string | null>>(new Map());
+  const withPhoto = useCallback((ids: string[]) => {
+    const out: string[] = [];
+    for (const id of ids) if (!out.includes(id) && photoPath(id)) out.push(id);
+    return out.slice(0, PHOTO_CHOICES);
+  }, [photoPath]);
+  const coverPeople = useMemo(() => withPhoto([rootId, ...data.people]), [withPhoto, rootId, data.people]);
+  const monthPeople = useMemo(
+    () => data.months.map((m) => withPhoto([...m.entries.flatMap((e) => e.ids), ...m.candidates.flatMap((f) => f.ids)])),
+    [data.months, withPhoto],
+  );
+  useEffect(() => {
+    if (!media.folderName) return;
+    const wanted = new Set([...coverPeople, ...monthPeople.flat()].map(photoPath).filter((p): p is string => !!p));
+    const missing = [...wanted].filter((p) => !urls.has(p));
+    if (!missing.length) return;
+    let live = true;
+    void Promise.all(missing.map(async (p) => [p, await media.resolveFile(p)] as const)).then((got) => {
+      if (live) setUrls((prev) => new Map([...prev, ...got]));
+    });
+    return () => { live = false; };
+  }, [media, coverPeople, monthPeople, photoPath, urls]);
+
+  const personPhoto = useCallback((id: string): PagePhoto | undefined => {
+    const path = photoPath(id);
+    const url = path ? urls.get(path) : undefined;
+    if (!url) return undefined;
+    const p = mainDs.individuals.get(id);
+    const years = lifespanOf(p);
+    return { url, caption: `${words.name(id)}${years ? ` (${years})` : ""}` };
+  }, [photoPath, urls, mainDs, words]);
+
+  const toPhoto = useCallback((c: PhotoChoice | undefined, fallback: string[]): PagePhoto | undefined => {
+    if (!c) return fallback.map(personPhoto).find(Boolean);
+    if (c.kind === "file") return { url: c.url };
+    if (c.kind === "person") return personPhoto(c.id);
+    return undefined;
+  }, [personPhoto]);
+
+  const factsOf = useCallback((i: number): Fact[] => {
+    const m = data.months[i];
+    const picked = monthFacts[i];
+    return picked ? picked.map((k) => m.candidates[k]).filter(Boolean).sort(byDay) : m.facts;
+  }, [data.months, monthFacts]);
+
+  // The cover's fan: the recipient's ancestors above, descendants below.
+  const trees = useBloodTrees(mainDs, rootId, FAN_GENERATIONS);
+  const { settings } = useChartSettings();
+  const fanDisplay = useMemo(() => ({ ...settings, ...FAN_DISPLAY_OFF }), [settings]);
+  const noPhoto = useCallback(() => false, []);
+  const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, hasPhoto: noPhoto, display: fanDisplay });
+  const fanNode = fan ? (
+    <FanChartBody
+      chart={fan}
+      colorOf={(_n, seg) => (seg.gen > 0 && !seg.key.startsWith(ANCESTOR_KEY_PREFIX) ? "var(--node-desc)" : "var(--node-main)")}
+      selectedKey={null}
+      onSelect={() => {}}
+      mainRecords={mainDs.records}
+      nativeTooltip={false}
+    />
+  ) : undefined;
+
+  const coverPage = (
+    <CoverPage
+      format={format}
+      year={opts.year}
+      name={root ? nameOf(root) : ""}
+      fan={cover.kind === "fan" ? fanNode : undefined}
+      photo={cover.kind === "fan" ? undefined : toPhoto(cover, [rootId])}
+    />
+  );
+  const monthPage = (i: number) => (
+    <MonthPages
+      key={i}
+      format={format}
+      year={opts.year}
+      month={data.months[i]}
+      facts={factsOf(i)}
+      holidays={holidays}
+      photo={toPhoto(monthPhotos[i], monthPeople[i])}
+      words={words}
+    />
+  );
+
+  const reviewRef = useRef<HTMLDivElement>(null);
+  const print = async () => {
+    const el = reviewRef.current;
+    if (!el) return;
+    const pages = await Promise.all(Array.from(el.querySelectorAll<HTMLElement>(".cal-page")).map(async (page) => {
+      const clone = page.cloneNode(true) as HTMLElement;
+      // The fan is drawn with the app's stylesheet; the print document has
+      // none, so it goes over as a standalone SVG with its styles baked in.
+      const liveSvg = page.querySelector<SVGSVGElement>(".cal-fan svg");
+      const slot = clone.querySelector(".cal-fan");
+      if (liveSvg && slot) slot.innerHTML = new XMLSerializer().serializeToString((await prepareDiagram(liveSvg)).clone);
+      return clone.outerHTML;
+    }));
+    const title = `${t("calendar.cover.title")} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
+    printDocument(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>${CALENDAR_CSS}${calendarPrintCss(PAPER[format])}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
+  };
+
+  const pick = (i: number, c: PhotoChoice) => setMonthPhotos((prev) => { const next = [...prev]; next[i] = c; return next; });
+  const toggleFact = (i: number, k: number) => setMonthFacts((prev) => {
+    const next = [...prev];
+    const m = data.months[i];
+    const cur = next[i] ?? m.facts.map((f) => m.candidates.indexOf(f));
+    next[i] = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+    return next;
+  });
+
+  const monthIndex = step - MONTH_STEP0;
+  const stepLabel =
+    step === 0 ? t("calendar.step.settings")
+      : step === 1 ? t("calendar.step.cover")
+        : step === REVIEW_STEP ? t("calendar.step.review")
+          : `${monthName(i18n.language, monthIndex + 1)} (${monthIndex + 1}/12)`;
+
+  let panel: React.ReactNode;
+  let preview: React.ReactNode;
+  if (step === 0) {
+    panel = (
+      <>
+        <label className="cal-field">
+          <span>{t("calendar.recipient")}</span>
+          <StartPersonSelector
+            individuals={mainDs.individuals}
+            startId={rootId}
+            onChange={onRootChange}
+            icon="search"
+            placeholder={t("calendar.recipient")}
+            tooltip={t("calendar.recipient.tooltip")}
+          />
+        </label>
+        <label className="cal-field">
+          <span>{t("calendar.year")}</span>
+          <select value={opts.year} onChange={(e) => setOpts({ ...opts, year: Number(e.target.value) })}>
+            {[thisYear, thisYear + 1, thisYear + 2].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </label>
+        <label className="cal-field">
+          <span>{t("calendar.format")}</span>
+          <select value={format} onChange={(e) => setFormat(e.target.value as CalendarFormat)}>
+            {CALENDAR_FORMATS.map((f) => <option key={f} value={f}>{t(`calendar.format.${f}`)}</option>)}
+          </select>
+        </label>
+        <label className="cal-field">
+          <span>{t("calendar.scope")}</span>
+          <select value={String(opts.scope)} onChange={(e) => setOpts({ ...opts, scope: e.target.value === "descendants" ? "descendants" : (Number(e.target.value) as CalendarScope) })}>
+            {SCOPES.map((s) => <option key={s} value={String(s)}>{t(`calendar.scope.${s}`)}</option>)}
+          </select>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={opts.partners} onChange={(e) => setOpts({ ...opts, partners: e.target.checked })} />
+          <span>{t("calendar.partners")}</span>
+        </label>
+        <label className="cal-field">
+          <span>{t("calendar.memorial")}</span>
+          <select value={String(opts.memorial)} onChange={(e) => {
+            const v = e.target.value;
+            setOpts({ ...opts, memorial: v === "off" || v === "lifetime" ? v : (Number(v) as MemorialMode) });
+          }}>
+            {MEMORIALS.map((m) => <option key={m} value={String(m)}>{t(`calendar.memorial.${m}`)}</option>)}
+          </select>
+        </label>
+        <label className="cal-field">
+          <span>{t("calendar.holidays")}</span>
+          <select value={country} onChange={(e) => setCountry(e.target.value as CountryChoice)}>
+            <option value="none">{t("calendar.holidays.none")}</option>
+            {HOLIDAY_COUNTRIES.map((c) => <option key={c} value={c}>{t(`calendar.holidays.${c}`)}</option>)}
+          </select>
+        </label>
+        <p className="settings-hint">{t("calendar.summary", { n: data.months.reduce((n, m) => n + m.entries.length, 0) })}</p>
+      </>
+    );
+    preview = monthPage(new Date().getMonth());
+  } else if (step === 1) {
+    panel = (
+      <>
+        <PhotoPicker
+          people={coverPeople}
+          value={cover}
+          onChange={setCover}
+          personPhoto={personPhoto}
+          words={words}
+          extra={
+            <button type="button" className={`cal-choice${cover.kind === "fan" ? " active" : ""}`} onClick={() => setCover({ kind: "fan" })}>
+              {t("calendar.cover.fan")}
+            </button>
+          }
+        />
+      </>
+    );
+    preview = coverPage;
+  } else if (step === REVIEW_STEP) {
+    panel = (
+      <>
+        <p className="settings-hint">{t("calendar.review.hint")}</p>
+        <button type="button" className="cal-primary" onClick={() => void print()}>
+          <PrinterIcon /> {t("calendar.print")}
+        </button>
+      </>
+    );
+    preview = (
+      <div className="cal-review" ref={reviewRef}>
+        <div className="cal-sheet">{coverPage}</div>
+        {data.months.map((_, i) => <div key={i} className="cal-sheet cal-review-month">{monthPage(i)}</div>)}
+      </div>
+    );
+  } else {
+    const m = data.months[monthIndex];
+    const picked = monthFacts[monthIndex] ?? m.facts.map((f) => m.candidates.indexOf(f));
+    panel = (
+      <>
+        <h3 className="cal-panel-head">{t("calendar.photo")}</h3>
+        <PhotoPicker
+          people={monthPeople[monthIndex]}
+          value={monthPhotos[monthIndex] ?? (monthPeople[monthIndex][0] ? { kind: "person", id: monthPeople[monthIndex][0] } : { kind: "none" })}
+          onChange={(c) => c.kind !== "fan" && pick(monthIndex, c)}
+          personPhoto={personPhoto}
+          words={words}
+        />
+        <h3 className="cal-panel-head">{t("calendar.facts.title")}</h3>
+        {m.candidates.length ? (
+          <ul className="cal-fact-list">
+            {m.candidates.map((f, k) => (
+              <li key={k}>
+                <label className="cal-check">
+                  <input type="checkbox" checked={picked.includes(k)} onChange={() => toggleFact(monthIndex, k)} />
+                  <span>
+                    <span className="cal-fact-when-ui">{factDate(t, i18n.language, f.date)} · {yearsAgo(t, f.yearsAgo)}</span>
+                    {" "}{factSentence(t, words, f)}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="settings-hint">{t("calendar.facts.none")}</p>
+        )}
+      </>
+    );
+    preview = monthPage(monthIndex);
+  }
+
+  return (
+    <ChartPage
+      backLabel={backLabel}
+      onBack={onBack}
+      title={root ? <ChartRootTitle name={nameOf(root)} sexCls={sexClass(root.sex)} years={lifespanOf(root)} kind={t("calendar.button")} /> : t("calendar.button")}
+      controlsLeft={kindSwitcher}
+    >
+      <style>{CALENDAR_CSS}</style>
+      <div className="cal-wizard">
+        <div className="cal-panel">
+          <div className="cal-steps">
+            <button type="button" className="btn-secondary" disabled={step === 0} onClick={() => setStep(step - 1)}>{t("calendar.prev")}</button>
+            <span className="cal-step-label">{stepLabel}</span>
+            <button type="button" className="btn-secondary" disabled={step === REVIEW_STEP} onClick={() => setStep(step + 1)}>{t("calendar.next")}</button>
+          </div>
+          <div className="cal-panel-body">{panel}</div>
+          {step !== REVIEW_STEP && (
+            <button type="button" className="cal-link" onClick={() => setStep(REVIEW_STEP)}>{t("calendar.toReview")}</button>
+          )}
+        </div>
+        <div className={`cal-preview cal-preview-${format}`}>
+          {step === REVIEW_STEP ? preview : <div className="cal-sheet">{preview}</div>}
+        </div>
+      </div>
+    </ChartPage>
+  );
+}
+
+/** Choose a page's picture: a suggested person's photo, a file of your own, or none. */
+function PhotoPicker<C extends CoverChoice>({
+  people, value, onChange, personPhoto, words, extra,
+}: {
+  people: string[];
+  value: C | PhotoChoice;
+  onChange: (c: CoverChoice) => void;
+  personPhoto: (id: string) => PagePhoto | undefined;
+  words: PersonWords;
+  extra?: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const media = useMediaFolder();
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="cal-photo-picker">
+      {extra}
+      {people.map((id) => {
+        const p = personPhoto(id);
+        const active = value.kind === "person" && value.id === id;
+        return (
+          <button key={id} type="button" className={`cal-thumb${active ? " active" : ""}`} title={words.name(id)} onClick={() => onChange({ kind: "person", id })}>
+            {p ? <img src={p.url} alt="" /> : <span>{words.given(id)}</span>}
+          </button>
+        );
+      })}
+      {value.kind === "file" && (
+        <button type="button" className="cal-thumb active" title={value.name}>
+          <img src={value.url} alt="" />
+        </button>
+      )}
+      <button type="button" className="cal-choice" onClick={() => fileRef.current?.click()}>{t("calendar.photo.own")}</button>
+      <button type="button" className={`cal-choice${value.kind === "none" ? " active" : ""}`} onClick={() => onChange({ kind: "none" })}>{t("calendar.photo.none")}</button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onChange({ kind: "file", url: URL.createObjectURL(f), name: f.name });
+          e.target.value = "";
+        }}
+      />
+      {!media.folderName && (
+        <p className="settings-hint">
+          {t("calendar.photo.noFolder")}{" "}
+          <button type="button" className="cal-link" onClick={() => void media.openFolder()}>{t("calendar.photo.linkFolder")}</button>
+        </p>
+      )}
+    </div>
+  );
+}

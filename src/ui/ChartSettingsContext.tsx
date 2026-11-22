@@ -48,11 +48,11 @@ export function pedigreeVariant(s: Pick<ChartSettings, "type" | "treeLayout" | "
  *  the kind). The hub's kind switcher drives this; `type` keeps tracking the
  *  last pedigree chart so display logic (radial vs layered) stays valid while
  *  a non-pedigree view is open. */
-export type ChartKind = PedigreeType | "relationship" | "timeline" | "kin" | "map" | "report" | "network";
+export type ChartKind = PedigreeType | "relationship" | "timeline" | "kin" | "map" | "report" | "network" | "calendar";
 
 /** The hub kinds that are not pedigree charts: choosing them leaves `type`
  *  untouched, so leaving them restores the last pedigree chart. */
-const NON_PEDIGREE_KINDS = ["relationship", "timeline", "kin", "map", "report", "network"] as const;
+const NON_PEDIGREE_KINDS = ["relationship", "timeline", "kin", "map", "report", "network", "calendar"] as const;
 
 /** The preferences this file reads — subscribed field by field, so an
  *  unrelated one changing leaves it alone (see useSettingsSlice). */

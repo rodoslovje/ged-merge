@@ -83,6 +83,7 @@ export function ChartKindTabs({ kinds, value, onChange }: Props) {
           : k === "map" ? t("map.button")
             : k === "report" ? t("report.button")
               : k === "network" ? t("network.button")
+              : k === "calendar" ? t("calendar.button")
               : t(`tree.settings.type.${k}`);
   // Seven kinds never fit across a phone. A dropdown names the one you are on
   // and lists the rest, instead of a sideways scroller that hides most of them.

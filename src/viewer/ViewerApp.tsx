@@ -4,7 +4,7 @@ import type { Dataset, Family, Individual } from "../gedcom/types";
 import { DEFAULT_SITE_DISPLAY, type PubFamily, type PubPerson, type PubSource, type PublishedTree, type PubEvent } from "../publish/model";
 import { pubId, xrefOf } from "../publish/hydrate";
 import { photoSrc } from "../publish/photos";
-import { ChartsHub, HUB_KINDS } from "../ui/ChartsHub";
+import { ChartsHub, PUBLISHED_HUB_KINDS } from "../ui/ChartsHub";
 import { StatsPanel } from "../ui/tools/StatsPanel";
 import type { ToolView } from "../ui/ToolsView";
 import { PersonLink } from "../ui/PersonLink";
@@ -75,7 +75,7 @@ function useRoute(start: Route): [Route, (r: Route) => void, (r: Route) => void]
   return [route, go, replace];
 }
 
-const isHubKind = (k: string | undefined): k is ChartKind => !!k && (HUB_KINDS as readonly string[]).includes(k);
+const isHubKind = (k: string | undefined): k is ChartKind => !!k && (PUBLISHED_HUB_KINDS as readonly string[]).includes(k);
 
 /** The published people and families by dataset id: the person page shows
  *  their events, notes and sources as published, links and all. */
