@@ -288,7 +288,7 @@ function Segment({
       ) : (
         <g transform={seg.labelTransform}>
           {seg.lines.map((l, i) => (
-            <text key={i} {...lineProps(l)} x={l.dx ?? 0} y={l.dy} textAnchor="middle" dominantBaseline="middle">
+            <text key={i} {...lineProps(l)} x={0} y={l.dy} textAnchor={l.anchor ?? "middle"} dominantBaseline="middle">
               <YearsText text={l.text} approx={l.approx} svg />
             </text>
           ))}

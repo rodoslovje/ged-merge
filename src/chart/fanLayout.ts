@@ -77,9 +77,9 @@ export interface FanLine {
   arc?: string;
   /** Straight-segment y offset within the rotated label group. */
   dy?: number;
-  /** Straight-segment x offset along the rotated label: lines that end flush
-   *  at one edge rather than centred on each other. */
-  dx?: number;
+  /** Straight-segment text anchor, when the lines align at one end rather
+   *  than centre on the label's anchor point. */
+  anchor?: "start" | "end";
 }
 
 export interface FanSegment {

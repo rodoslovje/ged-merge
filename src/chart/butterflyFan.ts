@@ -145,7 +145,8 @@ function siblingLabels(row: Sibling[], opts: FanChartOptions): { rOut: number } 
  *  counter-clockwise end's far side — the top of the left notch, the bottom
  *  of the right one. Their labels read outward, as the deep rings' do — at
  *  the notches, which sit near the horizontal, that is nearly level text —
- *  and every line ends flush at the outer end, where the wedge is widest. */
+ *  and the lines align at the outer end, where the wedge is widest: flush
+ *  left in the left notch, flush right in the right one. */
 function siblingSegments(
   row: Sibling[],
   start: number,
@@ -174,11 +175,10 @@ function siblingSegments(
     const disp = { ...dispOf(node), place: undefined };
     const texts = labelTexts(disp, lineLength(disp.name) > hi - lo);
     const n = texts.length;
-    const lens = texts.map((l) => Math.min(hi - lo, lineLength(l.text, l.kind)));
-    const len = Math.max(...lens);
-    // The label's centre: its outer end at the wedge's outer padding.
-    const rLabel = hi - len / 2;
-    const gap = Math.min(round(fontPx * 1.22), Math.max(1, (rLabel * delta - 2) / n));
+    const len = Math.min(hi - lo, Math.max(...texts.map((l) => lineLength(l.text, l.kind))));
+    // Anchored at the outer padding; the line spacing fits the wedge's width
+    // across the label's middle.
+    const gap = Math.min(round(fontPx * 1.22), Math.max(1, ((hi - len / 2) * delta - 2) / n));
     const flip = Math.cos(mid) < 0;
     const deg = (mid * 180) / Math.PI + (flip ? 180 : 0);
     return {
@@ -192,14 +192,10 @@ function siblingSegments(
       y: cy + rMid * Math.sin(mid),
       fontPx,
       curved: false,
-      labelTransform: `translate(${round(cx + rLabel * Math.cos(mid))},${round(cy + rLabel * Math.sin(mid))}) rotate(${round(deg)})`,
-      // Each line shifted outward to end flush with the longest: the rotated
-      // frame's x runs outward, or inward where the label is flipped.
-      lines: texts.map((l, j) => ({
-        ...l,
-        dy: round((j - (n - 1) / 2) * gap),
-        dx: round(((len - lens[j]) / 2) * (flip ? -1 : 1)),
-      })),
+      labelTransform: `translate(${round(cx + hi * Math.cos(mid))},${round(cy + hi * Math.sin(mid))}) rotate(${round(deg)})`,
+      // The rotated frame's x runs outward, or inward where the label is
+      // flipped: the lines end at the anchor, or start there.
+      lines: texts.map((l, j) => ({ ...l, dy: round((j - (n - 1) / 2) * gap), anchor: flip ? "start" : "end" })),
       badge: { x: round(cx + (rIn + 12) * Math.cos(mid)), y: round(cy + (rIn + 12) * Math.sin(mid)) },
       ...(half ? { half } : null),
     };
