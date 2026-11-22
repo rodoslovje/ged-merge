@@ -37,7 +37,7 @@ writeFileSync(FILE, [
   "0 TRLR", "",
 ].join("\n"), "utf-8");
 
-const REPORT_KEY = "7";
+const REPORT_KEY = "8";
 
 async function exportAs(page: Page, item: "Text file" | "RTF document"): Promise<string> {
   await page.locator(".export-menu .tree-export-btn").click();
