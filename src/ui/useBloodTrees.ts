@@ -27,11 +27,16 @@ export interface BloodTrees {
  * reaches, with the family-line positions the Color setting reads — shared by
  * the Timeline's two layouts.
  */
-export function useBloodTrees(ds: Dataset, rootId: string): BloodTrees {
+export function useBloodTrees(
+  ds: Dataset,
+  rootId: string,
+  /** Generations each way, in place of the Generations setting. */
+  generations?: number,
+): BloodTrees {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
   const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
-  const limit = settings.maxGenerations;
+  const limit = generations ?? settings.maxGenerations;
   return useMemo(() => {
     const root = ds.individuals.get(rootId);
     const build = (mode: "ancestors" | "descendants") => {
