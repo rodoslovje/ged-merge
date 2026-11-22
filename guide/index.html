@@ -1701,7 +1701,8 @@
             <p>
               <strong>Batch actions</strong> select people with stackable filters — name (anywhere, or scoped to the
               given name or surname), a name part the record has or lacks (given name, surname, or married name in
-              either notation), sex, birth year, age (at
+              either notation), the type of an additional name the person has or lacks (<em>aka</em>, birth name,
+              married name, or a type the standard does not know, such as a spelling variation), sex, birth year, age (at
               death; for people without a death record, to today), living (has a death record or not), an event the
               person has or does not have (birth, death, occupation, … — or any non-standard event; for a custom
               event, an attribute such as occupation, or any non-standard event, a text field narrows it to the ones
@@ -1745,7 +1746,10 @@
               type or to a named custom event, keeping its dates, places and sources; the target is proposed per tag
               (an interment becomes a burial, a state such as an illness a fact, anything else a custom event), and
               text the new type cannot carry on its own line moves into the event's note. A family event such as a
-              separation (<code>SEPA</code>) is converted in every union of the selected people. Each match has a checkbox so you can drop individuals before
+              separation (<code>SEPA</code>) is converted in every union of the selected people. <strong>Convert name
+              type</strong> gives every additional name of one type another type the standard defines, so a spelling
+              variation becomes an <em>aka</em> name; chosen after a <em>Name type</em> filter, it starts from the type
+              that filter selects by. Each match has a checkbox so you can drop individuals before
               applying — with the estimate actions, each row also previews the date that person or their marriage would get, and with the
               married-name action the surnames it would write. That action also arrives with the doubtful people
               already unchecked, each row saying why: the union records no marriage, it is noted as a partnership, or
