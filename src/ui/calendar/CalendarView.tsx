@@ -26,6 +26,9 @@ import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
 import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
 import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, type PagePhoto } from "./CalendarPage";
 import { PhotoArea } from "./PhotoArea";
+import { StatsCard } from "./StatsCard";
+import { familyStats } from "../../calendar/stats";
+import type { FanChart } from "../../chart/fanLayout";
 import { Segmented } from "../Segmented";
 import { COLLAGE_STYLES, MAX_PHOTOS, type CollageStyle } from "../../calendar/collage";
 
@@ -60,8 +63,10 @@ const FAN_DISPLAY_OFF = { showKinship: false, showPhoto: false } as const;
 type CountryChoice = HolidayCountry | "none";
 type PhotoItem = { kind: "person"; id: string } | { kind: "file"; url: string; name: string };
 /** What fills a page's picture area: photos (one, or a collage), or a chart. */
-type Picture = { kind: "photos"; items: PhotoItem[]; collage: CollageStyle } | { kind: "fan" };
-const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan"];
+type Picture =
+  | { kind: "photos"; items: PhotoItem[]; collage: CollageStyle }
+  | { kind: "fan" | "fanAnc" | "fanDesc" | "stats" };
+const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "stats"];
 
 const sameItem = (a: PhotoItem, b: PhotoItem) =>
   a.kind === "person" ? b.kind === "person" && a.id === b.id : b.kind === "file" && a.url === b.url;
@@ -170,19 +175,29 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const fanDisplay = useMemo(() => ({ ...settings, ...FAN_DISPLAY_OFF }), [settings]);
   const noPhoto = useCallback(() => false, []);
   const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, hasPhoto: noPhoto, display: fanDisplay });
-  const fanNode = fan ? (
-    <FanChartBody
-      chart={fan}
-      colorOf={(_n, seg) => (seg.gen > 0 && !seg.key.startsWith(ANCESTOR_KEY_PREFIX) ? "var(--node-desc)" : "var(--node-main)")}
-      selectedKey={null}
-      onSelect={() => {}}
-      mainRecords={mainDs.records}
-      nativeTooltip={false}
-    />
-  ) : undefined;
+  const { fan: fanAnc } = useFanChart(trees.ancestors, "fan", { mode: "ancestors", hasPhoto: noPhoto, display: fanDisplay });
+  const { fan: fanDesc } = useFanChart(trees.descendants, "fan", { mode: "descendants", hasPhoto: noPhoto, display: fanDisplay });
+  const fanBody = (chart: FanChart | undefined, desc: (key: string, gen: number) => boolean) =>
+    chart ? (
+      <FanChartBody
+        chart={chart}
+        colorOf={(_n, seg) => (desc(seg.key, seg.gen) ? "var(--node-desc)" : "var(--node-main)")}
+        selectedKey={null}
+        onSelect={() => {}}
+        mainRecords={mainDs.records}
+        nativeTooltip={false}
+      />
+    ) : undefined;
+  const charts = {
+    fan: fanBody(fan, (key, gen) => gen > 0 && !key.startsWith(ANCESTOR_KEY_PREFIX)),
+    fanAnc: fanBody(fanAnc, () => false),
+    fanDesc: fanBody(fanDesc, (_key, gen) => gen > 0),
+  };
+  const stats = useMemo(() => familyStats(mainDs, rootId, thisYear), [mainDs, rootId, thisYear]);
 
   const renderPicture = (pic: Picture): React.ReactNode => {
-    if (pic.kind === "fan") return <div className="cal-chart">{fanNode}</div>;
+    if (pic.kind === "stats") return <StatsCard stats={stats} nameOf={words.name} sexOf={words.sex} />;
+    if (pic.kind !== "photos") return <div className="cal-chart">{charts[pic.kind]}</div>;
     const photos = pic.items
       .map((it): PagePhoto | undefined => (it.kind === "file" ? { url: it.url } : personPhoto(it.id)))
       .filter((x): x is PagePhoto => !!x);
@@ -449,12 +464,18 @@ function PicturePicker({
   const files = photos.items.filter((x): x is Extract<PhotoItem, { kind: "file" }> => x.kind === "file");
   return (
     <div className="cal-picture-picker">
-      <Segmented
-        label={t("calendar.picture")}
-        value={value.kind}
-        onChange={(k) => onChange(k === "photos" ? photos : { kind: k })}
-        items={PICTURE_KINDS.map((k) => ({ key: k, label: t(`calendar.picture.${k}`) }))}
-      />
+      <label className="cal-field">
+        <span>{t("calendar.picture")}</span>
+        <select
+          value={value.kind}
+          onChange={(e) => {
+            const k = e.target.value as Picture["kind"];
+            onChange(k === "photos" ? photos : { kind: k });
+          }}
+        >
+          {PICTURE_KINDS.map((k) => <option key={k} value={k}>{t(`calendar.picture.${k}`)}</option>)}
+        </select>
+      </label>
       {value.kind === "photos" && (
         <>
           <div className="cal-photo-picker">
