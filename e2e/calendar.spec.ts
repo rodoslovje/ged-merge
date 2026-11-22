@@ -40,10 +40,20 @@ test("the family calendar walks from settings to a review of every page", async 
   await page.getByRole("checkbox", { name: /were married/ }).check();
   await expect(page.locator(".cal-preview .cal-fact")).toHaveCount(2);
 
-  // Review: the cover and twelve months, one page each in the default format.
+  // Review: the cover, twelve months and the back page — the year at a glance
+  // with its signature — one page each in the default format.
   await page.getByRole("button", { name: "Skip to review and print" }).click();
-  await expect(page.locator(".cal-review .cal-page")).toHaveCount(13);
+  await expect(page.locator(".cal-review .cal-page")).toHaveCount(14);
   await expect(page.getByRole("button", { name: /Print/ })).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.locator(".cal-step-label")).toHaveText("Back page");
+  await expect(page.locator(".cal-preview .cal-overview")).toContainText("Marija");
+  await page.getByLabel("Signature").fill("From all of us");
+  await expect(page.locator(".cal-preview .cal-signature")).toHaveText("From all of us");
+  // No back page: the review has the cover and the months alone.
+  await page.getByLabel("What the back page shows").selectOption("none");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.locator(".cal-review .cal-page")).toHaveCount(13);
 });
 
 // With the workspace kept in the browser, the calendar's work comes back after

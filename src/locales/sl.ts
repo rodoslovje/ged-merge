@@ -4444,4 +4444,12 @@ export const sl = {
   "calendar.notKept": "Izbire veljajo, dokler ne zapustite te strani. Če jih želite ohraniti, v Nastavitvah vklopite »Zapomni si moje delo v tem brskalniku«.",
   "calendar.showList": "Seznam oseb meseca pod mesecem",
   "calendar.showFacts": "Dogodki iz družinske zgodovine",
+  "calendar.step.back": "Zadnja stran",
+  "calendar.back": "Kaj je na zadnji strani",
+  "calendar.back.overview": "Leto na enem listu",
+  "calendar.back.gallery": "Kdo je kdo",
+  "calendar.back.none": "Brez zadnje strani",
+  "calendar.back.galleryEmpty": "Nihče od oseb, ki jih koledar praznuje, še nima fotografije.",
+  "calendar.signature": "Podpis",
+  "calendar.signature.placeholder": "Zate so ga pripravili tvoji vnuki",
 };

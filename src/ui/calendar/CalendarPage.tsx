@@ -22,7 +22,7 @@ export const PAPER: Record<CalendarFormat, { w: number; h: number; em: number }>
   desk: { w: 210, h: 148, em: 2.6 },
 };
 
-function pageStyle(format: CalendarFormat, scheme: CalendarScheme, extra?: Record<string, string>): CSSProperties {
+export function pageStyle(format: CalendarFormat, scheme: CalendarScheme, extra?: Record<string, string>): CSSProperties {
   const p = PAPER[format];
   return { "--cal-ratio": `${p.w} / ${p.h}`, "--cal-ems": String(p.w / p.em), ...schemeVars(scheme), ...extra } as CSSProperties;
 }
@@ -54,7 +54,7 @@ export function CoverPage({ format, scheme, year, name, picture, site, dedicatio
       <div className="cal-cover-name">{name}</div>
       {dedication?.trim() && <div className="cal-dedication">{dedication.trim()}</div>}
       <div className="cal-picture">{picture}</div>
-      <Footer site={site} />
+      <PageFooter site={site} />
     </div>
   );
 }
@@ -96,7 +96,7 @@ export function MonthPages(props: MonthProps) {
             {props.showFacts && <Facts {...props} />}
           </div>
           <Legend />
-          <Footer site={props.site} />
+          <PageFooter site={props.site} />
         </div>
       </>
     );
@@ -111,7 +111,7 @@ export function MonthPages(props: MonthProps) {
           <div className="cal-lower">
             {props.showFacts && <Facts {...props} />}
           </div>
-          <Footer site={props.site} />
+          <PageFooter site={props.site} />
         </div>
       </div>
     );
@@ -126,7 +126,7 @@ export function MonthPages(props: MonthProps) {
         {props.showFacts && <Facts {...props} />}
       </div>
       <Legend />
-      <Footer site={props.site} />
+      <PageFooter site={props.site} />
     </div>
   );
 }
@@ -246,7 +246,7 @@ function Legend() {
 
 /** The page's foot: the family website's address on the left, where one is
  *  set in the website tool, and the GED Merge credit on the right. */
-function Footer({ site }: { site?: string }) {
+export function PageFooter({ site }: { site?: string }) {
   const { t } = useTranslation();
   return (
     <div className="cal-foot">

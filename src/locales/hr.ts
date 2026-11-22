@@ -4174,4 +4174,12 @@ export const hr = {
   "calendar.notKept": "Odabiri vrijede dok ne napustite ovu stranicu. Ako ih želite zadržati, u Postavkama uključite „Zapamti moj rad u ovom pregledniku“.",
   "calendar.showList": "Popis osoba mjeseca ispod mjeseca",
   "calendar.showFacts": "Događaji iz obiteljske povijesti",
+  "calendar.step.back": "Zadnja stranica",
+  "calendar.back": "Što je na zadnjoj stranici",
+  "calendar.back.overview": "Godina na jednom listu",
+  "calendar.back.gallery": "Tko je tko",
+  "calendar.back.none": "Bez zadnje stranice",
+  "calendar.back.galleryEmpty": "Nitko od osoba koje kalendar slavi još nema fotografiju.",
+  "calendar.signature": "Potpis",
+  "calendar.signature.placeholder": "Za tebe su ga pripremili tvoji unuci",
 };

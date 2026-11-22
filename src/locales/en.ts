@@ -3965,4 +3965,12 @@ export const en = {
   "calendar.notKept": "Your choices last until you leave this page. To keep them, turn on “Remember my work in this browser” in Settings.",
   "calendar.showList": "List of the month's people under the month",
   "calendar.showFacts": "Moments from the family's past",
+  "calendar.step.back": "Back page",
+  "calendar.back": "What the back page shows",
+  "calendar.back.overview": "The year at a glance",
+  "calendar.back.gallery": "Who is who",
+  "calendar.back.none": "No back page",
+  "calendar.back.galleryEmpty": "None of the people the calendar celebrates has a photo yet.",
+  "calendar.signature": "Signature",
+  "calendar.signature.placeholder": "Made for you by your grandchildren",
 };
