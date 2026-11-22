@@ -41,15 +41,18 @@ interface CoverProps {
   picture: ReactNode;
   /** The family website's address, for the footer. */
   site?: string;
+  /** A few words from the givers, under the name. */
+  dedication?: string;
 }
 
-export function CoverPage({ format, scheme, year, name, picture, site }: CoverProps) {
+export function CoverPage({ format, scheme, year, name, picture, site, dedication }: CoverProps) {
   const { t } = useTranslation();
   return (
     <div className="cal-page cal-cover" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
       <div className="cal-cover-title">{t("calendar.cover.title")}</div>
       <div className="cal-cover-year">{year}</div>
       <div className="cal-cover-name">{name}</div>
+      {dedication?.trim() && <div className="cal-dedication">{dedication.trim()}</div>}
       <div className="cal-picture">{picture}</div>
       <Footer site={site} />
     </div>

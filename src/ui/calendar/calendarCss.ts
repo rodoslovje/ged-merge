@@ -94,6 +94,7 @@ export const CALENDAR_CSS = `
 .cal-cover-title { font-size: 3em; color: var(--accent); margin: 0.4em 0 0.1em; }
 .cal-cover-year { font-size: 2em; color: var(--muted); }
 .cal-cover-name { font-size: 1.4em; margin: 0.6em 0 0.8em; }
+.cal-dedication { font-size: 1.15em; font-style: italic; color: var(--muted); margin: -0.3em 0 1em; white-space: pre-line; max-width: 80%; }
 .cal-cover .cal-picture { flex: 1 1 auto; width: 100%; }
 .cal-chart { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .cal-chart svg { width: 100%; height: 100%; }

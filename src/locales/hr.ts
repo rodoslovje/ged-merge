@@ -4159,4 +4159,6 @@ export const hr = {
   "calendar.captions": "Prikaži imena na fotografijama",
   "calendar.picture.treeDesc": "Stablo potomaka",
   "calendar.picture.treeAnc": "Stablo predaka",
+  "calendar.dedication": "Posveta",
+  "calendar.dedication.placeholder": "Za mamu, s ljubavlju — svi tvoji",
 };
