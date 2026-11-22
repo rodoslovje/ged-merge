@@ -592,6 +592,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           vendorEventOptions={vendorEventOptions}
           familyVendorOptions={familyVendorOptions}
           nameTypeOptions={nameTypeOptions}
+          filteredNameType={criteria.flatMap((c) => (c.kind === "nameType" && c.mode === "has" ? [c.type] : []))[0]}
           onChange={changeAction}
         />
         {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
@@ -1097,6 +1098,7 @@ function ActionEditor({
   vendorEventOptions,
   familyVendorOptions,
   nameTypeOptions,
+  filteredNameType,
   onChange,
 }: {
   action: BatchActionSpec | null;
@@ -1110,6 +1112,9 @@ function ActionEditor({
   familyVendorOptions: string[];
   /** Additional-name types present in the file — the type conversion's sources. */
   nameTypeOptions: string[];
+  /** The type a "has" name-type filter selects people by — the one they are
+   *  picked to have converted. */
+  filteredNameType?: string;
   onChange: (next: BatchActionSpec | null) => void;
 }) {
   const { t } = useTranslation();
@@ -1140,10 +1145,14 @@ function ActionEditor({
     estimateMarriage: { kind: "estimateMarriage" },
     addMarriedName: { kind: "addMarriedName" },
     convertEvent: { kind: "convertEvent", ...conversionFor(firstVendor) },
-    // A type no version defines is the one most likely to want converting.
+    // The type the filter picked people by; else a type no version defines,
+    // the one most likely to want converting.
     convertNameType: {
       kind: "convertNameType",
-      ...nameConversionFor(nameTypeOptions.find((type) => !nameTypeTargets.includes(type)) ?? nameTypeOptions[0] ?? ""),
+      ...nameConversionFor(
+        (filteredNameType && nameTypeOptions.includes(filteredNameType) ? filteredNameType : undefined) ??
+          nameTypeOptions.find((type) => !nameTypeTargets.includes(type)) ?? nameTypeOptions[0] ?? "",
+      ),
     },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
