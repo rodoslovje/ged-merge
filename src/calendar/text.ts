@@ -9,8 +9,10 @@ import type { DayEntry, Fact } from "./model";
 export interface PersonWords {
   /** The display name. */
   name: (id: string) => string;
-  /** The given name alone, for the crowded day cells. */
+  /** The first given name alone, for the crowded day cells. */
   given: (id: string) => string;
+  /** The surname, when the name has one. */
+  surname: (id: string) => string | undefined;
   /** The kinship to the recipient ("Aunt"), none for the recipient themselves. */
   kinship: (id: string) => string | undefined;
   sex: (id: string) => Sex | undefined;
@@ -62,19 +64,37 @@ export function yearsAgo(t: Translate, n: number): string {
 
 export const ENTRY_GLYPH: Record<DayEntry["kind"], string> = { birthday: "*", anniversary: "⚭", memorial: "†" };
 
-/** The short form for a day cell: given names, the number after. */
-export function entryCell(t: Translate, words: PersonWords, e: DayEntry): string {
-  const names = e.ids.length === 2 ? t("calendar.couple", { a: words.given(e.ids[0]), b: words.given(e.ids[1]) }) : words.given(e.ids[0]);
-  return e.years !== undefined ? `${names} ${e.years}` : names;
+/** How a day cell names people: the given name, with the surname's initial, or in full. */
+export type CellNames = "given" | "initial" | "full";
+export const CELL_NAMES: CellNames[] = ["given", "initial", "full"];
+
+export interface EntryOptions {
+  names: CellNames;
+  /** Show the age turned, the years married or the years since the death. */
+  age: boolean;
+}
+
+function cellName(words: PersonWords, id: string, style: CellNames): string {
+  if (style === "full") return words.name(id);
+  const given = words.given(id);
+  const surname = style === "initial" ? words.surname(id) : undefined;
+  return surname ? `${given} ${surname.charAt(0).toLocaleUpperCase()}.` : given;
+}
+
+/** The short form for a day cell: the names as chosen, the number after. */
+export function entryCell(t: Translate, words: PersonWords, e: DayEntry, opts: EntryOptions): string {
+  const [a, b] = e.ids.map((id) => cellName(words, id, opts.names));
+  const names = e.ids.length === 2 ? t("calendar.couple", { a, b }) : a;
+  return opts.age && e.years !== undefined ? `${names} ${e.years}` : names;
 }
 
 /** The full line under the grid: day, full names, kinship, the number. */
-export function entryLine(t: Translate, words: PersonWords, e: DayEntry): string {
+export function entryLine(t: Translate, words: PersonWords, e: DayEntry, opts: EntryOptions): string {
   const name =
     e.ids.length === 2
       ? t("calendar.couple", { a: words.name(e.ids[0]), b: words.name(e.ids[1]) })
       : words.name(e.ids[0]);
   const k = e.ids.length === 1 ? words.kinship(e.ids[0]) : undefined;
-  const years = e.years !== undefined ? ` (${e.years})` : "";
+  const years = opts.age && e.years !== undefined ? ` (${e.years})` : "";
   return `${k ? `${name}, ${lowerFirst(k)}` : name}${years}`;
 }

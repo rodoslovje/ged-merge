@@ -6,12 +6,11 @@
 // Every size inside a page is in `em`; the page sets the em. On screen the
 // page fills its `.cal-sheet` (a size container) and the em follows the width;
 // in print the page takes its paper size in millimetres and a fixed em.
+// The colours come from the page's scheme (schemes.ts), set inline on it.
 
 export const CALENDAR_CSS = `
 .cal-sheet { container-type: inline-size; }
 .cal-page {
-  --ink: #23201c; --muted: #6b655d; --faint: #b9b2a8; --rule: #d9d3ca;
-  --accent: #2f6b55; --holiday: #b3261e; --paper: #ffffff; --tint: #f4f1ec;
   position: relative; box-sizing: border-box; overflow: hidden;
   width: 100%; aspect-ratio: var(--cal-ratio); font-size: calc(100cqw / var(--cal-ems));
   background: var(--paper); color: var(--ink);
@@ -31,17 +30,25 @@ export const CALENDAR_CSS = `
 .cal-year { font-size: 1.4em; color: var(--muted); }
 .cal-grid-wrap { flex: 1 1 auto; min-height: 14em; display: flex; }
 .cal-grid { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; }
-.cal-grid th { font-weight: 400; font-size: 0.8em; color: var(--muted); text-align: left; padding: 0 0 0.3em 0.3em; }
+.cal-grid th { font-weight: 700; font-size: 0.75em; color: var(--accent); text-align: left; padding: 0.25em 0.4em;
+  background: color-mix(in srgb, var(--accent) 12%, var(--paper)); }
 .cal-grid th.cal-sun { color: var(--holiday); }
 .cal-grid td { border: 0.06em solid var(--rule); vertical-align: top; padding: 0.2em 0.3em; overflow: hidden; }
 .cal-grid thead th { height: 1.2em; }
+.cal-grid td.cal-sat { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
+.cal-grid td.cal-sun, .cal-grid td.cal-hol { background: color-mix(in srgb, var(--holiday) 6%, var(--paper)); }
 .cal-grid td.cal-blank { background: var(--tint); border-color: var(--tint); }
 .cal-day { font-size: 1.05em; font-weight: 700; }
 .cal-sun .cal-day, .cal-hol .cal-day { color: var(--holiday); }
 .cal-holname { font-size: 0.6em; color: var(--holiday); line-height: 1.1; margin-top: 0.1em; }
 .cal-entry { font-size: 0.62em; line-height: 1.2; margin-top: 0.15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-glyph { color: var(--accent); font-weight: 700; margin-right: 0.2em; }
-.cal-memorial .cal-glyph { color: var(--muted); }
+.cal-glyph { font-weight: 700; margin-right: 0.2em; }
+/* The living in the scheme's colour, the memorial days below them in dark grey. */
+.cal-entry.cal-birthday, .cal-entry.cal-anniversary { color: var(--accent); }
+.cal-entry.cal-memorial, .cal-list .cal-memorial { color: var(--remembrance); }
+.cal-birthday .cal-glyph { color: var(--glyph-birthday); }
+.cal-anniversary .cal-glyph { color: var(--glyph-anniversary); }
+.cal-memorial .cal-glyph { color: var(--glyph-memorial); }
 .cal-lower { display: flex; align-items: flex-start; gap: 1.6em; margin-top: 0.8em; flex: 0 0 auto; }
 .cal-lower:empty { display: none; }
 .cal-lower > * { flex: 1 1 0; min-width: 0; }

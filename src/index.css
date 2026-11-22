@@ -12521,3 +12521,8 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
   .cal-wizard { grid-template-columns: minmax(0, 1fr); padding: 12px; }
   .cal-panel { position: static; }
 }
+.cal-schemes { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-scheme { display: inline-flex; align-items: center; gap: 6px; }
+/* A scheme's paper colours, shown as they print: raw colours by design. */
+.cal-swatches { display: inline-flex; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
+.cal-swatches > span { width: 10px; height: 14px; }
