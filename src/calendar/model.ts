@@ -280,6 +280,20 @@ export const byDay = (a: Fact, b: Fact) => (a.date.day ?? 0) - (b.date.day ?? 0)
 
 const KIND_ORDER: Record<DayEntryKind, number> = { birthday: 0, anniversary: 1, memorial: 2 };
 
+/** The wedding anniversaries a family marks: the 10th, every tenth after it,
+ *  and the silver, sixty-fifth (iron) and seventy-fifth (crown) jubilees. */
+const ROUND_WEDDINGS = new Set([10, 20, 25, 30, 40, 50, 60, 65, 70, 75, 80]);
+
+/** A round birthday (every tenth from the 10th) or a jubilee wedding
+ *  anniversary — the days a calendar should not let anyone miss. Memorial
+ *  days never count. */
+export function isRoundAnniversary(e: DayEntry): boolean {
+  if (e.years === undefined) return false;
+  if (e.kind === "birthday") return e.years >= 10 && e.years % 10 === 0;
+  if (e.kind === "anniversary") return ROUND_WEDDINGS.has(e.years);
+  return false;
+}
+
 /** How round an anniversary is: a centenary beats a jubilee beats a decade. */
 function roundness(yearsAgo: number): number {
   if (yearsAgo % 100 === 0) return 5;

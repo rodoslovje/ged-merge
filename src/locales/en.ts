@@ -3954,4 +3954,5 @@ export const en = {
   "calendar.picture.treeAnc": "Tree of ancestors",
   "calendar.dedication": "Dedication",
   "calendar.dedication.placeholder": "For Mum, with love — from all of us",
+  "calendar.legend.round": "round birthday or jubilee",
 };

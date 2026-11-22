@@ -64,6 +64,11 @@ export const CALENDAR_CSS = `
 .cal-birthday .cal-glyph { color: var(--glyph-birthday); }
 .cal-anniversary .cal-glyph { color: var(--glyph-anniversary); }
 .cal-memorial .cal-glyph { color: var(--glyph-memorial); }
+/* A round birthday or a jubilee: bold, on a tint of the scheme's colour. */
+.cal-entry.cal-round { font-weight: 700; background: color-mix(in srgb, var(--accent) 16%, var(--paper));
+  border-radius: 0.3em; padding: 0 0.25em; margin-left: -0.25em; margin-right: -0.25em; }
+.cal-list .cal-round { font-weight: 700; }
+.cal-round .cal-glyph { color: var(--glyph-anniversary); }
 .cal-lower { display: flex; align-items: flex-start; gap: 1.6em; margin-top: 0.8em; flex: 0 0 auto; }
 .cal-lower:empty { display: none; }
 .cal-lower > * { flex: 1 1 0; min-width: 0; }
