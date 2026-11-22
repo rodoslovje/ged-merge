@@ -9,6 +9,8 @@ import { eventMenuLabel } from "../EventGlyph";
 import { offeredEventGroups, offersEventTag } from "../edit/editConstants";
 import { useFormatOverrides, useTargetFormat } from "../TargetFormatContext";
 import { writeVersionOf } from "../../normalize/formatOverrides";
+import { additionalNameTypes, nameTypeLabel } from "../../match/relatives";
+import { NAME_TYPES_551, NAME_TYPES_70 } from "../../gedcom/name";
 import {
   ANY_EVENT,
   ANY_VENDOR_EVENT,
@@ -58,7 +60,7 @@ import { useSlicedBuild } from "../useSlicedBuild";
 /** The "Add filter" menu's sections. Keyed by kind, so a new filter kind
  *  fails to compile until it is given a group. */
 const CRITERION_GROUP: Record<BatchCriterion["kind"], "person" | "family" | "text" | "records"> = {
-  name: "person", nameField: "person", sex: "person", birthYear: "person", age: "person", living: "person",
+  name: "person", nameField: "person", nameType: "person", sex: "person", birthYear: "person", age: "person", living: "person",
   event: "person", deathCause: "person",
   familyEvent: "family", relation: "family", kinship: "family", line: "family",
   place: "text", note: "text", anyField: "text",
@@ -103,6 +105,15 @@ function mediaPickValue(ref: { xref?: string; file?: string }, options: MediaOpt
   );
   if (opt) return mediaOptionKey(opt);
   return ref.xref || ref.file ? NEW_KEY : "";
+}
+
+/** A name type as the menus show it: its translated name, followed by the
+ *  file's own word when no GEDCOM version defines it — the way a non-standard
+ *  event shows its tag. */
+function nameTypeMenuLabel(type: string, t: (key: string) => string): string {
+  const label = nameTypeLabel(type, t);
+  const standard = NAME_TYPES_551.has(type) || NAME_TYPES_70.has(type.toUpperCase());
+  return standard || label === type ? label : `${label} (${type})`;
 }
 
 /** Stable empty rows for the renders before the build has finished. */
@@ -192,6 +203,14 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     const present = new Set<string>(["MARR", "EVEN"]);
     for (const r of rows) for (const tag of r.familyEventTags) present.add(tag);
     return FAM_EVENT_TAG_ORDER.filter((tag) => present.has(tag));
+  }, [rows]);
+
+  /** Types of the additional names the file carries — the name-type
+   *  filter's choices and the type conversion's sources. */
+  const nameTypeOptions = useMemo(() => {
+    const present = new Set<string>();
+    for (const r of rows) for (const type of r.nameTypes) present.add(type);
+    return [...present].sort();
   }, [rows]);
 
   const [action, setAction] = useState<BatchActionSpec | null>(null);
@@ -388,6 +407,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     const fresh: Record<BatchCriterion["kind"], BatchCriterion> = {
       name: { kind: "name", text: "" },
       nameField: { kind: "nameField", field: "surname", mode: "lacks" },
+      nameType: { kind: "nameType", type: nameTypeOptions[0] ?? "aka", mode: "has" },
       sex: { kind: "sex", value: "F" },
       birthYear: { kind: "birthYear" },
       age: { kind: "age", op: "lt", years: 20 },
@@ -420,6 +440,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           ? true
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
+            : action.kind === "convertNameType"
+              ? !!(action.fromType && action.toType && action.fromType !== action.toType)
             : !!(action.xref || action.file?.trim()));
 
   function apply() {
@@ -474,6 +496,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     const a = f.action;
     if (a?.kind === "removeMedia" && !mediaExists(a.xref, a.file)) return false;
     if (a?.kind === "convertEvent" && !vendorEventOptions.includes(a.fromTag)) return false;
+    if (a?.kind === "convertNameType" && !nameTypeOptions.includes(a.fromType)) return false;
     if (a?.kind === "addSource" && a.xref && !a.title && !sourceOptions.some((s) => s.xref === a.xref)) return false;
     return true;
   }
@@ -544,6 +567,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
               mediaOptions={pickableMedia}
               eventOptions={eventOptions}
               familyEventOptions={familyEventOptions}
+              nameTypeOptions={nameTypeOptions}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}
               onRemove={() => changeCriteria(criteria.filter((_, j) => j !== i))}
             />
@@ -567,6 +591,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           sourceOptions={sourceOptions}
           vendorEventOptions={vendorEventOptions}
           familyVendorOptions={familyVendorOptions}
+          nameTypeOptions={nameTypeOptions}
+          filteredNameType={criteria.flatMap((c) => (c.kind === "nameType" && c.mode === "has" ? [c.type] : []))[0]}
           onChange={changeAction}
         />
         {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
@@ -673,6 +699,7 @@ function CriterionRow({
   mediaOptions,
   eventOptions,
   familyEventOptions,
+  nameTypeOptions,
   onChange,
   onRemove,
 }: {
@@ -680,6 +707,7 @@ function CriterionRow({
   mediaOptions: MediaOption[];
   eventOptions: string[];
   familyEventOptions: string[];
+  nameTypeOptions: string[];
   onChange: (next: BatchCriterion) => void;
   onRemove: () => void;
 }) {
@@ -716,6 +744,28 @@ function CriterionRow({
           mode={c.mode}
           onPick={(field, mode) => onChange({ ...c, field, mode })}
         />
+      )}
+      {c.kind === "nameType" && (
+        <>
+          <SelectMenu
+            className="batch-select"
+            value={c.mode}
+            onChange={(v) => onChange({ ...c, mode: v as "has" | "lacks" })}
+            options={[
+              { value: "has", label: t("tools.batch.event.has") },
+              { value: "lacks", label: t("tools.batch.event.lacks") },
+            ]}
+          />
+          <SelectMenu
+            className="batch-select"
+            value={c.type}
+            onChange={(v) => onChange({ ...c, type: v })}
+            options={(nameTypeOptions.includes(c.type) ? nameTypeOptions : [c.type, ...nameTypeOptions]).map((type) => ({
+              value: type,
+              label: nameTypeMenuLabel(type, t),
+            }))}
+          />
+        </>
       )}
       {c.kind === "relation" && (
         <PresenceSelect
@@ -1047,6 +1097,8 @@ function ActionEditor({
   sourceOptions,
   vendorEventOptions,
   familyVendorOptions,
+  nameTypeOptions,
+  filteredNameType,
   onChange,
 }: {
   action: BatchActionSpec | null;
@@ -1058,9 +1110,21 @@ function ActionEditor({
   vendorEventOptions: string[];
   /** Those of them only families hold: converted into a family event. */
   familyVendorOptions: string[];
+  /** Additional-name types present in the file — the type conversion's sources. */
+  nameTypeOptions: string[];
+  /** The type a "has" name-type filter selects people by — the one they are
+   *  picked to have converted. */
+  filteredNameType?: string;
   onChange: (next: BatchActionSpec | null) => void;
 }) {
   const { t } = useTranslation();
+  /** The type conversion's targets: the types the written version defines. */
+  const nameTypeTargets = additionalNameTypes(writeVersionOf(useFormatOverrides()));
+  /** What picking `fromType` proposes: an alternate name, unless it is one already. */
+  const nameConversionFor = (fromType: string) => ({
+    fromType,
+    toType: nameTypeTargets.find((type) => type !== fromType) ?? "aka",
+  });
   // The convert action's targets: what the target format allows.
   const { eventOffer } = useTargetFormat();
   /** The natural TYPE for a converted vendor event: its localized name. */
@@ -1081,6 +1145,15 @@ function ActionEditor({
     estimateMarriage: { kind: "estimateMarriage" },
     addMarriedName: { kind: "addMarriedName" },
     convertEvent: { kind: "convertEvent", ...conversionFor(firstVendor) },
+    // The type the filter picked people by; else a type no version defines,
+    // the one most likely to want converting.
+    convertNameType: {
+      kind: "convertNameType",
+      ...nameConversionFor(
+        (filteredNameType && nameTypeOptions.includes(filteredNameType) ? filteredNameType : undefined) ??
+          nameTypeOptions.find((type) => !nameTypeTargets.includes(type)) ?? nameTypeOptions[0] ?? "",
+      ),
+    },
   };
   // For addMedia, an empty file with a (possibly empty) title marks the
   // "new image" choice — picking an existing option clears the title again.
@@ -1224,6 +1297,25 @@ function ActionEditor({
               onChange={(e) => onChange({ ...action, type: e.target.value })}
             />
           )}
+        </>
+      )}
+      {action?.kind === "convertNameType" && (
+        <>
+          <SelectMenu
+            className="batch-select"
+            value={action.fromType}
+            onChange={(v) => onChange({ ...action, ...nameConversionFor(v) })}
+            options={nameTypeOptions.map((type) => ({ value: type, label: nameTypeMenuLabel(type, t) }))}
+          />
+          <span className="batch-sep">→</span>
+          <SelectMenu
+            className="batch-select"
+            value={action.toType}
+            onChange={(v) => onChange({ ...action, toType: v })}
+            options={nameTypeTargets
+              .filter((type) => type !== action.fromType)
+              .map((type) => ({ value: type, label: nameTypeMenuLabel(type, t) }))}
+          />
         </>
       )}
     </div>

@@ -60,6 +60,9 @@ export type BatchCriterion =
    *  name or surname (the fields the Edit view shows), or any married surname
    *  (inline `_MARNM` or a separate `TYPE married` name). */
   | { kind: "nameField"; field: "given" | "surname" | "married"; mode: "has" | "lacks" }
+  /** An additional name of one type (see {@link nameTypeKey}) — `has variation`
+   *  finds the people whose spelling variants a conversion would rename. */
+  | { kind: "nameType"; type: string; mode: "has" | "lacks" }
   | { kind: "sex"; value: Sex }
   | { kind: "birthYear"; from?: number; to?: number }
   /** Age in whole years — at death for the deceased, to today for everyone
@@ -130,7 +133,7 @@ export const ANY_EVENT = "*";
 
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
-  "name", "nameField", "sex", "birthYear", "age", "living", "event", "deathCause", "familyEvent", "place", "note", "anyField", "media",
+  "name", "nameField", "nameType", "sex", "birthYear", "age", "living", "event", "deathCause", "familyEvent", "place", "note", "anyField", "media",
   "sources", "relation", "kinship", "line", "private", "privateNote",
 ];
 
@@ -167,6 +170,8 @@ export interface BatchRow extends SearchRow {
   hasGiven: boolean;
   hasSurname: boolean;
   hasMarriedName: boolean;
+  /** {@link nameTypeKey} of each additional name the person carries. */
+  nameTypes: string[];
   /** A partner in some union, a child, a named parent — see the `relation` criterion. */
   hasSpouse: boolean;
   hasChildren: boolean;
@@ -283,6 +288,7 @@ function* batchRowSteps(
       hasGiven: !!indi.names[0]?.given?.trim(),
       hasSurname: !!indi.names[0]?.surname?.trim(),
       hasMarriedName: marriedSurnamesOf(indi).length > 0,
+      nameTypes: indi.names.slice(1).map(nameTypeKey).filter((k) => k !== ""),
       // A lone spouse in a family isn't a partner — single-parent families and
       // half-built unions name one side only.
       hasSpouse: unions.some((f) => [f.husband, f.wife].some((s) => s && s !== indi.id)),
@@ -412,6 +418,11 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
       case "nameField": {
         const has =
           c.field === "given" ? row.hasGiven : c.field === "surname" ? row.hasSurname : row.hasMarriedName;
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
+      case "nameType": {
+        const has = row.nameTypes.includes(c.type);
         if (c.mode === "has" ? !has : has) return false;
         break;
       }
@@ -637,10 +648,16 @@ export type BatchActionSpec =
    *  one (`carriesLineValue`) and becomes a note where it does not. When the
    *  target is a generic `EVEN`/`FACT`, `type` writes its `TYPE` name (unless
    *  one exists already). People without a `fromTag` event are skipped. */
-  | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string };
+  | { kind: "convertEvent"; fromTag: string; toTag: string; type?: string }
+  /** Give every additional name of type `fromType` (a {@link nameTypeKey}) the
+   *  type `toType`, spelled the way the target version writes it — a
+   *  non-standard `variation` becomes the standard `aka`. People without such a
+   *  name are skipped. */
+  | { kind: "convertNameType"; fromType: string; toType: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
   "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "estimateMarriage", "addMarriedName", "convertEvent",
+  "convertNameType",
 ];
 
 export interface BatchApplyResult {
@@ -685,7 +702,45 @@ export function applyBatchAction(
       return addMarriedNameBatch(ds, ids, version, overrides);
     case "convertEvent":
       return convertEventBatch(ds, ids, action, version);
+    case "convertNameType":
+      return convertNameTypeBatch(ds, ids, action, version);
   }
+}
+
+/** A name's type as one comparable word: the file's own word for it when a
+ *  GEDCOM 7 `PHRASE` gives one (`OTHER` · `variation`), lower-cased so a 7.0
+ *  `AKA` and a 5.5.1 `aka` are the same type. Empty for an untyped name. */
+export function nameTypeKey(name: { type?: string; typePhrase?: string }): string {
+  return (name.typePhrase?.trim() || name.type?.trim() || "").toLowerCase();
+}
+
+/** Retype `fromType` names (see the {@link BatchActionSpec} member). */
+function convertNameTypeBatch(
+  ds: Dataset,
+  ids: string[],
+  action: { fromType: string; toType: string },
+  version: "5.5.1" | "7.0",
+): BatchApplyResult {
+  const { fromType, toType } = action;
+  if (!fromType || !toType || fromType === toType.toLowerCase()) return { patches: [], changed: 0, skipped: ids.length };
+  const snap = snapshotRecords(ds, ids, []);
+  let changed = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    const at = indi.names.slice(1).flatMap((n, i) => (nameTypeKey(n) === fromType ? [i] : []));
+    if (at.length === 0) {
+      skipped++;
+      continue;
+    }
+    for (const i of at) setAdditionalName(indi, i, { type: toType }, version);
+    // The typed names follow the raw tree, or the panel's own `nameType`
+    // filter still finds the person after the conversion.
+    rebuildIndividual(ds, indi);
+    changed++;
+  }
+  return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
 }
 
 /** Re-tag `fromTag` events to `toTag` (see the {@link BatchActionSpec} member). */
