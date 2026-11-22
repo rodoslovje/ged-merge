@@ -13,7 +13,7 @@ const SAMPLE = path.resolve(__dirname, "../src/__fixtures__/corpus/reunion-5.5.1
 // Chart kinds in hub order, for the digit shortcuts:
 // 1 Tree, 2 Fan, 3 Timeline, 4 Relationship, 5 Contemporaries, 6 Map, 7 Report.
 const MAP_KEY = "6";
-const REPORT_KEY = "7";
+const REPORT_KEY = "8";
 
 // A tiny geocoded file: the corpus fixtures carry no MAP coordinates, so the
 // map would draw nothing to find.
