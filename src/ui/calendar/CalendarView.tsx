@@ -15,7 +15,8 @@ import { useNameOf } from "../SettingsContext";
 import { useChartSettings } from "../ChartSettingsContext";
 import { useMediaFolder } from "../MediaFolderContext";
 import { collectFirstFilePath } from "../PersonMedia";
-import { isPointer, objeInfoOf, objeNodesFor } from "../../gedcom/source";
+import { isPointer, looksLikeUrl, objeInfoOf, objeNodesFor } from "../../gedcom/source";
+import { mediaKindOf } from "../mediaPath";
 import { useBloodTrees } from "../useBloodTrees";
 import { useFanChart } from "../useFanChart";
 import { FanChartBody } from "../FanChartBody";
@@ -131,10 +132,43 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
 
   // Photos: each person's first image, resolved through the linked media folder.
   const media = useMediaFolder();
-  const photoPath = useCallback(
-    (id: string) => { const p = mainDs.individuals.get(id); return p ? collectFirstFilePath(p.raw, mainDs.records) : null; },
-    [mainDs],
-  );
+  // Who is on each photo file, and the photo's own title: a group photo is
+  // captioned by its title (where the file usually says what it shows), or
+  // else by the people on it. Each person's local images, in file order.
+  const { photoIndex, imagesOf } = useMemo(() => {
+    const objes = objeNodesFor(mainDs.records);
+    const photoIndex = new Map<string, { ids: string[]; title?: string }>();
+    const imagesOf = new Map<string, string[]>();
+    for (const indi of mainDs.individuals.values()) {
+      for (const link of indi.raw.children) {
+        if (link.tag !== "OBJE") continue;
+        const v = link.value?.trim();
+        const node = v && isPointer(v) ? objes.get(v) : link;
+        if (!node) continue;
+        const file = node.children.find((c) => c.tag === "FILE")?.value?.trim();
+        if (!file || looksLikeUrl(file) || mediaKindOf(file) !== "image") continue;
+        const title = objeInfoOf(node).title;
+        const entry = photoIndex.get(file) ?? { ids: [], title };
+        if (!entry.ids.includes(indi.id)) entry.ids.push(indi.id);
+        entry.title ??= title;
+        photoIndex.set(file, entry);
+        const own = imagesOf.get(indi.id) ?? [];
+        if (!own.includes(file)) own.push(file);
+        imagesOf.set(indi.id, own);
+      }
+    }
+    return { photoIndex, imagesOf };
+  }, [mainDs]);
+  /** A person's portrait: their marked or first photo when they are alone on
+   *  it, else the first photo of them alone — a group photo only when they
+   *  have nothing else, so two people from one big group do not bring the
+   *  same picture twice. */
+  const photoPath = useCallback((id: string): string | null => {
+    const p = mainDs.individuals.get(id);
+    const primary = p ? collectFirstFilePath(p.raw, mainDs.records) : null;
+    const files = [...(primary ? [primary] : []), ...(imagesOf.get(id) ?? [])];
+    return files.find((f) => (photoIndex.get(f)?.ids.length ?? 1) === 1) ?? files[0] ?? null;
+  }, [mainDs, imagesOf, photoIndex]);
   const [urls, setUrls] = useState<Map<string, string | null>>(new Map());
   const withPhoto = useCallback((ids: string[]) => {
     const out: string[] = [];
@@ -158,29 +192,6 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     return () => { live = false; };
   }, [media, coverPeople, monthPeople, photoPath, urls]);
 
-  // Who is on each photo file, and the photo's own title: a group photo is
-  // captioned by its title (where the file usually says what it shows), or
-  // else by the people on it.
-  const photoIndex = useMemo(() => {
-    const objes = objeNodesFor(mainDs.records);
-    const index = new Map<string, { ids: string[]; title?: string }>();
-    for (const indi of mainDs.individuals.values()) {
-      for (const link of indi.raw.children) {
-        if (link.tag !== "OBJE") continue;
-        const v = link.value?.trim();
-        const node = v && isPointer(v) ? objes.get(v) : link;
-        if (!node) continue;
-        const info = objeInfoOf(node);
-        const file = node.children.find((c) => c.tag === "FILE")?.value?.trim();
-        if (!file) continue;
-        const entry = index.get(file) ?? { ids: [], title: info.title };
-        if (!entry.ids.includes(indi.id)) entry.ids.push(indi.id);
-        entry.title ??= info.title;
-        index.set(file, entry);
-      }
-    }
-    return index;
-  }, [mainDs]);
   const listFormat = useMemo(() => new Intl.ListFormat(i18n.language, { type: "conjunction" }), [i18n.language]);
 
   const personPhoto = useCallback((id: string): PagePhoto | undefined => {
@@ -211,7 +222,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
    *  none of them pictured, its first suggested person. */
   const monthPicture = (i: number): Picture => {
     if (monthPictures[i]) return monthPictures[i];
-    const ids = monthCelebrated[i].length ? monthCelebrated[i] : monthPeople[i].slice(0, 1);
+    const celebrated = monthCelebrated[i].filter((id, k, all) => all.findIndex((x) => photoPath(x) === photoPath(id)) === k);
+    const ids = celebrated.length ? celebrated : monthPeople[i].slice(0, 1);
     return { kind: "photos", items: ids.map((id) => ({ kind: "person", id })), collage: "scattered" };
   };
 
@@ -253,6 +265,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     const photos = pic.items
       .map((it): PagePhoto | undefined => (it.kind === "file" ? { url: it.url } : personPhoto(it.id)))
       .filter((x): x is PagePhoto => !!x)
+      .filter((x, i, all) => all.findIndex((y) => y.url === x.url) === i)
       .map((p) => (captions ? p : { url: p.url }));
     return <PhotoArea photos={photos} collage={pic.collage} />;
   };
