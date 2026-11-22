@@ -80,6 +80,14 @@ export const CALENDAR_CSS = `
 .cal-credit { display: inline-flex; align-items: center; gap: 0.5em; }
 .cal-credit svg { width: 1.6em; height: 1.6em; }
 .cal-legend + .cal-foot { padding-top: 0.3em; }
+.cal-stats { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 0.8em;
+  padding: 1.2em 1.6em; background: color-mix(in srgb, var(--accent) 7%, var(--paper)); border-radius: 0.3em; text-align: center; }
+.cal-stats-title { font-size: 1.5em; color: var(--accent); }
+.cal-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(8em, 1fr)); gap: 0.6em 1em; }
+.cal-stat-label { font-size: 0.72em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.cal-stat-num { font-size: 2.2em; color: var(--accent); line-height: 1.1; }
+.cal-cover .cal-stats { font-size: 1.6em; gap: 1.4em; }
+.cal-stats-lines { font-size: 0.85em; color: var(--ink); display: flex; flex-direction: column; gap: 0.2em; }
 .cal-cover { align-items: center; text-align: center; }
 .cal-cover-title { font-size: 3em; color: var(--accent); margin: 0.4em 0 0.1em; }
 .cal-cover-year { font-size: 2em; color: var(--muted); }
