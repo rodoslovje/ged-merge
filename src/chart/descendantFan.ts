@@ -99,8 +99,9 @@ function fontOf(gen: number): number {
 
 /** The forms a descendant's name is tried in, longest first, where the wedge
  *  or band has no room for all of it: the name as displayed, then without the
- *  parenthesised married surname, then the given name alone — the surname
- *  repeats down a line, and a spouse's band reads like everyone else's wedge.
+ *  parenthesised married surname, then the given names alone, then the first
+ *  given name — the surname repeats down a line, and a spouse's band reads
+ *  like everyone else's wedge.
  *  Read from the record's own name parts where there are any, so a
  *  surname-first display order cannot mislead; a redacted living person has
  *  only their placeholder. Never an initial or an ellipsis: a name that fits
@@ -112,7 +113,8 @@ export function nameForms(node: TreeNode, shown: string): string[] {
   const primary = node.main?.names[0] ?? node.incoming?.names[0];
   const tokens = bare.split(" ").filter(Boolean);
   const given = primary?.given?.trim() || (tokens.length > 1 ? tokens.slice(0, -1).join(" ") : "");
-  return [...new Set([full, bare, given].map((f) => f.trim()).filter(Boolean))];
+  const first = given.trim().split(/\s+/)[0] ?? "";
+  return [...new Set([full, bare, given, first].map((f) => f.trim()).filter(Boolean))];
 }
 
 /** The name lines of a radial (outward-reading) label: the first form that
@@ -159,7 +161,7 @@ export function buildDescendantFanChart(
   // The band lane for the marriages of generation `gen` (it sits just outside
   // that generation's ring): one curved line for the spouse's name, two when
   // a marriage field is shown as well.
-  const bandFont = (gen: number) => round(fontOf(gen) * 0.9);
+  const bandFont = (gen: number) => round(fontOf(gen) * 0.8);
   const bandW = (gen: number) => round(bandFont(gen) * 1.9);
 
   // 2. Where the rings run out: a ring is drawn only while it has an inner-edge
