@@ -102,7 +102,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const [step, setStep] = useState(0);
   const [format, setFormat] = useState<CalendarFormat>("wallTop");
   const [scheme, setScheme] = useState<CalendarScheme>("gedmerge");
-  const [livingNames, setLivingNames] = useState<LivingNames>("given");
+  const [livingNames, setLivingNames] = useState<LivingNames>("initial");
   const [showAge, setShowAge] = useState(true);
   const [captions, setCaptions] = useState(true);
   const entryOpts = useMemo(() => ({ names: livingNames, age: showAge }), [livingNames, showAge]);
