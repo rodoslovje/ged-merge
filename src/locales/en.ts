@@ -3947,4 +3947,5 @@ export const en = {
   "calendar.stats.oldest_M": "Oldest known ancestor: {{name}} ({{year}})",
   "calendar.stats.oldest_F": "Oldest known ancestor: {{name}} ({{year}})",
   "calendar.stats.surname": "Most common surname: {{name}}",
+  "calendar.captions": "Show names on the photos",
 };
