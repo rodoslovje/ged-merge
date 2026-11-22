@@ -51,7 +51,7 @@ export function FanSiblingsToggle() {
   const { t } = useTranslation();
   const { settings, set } = useChartSettings();
   return (
-    <label className="kin-year" title={t("tree.siblings.tooltip")}>
+    <label className="kin-year fan-siblings-toggle" title={t("tree.siblings.tooltip")}>
       <input type="checkbox" checked={settings.fanSiblings} onChange={(e) => set({ fanSiblings: e.target.checked })} />
       {t("tree.siblings")}
     </label>

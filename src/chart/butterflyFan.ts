@@ -14,7 +14,6 @@ import {
   TAU,
   buildFanChart,
   fanResolvers,
-  labelBand,
   labelTexts,
   round,
   sectorPath,
@@ -34,9 +33,9 @@ const MIN_SHARE = 0.3;
 const MAX_SHARE = 0.7;
 
 /** Brothers and sisters ride the two notches: one wedge each, this wide… */
-export const SIBLING_STEP = (11 / 360) * TAU;
+export const SIBLING_STEP = (14 / 360) * TAU;
 /** …until a side holds this much, when its wedges narrow to share it. */
-export const SIBLING_SIDE_MAX = (66 / 360) * TAU;
+export const SIBLING_SIDE_MAX = (70 / 360) * TAU;
 /** The gap either side of a notch's sibling wedges. */
 const SIBLING_GAP = (4 / 360) * TAU;
 /** The sibling wedges run out across the first two rings: nobody else is
@@ -67,17 +66,17 @@ export function butterflySplit(
 
 /** Build the radial bowtie from the root's ancestor and descendant trees —
  *  and, when given, the root's brothers and sisters in the two notches: the
- *  older on the right, the younger on the left. Clockwise from the top of the
- *  right notch the whole row then reads oldest to youngest, as the children
- *  below do. */
+ *  older on the left, the younger on the right. Counter-clockwise from the top
+ *  of the left notch the whole row then reads oldest to youngest, as the
+ *  children below do from left to right. */
 export function buildButterflyChart(
   ancestors: TreeNode,
   descendants: TreeNode,
   opts: FanChartOptions = {},
   siblings?: SiblingRow,
 ): FanChart {
-  const right = notchSweep(siblings?.older.length ?? 0);
-  const left = notchSweep(siblings?.younger.length ?? 0);
+  const right = notchSweep(siblings?.younger.length ?? 0);
+  const left = notchSweep(siblings?.older.length ?? 0);
   const sweeps = butterflySplit(countTreePeople(ancestors), countTreePeople(descendants), right + left);
   // The ancestors centred on the top; clockwise from them the right notch,
   // the descendants and the left notch. With notches of one width the
@@ -93,8 +92,8 @@ export function buildButterflyChart(
   // around one centre, and ring for ring their labels are sized and weighted
   // alike, so a descendant never reads larger or bolder than an ancestor at
   // the same remove.
-  const hasSiblings = !!siblings && siblings.older.length + siblings.younger.length > 0;
-  const r = Math.max(a.cx, d.cx, hasSiblings ? SIBLING_R_OUT : 0);
+  const sibs = siblings ? siblingLabels([...siblings.older, ...siblings.younger], opts) : undefined;
+  const r = Math.max(a.cx, d.cx, sibs?.rOut ?? 0);
   const rings = Math.max(a.rings, d.rings);
   a = buildFanChart(ancestors, "circle", { ...opts, arc: arcA, radius: r, fontRings: rings });
   d = buildDescendantFanChart(descendants, "circle", { ...opts, arc: arcD, radius: r, fontRings: rings });
@@ -104,8 +103,8 @@ export function buildButterflyChart(
     segments: [
       ...d.segments.map((s) => ({ ...s, cap: d.maxGen })),
       ...a.segments.filter((s) => s.gen > 0).map((s) => ({ ...s, key: ANCESTOR_KEY_PREFIX + s.key, cap: a.maxGen })),
-      ...(siblings ? siblingSegments(siblings.older, rightStart, right, r, opts, "o") : []),
-      ...(siblings ? siblingSegments(siblings.younger, leftStart, left, r, opts, "y") : []),
+      ...(siblings && sibs ? siblingSegments(siblings.older, leftStart, left, r, opts, sibs.rOut, "o") : []),
+      ...(siblings && sibs ? siblingSegments(siblings.younger, rightStart, right, r, opts, sibs.rOut, "y") : []),
     ],
     marriages: [...d.marriages, ...a.marriages.map((m) => ({ ...m, key: ANCESTOR_KEY_PREFIX + m.key }))],
     cx: r,
@@ -119,15 +118,37 @@ export function buildButterflyChart(
   };
 }
 
-/** One notch's sibling wedges, laid clockwise from `start` inside its gaps.
- *  Their labels read outward, as the deep rings' do — at the notches, which
- *  sit near the horizontal, that is nearly level text. */
+const SIBLING_R_IN = ROOT_R + 8;
+const SIBLING_FONT = FONT_BY_GEN[2];
+/** Room at either end of a sibling's label, inside its wedge. */
+const SIBLING_PAD = 12;
+
+/** A label line's rough length in px — wide enough for the bold name face. */
+const lineLength = (text: string) => text.length * SIBLING_FONT * 0.56;
+
+/** The sibling wedges' outer radius: as deep as the longest one-line label
+ *  needs, at least the first ring and at most the first two — so the wedges
+ *  end where their names do instead of trailing off empty. */
+function siblingLabels(row: Sibling[], opts: FanChartOptions): { rOut: number } | undefined {
+  if (row.length === 0) return undefined;
+  const { dispOf } = fanResolvers(opts);
+  const longest = Math.max(...row.flatMap(({ node }) => labelTexts({ ...dispOf(node), place: undefined }, false).map((l) => lineLength(l.text))));
+  const rOut = Math.min(SIBLING_R_OUT, Math.max(ROOT_R + PHOTO_RING_W, SIBLING_R_IN + longest + 2 * SIBLING_PAD + 6));
+  return { rOut };
+}
+
+/** One notch's sibling wedges inside its gaps, the first of `row` at the
+ *  counter-clockwise end's far side — the top of the left notch, the bottom
+ *  of the right one. Their labels read outward, as the deep rings' do — at
+ *  the notches, which sit near the horizontal, that is nearly level text —
+ *  and sit towards the outer end, where the wedge is widest. */
 function siblingSegments(
   row: Sibling[],
   start: number,
   sweep: number,
   r: number,
   opts: FanChartOptions,
+  rOut: number,
   side: "o" | "y",
 ): FanSegment[] {
   if (row.length === 0) return [];
@@ -135,19 +156,24 @@ function siblingSegments(
   const delta = (sweep - 2 * SIBLING_GAP) / row.length;
   const cx = r;
   const cy = r;
-  const rIn = ROOT_R + 6;
-  const rOut = SIBLING_R_OUT;
+  const rIn = SIBLING_R_IN;
   const rMid = (rIn + rOut) / 2;
-  const fontPx = FONT_BY_GEN[2];
-  const band = labelBand(rIn, rOut);
+  const fontPx = SIBLING_FONT;
+  const lo = rIn + SIBLING_PAD;
+  const hi = rOut - SIBLING_PAD;
   return row.map(({ node, half }, i) => {
-    const a0 = start + SIBLING_GAP + i * delta;
+    // Counter-clockwise: the first sibling takes the wedge at the far end.
+    const a0 = start + SIBLING_GAP + (row.length - 1 - i) * delta;
     const a1 = a0 + delta;
     const mid = (a0 + a1) / 2;
-    const disp = dispOf(node);
-    const texts = labelTexts(disp, disp.name.length * fontPx * 0.5 > band.depth);
+    // Name and lifespan only: like the descendants, a sibling drops the place.
+    const disp = { ...dispOf(node), place: undefined };
+    const texts = labelTexts(disp, lineLength(disp.name) > hi - lo);
     const n = texts.length;
-    const gap = Math.min(round(fontPx * 1.22), Math.max(1, (band.mid * delta - 2) / n));
+    const len = Math.min(hi - lo, Math.max(...texts.map((l) => lineLength(l.text))));
+    // The label's centre: its outer end at the wedge's outer padding.
+    const rLabel = hi - len / 2;
+    const gap = Math.min(round(fontPx * 1.22), Math.max(1, (rLabel * delta - 2) / n));
     const flip = Math.cos(mid) < 0;
     const deg = (mid * 180) / Math.PI + (flip ? 180 : 0);
     return {
@@ -161,7 +187,7 @@ function siblingSegments(
       y: cy + rMid * Math.sin(mid),
       fontPx,
       curved: false,
-      labelTransform: `translate(${round(cx + band.mid * Math.cos(mid))},${round(cy + band.mid * Math.sin(mid))}) rotate(${round(deg)})`,
+      labelTransform: `translate(${round(cx + rLabel * Math.cos(mid))},${round(cy + rLabel * Math.sin(mid))}) rotate(${round(deg)})`,
       lines: texts.map((l, j) => ({ ...l, dy: round((j - (n - 1) / 2) * gap) })),
       badge: { x: round(cx + (rIn + 12) * Math.cos(mid)), y: round(cy + (rIn + 12) * Math.sin(mid)) },
       ...(half ? { half } : null),

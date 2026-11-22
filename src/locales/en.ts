@@ -2384,7 +2384,7 @@ export const en = {
   "tree.shape.fan": "Fan",
   "tree.shape.circle": "Circle",
   "tree.siblings": "Siblings",
-  "tree.siblings.tooltip": "Show the brothers and sisters of the person in the centre beside the circle: the older on the right, the younger on the left. Half-siblings have a dashed outline.",
+  "tree.siblings.tooltip": "Show the brothers and sisters of the person in the centre beside the circle: the older on the left, the younger on the right. Half-siblings have a dashed outline.",
   "tree.settings.alignment": "Alignment",
   "tree.settings.alignment.lr": "Left → Right",
   "tree.settings.alignment.tb": "Top → Bottom",

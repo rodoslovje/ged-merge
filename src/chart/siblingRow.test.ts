@@ -57,12 +57,13 @@ describe("buildButterflyChart with siblings", () => {
   const chart = buildButterflyChart(anc, desc, {}, buildSiblingRow(tr, root, DS));
   const sibs = chart.segments.filter((s) => s.key.startsWith(SIBLING_KEY_PREFIX));
 
-  it("puts the older on the right and the younger on the left", () => {
+  it("puts the older on the left and the younger on the right, eldest and youngest at the top", () => {
     expect(sibs).toHaveLength(5);
-    for (const s of sibs) {
-      const right = s.x > chart.cx;
-      expect(right).toBe(s.key.startsWith(`${SIBLING_KEY_PREFIX}o`));
-    }
+    for (const s of sibs) expect(s.x < chart.cx).toBe(s.key.startsWith(`${SIBLING_KEY_PREFIX}o`));
+    const y = (key: string) => sibs.find((s) => s.key === SIBLING_KEY_PREFIX + key)!.y;
+    // Older: Vida (eldest) above Ana. Younger: Jože nearest the root, below Tone.
+    expect(y("o0")).toBeLessThan(y("o1"));
+    expect(y("y2")).toBeLessThan(y("y0"));
   });
 
   it("marks half-siblings and keeps every key unique", () => {
