@@ -26,6 +26,10 @@ export interface NodeDisplayOptions {
   /** Show the marriage place on the couple's connector / fan collar. */
   showMarriagePlace: boolean;
   privacyLiving: boolean;
+  /** A softer privacy for the living, kept apart from the switch above: the
+   *  name stays, but no years, age, place or photo — the family calendar's
+   *  charts, which go on a wall. */
+  livingNameOnly?: boolean;
 }
 
 /** Everything on. The neutral default when no settings are threaded through. */
@@ -256,6 +260,9 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
       kinship: undefined,
       showPhoto: false,
     };
+  }
+  if (opts.livingNameOnly && input.living) {
+    return { name: input.name, years: undefined, place: undefined, kinship: undefined, showPhoto: false };
   }
   return {
     name: input.name,

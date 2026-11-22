@@ -5,6 +5,7 @@
 
 import type { Dataset, GedDate, GedEvent, Individual } from "../gedcom/types";
 import { isDeceased, isPresumedLiving } from "../gedcom/lifespan";
+import { unionMark } from "../gedcom/union";
 
 /** Whose birthdays the calendar shows: the recipient's descendants only, or
  *  every blood relative up to cousins of the given degree (0 — parents,
@@ -129,11 +130,14 @@ function ancestorGens(ds: Dataset, startId: string, max: number): Map<string, nu
   return map;
 }
 
+/** The partners `id` is still with: a couple the file records as divorced,
+ *  annulled or living apart is left out. */
 function spousesOf(ds: Dataset, id: string): string[] {
   const out: string[] = [];
   for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
     const fam = ds.families.get(famId);
-    const other = fam?.husband === id ? fam.wife : fam?.husband;
+    if (!fam || unionMark(fam).ended) continue;
+    const other = fam.husband === id ? fam.wife : fam.husband;
     if (other) out.push(other);
   }
   return out;
@@ -187,7 +191,7 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
       if (seenFam.has(famId)) continue;
       seenFam.add(famId);
       const fam = ds.families.get(famId);
-      if (!fam?.husband || !fam.wife || fam.events.some((e) => e.tag === "DIV")) continue;
+      if (!fam?.husband || !fam.wife || unionMark(fam).ended) continue;
       const marr = fam.events.find((e) => e.tag === "MARR")?.date;
       const pair = [fam.husband, fam.wife];
       if (!dayOf(marr) || !pair.every((p) => living(ds.individuals.get(p)))) continue;
