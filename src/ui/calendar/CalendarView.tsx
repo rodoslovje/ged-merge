@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Dataset } from "../../gedcom/types";
+import type { Dataset, Individual } from "../../gedcom/types";
+import { reducedName } from "../../gedcom/nameDisplay";
 import { buildCalendar, byDay, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
-import { CELL_NAMES, nameAndKinship, factDate, factSentence, monthName, yearsAgo, type CellNames, type PersonWords } from "../../calendar/text";
+import { LIVING_NAMES, nameAndKinship, factDate, factSentence, monthName, yearsAgo, type LivingNames, type PersonWords } from "../../calendar/text";
 import { createKinshipResolver } from "../../match/kinship";
 import { primaryName } from "../../match/relatives";
-import { isDeceased, lifespanOf } from "../../gedcom/lifespan";
+import { isDeceased, isPresumedLiving, lifespanOf } from "../../gedcom/lifespan";
 import { ChartPage } from "../ChartPage";
 import { ChartRootTitle } from "../ChartRootTitle";
 import { StartPersonSelector } from "../StartPersonSelector";
@@ -66,10 +67,10 @@ const FAN_GENERATIONS = 4;
 /** Steps: settings, cover, twelve months, review. */
 const MONTH_STEP0 = 2;
 const REVIEW_STEP = MONTH_STEP0 + 12;
-/** The calendar's charts hang on a wall: the living show by name only — no
+/** The calendar's charts hang on a wall: the living show by the names choice only — no
  *  years or age — and no couple's wedding year is written. */
 const FAN_DISPLAY_OFF = {
-  showKinship: false, showPhoto: false, livingNameOnly: true, showMarriageDate: false, showMarriagePlace: false,
+  showKinship: false, showPhoto: false, privacyLiving: true, showMarriageDate: false, showMarriagePlace: false,
 } as const;
 
 /** A tree's largest scale on the page: a 220-px box at most 12 em wide. */
@@ -101,10 +102,10 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const [step, setStep] = useState(0);
   const [format, setFormat] = useState<CalendarFormat>("wallTop");
   const [scheme, setScheme] = useState<CalendarScheme>("gedmerge");
-  const [cellNames, setCellNames] = useState<CellNames>("given");
+  const [livingNames, setLivingNames] = useState<LivingNames>("given");
   const [showAge, setShowAge] = useState(true);
   const [captions, setCaptions] = useState(true);
-  const entryOpts = useMemo(() => ({ names: cellNames, age: showAge }), [cellNames, showAge]);
+  const entryOpts = useMemo(() => ({ names: livingNames, age: showAge }), [livingNames, showAge]);
   const [country, setCountry] = useState<CountryChoice>(() => (i18n.language === "hr" ? "hr" : i18n.language === "sl" ? "si" : "none"));
   const [opts, setOpts] = useState<CalendarOptions>(() => ({
     // From September on, the calendar is for the year to come.
@@ -135,8 +136,29 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   }, [rootId, opts]);
 
   const kinship = useMemo(() => createKinshipResolver(mainDs, rootId, t), [mainDs, rootId, t]);
+  // The living go by the names choice everywhere on the calendar — the day
+  // cells, the lines, the captions and the charts; the dead by their full name.
+  const livingNameOf = useCallback(
+    (p: Individual | undefined): string | undefined => {
+      if (!p) return undefined;
+      const n = primaryName(p);
+      if (livingNames === "full") return nameOf(p);
+      if (livingNames === "initial") {
+        const given = n?.given?.trim();
+        const initial = n?.surname?.trim().charAt(0).toLocaleUpperCase();
+        if (given) return nameOf({ full: initial ? `${given} ${initial}.` : given, given, surname: initial && `${initial}.` });
+      }
+      const reduced = reducedName(n, livingNames === "initials" ? "initials" : "given");
+      return reduced ? nameOf(reduced) : undefined;
+    },
+    [livingNames, nameOf],
+  );
   const words: PersonWords = useMemo(() => ({
-    name: (id) => { const p = mainDs.individuals.get(id); return p ? nameOf(p) : id; },
+    name: (id) => {
+      const p = mainDs.individuals.get(id);
+      if (!p) return id;
+      return ((isPresumedLiving(p, mainDs) || p.private) && livingNameOf(p)) || nameOf(p);
+    },
     given: (id) => {
       const p = mainDs.individuals.get(id);
       return primaryName(p!)?.given?.split(/\s+/)[0] || (p ? nameOf(p) : id);
@@ -144,7 +166,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     surname: (id) => { const p = mainDs.individuals.get(id); return p ? primaryName(p)?.surname?.trim() || undefined : undefined; },
     kinship: (id) => (id === rootId ? undefined : kinship.label(id)),
     sex: (id) => mainDs.individuals.get(id)?.sex,
-  }), [mainDs, nameOf, kinship, rootId]);
+  }), [mainDs, nameOf, kinship, rootId, livingNameOf]);
 
   // Photos: each person's first image, resolved through the linked media folder.
   const media = useMediaFolder();
@@ -256,9 +278,9 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const { settings } = useChartSettings();
   const fanDisplay = useMemo(() => ({ ...settings, ...FAN_DISPLAY_OFF }), [settings]);
   const noPhoto = useCallback(() => false, []);
-  const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, siblings, hasPhoto: noPhoto, display: fanDisplay });
-  const { fan: fanAnc } = useFanChart(trees.ancestors, "fan", { mode: "ancestors", hasPhoto: noPhoto, display: fanDisplay });
-  const { fan: fanDesc } = useFanChart(trees.descendants, "fan", { mode: "descendants", hasPhoto: noPhoto, display: fanDisplay });
+  const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, siblings, hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
+  const { fan: fanAnc } = useFanChart(trees.ancestors, "fan", { mode: "ancestors", hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
+  const { fan: fanDesc } = useFanChart(trees.descendants, "fan", { mode: "descendants", hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
   const fanBody = (chart: FanChart | undefined, desc: (key: string, gen: number) => boolean) =>
     chart ? (
       <FanChartBody
@@ -289,6 +311,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         colorOf={(n) => (desc && n.key !== t.root.key ? "var(--node-desc)" : "var(--node-main)")}
         mainRecords={mainDs.records}
         display={fanDisplay}
+        livingNameOf={livingNameOf}
         nodeH={treeNodeH}
         nativeTooltip={false}
       />
@@ -432,8 +455,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         </label>
         <label className="cal-field">
           <span>{t("calendar.names")}</span>
-          <select value={cellNames} onChange={(e) => setCellNames(e.target.value as CellNames)}>
-            {CELL_NAMES.map((k) => <option key={k} value={k}>{t(`calendar.names.${k}`)}</option>)}
+          <select value={livingNames} onChange={(e) => setLivingNames(e.target.value as LivingNames)}>
+            {LIVING_NAMES.map((k) => <option key={k} value={k}>{t(`calendar.names.${k}`)}</option>)}
           </select>
         </label>
         <label className="cal-check">

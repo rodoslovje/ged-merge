@@ -22,11 +22,11 @@ function person(events: { tag: string; place?: string; address?: string; year?: 
 const opts = (patch: Partial<NodeDisplayOptions> = {}): NodeDisplayOptions => ({ ...ALL_DISPLAY, ...patch });
 const base = { name: "Janez Novak", years: "1817–1890", place: "Kranj", kinship: "2nd cousin", livingLabel: "Living" };
 
-describe("nodeDisplay: the living by name only", () => {
+describe("nodeDisplay: the living by a kept name only", () => {
   it("keeps the name and drops the years, age, place and photo", () => {
-    const opts: NodeDisplayOptions = { ...ALL_DISPLAY, showAge: true, livingNameOnly: true };
-    const input = { name: "Ana Novak", years: "1990", age: 36, place: "Kranj", living: true, livingLabel: "Living" };
-    expect(nodeDisplay(opts, input)).toEqual({ name: "Ana Novak", years: undefined, place: undefined, kinship: undefined, showPhoto: false });
+    const opts: NodeDisplayOptions = { ...ALL_DISPLAY, showAge: true, privacyLiving: true };
+    const input = { name: "Ana Novak", years: "1990", age: 36, place: "Kranj", living: true, livingLabel: "Living", livingName: "Ana N." };
+    expect(nodeDisplay(opts, input)).toEqual({ name: "Ana N.", years: undefined, place: undefined, kinship: undefined, showPhoto: false });
     // The dead keep everything.
     expect(nodeDisplay(opts, { ...input, living: false }).years).toBe("1990 (36)");
   });

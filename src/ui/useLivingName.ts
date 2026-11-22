@@ -12,12 +12,15 @@ import { useNameOf } from "./SettingsContext";
  * "anonymous" choice — the caller then writes the relationship to the start
  * person, else "Living", as before. A person flagged private keeps no name
  * under any choice, as on the family website.
+ *
+ * A view with its own naming of the living (the family calendar) hands in
+ * `override`, which then answers instead.
  */
-export function useLivingNameOf(): (indi: Individual | undefined) => string | undefined {
+export function useLivingNameOf(override?: LivingNameOf): LivingNameOf {
   const { settings } = useChartSettings();
   const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
   const mode = settings.livingName;
-  return useCallback(
+  const fromSettings = useCallback(
     (indi: Individual | undefined) => {
       if (!indi || indi.private || mode === "anonymous") return undefined;
       if (mode === "name") return nameOf(indi);
@@ -26,4 +29,8 @@ export function useLivingNameOf(): (indi: Individual | undefined) => string | un
     },
     [mode, nameOf],
   );
+  return override ?? fromSettings;
 }
+
+/** The name a redacted living person keeps, or undefined for none. */
+export type LivingNameOf = (indi: Individual | undefined) => string | undefined;

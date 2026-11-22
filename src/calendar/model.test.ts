@@ -75,6 +75,10 @@ describe("buildCalendar", () => {
     const life = buildCalendar(ds, "@I1@", { ...base, memorial: "lifetime" }, NOW);
     const mem = life.months.flatMap((m) => m.entries).filter((e) => e.kind === "memorial").map((e) => e.ids[0]);
     expect(mem.sort()).toEqual(["@I2@", "@I5@"]);
+    // A memorial carries the year of the death, never the years since it.
+    const father = life.months[10].entries.find((e) => e.kind === "memorial" && e.ids[0] === "@I2@");
+    expect(father).toMatchObject({ day: 9, deathYear: 2010 });
+    expect(father?.years).toBeUndefined();
   });
 
   it("marks memorial days up to a degree of kinship, however long ago", () => {
