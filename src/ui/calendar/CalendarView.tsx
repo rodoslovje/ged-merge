@@ -206,6 +206,11 @@ type Picture =
  *  chart or the numbers, as a month's picture can. */
 type Back = { kind: "overview" } | { kind: "gallery" } | { kind: "none" } | Exclude<Picture, { kind: "photos" }>;
 const BACK_KINDS: Back["kind"][] = ["overview", "gallery", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats", "none"];
+/** A back-page choice's name: its own for the year, the gallery and none,
+ *  the picture's for a chart or the numbers. */
+function backKindLabel(t: (key: string) => string, kind: Back["kind"]): string {
+  return kind === "overview" || kind === "gallery" || kind === "none" ? t(`calendar.back.${kind}`) : t(`calendar.picture.${kind}`);
+}
 const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats"];
 
 const sameItem = (a: PhotoItem, b: PhotoItem) =>
@@ -502,7 +507,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     <BackPage
       format={format}
       scheme={scheme}
-      title={back.kind === "overview" ? String(opts.year) : t(`calendar.back.${back.kind}`)}
+      title={back.kind === "overview" ? String(opts.year) : backKindLabel(t, back.kind)}
       signature={work.signature}
       made={made}
       site={site}
@@ -724,7 +729,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           <span>{t("calendar.back")}</span>
           <select value={work.back.kind} onChange={(e) => setBack({ kind: e.target.value } as Back)}>
             {BACK_KINDS.map((k) => (
-              <option key={k} value={k}>{k === "overview" || k === "gallery" || k === "none" ? t(`calendar.back.${k}`) : t(`calendar.picture.${k}`)}</option>
+              <option key={k} value={k}>{backKindLabel(t, k)}</option>
             ))}
           </select>
         </label>
