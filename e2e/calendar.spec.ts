@@ -30,6 +30,9 @@ test("the family calendar walks from settings to a review of every page", async 
   for (let i = 0; i < 3; i++) await next.click();
   await expect(page.locator(".cal-step-label")).toHaveText(/^March/);
   await expect(page.locator(".cal-preview .cal-list")).toContainText("Marija K., mother (65)"); // the living by the default "Given name and surname initial"
+  // Every week is as tall as the others, however busy its days.
+  const heights = await page.locator(".cal-preview .cal-grid tbody tr").evaluateAll((rows) => rows.map((r) => r.getBoundingClientRect().height));
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
 
   // June offers the grandfather's birth, wedding and death; the centenary of
   // his death is picked, and the wedding can be added beside it.

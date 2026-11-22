@@ -165,6 +165,10 @@ function Grid({ year, month, holidays, words, entryOpts }: MonthProps) {
               const cls = [di === 5 && "cal-sat", di === 6 && "cal-sun", names && "cal-hol"].filter(Boolean).join(" ");
               return (
                 <td key={di} className={cls || undefined}>
+                  {/* The day's content floats over its cell, so a busy day
+                      never stretches its week: every row stays as tall as
+                      the others. */}
+                  <div className="cal-cell">
                   <div className="cal-day">{day}</div>
                   {names && <div className="cal-holname">{[...new Set(names)].join(", ")}</div>}
                   {byDay.get(day)?.filter((e) => e.kind !== "memorial").map((e, i) => (
@@ -185,6 +189,7 @@ function Grid({ year, month, holidays, words, entryOpts }: MonthProps) {
                       ))}
                     </div>
                   )}
+                  </div>
                 </td>
               );
             })}
