@@ -4441,4 +4441,5 @@ export const sl = {
   "calendar.dedication.placeholder": "Za mamo, z ljubeznijo — vsi tvoji",
   "calendar.large": "Velika pisava — imena s sorodstvom, za starejše bralce",
   "calendar.legend.round": "okrogel rojstni dan ali jubilej",
+  "calendar.notKept": "Izbire veljajo, dokler ne zapustite te strani. Če jih želite ohraniti, v Nastavitvah vklopite »Zapomni si moje delo v tem brskalniku«.",
 };
