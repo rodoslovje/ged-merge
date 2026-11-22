@@ -76,6 +76,9 @@ export interface EntryOptions {
   names: LivingNames;
   /** Show the age turned and the years married. */
   age: boolean;
+  /** Large print, for an older reader: the given name with the kinship —
+   *  "Tim (great-grandson)" — and no number. */
+  large?: boolean;
 }
 
 /** A name on a day cell. The living go by the choice — `words.name` already
@@ -91,6 +94,14 @@ function cellName(words: PersonWords, e: DayEntry, id: string, style: LivingName
 /** The short form for a day cell: the names as chosen, the number after — on
  *  a memorial day always the year of the death. */
 export function entryCell(t: Translate, words: PersonWords, e: DayEntry, opts: EntryOptions): string {
+  // Large print shortens the living to the given name (the initials, when
+  // that is the choice); a memorial day keeps its full name and year.
+  if (opts.large && e.kind !== "memorial") {
+    const short = (id: string) => (opts.names === "initials" ? words.name(id) : words.given(id));
+    if (e.ids.length === 2) return t("calendar.couple", { a: short(e.ids[0]), b: short(e.ids[1]) });
+    const k = words.kinship(e.ids[0]);
+    return k ? `${short(e.ids[0])} (${lowerFirst(k)})` : short(e.ids[0]);
+  }
   const [a, b] = e.ids.map((id) => cellName(words, e, id, opts.names));
   const names = e.ids.length === 2 ? t("calendar.couple", { a, b }) : a;
   if (e.kind === "memorial") return e.deathYear !== undefined ? `${names} ${e.deathYear}` : names;
