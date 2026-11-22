@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { buildCalendar, monthWeeks, relativesInScope, type CalendarOptions } from "./model";
+import { buildCalendar, isRoundAnniversary, monthWeeks, relativesInScope, type CalendarOptions } from "./model";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -112,6 +112,17 @@ describe("partners", () => {
     expect(named(dated)).toContain("@I11@");
     expect(named(ended("DIV"))).not.toContain("@I11@");
     expect(named(ended("SEPA"))).not.toContain("@I11@");
+  });
+});
+
+describe("isRoundAnniversary", () => {
+  it("marks round birthdays and jubilee weddings, never a memorial day", () => {
+    expect(isRoundAnniversary({ kind: "birthday", day: 1, ids: ["a"], years: 80 })).toBe(true);
+    expect(isRoundAnniversary({ kind: "birthday", day: 1, ids: ["a"], years: 37 })).toBe(false);
+    expect(isRoundAnniversary({ kind: "birthday", day: 1, ids: ["a"] })).toBe(false);
+    expect(isRoundAnniversary({ kind: "anniversary", day: 1, ids: ["a", "b"], years: 25 })).toBe(true);
+    expect(isRoundAnniversary({ kind: "anniversary", day: 1, ids: ["a", "b"], years: 15 })).toBe(false);
+    expect(isRoundAnniversary({ kind: "memorial", day: 1, ids: ["a"], years: 50 })).toBe(false);
   });
 });
 
