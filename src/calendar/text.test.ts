@@ -34,6 +34,15 @@ describe("entryCell", () => {
   });
 });
 
+describe("entryCell in large print", () => {
+  it("gives the given name with the kinship, and no number", () => {
+    const opts = { names: "full" as const, age: true, large: true };
+    expect(entryCell(t, words, { kind: "birthday", day: 3, ids: ["a"], years: 37 }, opts)).toBe("Ana (sister)");
+    expect(entryCell(t, words, { kind: "birthday", day: 3, ids: ["b"], years: 37 }, opts)).toBe("Marko");
+    expect(entryCell(t, words, { kind: "anniversary", day: 8, ids: ["b", "a"], years: 10 }, opts)).toBe("Marko & Ana");
+  });
+});
+
 describe("entryLine", () => {
   it("gives the full name and kinship, the years only when asked", () => {
     const e = { kind: "birthday" as const, day: 3, ids: ["a"], years: 37 };

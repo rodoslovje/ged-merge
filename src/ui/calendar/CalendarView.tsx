@@ -104,7 +104,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const [cellNames, setCellNames] = useState<CellNames>("given");
   const [showAge, setShowAge] = useState(true);
   const [captions, setCaptions] = useState(true);
-  const entryOpts = useMemo(() => ({ names: cellNames, age: showAge }), [cellNames, showAge]);
+  const [large, setLarge] = useState(false);
+  const entryOpts = useMemo(() => ({ names: cellNames, age: showAge, large }), [cellNames, showAge, large]);
   const [country, setCountry] = useState<CountryChoice>(() => (i18n.language === "hr" ? "hr" : i18n.language === "sl" ? "si" : "none"));
   const [opts, setOpts] = useState<CalendarOptions>(() => ({
     // From September on, the calendar is for the year to come.
@@ -437,8 +438,12 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           </select>
         </label>
         <label className="cal-check">
-          <input type="checkbox" checked={showAge} onChange={(e) => setShowAge(e.target.checked)} />
+          <input type="checkbox" checked={showAge} disabled={large} onChange={(e) => setShowAge(e.target.checked)} />
           <span>{t("calendar.showAge")}</span>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={large} onChange={(e) => setLarge(e.target.checked)} />
+          <span>{t("calendar.large")}</span>
         </label>
         <label className="cal-check">
           <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} />

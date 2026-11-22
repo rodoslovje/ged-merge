@@ -64,6 +64,11 @@ export const CALENDAR_CSS = `
 .cal-birthday .cal-glyph { color: var(--glyph-birthday); }
 .cal-anniversary .cal-glyph { color: var(--glyph-anniversary); }
 .cal-memorial .cal-glyph { color: var(--glyph-memorial); }
+/* Large print, for an older reader: bigger day numbers and names, wrapped. */
+.cal-large .cal-day { font-size: 1.5em; }
+.cal-large .cal-entry { font-size: 0.95em; font-weight: 600; white-space: normal; line-height: 1.15; }
+.cal-large .cal-holname { font-size: 0.75em; }
+.cal-large .cal-facts { font-size: 1em; }
 .cal-lower { display: flex; align-items: flex-start; gap: 1.6em; margin-top: 0.8em; flex: 0 0 auto; }
 .cal-lower:empty { display: none; }
 .cal-lower > * { flex: 1 1 0; min-width: 0; }
