@@ -48,6 +48,7 @@ Keep every `{{placeholder}}` of the Slovenian twin (`keys.test.ts` checks it); `
 | plain text file / Report (chart kind) | tekstualna datoteka / tekstualno izvješće |
 | baptism / burial / godparent | krštenje / pokop / kum, kuma |
 | living / deceased | živ / preminuo |
+| offline | bez interneta, bez mreže, izvanmrežni — never *bez veze* (colloquially "pointless") |
 
 ## Undo
 
