@@ -90,6 +90,10 @@ export function PhotoArea({ photos, collage, style }: { photos: PagePhoto[]; col
       const w = a + 2 * PRINT_BORDER;
       const h = 1 + PRINT_BORDER + PRINT_STRIP;
       const r = rects[i];
+      // A print in the upper row is overlapped at its foot by the row below,
+      // so its caption goes on top, where it stays readable.
+      const upper = rects.some((o) => o !== r && o.y > r.y + r.h / 2);
+      const strip = pct((PRINT_STRIP / h) * 100);
       return (
         <div
           key={i}
@@ -99,9 +103,16 @@ export function PhotoArea({ photos, collage, style }: { photos: PagePhoto[]; col
           <img
             src={p.url}
             alt=""
-            style={{ left: pct((PRINT_BORDER / w) * 100), top: pct((PRINT_BORDER / h) * 100), width: pct((a / w) * 100), height: pct((1 / h) * 100) }}
+            style={{
+              left: pct((PRINT_BORDER / w) * 100),
+              top: pct(((upper && p.caption ? PRINT_STRIP : PRINT_BORDER) / h) * 100),
+              width: pct((a / w) * 100),
+              height: pct((1 / h) * 100),
+            }}
           />
-          {p.caption && <div className="cal-print-caption" style={{ height: pct((PRINT_STRIP / h) * 100) }}>{p.caption}</div>}
+          {p.caption && (
+            <div className="cal-print-caption" style={upper ? { top: 0, bottom: "auto", height: strip } : { height: strip }}>{p.caption}</div>
+          )}
         </div>
       );
     });
