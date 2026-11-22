@@ -47,7 +47,8 @@ export const CALENDAR_CSS = `
 .cal-grid th { font-weight: 700; font-size: 0.75em; color: var(--accent); text-align: left; padding: 0.25em 0.4em;
   background: color-mix(in srgb, var(--accent) 12%, var(--paper)); }
 .cal-grid th.cal-sun { color: var(--holiday); }
-.cal-grid td { border: 0.06em solid var(--rule); vertical-align: top; padding: 0.2em 0.3em; overflow: hidden; }
+.cal-grid td { position: relative; border: 0.06em solid var(--rule); vertical-align: top; padding: 0.2em 0.3em 0.2em; overflow: hidden; }
+.cal-mems { position: absolute; left: 0.3em; right: 0.3em; bottom: 0.2em; display: flex; flex-direction: column-reverse; }
 .cal-grid thead th { height: 1.2em; }
 .cal-grid td.cal-sat { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
 .cal-grid td.cal-sun, .cal-grid td.cal-hol { background: color-mix(in srgb, var(--holiday) 6%, var(--paper)); }
@@ -79,6 +80,7 @@ export const CALENDAR_CSS = `
   font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 0.6em; color: var(--muted); padding-top: 0.6em; }
 .cal-credit { display: inline-flex; align-items: center; gap: 0.5em; }
 .cal-credit svg { width: 1.6em; height: 1.6em; }
+.cal-brand { font-weight: 600; margin-left: -0.25em; }
 .cal-legend + .cal-foot { padding-top: 0.3em; }
 .cal-stats { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 0.8em;
   padding: 1.2em 1.6em; background: color-mix(in srgb, var(--accent) 7%, var(--paper)); border-radius: 0.3em; text-align: center; }
