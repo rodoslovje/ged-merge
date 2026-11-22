@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { buildCalendar, byDay, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
-import { factDate, factSentence, monthName, yearsAgo, type PersonWords } from "../../calendar/text";
+import { CELL_NAMES, factDate, factSentence, monthName, yearsAgo, type CellNames, type PersonWords } from "../../calendar/text";
 import { createKinshipResolver } from "../../match/kinship";
 import { primaryName } from "../../match/relatives";
 import { lifespanOf } from "../../gedcom/lifespan";
@@ -22,6 +22,7 @@ import { ANCESTOR_KEY_PREFIX } from "../../chart/treeLayout";
 import { escapeHtml, prepareDiagram, printDocument } from "../exportSvg";
 import { PrinterIcon } from "../icons/FormatIcons";
 import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
+import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
 import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, type PagePhoto } from "./CalendarPage";
 
 // The Charts hub's "Calendar" kind: a family calendar to give as a present,
@@ -60,6 +61,10 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
   const thisYear = new Date().getFullYear();
   const [step, setStep] = useState(0);
   const [format, setFormat] = useState<CalendarFormat>("wallTop");
+  const [scheme, setScheme] = useState<CalendarScheme>("gedmerge");
+  const [cellNames, setCellNames] = useState<CellNames>("given");
+  const [showAge, setShowAge] = useState(true);
+  const entryOpts = useMemo(() => ({ names: cellNames, age: showAge }), [cellNames, showAge]);
   const [country, setCountry] = useState<CountryChoice>(() => (i18n.language === "hr" ? "hr" : i18n.language === "sl" ? "si" : "none"));
   const [opts, setOpts] = useState<CalendarOptions>(() => ({
     // From September on, the calendar is for the year to come.
@@ -90,6 +95,7 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
       const p = mainDs.individuals.get(id);
       return primaryName(p!)?.given?.split(/\s+/)[0] || (p ? nameOf(p) : id);
     },
+    surname: (id) => { const p = mainDs.individuals.get(id); return p ? primaryName(p)?.surname?.trim() || undefined : undefined; },
     kinship: (id) => (id === rootId ? undefined : kinship.label(id)),
     sex: (id) => mainDs.individuals.get(id)?.sex,
   }), [mainDs, nameOf, kinship, rootId]);
@@ -165,6 +171,7 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
   const coverPage = (
     <CoverPage
       format={format}
+      scheme={scheme}
       year={opts.year}
       name={root ? nameOf(root) : ""}
       fan={cover.kind === "fan" ? fanNode : undefined}
@@ -175,12 +182,14 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
     <MonthPages
       key={i}
       format={format}
+      scheme={scheme}
       year={opts.year}
       month={data.months[i]}
       facts={factsOf(i)}
       holidays={holidays}
       photo={toPhoto(monthPhotos[i], monthPeople[i])}
       words={words}
+      entryOpts={entryOpts}
     />
   );
 
@@ -246,11 +255,44 @@ export function CalendarView({ mainDs, rootId, backLabel, onBack, onRootChange, 
             {CALENDAR_FORMATS.map((f) => <option key={f} value={f}>{t(`calendar.format.${f}`)}</option>)}
           </select>
         </label>
+        <div className="cal-field">
+          <span>{t("calendar.scheme")}</span>
+          <div className="cal-schemes" role="radiogroup" aria-label={t("calendar.scheme")}>
+            {CALENDAR_SCHEMES.map((k) => {
+              const p = PALETTES[k];
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={scheme === k}
+                  className={`cal-choice cal-scheme${scheme === k ? " active" : ""}`}
+                  onClick={() => setScheme(k)}
+                >
+                  <span className="cal-swatches" aria-hidden="true">
+                    {[p.accent, p.anniversary, p.holiday, p.tint].map((c, i) => <span key={i} style={{ background: c }} />)}
+                  </span>
+                  {t(`calendar.scheme.${k}`)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <label className="cal-field">
           <span>{t("calendar.scope")}</span>
           <select value={String(opts.scope)} onChange={(e) => setOpts({ ...opts, scope: e.target.value === "descendants" ? "descendants" : (Number(e.target.value) as CalendarScope) })}>
             {SCOPES.map((s) => <option key={s} value={String(s)}>{t(`calendar.scope.${s}`)}</option>)}
           </select>
+        </label>
+        <label className="cal-field">
+          <span>{t("calendar.names")}</span>
+          <select value={cellNames} onChange={(e) => setCellNames(e.target.value as CellNames)}>
+            {CELL_NAMES.map((k) => <option key={k} value={k}>{t(`calendar.names.${k}`)}</option>)}
+          </select>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={showAge} onChange={(e) => setShowAge(e.target.checked)} />
+          <span>{t("calendar.showAge")}</span>
         </label>
         <label className="cal-check">
           <input type="checkbox" checked={opts.partners} onChange={(e) => setOpts({ ...opts, partners: e.target.checked })} />

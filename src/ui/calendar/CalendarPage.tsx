@@ -2,7 +2,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { monthWeeks, type CalendarMonth, type DayEntry, type Fact } from "../../calendar/model";
 import type { Holiday } from "../../calendar/holidays";
-import { ENTRY_GLYPH, entryCell, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type PersonWords } from "../../calendar/text";
+import { schemeVars, type CalendarScheme } from "./schemes";
+import { ENTRY_GLYPH, entryCell, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
 
 // The family calendar's printed pages, drawn the same for the wizard's preview
 // and the print document (see calendarCss). One component per page kind; the
@@ -24,9 +25,14 @@ export interface PagePhoto {
   caption?: string;
 }
 
-function pageStyle(format: CalendarFormat, extra?: Record<string, string>): CSSProperties {
+function pageStyle(format: CalendarFormat, scheme: CalendarScheme, extra?: Record<string, string>): CSSProperties {
   const p = PAPER[format];
-  return { "--cal-ratio": `${p.w} / ${p.h}`, "--cal-ems": String(p.w / p.em), ...extra } as CSSProperties;
+  return { "--cal-ratio": `${p.w} / ${p.h}`, "--cal-ems": String(p.w / p.em), ...schemeVars(scheme), ...extra } as CSSProperties;
+}
+
+/** The living first (birthdays, anniversaries), the memorial days after them. */
+function livingFirst(entries: DayEntry[]): DayEntry[] {
+  return [...entries.filter((e) => e.kind !== "memorial"), ...entries.filter((e) => e.kind === "memorial")];
 }
 
 function Photo({ photo, style }: { photo?: PagePhoto; style?: CSSProperties }) {
@@ -41,6 +47,7 @@ function Photo({ photo, style }: { photo?: PagePhoto; style?: CSSProperties }) {
 
 interface CoverProps {
   format: CalendarFormat;
+  scheme: CalendarScheme;
   year: number;
   name: string;
   /** The cover's picture: a photo, or the fan chart's node. */
@@ -48,10 +55,10 @@ interface CoverProps {
   fan?: ReactNode;
 }
 
-export function CoverPage({ format, year, name, photo, fan }: CoverProps) {
+export function CoverPage({ format, scheme, year, name, photo, fan }: CoverProps) {
   const { t } = useTranslation();
   return (
-    <div className="cal-page cal-cover" style={pageStyle(format, { "--cal-pad-top": "3.4em" })}>
+    <div className="cal-page cal-cover" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
       <div className="cal-cover-title">{t("calendar.cover.title")}</div>
       <div className="cal-cover-year">{year}</div>
       <div className="cal-cover-name">{name}</div>
@@ -62,6 +69,7 @@ export function CoverPage({ format, year, name, photo, fan }: CoverProps) {
 
 interface MonthProps {
   format: CalendarFormat;
+  scheme: CalendarScheme;
   year: number;
   month: CalendarMonth;
   /** The facts chosen for this month (the month's defaults unless changed). */
@@ -69,18 +77,19 @@ interface MonthProps {
   holidays: Holiday[];
   photo?: PagePhoto;
   words: PersonWords;
+  entryOpts: EntryOptions;
 }
 
 /** One month: one page, or two for the wall calendar bound in the middle. */
 export function MonthPages(props: MonthProps) {
-  const { format, photo } = props;
+  const { format, scheme, photo } = props;
   if (format === "wallMiddle") {
     return (
       <>
-        <div className="cal-page" style={pageStyle(format, { "--cal-pad-top": "2em" })}>
+        <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "2em" })}>
           <Photo photo={photo} style={{ flex: "1 1 auto", marginBottom: "1.4em" }} />
         </div>
-        <div className="cal-page" style={pageStyle(format, { "--cal-pad-top": "3.4em" })}>
+        <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
           <Head {...props} />
           <div className="cal-grid-wrap"><Grid {...props} /></div>
           <div className="cal-lower">
@@ -94,7 +103,7 @@ export function MonthPages(props: MonthProps) {
   }
   if (format === "desk") {
     return (
-      <div className="cal-page cal-desk" style={pageStyle(format, { "--cal-pad-top": "3.2em" })}>
+      <div className="cal-page cal-desk" style={pageStyle(format, scheme, { "--cal-pad-top": "3.2em" })}>
         <Photo photo={photo} />
         <div className="cal-side">
           <Head {...props} />
@@ -107,7 +116,7 @@ export function MonthPages(props: MonthProps) {
     );
   }
   return (
-    <div className="cal-page" style={pageStyle(format, { "--cal-pad-top": "3.4em" })}>
+    <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
       <Photo photo={photo} style={{ height: "40%" }} />
       <Head {...props} />
       <div className="cal-grid-wrap"><Grid {...props} /></div>
@@ -130,10 +139,10 @@ function Head({ year, month }: MonthProps) {
   );
 }
 
-function Grid({ year, month, holidays, words }: MonthProps) {
+function Grid({ year, month, holidays, words, entryOpts }: MonthProps) {
   const { t, i18n } = useTranslation();
   const byDay = new Map<number, DayEntry[]>();
-  for (const e of month.entries) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e]);
+  for (const e of livingFirst(month.entries)) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e]);
   const hol = new Map<number, string[]>();
   for (const h of holidays) if (h.month === month.month) hol.set(h.day, [...(hol.get(h.day) ?? []), t(`calendar.holiday.${h.key}`)]);
   return (
@@ -151,7 +160,7 @@ function Grid({ year, month, holidays, words }: MonthProps) {
             {week.map((day, di) => {
               if (!day) return <td key={di} className="cal-blank" />;
               const names = hol.get(day);
-              const cls = [di === 6 && "cal-sun", names && "cal-hol"].filter(Boolean).join(" ");
+              const cls = [di === 5 && "cal-sat", di === 6 && "cal-sun", names && "cal-hol"].filter(Boolean).join(" ");
               return (
                 <td key={di} className={cls || undefined}>
                   <div className="cal-day">{day}</div>
@@ -159,7 +168,7 @@ function Grid({ year, month, holidays, words }: MonthProps) {
                   {byDay.get(day)?.map((e, i) => (
                     <div key={i} className={`cal-entry cal-${e.kind}`}>
                       <span className="cal-glyph">{ENTRY_GLYPH[e.kind]}</span>
-                      {entryCell(t, words, e)}
+                      {entryCell(t, words, e, entryOpts)}
                     </div>
                   ))}
                 </td>
@@ -172,16 +181,16 @@ function Grid({ year, month, holidays, words }: MonthProps) {
   );
 }
 
-function DayList({ month, words }: MonthProps) {
+function DayList({ month, words, entryOpts }: MonthProps) {
   const { t } = useTranslation();
   if (!month.entries.length) return null;
   return (
     <div className="cal-list">
-      {month.entries.map((e, i) => (
+      {livingFirst(month.entries).map((e, i) => (
         <div key={i} className={`cal-${e.kind}`}>
           <b>{e.day}.</b>
           <span className="cal-glyph">{ENTRY_GLYPH[e.kind]}</span>
-          {entryLine(t, words, e)}
+          {entryLine(t, words, e, entryOpts)}
         </div>
       ))}
     </div>
