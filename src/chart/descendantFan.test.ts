@@ -127,7 +127,7 @@ describe("buildDescendantFanChart", () => {
     const wife = person("F", "Ana Novak (Kovač)");
     expect(nameForms(wife, wife.name)).toEqual(["Ana Novak (Kovač)", "Ana Novak", "Ana"]);
     const husband = person("M", "Janez Peter Novak");
-    expect(nameForms(husband, husband.name)).toEqual(["Janez Peter Novak", "Janez Peter"]);
+    expect(nameForms(husband, husband.name)).toEqual(["Janez Peter Novak", "Janez Peter", "Janez"]);
     // A redacted living person has only their placeholder.
     expect(nameForms(husband, "Living")).toEqual(["Living"]);
     // The record's own name parts win over the displayed order.
