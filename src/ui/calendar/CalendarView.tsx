@@ -87,6 +87,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const [scheme, setScheme] = useState<CalendarScheme>("gedmerge");
   const [cellNames, setCellNames] = useState<CellNames>("given");
   const [showAge, setShowAge] = useState(true);
+  const [captions, setCaptions] = useState(true);
   const entryOpts = useMemo(() => ({ names: cellNames, age: showAge }), [cellNames, showAge]);
   const [country, setCountry] = useState<CountryChoice>(() => (i18n.language === "hr" ? "hr" : i18n.language === "sl" ? "si" : "none"));
   const [opts, setOpts] = useState<CalendarOptions>(() => ({
@@ -251,7 +252,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     if (pic.kind !== "photos") return <div className="cal-chart">{charts[pic.kind]}</div>;
     const photos = pic.items
       .map((it): PagePhoto | undefined => (it.kind === "file" ? { url: it.url } : personPhoto(it.id)))
-      .filter((x): x is PagePhoto => !!x);
+      .filter((x): x is PagePhoto => !!x)
+      .map((p) => (captions ? p : { url: p.url }));
     return <PhotoArea photos={photos} collage={pic.collage} />;
   };
 
@@ -380,6 +382,10 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         <label className="cal-check">
           <input type="checkbox" checked={showAge} onChange={(e) => setShowAge(e.target.checked)} />
           <span>{t("calendar.showAge")}</span>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} />
+          <span>{t("calendar.captions")}</span>
         </label>
         <label className="cal-check">
           <input type="checkbox" checked={opts.partners} onChange={(e) => setOpts({ ...opts, partners: e.target.checked })} />
