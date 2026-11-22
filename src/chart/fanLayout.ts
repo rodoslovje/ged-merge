@@ -125,6 +125,10 @@ export interface FanSegment {
   /** Fill strength (percent of the state colour mixed into the panel); the
    *  descendant chart pales each generation outward. Default 16. */
   tint?: number;
+  /** A half-sibling of the root (the bowtie's notches): the parent they
+   *  share. Drawn with a broken outline, so they read apart from the root's
+   *  full brothers and sisters. */
+  half?: "father" | "mother";
   /** The ring cap of the half this segment belongs to, when the chart joins
    *  two halves with caps of their own (the radial bowtie); else the chart's
    *  {@link FanChart.maxGen} applies. */

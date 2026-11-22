@@ -145,6 +145,9 @@ export interface ChartSettings {
   colorAxis: ColorAxis;
   /** Contemporaries: write names beside the closest kin. */
   kinNames: boolean;
+  /** Radial bowtie: the root's brothers and sisters (half-siblings too) in
+   *  the two notches. */
+  fanSiblings: boolean;
 }
 
 const DEFAULTS: ChartSettings = {
@@ -180,6 +183,7 @@ const DEFAULTS: ChartSettings = {
   kinScope: "contemporaries",
   colorAxis: "plain",
   kinNames: true,
+  fanSiblings: false,
 };
 
 const STORAGE_KEY = "gedmerge.chartSettings";
@@ -285,6 +289,7 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       // then carries it as `kinColour`.
       colorAxis: sanitizeColorAxis(parsed.colorAxis ?? (parsed as { kinColour?: unknown }).kinColour),
       kinNames: bool(parsed.kinNames, DEFAULTS.kinNames),
+      fanSiblings: bool(parsed.fanSiblings, DEFAULTS.fanSiblings),
       reportNarrative: bool(parsed.reportNarrative, DEFAULTS.reportNarrative),
       reportToc: bool(parsed.reportToc, DEFAULTS.reportToc),
     };

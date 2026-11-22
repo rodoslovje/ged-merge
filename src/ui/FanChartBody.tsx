@@ -260,7 +260,8 @@ function Segment({
         d={seg.d}
         fill={fill}
         stroke={selected ? color : `color-mix(in srgb, ${fill} 78%, var(--text))`}
-        strokeWidth={selected ? 2.5 : 0.75}
+        strokeWidth={selected ? 2.5 : seg.half ? 1.25 : 0.75}
+        strokeDasharray={seg.half ? "4 3" : undefined}
       />
       {seg.photo && (
         <g transform={`translate(${seg.photo.cx},${seg.photo.cy}) rotate(${seg.photo.rot})`}>
