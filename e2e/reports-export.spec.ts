@@ -95,7 +95,7 @@ test("reports download as text and RTF, with the living redacted on request", as
   // name, the dates and the place, in the list text and in the RTF.
   await page.getByRole("tab", { name: "List" }).click();
   await page.locator(".chart-settings-btn").click();
-  await page.getByRole("button", { name: "Hide living people" }).click();
+  await page.getByRole("radio", { name: "Relationship" }).click();
   await expect(page.locator(".report-entry .report-name", { hasText: "Vesna" })).toHaveCount(0);
   const priv = await exportAs(page, "Text file");
   expect(priv).toContain("1. Janez Kos (1900–1970)");
@@ -118,6 +118,17 @@ test("reports download as text and RTF, with the living redacted on request", as
   expect(privNarr).not.toContain("Vesna");
   const privNarrRtf = await exportAs(page, "RTF document");
   expect(privNarrRtf).not.toContain("Vesna");
+
+  // Initials: the living daughter keeps "V. K." in place of her relationship,
+  // and still no dates or place.
+  await page.getByRole("tab", { name: "List" }).click();
+  await page.locator(".chart-settings-btn").click();
+  await page.getByRole("radio", { name: "Initials" }).click();
+  await expect(page.locator(".report-entry .report-name", { hasText: "V. K." })).toHaveCount(1);
+  const initials = await exportAs(page, "Text file");
+  expect(initials).toContain("2 I. V. K.");
+  expect(initials).not.toContain("Vesna");
+  expect(initials).not.toContain("1960");
 
   expect(errors).toEqual([]);
 });

@@ -28,6 +28,7 @@ import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { marriedNameOverride, useChartSettings } from "./ChartSettingsContext";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
+import { useLivingNameOf } from "./useLivingName";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 import { useNodeColorer } from "./useNodeColorer";
 import { positionsById, useBloodTrees } from "./useBloodTrees";
@@ -154,6 +155,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const { t } = useTranslation();
   const { settings } = useChartSettings();
   const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
+  const livingNameOf = useLivingNameOf();
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   // Identity-stable, so the memoized row handlers below don't rebuild every
   // render just because App passes a fresh callback.
@@ -253,9 +255,9 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
   const rowName = useCallback(
     (row: TimelineRow) => {
       if (!redacted(row)) return row.name;
-      return kinship?.label(row.id) || livingLabelFor(t, row.sex);
+      return livingNameOf(mainDs.individuals.get(row.id)) || kinship?.label(row.id) || livingLabelFor(t, row.sex);
     },
-    [redacted, kinship, t],
+    [redacted, kinship, t, livingNameOf, mainDs],
   );
 
   // Position each row for useTreeCanvas (rows satisfy ChartNode once they get

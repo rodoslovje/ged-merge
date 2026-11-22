@@ -42,6 +42,7 @@ import { ChartExportMenu } from "./ChartExportMenu";
 import { ChartSettings } from "./ChartSettings";
 import { Segmented } from "./Segmented";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useLivingNameOf } from "./useLivingName";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { lineColor, type BranchInfo } from "../chart/nodeColor";
@@ -112,6 +113,7 @@ interface Props {
 export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNavigate, onRootChange, kindSwitcher, onOpenGeocode }: Props) {
   const { t } = useTranslation();
   const { settings, set } = useChartSettings();
+  const livingNameOf = useLivingNameOf();
   const nameOf = useNameOf();
   const now = new Date().getFullYear();
 
@@ -262,8 +264,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     [mainDs, startId, t],
   );
   const nameFor = useCallback(
-    (p: KinPerson) => (redacted(p) ? livingLabelFor(t, p.sex) : p.name),
-    [redacted, t],
+    (p: KinPerson) => (redacted(p) ? livingNameOf(p.indi) || livingLabelFor(t, p.sex) : p.name),
+    [redacted, t, livingNameOf],
   );
   /** Hover text: who they are, how they are related *to this chart's root*, and
    *  their years. The relationship belongs here rather than on the detail panel,

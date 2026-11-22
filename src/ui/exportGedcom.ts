@@ -1,4 +1,5 @@
 import type { Dataset } from "../gedcom/types";
+import type { LivingNameMode } from "../gedcom/nameDisplay";
 import type { Submitter } from "../gedcom/newFile";
 import type { WriteTarget } from "../normalize/target";
 import { extractBranch } from "../gedcom/branchExport";
@@ -18,10 +19,11 @@ export function branchGedcomText(
   personIds: Iterable<string>,
   target: Pick<WriteTarget, "strict" | "version">,
   author?: Submitter,
-  redactLiving = false,
+  /** Redact the living as the charts do, keeping this much of their name. */
+  redactLiving?: LivingNameMode,
 ): string {
   const version = downloadVersion(ds, target);
-  const { records } = extractBranch(ds, personIds, { redactLiving, version });
+  const { records } = extractBranch(ds, personIds, { redactLiving: !!redactLiving, livingName: redactLiving, version });
   // Records are clones; downloads are UTF-8 bytes, stamped, complete — a 5.5.1
   // branch without a submitter gets one named after the reader (Settings).
   prepareDownload(records, ds, version, undefined, author);
@@ -39,7 +41,8 @@ export function exportChartGedcom(
   slug: string,
   target: Pick<WriteTarget, "strict" | "version">,
   author?: Submitter,
-  redactLiving = false,
+  /** Redact the living as the charts do, keeping this much of their name. */
+  redactLiving?: LivingNameMode,
 ): void {
   const ids = [...personIds];
   afterPendingAdds(() => {

@@ -188,6 +188,33 @@ describe("extractBranch", () => {
       }
     });
 
+    it("writes the part of the name the privacy choice keeps", () => {
+      const ds = buildFromText(LIVING);
+      const nameOf = (livingName: "anonymous" | "initials" | "given" | "name") =>
+        extractBranch(ds, ["@I1@", "@I2@", "@I3@"], { redactLiving: true, livingName })
+          .records.find((r) => r.xref === "@I1@")!.children[0].value;
+      expect(nameOf("anonymous")).toBe("<living>");
+      expect(nameOf("initials")).toBe("J. /N./");
+      expect(nameOf("given")).toBe("Janez");
+      expect(nameOf("name")).toBe("Janez /Novak/");
+      // Only the name comes back: the details stay out.
+      const out = extractBranch(ds, ["@I1@", "@I2@", "@I3@"], { redactLiving: true, livingName: "initials" });
+      expect(tags(out.records.find((r) => r.xref === "@I1@"))).toEqual(["NAME", "SEX", "FAMC"]);
+      for (const version of ["5.5.1", "7.0"]) {
+        const text = version === "5.5.1"
+          ? LIVING.replace("2 VERS 5.5.1", "2 VERS 5.5.1\n2 FORM LINEAGE-LINKED")
+          : LIVING.replace("2 VERS 5.5.1", "2 VERS 7.0").replace("1 CHAR UTF-8\n", "");
+        const { records } = extractBranch(buildFromText(text), ["@I1@", "@I2@", "@I3@"], { redactLiving: true, livingName: "initials" });
+        expect(validateConformance({ records })).toEqual([]);
+      }
+    });
+
+    it("keeps no name of a person flagged private", () => {
+      const ds = buildFromText(LIVING.replace("1 NOTE Lives in Kranj", "1 NOTE Lives in Kranj\n1 RESN privacy"));
+      const out = extractBranch(ds, ["@I1@", "@I2@", "@I3@"], { redactLiving: true, livingName: "name" });
+      expect(out.records.find((r) => r.xref === "@I1@")!.children[0].value).toBe("<living>");
+    });
+
     it("leaves the dead whole and exports everyone in full without the option", () => {
       const out = extractBranch(buildFromText(BASE), ["@I1@", "@I2@", "@I3@"], { redactLiving: true });
       expect(tags(out.records.find((r) => r.xref === "@I1@"))).toEqual(["NAME", "FAMC", "BIRT"]);

@@ -4,6 +4,7 @@ import type { Dataset, GedNode, Individual } from "./types";
 import { isVoidPointer } from "./uri";
 import { VOID_XREF } from "./assoc";
 import { versionFamily, type VersionFamily } from "../normalize/migrate";
+import { reducedName, type LivingNameMode } from "./nameDisplay";
 
 /**
  * Branch export: cut a shareable GEDCOM out of the main file containing
@@ -32,7 +33,8 @@ import { versionFamily, type VersionFamily } from "../normalize/migrate";
  * carried along when they are supporting records.
  *
  * With `redactLiving` (the charts' "living people private" setting), a living
- * or private-flagged person is written as `NAME <living>` with only SEX, FAMC and FAMS, and the
+ * or private-flagged person is written as `NAME <living>` — or the part of the
+ * name `livingName` keeps — with only SEX, FAMC and FAMS, and the
  * family of a couple with such a spouse with only HUSB, WIFE and CHIL.
  */
 
@@ -65,11 +67,26 @@ export const REDACTED_NAME = "<living>";
 const hiddenLiving = (indi: Individual | undefined, ds: Dataset): boolean =>
   !!indi && (isPresumedLiving(indi, ds) || !!indi.private);
 
+/** The NAME a redacted person is written with: the part of the name the
+ *  privacy choice keeps, as the charts show it — the initials (`A. /N./`),
+ *  the given name, or the record's own name. A person flagged private, or
+ *  one with nothing to keep, gets {@link REDACTED_NAME}. */
+function keptNameValue(rec: GedNode, indi: Individual | undefined, mode: LivingNameMode | undefined): string {
+  if (!indi || indi.private || !mode || mode === "anonymous") return REDACTED_NAME;
+  if (mode === "name") return firstChild(rec, "NAME")?.value?.trim() || REDACTED_NAME;
+  const kept = reducedName(indi.names[0], mode);
+  if (!kept) return REDACTED_NAME;
+  return [kept.given, kept.surname && `/${kept.surname}/`].filter(Boolean).join(" ");
+}
+
 export function extractBranch(
   ds: Dataset,
   personIds: Iterable<string>,
   opts: {
     redactLiving?: boolean;
+    /** With `redactLiving`: how much of a living person's name is kept (the
+     *  charts' privacy choice). Default: none — the {@link REDACTED_NAME}. */
+    livingName?: LivingNameMode;
     /** The version the export is written in (default: the file's own). It
      *  decides how a sealing whose family is left out is kept. */
     version?: VersionFamily;
@@ -135,7 +152,10 @@ export function extractBranch(
       if (keeps) {
         clone.children = clone.children.filter((c) => keeps.has(c.tag));
         // The name says why the rest is missing; matching reads it as a placeholder.
-        if (rec.tag === "INDI") clone.children.unshift({ level: 1, tag: "NAME", value: REDACTED_NAME, children: [] });
+        if (rec.tag === "INDI") {
+          const value = keptNameValue(rec, ds.individuals.get(rec.xref!), opts.livingName);
+          clone.children.unshift({ level: 1, tag: "NAME", value, children: [] });
+        }
       }
       scrubOutsiders(clone);
       clones.set(rec, clone);

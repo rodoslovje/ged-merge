@@ -3,6 +3,10 @@ import type { ChartAlignment } from "../chart/treeLayout";
 import type { FanShape } from "../chart/fanLayout";
 import { sanitizeColorAxis, type ColorAxis } from "../chart/nodeColor";
 import { useSettingsSlice } from "./SettingsContext";
+import type { LivingNameMode } from "../gedcom/nameDisplay";
+
+/** The chart privacy choices, in the family website's order (see LivingMode). */
+export const LIVING_NAMES: readonly LivingNameMode[] = ["anonymous", "initials", "given", "name"];
 
 // Shared, persisted configuration for the full-page diagram views (Edit Tree,
 // Compare Tree, Relationship chart). One instance drives all three so a change
@@ -110,6 +114,10 @@ export interface ChartSettings {
   maxGenerations: number | null;
   /** Redact people inferred to be living: show only their relationship / "Living". */
   privacyLiving: boolean;
+  /** With {@link privacyLiving}: how much of a living person's name still
+   *  shows — none (their relationship / "Living"), the initials, the given
+   *  name, or the whole name. The family website's choices (see LivingMode). */
+  livingName: LivingNameMode;
   /** Timeline: whose bars carry event dots (root only / everyone / none). */
   timelineEvents: TimelineEventScope;
   /** Timeline: label the event dots with small text under the bar. */
@@ -167,6 +175,7 @@ const DEFAULTS: ChartSettings = {
   showMarriagePlace: false,
   maxGenerations: null,
   privacyLiving: false,
+  livingName: "anonymous",
   timelineEvents: "person",
   timelineEventLabels: false,
   timelineHistory: false,
@@ -262,6 +271,7 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
       maxGenerations: clampGenerations(parsed.maxGenerations),
       privacyLiving: bool(parsed.privacyLiving, DEFAULTS.privacyLiving),
+      livingName: (LIVING_NAMES as readonly unknown[]).includes(parsed.livingName) ? parsed.livingName! : DEFAULTS.livingName,
       timelineEvents:
         parsed.timelineEvents === "all" || parsed.timelineEvents === "off"
           ? parsed.timelineEvents

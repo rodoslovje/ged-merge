@@ -2699,9 +2699,12 @@
               <li><strong>Imena</strong> (samo Suvremenici) — jesu li najbliži srodnici imenovani na
                 dijagramu; vidi <a href="#contemporaries">niže</a>.</li>
               <li><strong>Činjenice</strong> i <strong>Struktura</strong> (samo Izvješće) — vidi <a href="#reports">niže</a>.</li>
-              <li><strong>Privatnost</strong> — <em>Sakrij žive osobe</em> prikriva svakoga za koga se zaključi da je živ i prikazuje
-                samo njegovo srodstvo ili „živ(a)“ (vidi <a href="#privacy">§18</a>), pa se dijagram može sigurno
-                dijeliti. S njima odlazi i brak: par u kojem je jedan partner živ ne prikazuje ni godinu ni mjesto, ni na jednom
+              <li><strong>Privatnost</strong> — odabire što ostaje od svakoga za koga se zaključi da je živ (vidi
+                <a href="#privacy">§18</a>). <em>Srodstvo</em> prikazuje samo srodstvo s polaznom osobom ili „živ(a)“,
+                <em>Inicijali</em>, <em>Samo ime</em> i <em>Ime i prezime</em> zadržavaju toliko imena, a <em>Svi podaci</em>
+                prikazuju žive osobe u cijelosti. Osim uz <em>Svi podaci</em> njihovi datumi, mjesta i fotografija ostaju
+                skriveni, pa se dijagram može sigurno dijeliti. Iste mogućnosti nudi i obiteljska web-stranica
+                (<a href="#tools">§10</a>). S njima odlazi i brak: par u kojem je jedan partner živ ne prikazuje ni godinu ni mjesto, ni na jednom
                 dijagramu, jer je vjenčanje jednako podatak te osobe kao i njezino rođenje.</li>
             </ul>
             <p>
@@ -2744,9 +2747,10 @@
               kao i na karti, a <span class="gm-key">Shift</span> i dvoklik ga ponovno smanjuju; dvoklik na
               osobu umjesto toga otvara nju, kao i jednostruki klik. Svaka vrsta ima
               izbornik <strong>Izvoz</strong>, uvijek s <strong>GEDCOM</strong> na prvom mjestu — preuzima samo osobe
-              koje su trenutačno nacrtane, kao samostalnu datoteku koju prijatelj može spojiti u svoje stablo. Kad je uključeno <em>Sakrij žive
-              osobe</em>, skriva ih i datoteka: svaka je zapisana kao <em>&lt;living&gt;</em> samo sa spolom i
-              obiteljskim vezama, a par sa živim partnerom ne zadržava podatke o vjenčanju. Što slijedi, ovisi o
+              koje su trenutačno nacrtane, kao samostalnu datoteku koju prijatelj može spojiti u svoje stablo. Osim kad je
+              <em>Privatnost</em> postavljena na <em>Svi podaci</em>, datoteka skriva i žive osobe: svaka je zapisana
+              samo s onim dijelom imena koji postavka zadržava (uz <em>Srodstvo</em> to je <em>&lt;living&gt;</em>),
+              sa spolom i obiteljskim vezama, a par sa živim partnerom ne zadržava podatke o vjenčanju. Što slijedi, ovisi o
               vrsti: dijagrami nude <strong>SVG</strong> (oštru sliku koja se može neograničeno povećavati) i <strong>PDF</strong>
               (pita na koji papir ispisujete, zatim otvara dijalog za ispis u pregledniku, u kojem odaberete <em>Spremi kao
               PDF</em>); <strong>Karta</strong> umjesto toga nudi <strong>PNG</strong>; a <strong>Izvješće</strong>
@@ -2832,7 +2836,7 @@
               ovdje i na trakama.
             </p>
             <p>
-              Kad je uključeno <em>Sakrij žive osobe</em>, godina žive osobe nikad se ne prikazuje. U oba rasporeda ona stoji na
+              Osim kad je <em>Privatnost</em> postavljena na <em>Svi podaci</em>, godina žive osobe nikad se ne prikazuje. U oba rasporeda ona stoji na
               sredini desetljeća svojeg rođenja, ±5 godina od istine, s isprekidanom trakom ili životnom crtom do danas; braća i sestre
               koji padnu na istu godinu razmiču se za dvije godine. Na obiteljskoj web-stranici osobe objavljene bez podataka
               nemaju vlastiti datum: stoje ondje gdje ih smješta njihova generacija, s odstupanjem do 25 godina.
@@ -2909,7 +2913,7 @@
               <strong>Živi u godini</strong> i povucite godinu da zatamnite sve koji se još nisu rodili ili su već
               umrli — osobe zadržavaju svoja mjesta, pa se val onih koji su bili živi čita kao kretanje, a ne kao ponovno
               slaganje dijagrama. <em>Generacije</em> (<a href="#charts">§11</a>) ovdje ograničavaju krvnu udaljenost, a
-              <em>Sakrij žive osobe</em> (<a href="#privacy">§18</a>) uklanja imena svih za koje se pretpostavlja da su živi, a
+              <em>Privatnost</em> (<a href="#privacy">§18</a>) uklanja ili skraćuje imena svih za koje se pretpostavlja da su živi, a
               njihovu oznaku ostavlja na dijagramu, jer prsten i isječak ništa ne otkrivaju.
             </p>
             <p>
@@ -3047,8 +3051,8 @@
                 nisu smještene.</li>
               <li><strong>Privatnost</strong> — osnovna karta zahtijeva <em>pristanak</em>: dok ne dopustite pločice (jednim klikom na
                 kartu ili u kartici Postavke › Karta), karta se crta na ugrađenom obrisu svijeta, koji radi i bez internetske veze, i ništa ne napušta
-                vaš uređaj. Prekidač <em>Sakrij žive osobe</em> u postavkama dijagrama potpuno uklanja njihove oznake i
-                putanje.</li>
+                vaš uređaj. Svaki odabir postavke dijagrama <em>Privatnost</em> osim <em>Svi podaci</em> potpuno
+                uklanja njihove oznake i putanje.</li>
               <li><strong>Izvoz</strong> — <strong>PNG</strong> snima trenutačni prikaz (pločice, slojeve, putanje i
                 oznake, s utisnutim obaveznim navodom izvora). U usporednom prikazu izbornik umjesto toga nudi tri
                 slike: obje polovice jednu uz drugu kao jednu sliku ili samo jednu polovicu — dijelovi pokrivaju
@@ -3909,8 +3913,9 @@
             <h3>Dijeljenje bez živih osoba</h3>
             <p>
               Za dijeljenje stabla ili dijagrama dvije značajke skrivaju osobe koje trebaju ostati privatne. Dijagrami i izvješća imaju
-              mogućnost <strong>Sakrij žive osobe</strong> (<a href="#charts">§11</a>) koja prikriva svakoga za koga se zaključi da je
-              živ — i svakoga izričito označenog kao privatnog — i prikazuje samo njegovo srodstvo ili „živ(a)“. Za cijelu
+              postavku <strong>Privatnost</strong> (<a href="#charts">§11</a>) koja prikriva svakoga za koga se zaključi da je
+              živ i zadržava samo njegovo srodstvo ili „živ(a)“, inicijale, ime ili ime i prezime. Osoba izričito
+              označena kao privatna uz svaki odabir prikazuje samo srodstvo. Za cijelu
               datoteku alat <span class="gm-pill">Alati</span> › <strong>Privatnost</strong> (<a href="#tools">§10</a>) izrađuje
               prikrivenu kopiju: zaključuje tko je vjerojatno živ, označava i osobe proglašene privatnima te vam omogućuje da ih prikrijete,
               preimenujete ili uklonite i da prije preuzimanja uklonite identifikatore na razini datoteke.

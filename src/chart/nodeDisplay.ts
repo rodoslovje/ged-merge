@@ -207,6 +207,9 @@ export interface NodeDisplayInput {
   living?: boolean;
   /** Localized "Living" placeholder for a redacted person with no kinship. */
   livingLabel: string;
+  /** The name a redacted person keeps under the privacy setting's name choice
+   *  (initials, given name, whole name) — in place of the kinship / "Living". */
+  livingName?: string;
 }
 
 export interface NodeDisplay {
@@ -248,13 +251,14 @@ export function lifespanLine(
 
 /**
  * Resolve which fields a node actually shows under the current settings. A living
- * person in privacy mode collapses to just their relationship (or "Living"): no
- * years, place, kinship line, or photo. Otherwise each field is gated by its toggle.
+ * person in privacy mode collapses to the name the privacy setting keeps, else
+ * their relationship (or "Living"): no years, place, kinship line, or photo.
+ * Otherwise each field is gated by its toggle.
  */
 export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): NodeDisplay {
   if (opts.privacyLiving && input.living) {
     return {
-      name: input.kinship || input.livingLabel,
+      name: input.livingName || input.kinship || input.livingLabel,
       years: undefined,
       place: undefined,
       kinship: undefined,

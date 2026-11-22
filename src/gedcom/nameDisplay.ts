@@ -79,3 +79,33 @@ export function formatPersonName(n: PersonName | undefined, opts: NameDisplayOpt
   const base = opts.uppercaseSurname ? [given, sur].filter(Boolean).join(" ") : displayBase(n);
   return `${base}${marriedTail}`;
 }
+
+/**
+ * How much of a living person's name is shown when their details are withheld
+ * — one vocabulary for the charts' privacy setting and the family website:
+ * no name at all, the initials, the given name alone, or the whole name.
+ */
+export type LivingNameMode = "anonymous" | "initials" | "given" | "name";
+
+/** A name's first letter as an initial: "ana" → "A.". */
+function nameInitial(s: string | undefined): string | undefined {
+  const c = s?.trim()[0];
+  return c ? `${c.toUpperCase()}.` : undefined;
+}
+
+/**
+ * A name cut down for a living person: its initials ("A." / "N."), or the given
+ * name alone — a name written without slashes counts as all given name. The
+ * result carries no married surname, so a formatter shows exactly this.
+ */
+export function reducedName(n: PersonName | undefined, mode: "initials" | "given"): PersonName | undefined {
+  if (!n) return undefined;
+  if (mode === "initials") {
+    const given = nameInitial(n.given);
+    const surname = nameInitial(n.surname);
+    const full = [given, surname].filter(Boolean).join(" ");
+    return full ? { full, given, surname } : undefined;
+  }
+  const given = n.given?.trim() || (n.surname ? undefined : n.full.replace(/\//g, "").trim()) || undefined;
+  return given ? { full: given, given } : undefined;
+}

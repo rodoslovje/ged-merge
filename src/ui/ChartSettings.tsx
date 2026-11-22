@@ -3,7 +3,7 @@ import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
-import { useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
+import { LIVING_NAMES, useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
 import { colorAxesFor, type ColorAxisScope } from "../chart/nodeColor";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
@@ -354,16 +354,34 @@ export function ChartSettings({
               </div>
             </div>
           )}
-          {/* Privacy: redact people inferred to be living. */}
+          {/* Privacy: what is left of people inferred to be living — the
+              family website's choices, in its order: no name (their
+              relationship), the initials, the given name, the whole name, or
+              everything (privacy off). */}
           <div className="chart-settings-group">
             <span className="chart-settings-heading">{t("tree.settings.privacy")}</span>
-            <div className="chart-settings-segmented chart-settings-toggles">
+            <div className="chart-settings-segmented chart-settings-toggles" role="radiogroup" aria-label={t("tree.settings.privacy")} title={t("tree.settings.privacy.hint")}>
+              {LIVING_NAMES.map((mode) => {
+                const active = settings.privacyLiving && settings.livingName === mode;
+                return (
+                  <button
+                    key={mode}
+                    role="radio"
+                    className={active ? "active" : ""}
+                    aria-checked={active}
+                    onClick={() => set({ privacyLiving: true, livingName: mode })}
+                  >
+                    {t(`tree.settings.privacy.living.${mode}`)}
+                  </button>
+                );
+              })}
               <button
-                className={settings.privacyLiving ? "active" : ""}
-                aria-pressed={settings.privacyLiving}
-                onClick={() => set({ privacyLiving: !settings.privacyLiving })}
+                role="radio"
+                className={settings.privacyLiving ? "" : "active"}
+                aria-checked={!settings.privacyLiving}
+                onClick={() => set({ privacyLiving: false })}
               >
-                {t("tree.settings.privacy.hideLiving")}
+                {t("tree.settings.privacy.living.all")}
               </button>
             </div>
           </div>

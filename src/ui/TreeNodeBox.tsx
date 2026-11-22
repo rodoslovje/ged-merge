@@ -134,6 +134,8 @@ interface Props {
   display?: NodeDisplayOptions;
   /** Presumed living — redacted under the privacy toggle. */
   living?: boolean;
+  /** The name a redacted person keeps (see `NodeDisplayInput.livingName`). */
+  livingName?: string;
   /** Box height for the current display settings (grows per enabled detail row). */
   nodeH?: number;
 }
@@ -165,11 +167,12 @@ export function TreeNodeBox({
   badges,
   display = ALL_DISPLAY,
   living = false,
+  livingName,
   nodeH = NODE_H,
 }: Props) {
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, kinshipDirect, living, livingLabel: livingLabelFor(t, sex) });
+  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, kinshipDirect, living, livingLabel: livingLabelFor(t, sex), livingName });
   // Main side first, then incoming — the same order TreeNodePhoto resolves.
   const photoPath =
     disp.showPhoto && photo && folderName

@@ -4,7 +4,7 @@ import { computeKinship } from "../tools/batch";
 import { defaultPrivacyOptions, livingReason } from "../tools/privacy";
 import { isDeceased } from "../gedcom/lifespan";
 import { runSteps, type Steps } from "../gedcom/steps";
-import type { NameOrder } from "../gedcom/nameDisplay";
+import { reducedName, type LivingNameMode, type NameOrder } from "../gedcom/nameDisplay";
 import { marriedSurnamesOf } from "../match/relatives";
 import { unionMarriage } from "../gedcom/union";
 import { planSitePhotos, type PhotoUse, type PubPhoto, type PubPhotoLink } from "./photos";
@@ -37,7 +37,7 @@ export const PUBLISHED_VERSION = 1;
 /** What a living person keeps on the site: nothing, initials, the given name
  *  alone (which says next to nothing on its own — the youngest generations
  *  carry no surname either), the full name, or everything. */
-export type LivingMode = "hide" | "anonymous" | "initials" | "given" | "name" | "all";
+export type LivingMode = "hide" | LivingNameMode | "all";
 export const LIVING_MODES: LivingMode[] = ["hide", "anonymous", "initials", "given", "name", "all"];
 
 /** Who is published: everyone, the start person's blood relatives, or their
@@ -431,11 +431,6 @@ function hashId(prefix: string, key: string, taken: Set<string>): string {
   return id;
 }
 
-const initial = (s: string | undefined): string | undefined => {
-  const c = s?.trim()[0];
-  return c ? `${c.toUpperCase()}.` : undefined;
-};
-
 /** Everyone the scope publishes, or null for the whole file. A narrowed scope
  *  whose person is gone publishes nobody — never quietly everyone. */
 function scopeIds(ds: Dataset, opts: PublishOptions, startId: string | undefined): Set<string> | null {
@@ -625,16 +620,16 @@ function pubPerson(indi: Individual, id: string, mode: LivingMode, isLiving: boo
   const out: PubPerson = { id };
   if (mode === "anonymous") {
     // No name at all: the site calls them "Living" (or "Deceased") itself.
-  } else if (mode === "initials") {
-    const g = initial(name?.given);
-    const s = initial(name?.surname);
-    if (g) out.given = g;
-    if (s) out.surname = s;
+  } else if (mode === "initials" || mode === "given") {
+    // Cut down as the charts' privacy setting cuts it (see reducedName).
+    const reduced = reducedName(name, mode);
+    if (reduced?.given) out.given = reduced.given;
+    if (reduced?.surname) out.surname = reduced.surname;
   } else {
     const given = name?.given?.trim() ?? (name?.surname ? undefined : name?.full.replace(/\//g, "").trim());
     if (given) out.given = given;
-    if (mode !== "given" && name?.surname?.trim()) out.surname = name.surname.trim();
-    const married = mode === "given" ? [] : marriedSurnamesOf(indi);
+    if (name?.surname?.trim()) out.surname = name.surname.trim();
+    const married = marriedSurnamesOf(indi);
     if (married.length) out.married = married;
   }
   if (indi.sex === "M" || indi.sex === "F" || indi.sex === "X") out.sex = indi.sex;

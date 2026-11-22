@@ -19,6 +19,7 @@ import { individualFieldRows } from "../review/fields";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { useChartFind } from "./useChartFind";
 import { useChartSettings } from "./ChartSettingsContext";
+import { useLivingNameOf } from "./useLivingName";
 import { useNodeColorer } from "./useNodeColorer";
 import { useNameOf } from "./SettingsContext";
 import { Segmented } from "./Segmented";
@@ -65,6 +66,7 @@ interface Camera {
 export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNavigate, onRootChange, kindSwitcher }: Props) {
   const { t } = useTranslation();
   const { settings } = useChartSettings();
+  const livingNameOf = useLivingNameOf();
   const nameOf = useNameOf();
   const theme = useDocTheme();
   const [scope, setScope] = useState<GraphScope>("blood");
@@ -543,8 +545,11 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     [settings.privacyLiving, graph, mainDs],
   );
   const nameAt = useCallback(
-    (i: number) => (redacted(i) ? livingLabelFor(t, graph.nodes[i].indi.sex) : nameOf(graph.nodes[i].indi)),
-    [redacted, t, graph, nameOf],
+    (i: number) => {
+      const indi = graph.nodes[i].indi;
+      return redacted(i) ? livingNameOf(indi) || livingLabelFor(t, indi.sex) : nameOf(indi);
+    },
+    [redacted, t, graph, nameOf, livingNameOf],
   );
   const labelRef = useRef(nameAt);
   labelRef.current = nameAt;

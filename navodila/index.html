@@ -2814,9 +2814,13 @@
                 glejte <a href="#contemporaries">spodaj</a>.</li>
               <li><strong>Dejstva</strong> in <strong>Zgradba</strong> (samo Poročilo) — glejte
                 <a href="#reports">spodaj</a>.</li>
-              <li><strong>Zasebnost</strong> — <em>Skrij žive osebe</em> prikrije vse, za katere se sklepa, da so žive,
-                in prikaže le njihovo sorodstvo ali »živ« oz. »živa« (glejte <a href="#privacy">§18</a>), tako da je diagram
-                varen za deljenje. Z njimi se skrije tudi poroka: par, v katerem je eden od zakoncev še živ, na nobenem
+              <li><strong>Zasebnost</strong> — izbere, kaj ostane od oseb, za katere se sklepa, da so žive (glejte
+                <a href="#privacy">§18</a>). Pri izbiri <em>Sorodstvo</em> se pokaže le sorodstvo z izhodiščno osebo ali
+                »živ« oz. »živa«. Izbire <em>Začetnice</em>, <em>Samo ime</em> in <em>Ime in priimek</em> ohranijo
+                ustrezni del imena, pri izbiri <em>Vsi podatki</em> pa so žive osebe prikazane v celoti. Razen pri izbiri
+                <em>Vsi podatki</em> ostanejo njihovi datumi, kraji in fotografija skriti, tako da je diagram varen za
+                deljenje. Enake izbire ponudi tudi družinska spletna stran (<a href="#tools">§10</a>). Z živimi osebami
+                se skrije tudi poroka: par, v katerem je eden od zakoncev še živ, na nobenem
                 diagramu ne pokaže letnice ne kraja, saj je poroka prav tako njegov podatek kot lastno rojstvo.</li>
             </ul>
             <p>
@@ -2859,8 +2863,9 @@
               dvojnim klikom pa spet pomanjšate; dvojni klik na osebo jo odpre, enako kot en sam klik.
               Vsaka vrsta ima meni <strong>Izvoz</strong>, ki se vedno začne z <strong>GEDCOM</strong>: ta prenese
               samo osebe, trenutno izrisane v diagramu, kot samostojno datoteko, ki jo lahko kdo drug združi v svoje
-              drevo. Ko je vklopljena nastavitev <em>Skrij žive osebe</em>, so žive osebe prikrite tudi v datoteki.
-              Vsaka je zapisana z imenom <em>&lt;living&gt;</em> ter ohrani le spol in družinske povezave, pri paru z
+              drevo. Razen pri izbiri <em>Vsi podatki</em> v nastavitvi <em>Zasebnost</em> so žive osebe
+              prikrite tudi v datoteki. Pri vsaki se zapiše le tisti del imena, ki ga nastavitev ohrani (pri izbiri
+              <em>Sorodstvo</em> je to <em>&lt;living&gt;</em>), ter spol in družinske povezave, pri paru z
               živim partnerjem pa se ne zapišejo podatki o poroki. Kar sledi, je odvisno od vrste: diagrami ponudijo <strong>Sliko SVG</strong> (ostro, neskončno
               povečljivo sliko) in <strong>PDF (tiskanje)</strong> (najprej vpraša, na kateri papir tiskate, nato odpre
               okno brskalnika za tiskanje, kjer izberete <em>Shrani kot PDF</em>); <strong>Zemljevid</strong> namesto
@@ -2947,7 +2952,7 @@
               <em>Veja</em> da štirim linijam starih staršev štiri jasno različne barve, tukaj in na trakovih.
             </p>
             <p>
-              Ko je vklopljena nastavitev <em>Skrij žive osebe</em>, se leto žive osebe nikoli ne pokaže. V obeh
+              Razen pri izbiri <em>Vsi podatki</em> v nastavitvi <em>Zasebnost</em> se leto žive osebe nikoli ne pokaže. V obeh
               postavitvah stoji oseba na sredini desetletja rojstva, ±5 let od resnice, s črtkanim trakom ali črto do
               danes. Brat ali sestra z enako letnico se zamakne za dve leti. Na družinski spletni strani se za osebe,
               objavljene brez podrobnosti, ne bere noben njihov datum: stojijo tam, kamor jih postavi njihov rod, na
@@ -3026,7 +3031,7 @@
               <strong>Živi v letu</strong> in povlecite letnico, da potemnijo vsi, ki se takrat še niso rodili ali jih
               ni bilo več — osebe ostanejo na svojih mestih, zato se val tega, kdo je bil takrat tu, bere kot gibanje
               in ne kot ponovno risanje diagrama. <em>Rodovi</em> (<a href="#charts">§11</a>) tu omejijo krvno razdaljo,
-              <em>Skrij žive osebe</em> (<a href="#privacy">§18</a>) pa vzame imena vsem, za katere se sklepa, da so
+              <em>Zasebnost</em> (<a href="#privacy">§18</a>) pa vzame ali skrajša imena vsem, za katere se sklepa, da so
               žive, njihova znamenja pa pusti na diagramu, saj obroč in izsek sama po sebi ne izdata ničesar.
             </p>
             <p>
@@ -3167,8 +3172,8 @@
                 koordinati ene vasi je največkrat več naslovov, ki sami še niso umeščeni.</li>
               <li><strong>Zasebnost</strong> — kartografsko ozadje se naloži šele po <em>privolitvi</em>: dokler ploščic ne
                 dovolite (en klik na zemljevidu ali Nastavitve → Zemljevid), se zemljevid riše na vgrajenem obrisu sveta
-                in nič ne zapusti vaše naprave. Nastavitev diagramov <em>Skrij žive osebe</em> odstrani njihove oznake
-                in poti v celoti.</li>
+                in nič ne zapusti vaše naprave. Vsaka izbira v nastavitvi diagramov <em>Zasebnost</em> razen
+                <em>Vsi podatki</em> odstrani njihove oznake in poti v celoti.</li>
               <li><strong>Izvoz</strong> — <strong>Slika PNG</strong> posname trenutni pogled (ploščice, sloje, poti in
                 oznake, z vžgano navedbo vira). V vzporednem pogledu meni namesto tega ponudi tri slike: obe polovici
                 drugo ob drugi kot eno sliko ali vsako polovico posebej — kosi pokrivajo natanko isto območje, zato
@@ -4052,8 +4057,9 @@
             <h3>Deljenje brez živih oseb</h3>
             <p>
               Za deljenje drevesa ali diagrama dve funkciji skrijeta osebe, ki naj ostanejo zasebne. Diagrami in poročila
-              imajo možnost <strong>Skrij žive osebe</strong> (<a href="#charts">§11</a>), ki prikrije vse, za katere se
-              sklepa, da so žive — in vse izrecno označene kot zasebne — ter pokaže le njihovo sorodstvo ali »živ« oz. »živa«. Za
+              imajo nastavitev <strong>Zasebnost</strong> (<a href="#charts">§11</a>), ki prikrije vse, za katere se
+              sklepa, da so žive. Od njih ostane le sorodstvo ali »živ« oz. »živa«, začetnice, ime ali ime in priimek.
+              Osebe, izrecno označene kot zasebne, pokažejo pri vsaki izbiri le sorodstvo. Za
               celotno datoteko <span class="gm-pill">Orodja</span> › <strong>Zasebnost</strong> (<a href="#tools">§10</a>)
               izdela prikrito kopijo: sklepa, kdo je verjetno živ, označi tudi izrecno zasebne osebe ter omogoča, da
               osebe pred prenosom prikrijete, preimenujete ali odstranite, hkrati pa odstrani tudi identifikatorje na ravni datoteke.

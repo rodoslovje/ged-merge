@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PersonName } from "./types";
-import { DEFAULT_NAME_DISPLAY, formatPersonName, type NameDisplayOptions } from "./nameDisplay";
+import { DEFAULT_NAME_DISPLAY, formatPersonName, reducedName, type NameDisplayOptions } from "./nameDisplay";
 
 const opts = (patch: Partial<NameDisplayOptions> = {}): NameDisplayOptions => ({
   ...DEFAULT_NAME_DISPLAY,
@@ -69,5 +69,28 @@ describe("formatPersonName", () => {
     expect(
       formatPersonName(n, opts({ order: "surname-given", uppercaseSurname: true, marriedSurname: true })),
     ).toBe("NOVAK (KOVAČ), Ana");
+  });
+});
+
+describe("reducedName — a living person's name, cut down", () => {
+  const ana: PersonName = { full: "Ana Marija Novak", given: "Ana Marija", surname: "Novak", married: "Kovač" };
+
+  it("keeps the initials, formatted like any name", () => {
+    const r = reducedName(ana, "initials");
+    expect(r).toEqual({ full: "A. N.", given: "A.", surname: "N." });
+    expect(formatPersonName(r, opts({ order: "surname-given" }))).toBe("N., A.");
+    // No married surname comes along, whatever the display setting.
+    expect(formatPersonName(r, opts({ marriedSurname: true }))).toBe("A. N.");
+  });
+
+  it("keeps the given name alone; a name without slashes is all given name", () => {
+    expect(reducedName(ana, "given")).toEqual({ full: "Ana Marija", given: "Ana Marija" });
+    expect(reducedName({ full: "Ana" }, "given")).toEqual({ full: "Ana", given: "Ana" });
+  });
+
+  it("gives nothing when nothing is left to keep", () => {
+    expect(reducedName({ full: "Novak", surname: "Novak" }, "given")).toBeUndefined();
+    expect(reducedName({ full: "" }, "initials")).toBeUndefined();
+    expect(reducedName(undefined, "initials")).toBeUndefined();
   });
 });
