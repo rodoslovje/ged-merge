@@ -14,6 +14,7 @@ import {
   computeKinship,
   computeLineSides,
   matchesBatch,
+  nameTypeKey,
   previewBirthEstimates,
   previewMarriageEstimates,
   previewMarriedNames,
@@ -848,6 +849,48 @@ describe("applyBatchAction", () => {
     expect([abtOf("@C4@"), abtOf("@C5@")]).toEqual(["ABT 1885", "ABT 1885"]);
     // The father's estimate comes from his own child (1882 − 30) — no sibling adjustment.
     expect(abtOf("@P1@")).toBe("ABT 1850");
+  });
+
+  it("finds people by additional-name type and retypes those names to a standard one", () => {
+    for (const vers of ["5.5.1", "7.0"] as const) {
+      const head = vers === "7.0"
+        ? "0 HEAD\n1 GEDC\n2 VERS 7.0\n"
+        : "0 HEAD\n1 SOUR TEST\n1 SUBM @U1@\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n0 @U1@ SUBM\n1 NAME Test\n";
+      // 7.0 keeps a word outside its enumeration as OTHER + PHRASE.
+      const variation = vers === "7.0" ? "2 TYPE OTHER\n3 PHRASE variation" : "2 TYPE variation";
+      const ds = dataset(`${head}0 @I1@ INDI
+1 NAME Janez /Novak/
+1 NAME Johann /Nowak/
+${variation}
+1 NAME Hans /Nowak/
+${variation}
+0 @I2@ INDI
+1 NAME Ana /Kos/
+1 NAME Ana /Kosova/
+2 TYPE ${vers === "7.0" ? "MARRIED" : "married"}
+0 TRLR`);
+      const rows = buildBatchRows(ds, nameOf);
+      const ctx = { lineSides: null, kinship: null, fullText: fullTextLookup(ds) };
+      const pick = (c: BatchCriterion) => rows.filter((r) => matchesBatch(r, [c], ctx)).map((r) => r.id);
+      expect(pick({ kind: "nameType", type: "variation", mode: "has" })).toEqual(["@I1@"]);
+      expect(pick({ kind: "nameType", type: "variation", mode: "lacks" })).toEqual(["@I2@"]);
+      expect(pick({ kind: "nameType", type: "married", mode: "has" })).toEqual(["@I2@"]);
+
+      const res = applyBatchAction(ds, ["@I1@", "@I2@"], { kind: "convertNameType", fromType: "variation", toType: "aka" }, vers);
+      expect(res.changed).toBe(1);
+      expect(res.skipped).toBe(1);
+      const types = ds.individuals.get("@I1@")!.raw.children
+        .filter((c) => c.tag === "NAME").slice(1)
+        .map((n) => n.children.find((c) => c.tag === "TYPE")!);
+      expect(types.map((t) => [t.value, t.children.length])).toEqual(
+        Array(2).fill([vers === "7.0" ? "AKA" : "aka", 0]),
+      );
+      expect(ds.individuals.get("@I1@")!.names.slice(1).map(nameTypeKey)).toEqual(["aka", "aka"]);
+      expect(validateConformance(ds).filter((i) => i.recordId === "@I1@")).toEqual([]);
+      expect(res.patches.some((p) => p.id === "@I1@")).toBe(true);
+      // Nothing left to convert on a second run.
+      expect(applyBatchAction(ds, ["@I1@"], { kind: "convertNameType", fromType: "variation", toType: "aka" }, vers).changed).toBe(0);
+    }
   });
 
   it("converts vendor events to a named EVEN, keeping the substructure", () => {
