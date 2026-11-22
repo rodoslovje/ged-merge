@@ -54,7 +54,7 @@ export const DEFAULT_PHOTO_RINGS = 3;
 // A dedicated thin "collar" ring reserved between generations for the marriage
 // label (only when a marriage field is shown). The couple's collar sits at the
 // inner edge of their (the parents') ring, centred under husband + wife.
-const COLLAR_W = 26;
+export const COLLAR_W = 26;
 // From this couple-generation the collar's narrow arc can't hold "year, place" on
 // one line, so the year and place stack on two concentric lines instead.
 const MARRIAGE_TWO_LINE_FROM = 6;

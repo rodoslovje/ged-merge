@@ -12,6 +12,7 @@ import {
   PHOTO_RING_W,
   ROOT_R,
   TAU,
+  COLLAR_W,
   buildFanChart,
   fanResolvers,
   labelTexts,
@@ -38,9 +39,6 @@ export const SIBLING_STEP = (14 / 360) * TAU;
 export const SIBLING_SIDE_MAX = (70 / 360) * TAU;
 /** The gap either side of a notch's sibling wedges. */
 const SIBLING_GAP = (4 / 360) * TAU;
-/** The sibling wedges run out across the first two rings: nobody else is
- *  drawn there, and the outward-reading name needs the depth. */
-export const SIBLING_R_OUT = ROOT_R + 2 * PHOTO_RING_W;
 /** Prefix on a sibling segment's key, so it never meets a tree position. */
 export const SIBLING_KEY_PREFIX = "sib:";
 
@@ -103,8 +101,8 @@ export function buildButterflyChart(
     segments: [
       ...d.segments.map((s) => ({ ...s, cap: d.maxGen })),
       ...a.segments.filter((s) => s.gen > 0).map((s) => ({ ...s, key: ANCESTOR_KEY_PREFIX + s.key, cap: a.maxGen })),
-      ...(siblings && sibs ? siblingSegments(siblings.older, leftStart, left, r, opts, sibs.rOut, "o") : []),
-      ...(siblings && sibs ? siblingSegments(siblings.younger, rightStart, right, r, opts, sibs.rOut, "y") : []),
+      ...(siblings && sibs ? siblingSegments(siblings.older, leftStart, left, r, opts, sibs, "o") : []),
+      ...(siblings && sibs ? siblingSegments(siblings.younger, rightStart, right, r, opts, sibs, "y") : []),
     ],
     marriages: [...d.marriages, ...a.marriages.map((m) => ({ ...m, key: ANCESTOR_KEY_PREFIX + m.key }))],
     cx: r,
@@ -118,7 +116,6 @@ export function buildButterflyChart(
   };
 }
 
-const SIBLING_R_IN = ROOT_R + 8;
 const SIBLING_FONT = FONT_BY_GEN[2];
 /** Room between a sibling's label and its wedge's inner end… */
 const SIBLING_PAD = 12;
@@ -130,15 +127,20 @@ const SIBLING_PAD_OUT = 6;
 const lineLength = (text: string, kind: "name" | "years" = "name") =>
   text.length * SIBLING_FONT * 0.56 * (kind === "years" ? 0.85 : 1);
 
-/** The sibling wedges' outer radius: as deep as the longest one-line label
- *  needs, at least the first ring and at most the first two — so the wedges
- *  end where their names do instead of trailing off empty. */
-function siblingLabels(row: Sibling[], opts: FanChartOptions): { rOut: number } | undefined {
+/** The sibling wedges' radii, matched to the ancestors' rings beside them:
+ *  the parents' ring, or — when the longest one-line label needs more depth
+ *  than that — out to the grandparents' outer edge. Mirrors the ring sizes in
+ *  buildFanChart: a marriage collar before each ring when a marriage field is
+ *  shown, and photo-ring widths for the first two. */
+function siblingLabels(row: Sibling[], opts: FanChartOptions): { rIn: number; rOut: number } | undefined {
   if (row.length === 0) return undefined;
-  const { dispOf } = fanResolvers(opts);
+  const { display, dispOf } = fanResolvers(opts);
+  const collar = display.showMarriageDate || display.showMarriagePlace ? COLLAR_W : 0;
+  const rIn = ROOT_R + collar;
+  const ring1 = rIn + PHOTO_RING_W;
   const longest = Math.max(...row.flatMap(({ node }) => labelTexts({ ...dispOf(node), place: undefined }, false).map((l) => lineLength(l.text, l.kind))));
-  const rOut = Math.min(SIBLING_R_OUT, Math.max(ROOT_R + PHOTO_RING_W, SIBLING_R_IN + longest + SIBLING_PAD + SIBLING_PAD_OUT + 6));
-  return { rOut };
+  const fits = rIn + SIBLING_PAD + longest + SIBLING_PAD_OUT <= ring1;
+  return { rIn, rOut: fits ? ring1 : ring1 + collar + PHOTO_RING_W };
 }
 
 /** One notch's sibling wedges inside its gaps, the first of `row` at the
@@ -153,7 +155,7 @@ function siblingSegments(
   sweep: number,
   r: number,
   opts: FanChartOptions,
-  rOut: number,
+  { rIn, rOut }: { rIn: number; rOut: number },
   side: "o" | "y",
 ): FanSegment[] {
   if (row.length === 0) return [];
@@ -161,7 +163,6 @@ function siblingSegments(
   const delta = (sweep - 2 * SIBLING_GAP) / row.length;
   const cx = r;
   const cy = r;
-  const rIn = SIBLING_R_IN;
   const rMid = (rIn + rOut) / 2;
   const fontPx = SIBLING_FONT;
   const lo = rIn + SIBLING_PAD;
