@@ -11552,7 +11552,13 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 /* The vocabulary, and the actions that are not typing, hang off the caret
    beside it — the shape an event's type label has. Hidden until the row is
    reached, so a record naming nine people reads as nine roles, not as nine
-   controls. */
+   controls.
+
+   Faded, not collapsed: it holds its width at rest. Growing on hover widened
+   the associate, and the last one on a full line wrapped to the next — out
+   from under the pointer, so it shrank, came back and wrapped again: the row
+   flickered and the ▾ could not be caught. The note box below fades for the
+   same reason. */
 .edit-assoc-role-menu {
   background: none;
   border: 0;
@@ -11563,16 +11569,16 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
   color: var(--accent);
   line-height: 1;
   align-self: center;
-  max-width: 0;
+  width: 1.4em;
+  flex: none;
   opacity: 0;
   overflow: hidden;
-  transition: max-width 0.12s, opacity 0.12s;
+  transition: opacity 0.12s;
 }
 .edit-event-assoc:hover .edit-assoc-role-menu,
 .edit-assoc-role-field:focus + .edit-assoc-role-menu,
 .edit-assoc-role-menu:focus-visible,
 .edit-assoc-role-menu[aria-expanded="true"] {
-  max-width: 1.4em;
   opacity: 1;
 }
 /* An associate with nothing written about them carries the note box all the

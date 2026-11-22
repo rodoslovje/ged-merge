@@ -4158,4 +4158,5 @@ export const hr = {
   "calendar.stats.oldest_M": "Najstariji poznati predak: {{name}} ({{year}})",
   "calendar.stats.oldest_F": "Najstarija poznata pretkinja: {{name}} ({{year}})",
   "calendar.stats.surname": "Najčešće prezime: {{name}}",
+  "calendar.captions": "Prikaži imena na fotografijama",
 };

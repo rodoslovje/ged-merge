@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { monthWeeks, type CalendarMonth, type DayEntry, type Fact } from "../../calendar/model";
 import type { Holiday } from "../../calendar/holidays";
 import { schemeVars, type CalendarScheme } from "./schemes";
-import { LOGO_BADGE_MARKUP } from "../exportSvg";
+import { BADGE_BG, LOGO_BADGE_MARKUP } from "../exportSvg";
 
 export type { PagePhoto } from "./PhotoArea";
 import { ENTRY_GLYPH, entryCell, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
@@ -158,12 +158,24 @@ function Grid({ year, month, holidays, words, entryOpts }: MonthProps) {
                 <td key={di} className={cls || undefined}>
                   <div className="cal-day">{day}</div>
                   {names && <div className="cal-holname">{[...new Set(names)].join(", ")}</div>}
-                  {byDay.get(day)?.map((e, i) => (
+                  {byDay.get(day)?.filter((e) => e.kind !== "memorial").map((e, i) => (
                     <div key={i} className={`cal-entry cal-${e.kind}`}>
                       <span className="cal-glyph">{ENTRY_GLYPH[e.kind]}</span>
                       {entryCell(t, words, e, entryOpts)}
                     </div>
                   ))}
+                  {/* The memorial days sit at the foot of the day, stacked
+                      upwards, apart from the living above them. */}
+                  {byDay.get(day)?.some((e) => e.kind === "memorial") && (
+                    <div className="cal-mems">
+                      {byDay.get(day)!.filter((e) => e.kind === "memorial").map((e, i) => (
+                        <div key={i} className="cal-entry cal-memorial">
+                          <span className="cal-glyph">{ENTRY_GLYPH[e.kind]}</span>
+                          {entryCell(t, words, e, entryOpts)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </td>
               );
             })}
@@ -227,7 +239,9 @@ function Footer({ site }: { site?: string }) {
     <div className="cal-foot">
       <span>{site}</span>
       <span className="cal-credit">
-        {t("site.footer.madeWith")} gedmerge.com
+        {t("site.footer.madeWith")}
+        {/* GED Merge's own green, whatever the scheme — the brand beside its badge. */}
+        <span className="cal-brand" style={{ color: BADGE_BG }}>gedmerge.com</span>
         <svg viewBox="0 0 100 100" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO_BADGE_MARKUP }} />
       </span>
     </div>

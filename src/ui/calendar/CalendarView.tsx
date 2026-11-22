@@ -15,6 +15,8 @@ import { useNameOf } from "../SettingsContext";
 import { useChartSettings } from "../ChartSettingsContext";
 import { useMediaFolder } from "../MediaFolderContext";
 import { collectFirstFilePath } from "../PersonMedia";
+import { isPointer, looksLikeUrl, objeInfoOf, objeNodesFor } from "../../gedcom/source";
+import { mediaKindOf } from "../mediaPath";
 import { useBloodTrees } from "../useBloodTrees";
 import { useFanChart } from "../useFanChart";
 import { FanChartBody } from "../FanChartBody";
@@ -54,12 +56,18 @@ const SCOPES: CalendarScope[] = ["descendants", 0, 1, 2, 3];
 const MEMORIALS: MemorialMode[] = ["off", "lifetime", 1, 2];
 /** How many people's photos a page offers. */
 const PHOTO_CHOICES = 8;
+/** How many people a group photo's own caption names before it stops. */
+const GROUP_NAMES = 4;
 /** Generations each way on the cover's fan. */
 const FAN_GENERATIONS = 4;
 /** Steps: settings, cover, twelve months, review. */
 const MONTH_STEP0 = 2;
 const REVIEW_STEP = MONTH_STEP0 + 12;
-const FAN_DISPLAY_OFF = { showKinship: false, showPhoto: false } as const;
+/** The calendar's charts hang on a wall: the living show by name only — no
+ *  years or age — and no couple's wedding year is written. */
+const FAN_DISPLAY_OFF = {
+  showKinship: false, showPhoto: false, livingNameOnly: true, showMarriageDate: false, showMarriagePlace: false,
+} as const;
 
 type CountryChoice = HolidayCountry | "none";
 type PhotoItem = { kind: "person"; id: string } | { kind: "file"; url: string; name: string };
@@ -81,6 +89,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const [scheme, setScheme] = useState<CalendarScheme>("gedmerge");
   const [cellNames, setCellNames] = useState<CellNames>("given");
   const [showAge, setShowAge] = useState(true);
+  const [captions, setCaptions] = useState(true);
   const entryOpts = useMemo(() => ({ names: cellNames, age: showAge }), [cellNames, showAge]);
   const [country, setCountry] = useState<CountryChoice>(() => (i18n.language === "hr" ? "hr" : i18n.language === "sl" ? "si" : "none"));
   const [opts, setOpts] = useState<CalendarOptions>(() => ({
@@ -124,10 +133,43 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
 
   // Photos: each person's first image, resolved through the linked media folder.
   const media = useMediaFolder();
-  const photoPath = useCallback(
-    (id: string) => { const p = mainDs.individuals.get(id); return p ? collectFirstFilePath(p.raw, mainDs.records) : null; },
-    [mainDs],
-  );
+  // Who is on each photo file, and the photo's own title: a group photo is
+  // captioned by its title (where the file usually says what it shows), or
+  // else by the people on it. Each person's local images, in file order.
+  const { photoIndex, imagesOf } = useMemo(() => {
+    const objes = objeNodesFor(mainDs.records);
+    const photoIndex = new Map<string, { ids: string[]; title?: string }>();
+    const imagesOf = new Map<string, string[]>();
+    for (const indi of mainDs.individuals.values()) {
+      for (const link of indi.raw.children) {
+        if (link.tag !== "OBJE") continue;
+        const v = link.value?.trim();
+        const node = v && isPointer(v) ? objes.get(v) : link;
+        if (!node) continue;
+        const file = node.children.find((c) => c.tag === "FILE")?.value?.trim();
+        if (!file || looksLikeUrl(file) || mediaKindOf(file) !== "image") continue;
+        const title = objeInfoOf(node).title;
+        const entry = photoIndex.get(file) ?? { ids: [], title };
+        if (!entry.ids.includes(indi.id)) entry.ids.push(indi.id);
+        entry.title ??= title;
+        photoIndex.set(file, entry);
+        const own = imagesOf.get(indi.id) ?? [];
+        if (!own.includes(file)) own.push(file);
+        imagesOf.set(indi.id, own);
+      }
+    }
+    return { photoIndex, imagesOf };
+  }, [mainDs]);
+  /** A person's portrait: their marked or first photo when they are alone on
+   *  it, else the first photo of them alone — a group photo only when they
+   *  have nothing else, so two people from one big group do not bring the
+   *  same picture twice. */
+  const photoPath = useCallback((id: string): string | null => {
+    const p = mainDs.individuals.get(id);
+    const primary = p ? collectFirstFilePath(p.raw, mainDs.records) : null;
+    const files = [...(primary ? [primary] : []), ...(imagesOf.get(id) ?? [])];
+    return files.find((f) => (photoIndex.get(f)?.ids.length ?? 1) === 1) ?? files[0] ?? null;
+  }, [mainDs, imagesOf, photoIndex]);
   const [urls, setUrls] = useState<Map<string, string | null>>(new Map());
   const withPhoto = useCallback((ids: string[]) => {
     const out: string[] = [];
@@ -151,16 +193,25 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     return () => { live = false; };
   }, [media, coverPeople, monthPeople, photoPath, urls]);
 
+  const listFormat = useMemo(() => new Intl.ListFormat(i18n.language, { type: "conjunction" }), [i18n.language]);
+
   const personPhoto = useCallback((id: string): PagePhoto | undefined => {
     const path = photoPath(id);
     const url = path ? urls.get(path) : undefined;
     if (!url) return undefined;
+    const group = photoIndex.get(path!);
+    if (group && group.ids.length > 1) {
+      // The person it was picked for first, then the others on it.
+      const ids = [id, ...group.ids.filter((x) => x !== id)];
+      const names = listFormat.format(ids.slice(0, GROUP_NAMES).map(words.name));
+      return { url, caption: group.title || (ids.length > GROUP_NAMES ? `${names} …` : names) };
+    }
     // The name and the kinship ("Tim Novak, great-grandson"), so whoever looks
     // at the page knows who is who; the years only for the dead.
     const p = mainDs.individuals.get(id);
     const years = isDeceased(p) ? lifespanOf(p) : "";
     return { url, caption: `${nameAndKinship(words, id)}${years ? ` (${years})` : ""}` };
-  }, [photoPath, urls, mainDs, words]);
+  }, [photoPath, urls, mainDs, words, photoIndex, listFormat]);
 
   // The people whose birthday or wedding anniversary the month marks, with a photo.
   const monthCelebrated = useMemo(
@@ -172,7 +223,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
    *  none of them pictured, its first suggested person. */
   const monthPicture = (i: number): Picture => {
     if (monthPictures[i]) return monthPictures[i];
-    const ids = monthCelebrated[i].length ? monthCelebrated[i] : monthPeople[i].slice(0, 1);
+    const celebrated = monthCelebrated[i].filter((id, k, all) => all.findIndex((x) => photoPath(x) === photoPath(id)) === k);
+    const ids = celebrated.length ? celebrated : monthPeople[i].slice(0, 1);
     return { kind: "photos", items: ids.map((id) => ({ kind: "person", id })), collage: "scattered" };
   };
 
@@ -215,7 +267,9 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     if (pic.kind !== "photos") return <div className="cal-chart">{charts[pic.kind]}</div>;
     const photos = pic.items
       .map((it): PagePhoto | undefined => (it.kind === "file" ? { url: it.url } : personPhoto(it.id)))
-      .filter((x): x is PagePhoto => !!x);
+      .filter((x): x is PagePhoto => !!x)
+      .filter((x, i, all) => all.findIndex((y) => y.url === x.url) === i)
+      .map((p) => (captions ? p : { url: p.url }));
     return <PhotoArea photos={photos} collage={pic.collage} />;
   };
 
@@ -344,6 +398,10 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         <label className="cal-check">
           <input type="checkbox" checked={showAge} onChange={(e) => setShowAge(e.target.checked)} />
           <span>{t("calendar.showAge")}</span>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={captions} onChange={(e) => setCaptions(e.target.checked)} />
+          <span>{t("calendar.captions")}</span>
         </label>
         <label className="cal-check">
           <input type="checkbox" checked={opts.partners} onChange={(e) => setOpts({ ...opts, partners: e.target.checked })} />

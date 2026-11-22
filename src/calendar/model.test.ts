@@ -100,6 +100,21 @@ describe("buildCalendar", () => {
   });
 });
 
+describe("partners", () => {
+  // Uncle Peter (I6) and Vera (I11), with a full birth date for Vera — then
+  // the same couple divorced, or living apart.
+  const dated = GED.replace("2 DATE ABT 1960", "2 DATE 4 MAY 1960");
+  const ended = (tag: string) => dated.replace("0 @F4@ FAM\n", `0 @F4@ FAM\n1 ${tag} Y\n`);
+  const named = (text: string) =>
+    buildCalendar(dataset(text), "@I1@", { ...base, scope: 0 }, NOW).months.flatMap((m) => m.entries).flatMap((e) => e.ids);
+
+  it("leaves out a partner the file records as divorced or living apart", () => {
+    expect(named(dated)).toContain("@I11@");
+    expect(named(ended("DIV"))).not.toContain("@I11@");
+    expect(named(ended("SEPA"))).not.toContain("@I11@");
+  });
+});
+
 describe("monthWeeks", () => {
   it("starts the week on Monday", () => {
     // 1 March 2027 is a Monday; 1 February 2027 too.
