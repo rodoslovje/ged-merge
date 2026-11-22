@@ -53,6 +53,9 @@ test("the family calendar walks from settings to a review of every page", async 
   await expect(page.locator(".cal-preview .cal-overview")).toContainText("Marija");
   await page.getByLabel("Signature").fill("From all of us");
   await expect(page.locator(".cal-preview .cal-signature")).toHaveText("From all of us");
+  // A chart on the back page is titled by its name.
+  await page.getByLabel("What the back page shows").selectOption("fanDesc");
+  await expect(page.locator(".cal-preview .cal-back-title")).toHaveText("Fan of descendants");
   // No back page: the review has the cover and the months alone.
   await page.getByLabel("What the back page shows").selectOption("none");
   await page.getByRole("button", { name: "Next", exact: true }).click();
