@@ -19,8 +19,22 @@ export const CALENDAR_CSS = `
   padding: var(--cal-pad-top, 2.4em) 2.6em 2em;
 }
 .cal-page * { box-sizing: border-box; }
-.cal-photo { position: relative; overflow: hidden; background: var(--tint); border-radius: 0.3em; flex: 0 0 auto; }
-.cal-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cal-picture { position: relative; flex: 0 0 auto; min-height: 0; }
+.cal-photo { position: relative; overflow: hidden; background: var(--tint); border-radius: 0.3em; width: 100%; height: 100%; }
+.cal-photo-fill, .cal-photo-fit, .cal-photo-blur { position: absolute; display: block; }
+.cal-photo-fill { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* A photo of another shape: whole, on a blurred, enlarged copy of itself. */
+.cal-photo-blur { left: -8%; top: -8%; width: 116%; height: 116%; object-fit: cover; filter: blur(1.4em) saturate(1.15); opacity: 0.9; }
+.cal-photo-fit { inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0.2em 0.7em rgba(0,0,0,0.35)); }
+.cal-collage-tidy { background: none; border-radius: 0; }
+.cal-tile { position: absolute; overflow: hidden; border-radius: 0.2em; }
+.cal-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cal-tile .cal-caption { font-size: 0.7em; padding: 0.3em 0.5em; }
+.cal-collage-scattered { overflow: visible; }
+.cal-print { position: absolute; background: #fff; box-shadow: 0 0.15em 0.6em rgba(0,0,0,0.3); }
+.cal-print img { position: absolute; display: block; object-fit: cover; }
+.cal-print-caption { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 0.72em; color: #2a2622; padding: 0 0.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-photo-empty { display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 1.1em; height: 100%; }
 .cal-caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.5em 0.8em; font-size: 0.85em;
   color: #fff; background: linear-gradient(transparent, rgba(0,0,0,0.55)); }
@@ -61,15 +75,20 @@ export const CALENDAR_CSS = `
 .cal-fact-when { color: var(--muted); font-size: 0.9em; }
 .cal-legend { font-size: 0.6em; color: var(--muted); margin-top: auto; padding-top: 0.6em; }
 .cal-legend span + span { margin-left: 1.2em; }
+.cal-foot { display: flex; justify-content: space-between; align-items: center; gap: 1em; width: 100%;
+  font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 0.6em; color: var(--muted); padding-top: 0.6em; }
+.cal-credit { display: inline-flex; align-items: center; gap: 0.5em; }
+.cal-credit svg { width: 1.6em; height: 1.6em; }
+.cal-legend + .cal-foot { padding-top: 0.3em; }
 .cal-cover { align-items: center; text-align: center; }
 .cal-cover-title { font-size: 3em; color: var(--accent); margin: 0.4em 0 0.1em; }
 .cal-cover-year { font-size: 2em; color: var(--muted); }
 .cal-cover-name { font-size: 1.4em; margin: 0.6em 0 0.8em; }
-.cal-cover .cal-photo, .cal-cover .cal-fan { flex: 1 1 auto; width: 100%; min-height: 0; }
-.cal-fan { display: flex; align-items: center; justify-content: center; }
-.cal-fan svg { width: 100%; height: 100%; }
+.cal-cover .cal-picture { flex: 1 1 auto; width: 100%; }
+.cal-chart { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.cal-chart svg { width: 100%; height: 100%; }
 .cal-desk { flex-direction: row; gap: 1.6em; }
-.cal-desk .cal-photo { width: 38%; height: 100%; }
+.cal-desk .cal-picture { width: 38%; height: 100%; }
 .cal-desk .cal-side { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
 .cal-desk .cal-head { margin-top: 0; }
 `;

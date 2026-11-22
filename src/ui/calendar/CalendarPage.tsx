@@ -3,6 +3,9 @@ import { useTranslation } from "react-i18next";
 import { monthWeeks, type CalendarMonth, type DayEntry, type Fact } from "../../calendar/model";
 import type { Holiday } from "../../calendar/holidays";
 import { schemeVars, type CalendarScheme } from "./schemes";
+import { LOGO_BADGE_MARKUP } from "../exportSvg";
+
+export type { PagePhoto } from "./PhotoArea";
 import { ENTRY_GLYPH, entryCell, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
 
 // The family calendar's printed pages, drawn the same for the wizard's preview
@@ -19,12 +22,6 @@ export const PAPER: Record<CalendarFormat, { w: number; h: number; em: number }>
   desk: { w: 210, h: 148, em: 2.6 },
 };
 
-/** A picture for a page: the image's address and an optional caption. */
-export interface PagePhoto {
-  url: string;
-  caption?: string;
-}
-
 function pageStyle(format: CalendarFormat, scheme: CalendarScheme, extra?: Record<string, string>): CSSProperties {
   const p = PAPER[format];
   return { "--cal-ratio": `${p.w} / ${p.h}`, "--cal-ems": String(p.w / p.em), ...schemeVars(scheme), ...extra } as CSSProperties;
@@ -35,34 +32,26 @@ function livingFirst(entries: DayEntry[]): DayEntry[] {
   return [...entries.filter((e) => e.kind !== "memorial"), ...entries.filter((e) => e.kind === "memorial")];
 }
 
-function Photo({ photo, style }: { photo?: PagePhoto; style?: CSSProperties }) {
-  const { t } = useTranslation();
-  return (
-    <div className="cal-photo" style={style}>
-      {photo ? <img src={photo.url} alt="" /> : <div className="cal-photo-empty">{t("calendar.noPhoto")}</div>}
-      {photo?.caption && <div className="cal-caption">{photo.caption}</div>}
-    </div>
-  );
-}
-
 interface CoverProps {
   format: CalendarFormat;
   scheme: CalendarScheme;
   year: number;
   name: string;
-  /** The cover's picture: a photo, or the fan chart's node. */
-  photo?: PagePhoto;
-  fan?: ReactNode;
+  /** The picture: photos, a collage or a chart (the view builds it). */
+  picture: ReactNode;
+  /** The family website's address, for the footer. */
+  site?: string;
 }
 
-export function CoverPage({ format, scheme, year, name, photo, fan }: CoverProps) {
+export function CoverPage({ format, scheme, year, name, picture, site }: CoverProps) {
   const { t } = useTranslation();
   return (
     <div className="cal-page cal-cover" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
       <div className="cal-cover-title">{t("calendar.cover.title")}</div>
       <div className="cal-cover-year">{year}</div>
       <div className="cal-cover-name">{name}</div>
-      {fan ? <div className="cal-fan">{fan}</div> : <Photo photo={photo} />}
+      <div className="cal-picture">{picture}</div>
+      <Footer site={site} />
     </div>
   );
 }
@@ -75,19 +64,20 @@ interface MonthProps {
   /** The facts chosen for this month (the month's defaults unless changed). */
   facts: Fact[];
   holidays: Holiday[];
-  photo?: PagePhoto;
+  picture: ReactNode;
+  site?: string;
   words: PersonWords;
   entryOpts: EntryOptions;
 }
 
 /** One month: one page, or two for the wall calendar bound in the middle. */
 export function MonthPages(props: MonthProps) {
-  const { format, scheme, photo } = props;
+  const { format, scheme, picture } = props;
   if (format === "wallMiddle") {
     return (
       <>
         <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "2em" })}>
-          <Photo photo={photo} style={{ flex: "1 1 auto", marginBottom: "1.4em" }} />
+          <div className="cal-picture" style={{ flex: "1 1 auto", marginBottom: "1.4em" }}>{picture}</div>
         </div>
         <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
           <Head {...props} />
@@ -97,6 +87,7 @@ export function MonthPages(props: MonthProps) {
             <Facts {...props} />
           </div>
           <Legend />
+          <Footer site={props.site} />
         </div>
       </>
     );
@@ -104,20 +95,21 @@ export function MonthPages(props: MonthProps) {
   if (format === "desk") {
     return (
       <div className="cal-page cal-desk" style={pageStyle(format, scheme, { "--cal-pad-top": "3.2em" })}>
-        <Photo photo={photo} />
+        <div className="cal-picture">{picture}</div>
         <div className="cal-side">
           <Head {...props} />
           <div className="cal-grid-wrap"><Grid {...props} /></div>
           <div className="cal-lower">
             <Facts {...props} />
           </div>
+          <Footer site={props.site} />
         </div>
       </div>
     );
   }
   return (
     <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
-      <Photo photo={photo} style={{ height: "40%" }} />
+      <div className="cal-picture" style={{ height: "40%" }}>{picture}</div>
       <Head {...props} />
       <div className="cal-grid-wrap"><Grid {...props} /></div>
       <div className="cal-lower">
@@ -125,6 +117,7 @@ export function MonthPages(props: MonthProps) {
         <Facts {...props} />
       </div>
       <Legend />
+      <Footer site={props.site} />
     </div>
   );
 }
@@ -222,6 +215,21 @@ function Legend() {
       <span>{ENTRY_GLYPH.birthday} {t("calendar.legend.birthday")}</span>
       <span>{ENTRY_GLYPH.anniversary} {t("calendar.legend.anniversary")}</span>
       <span>{ENTRY_GLYPH.memorial} {t("calendar.legend.memorial")}</span>
+    </div>
+  );
+}
+
+/** The page's foot: the family website's address on the left, where one is
+ *  set in the website tool, and the GED Merge credit on the right. */
+function Footer({ site }: { site?: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="cal-foot">
+      <span>{site}</span>
+      <span className="cal-credit">
+        {t("site.footer.madeWith")} gedmerge.com
+        <svg viewBox="0 0 100 100" aria-hidden="true" dangerouslySetInnerHTML={{ __html: LOGO_BADGE_MARKUP }} />
+      </span>
     </div>
   );
 }

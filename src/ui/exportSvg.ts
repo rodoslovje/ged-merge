@@ -244,10 +244,11 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 
 // Node photos point at an object URL, which is meaningless outside this page
 // session — inline each as a data URI. Chart nodes draw SVG `<image href>`;
-// `<img src>` covers any HTML still exported inside a `<foreignObject>`.
-async function embedImages(clone: SVGSVGElement): Promise<void> {
+// `<img src>` covers any HTML still exported inside a `<foreignObject>` — and
+// the family calendar's pages, which print as HTML. A caller printing many
+// pages shares one `cache`, so a photo used twice is read once.
+export async function embedImages(clone: ParentNode, cache = new Map<string, string>()): Promise<void> {
   const imgs = Array.from(clone.querySelectorAll<Element>("img, image"));
-  const cache = new Map<string, string>();
   await Promise.all(
     imgs.map(async (img) => {
       const attr = img.tagName.toLowerCase() === "img" ? "src" : "href";
@@ -363,7 +364,12 @@ export const BADGE_FG = "#ffffff";
 function svgLogoBadge(x: number, y: number, size: number): SVGGElement {
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("transform", `translate(${x},${y}) scale(${size / 100})`);
-  g.innerHTML =
+  g.innerHTML = LOGO_BADGE_MARKUP;
+  return g;
+}
+
+/** The badge's SVG content in a 100×100 box — for an `<svg viewBox="0 0 100 100">`. */
+export const LOGO_BADGE_MARKUP =
     `<rect width="100" height="100" rx="23" fill="${BADGE_BG}"></rect>` +
     `<g transform="translate(50 50) scale(2.3) translate(-20 -21)" fill="none" stroke="${BADGE_FG}" ` +
     `stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">` +
@@ -375,8 +381,6 @@ function svgLogoBadge(x: number, y: number, size: number): SVGGElement {
     `<circle cx="31" cy="11" r="3.3"></circle>` +
     `<circle cx="20" cy="23.5" r="3.3" fill="${BADGE_FG}" stroke="none"></circle>` +
     `</g>`;
-  return g;
-}
 
 // Header / footer band geometry and side margin.
 export const HEADER_H = 52;

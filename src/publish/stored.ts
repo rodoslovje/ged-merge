@@ -58,6 +58,15 @@ export function readStoredPublish(fileName: string, defaults: PublishOptions): S
   return typeof entry.start === "string" ? { options, start: entry.start } : { options };
 }
 
+/** The family website's address kept for a file (where it will be hosted,
+ *  else its own address), or undefined. */
+export function storedSiteAddress(fileName: string): string | undefined {
+  const entry = readAll()[targetFileKey(fileName)];
+  const options = isRecord(entry) && isRecord(entry.options) ? entry.options : undefined;
+  const pick = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  return pick(options?.siteUrl) ?? pick(options?.url);
+}
+
 export function writeStoredPublish(fileName: string, value: StoredPublish): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(rememberTarget<unknown>(readAll(), targetFileKey(fileName), value)));

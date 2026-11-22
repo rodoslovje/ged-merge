@@ -22,7 +22,7 @@ test("the family calendar walks from settings to a review of every page", async 
   // The cover draws the recipient's fan by default.
   const next = page.getByRole("button", { name: "Next", exact: true });
   await next.click();
-  await expect(page.locator(".cal-preview .cal-fan svg")).toHaveCount(1);
+  await expect(page.locator(".cal-preview .cal-chart svg")).toHaveCount(1);
 
   // March: the recipient's own birthday, and her mother's as a relative's line.
   for (let i = 0; i < 3; i++) await next.click();

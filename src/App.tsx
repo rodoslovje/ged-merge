@@ -2838,6 +2838,7 @@ function AppContent() {
           onNavigate={navigateFromOverlay}
           onPickStart={changeStart}
           onOpenGeocode={() => goToPageFromOverlay({ mode: "tools", tool: "places", toolView: "geocode" })}
+          mainFileName={lastMainFile?.fileName}
         />
       </ChartTrailContext.Provider>
     );

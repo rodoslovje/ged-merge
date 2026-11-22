@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { defaultPublishOptions } from "./model";
-import { clearStoredPublish, mergeStoredOptions, readStoredPublish, writeStoredPublish } from "./stored";
+import { clearStoredPublish, mergeStoredOptions, readStoredPublish, storedSiteAddress, writeStoredPublish } from "./stored";
 
 const defaults = defaultPublishOptions("Rodbina", "sl");
 
@@ -39,5 +39,13 @@ describe("stored choices", () => {
     expect(readStoredPublish("Kos.ged", defaults)?.options.title).toBe("Kos");
     clearStoredPublish();
     expect(readStoredPublish("Kos.ged", defaults)).toBeUndefined();
+  });
+
+  it("give the website's address — where it is hosted first, else its own", () => {
+    writeStoredPublish("Novak.ged", { options: { ...defaults, siteUrl: " https://rod.example.org/ ", url: "https://x.example" } });
+    writeStoredPublish("Kos.ged", { options: { ...defaults, url: "https://kos.example" } });
+    expect(storedSiteAddress("Novak.ged")).toBe("https://rod.example.org/");
+    expect(storedSiteAddress("Kos.ged")).toBe("https://kos.example");
+    expect(storedSiteAddress("Other.ged")).toBeUndefined();
   });
 });

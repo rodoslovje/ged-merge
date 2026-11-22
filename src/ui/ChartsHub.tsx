@@ -66,9 +66,12 @@ interface Props {
    *  website does, in its address. Without these the hub keeps its own. */
   direction?: ChartDirection;
   onDirectionChange?: (direction: ChartDirection) => void;
+  /** The main file's name: the Calendar's footer names the family website
+   *  kept for it. */
+  mainFileName?: string;
 }
 
-export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, onRelationFromChange, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode, direction: hostDirection, onDirectionChange }: Props) {
+export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromId, onRelationFromChange, changedPersonIds, decisions, backLabel, onBack, onNavigate, onPickStart, onOpenGeocode, direction: hostDirection, onDirectionChange, mainFileName }: Props) {
   const { t } = useTranslation();
   const { settings: stored, setKind } = useChartSettings();
   const published = usePublishedView();
@@ -135,6 +138,7 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
     return (
       <CalendarView
         mainDs={mainDs}
+        mainFileName={mainFileName}
         rootId={rootId}
         backLabel={backLabel}
         onBack={onBack}
