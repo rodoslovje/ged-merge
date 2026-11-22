@@ -3955,4 +3955,5 @@ export const en = {
   "calendar.dedication": "Dedication",
   "calendar.dedication.placeholder": "For Mum, with love — from all of us",
   "calendar.large": "Large print — names with the kinship, for an older reader",
+  "calendar.legend.round": "round birthday or jubilee",
 };

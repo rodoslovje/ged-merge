@@ -4164,4 +4164,5 @@ export const hr = {
   "calendar.dedication": "Posveta",
   "calendar.dedication.placeholder": "Za mamu, s ljubavlju — svi tvoji",
   "calendar.large": "Veliki tisak — imena sa srodstvom, za starije čitatelje",
+  "calendar.legend.round": "okrugli rođendan ili jubilej",
 };
