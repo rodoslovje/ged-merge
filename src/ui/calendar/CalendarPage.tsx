@@ -76,17 +76,19 @@ interface MonthProps {
 /** One month: one page, or two for the wall calendar bound in the middle. */
 export function MonthPages(props: MonthProps) {
   const { format, scheme, picture } = props;
+  // Large print leaves out the list under the grid: the cells say it all.
+  const large = !!props.entryOpts.large;
   if (format === "wallMiddle") {
     return (
       <>
         <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "2em" })}>
           <div className="cal-picture" style={{ flex: "1 1 auto", marginBottom: "1.4em" }}>{picture}</div>
         </div>
-        <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
+        <div className={`cal-page${large ? " cal-large" : ""}`} style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
           <Head {...props} />
           <div className="cal-grid-wrap"><Grid {...props} /></div>
           <div className="cal-lower">
-            <DayList {...props} />
+            {!large && <DayList {...props} />}
             <Facts {...props} />
           </div>
           <Legend />
@@ -97,7 +99,7 @@ export function MonthPages(props: MonthProps) {
   }
   if (format === "desk") {
     return (
-      <div className="cal-page cal-desk" style={pageStyle(format, scheme, { "--cal-pad-top": "3.2em" })}>
+      <div className={`cal-page cal-desk${large ? " cal-large" : ""}`} style={pageStyle(format, scheme, { "--cal-pad-top": "3.2em" })}>
         <div className="cal-picture">{picture}</div>
         <div className="cal-side">
           <Head {...props} />
@@ -111,12 +113,12 @@ export function MonthPages(props: MonthProps) {
     );
   }
   return (
-    <div className="cal-page" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
+    <div className={`cal-page${large ? " cal-large" : ""}`} style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
       <div className="cal-picture" style={{ height: "40%" }}>{picture}</div>
       <Head {...props} />
       <div className="cal-grid-wrap"><Grid {...props} /></div>
       <div className="cal-lower">
-        <DayList {...props} />
+        {!large && <DayList {...props} />}
         <Facts {...props} />
       </div>
       <Legend />
