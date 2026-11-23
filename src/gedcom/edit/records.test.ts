@@ -2,7 +2,27 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../builder";
 import { parseGedcom } from "../parser";
 import { noteCtx } from "./notes";
-import { preferredFsIdTag, recordLinkTag, setFsIds, setFamilyLinks, setFamilyNotes, setIndividualLinks, setNotes } from "./records";
+import { preferredFsIdTag, recordLinkTag, removeExid, setFsIds, setFamilyLinks, setFamilyNotes, setIndividualLinks, setNotes } from "./records";
+
+describe("removeExid", () => {
+  it("removes the listed external id with its TYPE, and leaves the FamilySearch one", () => {
+    const records = parseGedcom(new TextEncoder().encode([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0", "0 @I1@ INDI", "1 NAME A /B/",
+      "1 EXID GPZG-CXL", "2 TYPE https://www.familysearch.org/tree/person/",
+      "1 EXID MH:I500078", "2 TYPE https://gedcom.io/terms/v7/RIN",
+      "1 EXID Novak-12", "2 TYPE https://example.com/people/",
+      "0 TRLR", "",
+    ].join("\n")).buffer);
+    const indi = buildDataset(records).individuals.get("@I1@")!;
+    expect(indi.exids?.map((x) => x.id)).toEqual(["MH:I500078", "Novak-12"]);
+    removeExid(indi, 0);
+    expect(buildDataset(records).individuals.get("@I1@")).toMatchObject({
+      fsids: ["GPZG-CXL"],
+      exids: [{ id: "Novak-12", type: "https://example.com/people/" }],
+    });
+    expect(indi.raw.children.map((c) => c.tag)).toEqual(["NAME", "EXID", "EXID"]);
+  });
+});
 
 describe("setFsIds — the tag of a newly added FamilySearch id", () => {
   const ds7 = () => buildDataset(parseGedcom(new TextEncoder().encode(

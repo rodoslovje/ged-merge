@@ -108,6 +108,16 @@ export function setFsIds(indi: Individual, ids: string[], preferredTag: FsIdTag)
   }
 }
 
+/**
+ * Remove the `index`-th of an individual's other external identifiers — the
+ * `EXID` lines {@link Individual.exids} lists: every one with a value that is
+ * no FamilySearch id.
+ */
+export function removeExid(indi: Individual, index: number): void {
+  const node = indi.raw.children.filter((c) => c.tag === "EXID" && !!c.value?.trim() && !isFsIdNode(c))[index];
+  if (node) indi.raw.children = indi.raw.children.filter((c) => c !== node);
+}
+
 /** Replace an individual's notes, preserving shared-note pointers (see {@link applyNoteRefs}). */
 export function setNotes(ctx: SharedNoteCtx, indi: Individual, notes: NoteRef[]): void {
   applyNoteRefs(ctx, indi.raw, notes, INDI_CHILD_ORDER);

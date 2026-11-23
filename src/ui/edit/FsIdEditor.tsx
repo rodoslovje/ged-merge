@@ -3,7 +3,7 @@ import { FsIdLink } from "../FieldValue";
 import type { ExternalId, Individual } from "../../gedcom/types";
 import { exidTypeLabel } from "../../gedcom/exid";
 import type { Translate } from "../../locales/i18n";
-import { setFsIds, type FsIdTag } from "../../gedcom/edit";
+import { removeExid, setFsIds, type FsIdTag } from "../../gedcom/edit";
 import { ClearableInput } from "./ClearableInput";
 import type { Commit } from "./types";
 import { fieldWidth } from "./editConstants";
@@ -126,12 +126,14 @@ export function FsIdEditor({
 /**
  * The person's other GEDCOM 7 external identifiers (`EXID` + `TYPE`, see
  * `gedcom/exid`), beside the FamilySearch ones: each id with the system that
- * gave it. A type URI ending in a slash is the base of that system's record
- * pages (as FamilySearch's own is), so the id opens there.
+ * gave it, and an × that removes it. A type URI ending in a slash is the base
+ * of that system's record pages (as FamilySearch's own is), so the id opens
+ * there.
  */
-export function ExternalIdChips({ exids, t, merge }: {
+export function ExternalIdChips({ exids, t, commit, merge }: {
   exids: ExternalId[];
   t: Translate;
+  commit: Commit;
   /** Ids a confirmed match will add beside these. */
   merge?: { exids: ExternalId[] } & MergeChipActions;
 }) {
@@ -148,6 +150,14 @@ export function ExternalIdChips({ exids, t, merge }: {
                 {href ? <a href={href} target="_blank" rel="noopener noreferrer">{x.id}</a> : x.id}
                 <span className="muted"> ({system})</span>
               </span>
+              <button
+                type="button"
+                className="edit-link-remove"
+                title={t("edit.removeExid")}
+                onClick={() => commit((indi) => removeExid(indi, i))}
+              >
+                ×
+              </button>
             </span>
           );
         })}
