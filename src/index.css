@@ -8449,6 +8449,54 @@ kbd {
 .research-done-toggle { color: var(--muted); }
 .research-refs { display: inline-flex; align-items: center; gap: 2px; }
 
+/* The research notebook (Tools → Notebook): one row per note. */
+.tools-research-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 14px; }
+.tools-research-bar .tools-run,
+.tools-research-bar .tools-search { margin: 0; }
+.tools-research-empty { color: var(--muted); }
+.tools-research-group { margin: 0 0 18px; }
+.tools-research-heading {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.research-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.research-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  background: var(--panel);
+}
+.research-row + .research-row { border-top: 1px solid var(--border); }
+.research-row .research-chip-check { align-self: center; }
+.research-row-open {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.research-row-open:hover .research-row-text,
+.research-row-open:focus-visible .research-row-text { color: var(--accent); }
+.research-row-text { overflow-wrap: anywhere; }
+.research-row.is-done .research-row-text { color: var(--muted); text-decoration: line-through; }
+.research-row-where { display: inline-flex; flex-wrap: wrap; gap: 2px 14px; }
+.research-row-ref { display: inline-flex; align-items: baseline; gap: 6px; }
+.research-row-date { margin-left: auto; color: var(--faint); font-size: 0.8rem; white-space: nowrap; }
+
 .research-dialog { width: 600px; }
 .research-dialog-head {
   display: flex;
@@ -8463,6 +8511,18 @@ kbd {
 .research-dialog-text { width: 100%; resize: vertical; }
 .research-dialog .add-source-url-wrap + .add-source-url-wrap { margin-top: 4px; }
 .research-dialog-unfiled { color: var(--muted); font-size: 0.9rem; }
+.research-media { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.research-media-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 2px 2px 8px;
+  font-size: 0.92rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
 .research-target {
   display: flex;
   align-items: center;

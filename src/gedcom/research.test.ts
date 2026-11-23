@@ -16,6 +16,7 @@ import { validateConformance } from "../tools/conformance/conformance";
 import { bulkNormalize } from "../tools/bulkNormalize";
 import { defaultPrivacyOptions, privatizeDataset } from "../tools/privacy";
 import { findDanglingXrefs } from "../tools/structure";
+import { mergeDuplicate } from "../tools/mergeDuplicate";
 
 const parse = (text: string) => parseGedcom(new TextEncoder().encode(text).buffer);
 const dataset = (text: string) => buildDataset(parse(text));
@@ -189,6 +190,30 @@ describe("dropResearchNotes", () => {
     const other = parse(["0 HEAD", "0 @I1@ INDI", "1 _RESEARCH see the archive", "0 TRLR"].join("\n")).records;
     dropResearchNotes(other);
     expect(hasResearch(other)).toBe(true);
+  });
+});
+
+describe("research notes — two records of one person merged within the file", () => {
+  it("carries the absorbed record's notes onto the one kept", () => {
+    const ds = dataset([
+      ...head("5.5.1"),
+      "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1850", "1 _RESEARCH @RN1@",
+      "0 @I2@ INDI", "1 NAME Janez /Novak/", "1 SEX M", "1 BIRT", "2 DATE 1850", "2 _RESEARCH @RN3@",
+      "1 DEAT", "2 DATE 1910", "2 _RESEARCH @RN2@", "1 _RESEARCH @RN2@", "1 _RESEARCH @RN1@",
+      "0 @RN1@ _RESEARCH", "1 TYPE IDEA", "1 STAT OPEN", "1 NOTE Both records had this one.",
+      "0 @RN2@ _RESEARCH", "1 TYPE QUESTION", "1 STAT OPEN", "1 NOTE Only the duplicate had this one.",
+      "0 @RN3@ _RESEARCH", "1 TYPE TASK", "1 STAT OPEN", "1 NOTE On the birth both records have.",
+      "0 TRLR",
+    ].join("\n") + "\n");
+    mergeDuplicate(ds, "@I1@", "@I2@", { status: "confirmed", fields: {} }, (key) => key);
+    expect(ds.individuals.has("@I2@")).toBe(false);
+    const { notes, refs } = readResearchNotes(ds.records);
+    expect(notes).toHaveLength(3);
+    const filed = (id: string) => (refs.get(id) ?? []).map((r) => `${r.recordId} ${r.eventTag ?? "-"}`).sort();
+    // Once each: the note both had is not filed twice.
+    expect(filed("@RN1@")).toEqual(["@I1@ -"]);
+    expect(filed("@RN2@")).toEqual(["@I1@ -", "@I1@ DEAT"]);
+    expect(filed("@RN3@")).toEqual(["@I1@ BIRT"]);
   });
 });
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ResearchFields } from "../../gedcom/edit";
 import { ALL_EVENT_TAGS, eventDisplayLabel } from "../../gedcom/eventTags";
 import { childText } from "../../gedcom/node";
@@ -12,20 +12,14 @@ import { useNameOf } from "../SettingsContext";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { RelativePickerCard } from "./RelativePickerCard";
 import { RESEARCH_ICON } from "./ResearchContext";
-
-/** One place a note is filed under: a person or family, or one of its events
- *  (by the event line's position among the record's lines). */
-export interface ResearchTarget {
-  recordId: string;
-  eventIndex?: number;
-}
-
-/** What the dialog opens on: a new note (no `id`) or an existing one. */
-export interface ResearchDraft {
-  id?: string;
-  fields: ResearchFields;
-  targets: ResearchTarget[];
-}
+import type { NewResearchMedia, ResearchDraft, ResearchTarget } from "./researchEdit";
+import { AddMediaDialog } from "../AddMediaDialog";
+import { useMediaFolder } from "../MediaFolderContext";
+import { basename } from "../mediaPath";
+import { useFormatOverrides } from "../TargetFormatContext";
+import { objeInfoOf } from "../../gedcom/source";
+import { recordLookup } from "../../gedcom/node";
+import { writeVersionOf } from "../../normalize/formatOverrides";
 
 const WHOLE = "record";
 
@@ -48,7 +42,8 @@ export function ResearchDialog({
   dataset: Dataset;
   t: Translate;
   onClose: () => void;
-  onSave: (fields: ResearchFields, targets: ResearchTarget[]) => void;
+  /** `newMedia`: files picked here that the file has no media record for yet. */
+  onSave: (fields: ResearchFields, targets: ResearchTarget[], newMedia?: NewResearchMedia) => void;
   /** Delete the note; absent for one not saved yet. */
   onRemove?: () => void;
   /** Open a person the note is filed under. */
@@ -62,6 +57,21 @@ export function ResearchDialog({
   const [links, setLinks] = useState<string[]>([...draft.fields.links, ""]);
   const [targets, setTargets] = useState<ResearchTarget[]>(draft.targets);
   const [picking, setPicking] = useState(false);
+  // The note's media: records it already points at, and files picked here —
+  // a picked file gets its record when the note is saved, not before.
+  const [media, setMedia] = useState<{ xref?: string; path?: string }[]>(() => draft.fields.media.map((xref) => ({ xref })));
+  const [mediaPicker, setMediaPicker] = useState(false);
+  const { folderName, openFolder } = useMediaFolder();
+  const version = writeVersionOf(useFormatOverrides());
+  // The file's records by xref, built only for a note that has media to name.
+  const hasMediaRecords = media.some((m) => m.xref);
+  const recordOf = useMemo(() => (hasMediaRecords ? recordLookup(dataset.records) : undefined), [hasMediaRecords, dataset]);
+  const mediaLabel = (m: { xref?: string; path?: string }): string => {
+    if (m.path) return basename(m.path);
+    const record = m.xref ? recordOf?.(m.xref) : undefined;
+    const info = record ? objeInfoOf(record) : undefined;
+    return info?.title || (info?.file ? basename(info.file) : m.xref ?? "");
+  };
   const textRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { textRef.current?.focus(); }, []);
   // Escape in the person search puts the search away, not the whole dialog:
@@ -82,8 +92,15 @@ export function ResearchDialog({
   const stopPicking = useCallback(() => setPicking(false), []);
 
   const cleanLinks = links.map((l) => l.trim()).filter(Boolean);
-  const canSave = !!text.trim() || cleanLinks.length > 0 || draft.fields.media.length > 0;
-  const save = () => onSave({ kind, done, text: text.trim(), links: cleanLinks, media: draft.fields.media }, targets);
+  const canSave = !!text.trim() || cleanLinks.length > 0 || media.length > 0;
+  const save = () => {
+    const files = media.filter((m) => !m.xref && m.path).map((m) => m.path!);
+    onSave(
+      { kind, done, text: text.trim(), links: cleanLinks, media: media.filter((m) => m.xref).map((m) => m.xref!) },
+      targets,
+      files.length ? { files, version } : undefined,
+    );
+  };
 
   const rawOf = (recordId: string): GedNode | undefined =>
     dataset.individuals.get(recordId)?.raw ?? dataset.families.get(recordId)?.raw;
@@ -171,6 +188,33 @@ export function ResearchDialog({
         ))}
       </div>
       <div className="add-source-field">
+        <span>{t("research.field.media")}</span>
+        <span className="research-media">
+          {media.map((m, i) => (
+            <span key={`${m.xref ?? m.path}-${i}`} className="research-media-item">
+              <span aria-hidden="true">🖼</span> {mediaLabel(m)}
+              <button
+                type="button"
+                className="research-target-remove"
+                title={t("research.removeMedia")}
+                aria-label={t("research.removeMedia")}
+                onClick={() => setMedia((prev) => prev.filter((_, at) => at !== i))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add research-target-add"
+            title={folderName ? undefined : t("media.selectFolderPrompt")}
+            onClick={() => { if (folderName) setMediaPicker(true); else void openFolder(); }}
+          >
+            + {t("media.add")}
+          </button>
+        </span>
+      </div>
+      <div className="add-source-field">
         <span>{t("research.field.filed")}</span>
         {targets.length === 0 && !picking && <span className="research-dialog-unfiled">{t("research.unfiledHint")}</span>}
         {targets.map((target, i) => {
@@ -231,6 +275,20 @@ export function ResearchDialog({
           </button>
         )}
       </div>
+      <AddMediaDialog
+        isOpen={mediaPicker}
+        onClose={() => setMediaPicker(false)}
+        onAdd={(picked) =>
+          setMedia((prev) => [
+            ...prev,
+            ...picked
+              .filter((p) => !prev.some((m) => (p.existingXref ? m.xref === p.existingXref : m.path === p.path)))
+              .map((p) => (p.existingXref ? { xref: p.existingXref } : { path: p.path })),
+          ])
+        }
+        dataset={dataset}
+        t={t}
+      />
     </SourceDialogShell>
   );
 }

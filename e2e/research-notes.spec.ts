@@ -130,3 +130,73 @@ test("edit mode: deleting a research note takes it off everything it was filed u
   await expect(chips).toHaveCount(1);
   await expect(chips.first()).toContainText("A passing thought");
 });
+
+test("a note written for later waits in the notebook, is filed from there, and stays out of an export", async ({ page }) => {
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  // The header's button, from anywhere: a note filed under nobody.
+  await page.getByRole("button", { name: "Research note", exact: true }).click();
+  const fresh = page.getByRole("dialog", { name: "New research note" });
+  await expect(fresh.locator(".research-dialog-unfiled")).toBeVisible();
+  await fresh.getByRole("tab", { name: /Find/ }).click();
+  await fresh.locator("textarea").fill("Newspaper clipping about the Novak farm");
+  await fresh.getByRole("button", { name: "Save" }).click();
+  // Nothing on the person's card: it is not about them yet.
+  await expect(page.locator(".research-section")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.locator(".tools-tab", { hasText: "Notebook" }).click();
+  const unfiled = page.locator(".tools-research-group", { hasText: "Not filed" });
+  await expect(unfiled.locator(".research-row")).toHaveCount(1);
+  await expect(unfiled.locator(".research-row")).toContainText("Newspaper clipping about the Novak farm");
+
+  // Filed under Ana from the notebook: it moves to the filed group.
+  await unfiled.locator(".research-row-open").click();
+  const editing = page.getByRole("dialog", { name: "Research note", exact: true });
+  await editing.getByRole("button", { name: "+ Add person" }).click();
+  await editing.locator(".relative-picker-input").fill("ana");
+  await editing.locator(".relative-picker-option", { hasText: "Ana Kos" }).click();
+  await editing.getByRole("button", { name: "Save" }).click();
+  await expect(unfiled).toHaveCount(0);
+  const filed = page.locator(".tools-research-group", { hasText: "Filed under" });
+  await expect(filed.locator(".research-row")).toContainText("Ana Kos");
+
+  // Settled, it leaves the open list and shows under Done.
+  await filed.locator(".research-chip-check").click();
+  await expect(page.locator(".tools-research-empty")).toHaveText("No note matches.");
+  await page.locator(".tools-research").getByRole("tab", { name: "Done" }).click();
+  await expect(page.locator(".research-row.is-done")).toHaveCount(1);
+
+  // The person's link opens them in Edit, where the settled note is listed.
+  await page.locator(".research-row .person-ref").click();
+  await expect(page.locator(".edit-name-input").first()).toHaveValue("Ana");
+  await expect(page.locator(".research-done-toggle")).toContainText("Done: 1");
+
+  // Save writes the note; the privacy export leaves it out.
+  const saved = await saveFile(page);
+  expect(saved).toContain("0 @RN1@ _RESEARCH");
+  expect(saved).toMatch(/1 SEX F\r?\n1 _RESEARCH @RN1@/);
+
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.locator(".tools-tab", { hasText: "Privacy" }).click();
+  const dl = page.waitForEvent("download", (d) => d.suggestedFilename().endsWith(".ged"));
+  await page.getByRole("button", { name: "Download redacted GEDCOM" }).click();
+  const exported = readFileSync((await (await dl).path())!, "utf-8");
+  expect(exported).toContain("1 NAME Franc /Novak/");
+  expect(exported).not.toContain("_RESEARCH");
+});
+
+test("B opens a research note for later", async ({ page }) => {
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  // From the page itself, not from inside a field, where B is a letter.
+  await page.locator("body").press("b");
+  await expect(page.getByRole("dialog", { name: "New research note" })).toBeVisible();
+});

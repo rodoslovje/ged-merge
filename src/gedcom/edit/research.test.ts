@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../builder";
+import { cloneNode } from "../node";
 import { parseGedcom } from "../parser";
 import { readResearchNote, readResearchNotes } from "../research";
 import { serializeGedcom } from "../serialize";
@@ -58,7 +59,7 @@ describe("research note edits", () => {
       expect(researchRecords(ds.records).get("@RN1@")).toBe(record);
       expect(researchNotesOn(ds.records, death)[0]).toMatchObject({ kind: "TASK", done: true });
 
-      const out = ds.records.map((r) => r);
+      const out = ds.records.map(cloneNode); // the download works on a copy
       prepareDownload(out, ds, version, undefined, undefined, true);
       expect(validateConformance({ records: out })).toEqual([]);
 
