@@ -32,7 +32,7 @@ import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
-import { useLivingNameOf } from "./useLivingName";
+import { hiddenName, useLivingNameOf } from "./useLivingName";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { YearsText } from "./YearsText";
 import { ArrowIcon } from "./icons/ArrowIcon";
@@ -236,8 +236,13 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);
   // Shared title for the SVG / PDF export header, and the download slug.
-  const relchartTitle = `${nameOf(startSel)} → ${nameOf(targetSel)} — ${t("relpath.pageTitle")}`;
-  const relchartSlug = chartSlug(nameOf(startSel), nameOf(targetSel), t("relpath.pageTitle"));
+  // An endpoint the privacy setting hides is named in the file as in its box.
+  const exportNameOf = (id: string) => {
+    const indi = mainDs.individuals.get(id);
+    return hiddenName(t, settings.privacyLiving, livingNameOf, indi, isPresumedLiving(indi, mainDs)) ?? nameOf(id);
+  };
+  const relchartTitle = `${exportNameOf(startSel)} → ${exportNameOf(targetSel)} — ${t("relpath.pageTitle")}`;
+  const relchartSlug = chartSlug(exportNameOf(startSel), exportNameOf(targetSel), t("relpath.pageTitle"));
 
   // A title endpoint: the person's name + lifespan, clickable to swap that side.
   const renderEndpoint = (side: "start" | "target", id: string) => {

@@ -23,7 +23,7 @@ import { AXIS_TINT, CHART_AXES, fanPosition, indexPositions, type NodePosition }
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
-import { useLivingNameOf } from "./useLivingName";
+import { hiddenName, useLivingNameOf } from "./useLivingName";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
 import type { FanSegment } from "../chart/fanLayout";
@@ -589,7 +589,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     ? lifespanLine({ showLifespan: true, showAge: display.showAge }, { years: tree.years, age: tree.age })
     : undefined;
   // Shared title for the SVG / PDF export header.
-  const editTreeTitle = [tree?.name, rootYears, "—", chartKind].filter(Boolean).join(" ");
+  // A root the privacy setting hides is named in the file as on the chart.
+  const rootHidden = tree && hiddenName(t, display.privacyLiving, livingNameOf, tree.main ?? tree.incoming, tree.living, tree.sex);
+  const exportName = rootHidden ?? tree?.name;
+  const editTreeTitle = [exportName, rootHidden ? undefined : rootYears, "—", chartKind].filter(Boolean).join(" ");
   // Everyone drawn on the current chart (incl. spouses in descendant mode) —
   // the person set the GEDCOM export cuts out of the main file. Deduped:
   // pedigree collapse draws a person in several positions but exports them once,
@@ -629,7 +632,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           <ChartSettings availableGenerations={shownDepth} />
           <ChartExportMenu
             disabled={!activeLaid}
-            slug={chartSlug(tree?.name, directionLabel)}
+            slug={chartSlug(exportName, directionLabel)}
             title={editTreeTitle}
             legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: chartPersonIds }}
