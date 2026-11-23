@@ -486,7 +486,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
           <ChartSettings lockedType="timeline" availableGenerations={depth} />
           <ChartExportMenu
             disabled={!laid}
-            slug={chartSlug(rootRow?.name, pageKind)}
+            slug={chartSlug(rootRow && rowName(rootRow), pageKind)}
             title={exportTitle}
             legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: rows.map((r) => r.id) }}

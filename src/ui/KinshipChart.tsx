@@ -43,6 +43,7 @@ import { ChartSettings } from "./ChartSettings";
 import { Segmented } from "./Segmented";
 import { useChartSettings } from "./ChartSettingsContext";
 import { useLivingNameOf } from "./useLivingName";
+import { blurYear } from "../chart/lineageYears";
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { lineColor, type BranchInfo } from "../chart/nodeColor";
@@ -258,7 +259,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
 
   // Redact people inferred to be living, as the other charts do: the name goes,
   // the dot stays — its ring and wedge are the point, and they give nothing away.
-  const redacted = useCallback((p: KinPerson) => settings.privacyLiving && p.span.living, [settings.privacyLiving]);
+  // A person flagged private is hidden exactly like the presumed-living.
+  const redacted = useCallback((p: KinPerson) => settings.privacyLiving && (p.span.living || !!p.indi.private), [settings.privacyLiving]);
   const kinship = useMemo(
     () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
     [mainDs, startId, t],
@@ -310,7 +312,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       id: p.id,
       name: nameFor(p),
       sex: redacted(p) ? undefined : p.sex,
-      years: lifeOf(p),
+      years: redacted(p) ? "" : lifeOf(p),
       yearsApprox: lifespanApproxOf(p.indi),
       dates: datesFor(p),
       kinship: kinshipOf(p),
@@ -454,6 +456,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const pageKind = t("kin.pageTitle");
   const rootYears = root ? lifespanLine({ showLifespan: true, showAge: settings.showAge }, { years: people[0]?.years, age: lifespanAge(root) }) : undefined;
   const rootName = root ? nameOf(root) : "";
+  // A root the privacy setting hides is named in the file as on the chart.
+  const rootHidden = people[0] && redacted(people[0]) ? nameFor(people[0]) : undefined;
   const drawnCount = useMemo(() => people.filter(drawn).length, [people, drawn]);
   const litCount = yearOn ? people.filter((p) => drawn(p) && lit(p)).length : drawnCount;
 
@@ -519,6 +523,10 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
         // birth year is exactly what the redaction withholds.
         const years = barShowsYears(font) && !redacted(r.person) ? r.person.years : "";
         const showName = settings.kinNames && r.named && lit(r.person);
+        // A hidden person's bar starts at the middle of the birth's decade, as
+        // on the Timeline: the bar's own left edge would read the year out.
+        const from = r.person.span.from;
+        const x0 = redacted(r.person) && from !== undefined ? Math.min(bars.xOf(blurYear(from)), r.x1 - 2) : r.x0;
         return (
           <g
             key={r.person.id}
@@ -535,9 +543,9 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
           >
             <rect
               className={`kin-bar${lit(r.person) ? "" : " dim"}${r.person.id === selectedKey ? " selected" : ""}${r.person.id === find.hitKey ? " find-hit" : ""}`}
-              x={r.x0}
+              x={x0}
               y={r.y}
-              width={r.x1 - r.x0}
+              width={r.x1 - x0}
               height={band.rowH * 0.72}
               rx={Math.min(2.5, band.rowH / 3)}
               fill={colorOf(r.person)}
@@ -548,7 +556,7 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             {showName && (
               <text
                 className="kin-name kin-bar-name"
-                x={r.x0 - 7}
+                x={x0 - 7}
                 y={r.y + band.rowH * 0.66}
                 textAnchor="end"
                 fontSize={font}
@@ -595,8 +603,8 @@ export function KinshipChart({ mainDs, rootId, startId, backLabel, onBack, onNav
           <ChartSettings lockedType="kin" availableGenerations={depth} />
           <ChartExportMenu
             disabled={!laid}
-            slug={chartSlug(rootName, pageKind)}
-            title={[rootName, rootYears, "—", pageKind].filter(Boolean).join(" ")}
+            slug={chartSlug(rootHidden ?? rootName, pageKind)}
+            title={[rootHidden ?? rootName, rootHidden ? undefined : rootYears, "—", pageKind].filter(Boolean).join(" ")}
             legend={legend}
             gedcom={{ ds: mainDs, personIds: people.map((p) => p.id) }}
             // The map is tiles, not an SVG: no image export from it.
