@@ -50,6 +50,11 @@ describe("buildCalendar", () => {
     ]));
   });
 
+  it("writes no age in the year of the birth itself", () => {
+    const born = buildCalendar(ds, "@I1@", { ...base, year: 2020 }, NOW).months[2].entries;
+    expect(born).toContainEqual({ kind: "birthday", day: 10, ids: ["@I8@"], years: undefined });
+  });
+
   it("leaves out the dead, and a birthday known only roughly", () => {
     const all = cal.months.flatMap((m) => m.entries).flatMap((e) => e.ids);
     expect(all).not.toContain("@I2@");
@@ -101,6 +106,13 @@ describe("buildCalendar", () => {
   it("never tells a living person's life as history", () => {
     const factIds = cal.months.flatMap((m) => m.facts).flatMap((f) => f.ids);
     expect(factIds).not.toContain("@I3@");
+  });
+
+  it("tells an ancestor's life though no death is on record", () => {
+    // Grandmother Neža, born 1902, with her death left out of the file.
+    const noDeath = GED.replace("1 DEAT\n2 DATE 3 MAR 1999\n", "");
+    const jan = buildCalendar(dataset(noDeath), "@I1@", base, NOW).months[0].candidates;
+    expect(jan).toContainEqual(expect.objectContaining({ kind: "birth", ids: ["@I5@"], yearsAgo: 125 }));
   });
 });
 

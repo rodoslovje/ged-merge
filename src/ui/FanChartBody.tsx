@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { GedNode } from "../gedcom/types";
 import { PAD } from "../chart/treeLayout";
@@ -72,7 +72,7 @@ interface OuterMarker {
 // Keyed on the segment's key, not its ring and slot: the radial bowtie draws
 // two halves whose rings and slots coincide, and a shared id sent one half's
 // curved lines down the other half's arcs.
-const arcId = (seg: FanSegment, i: number) => `fa-${seg.key.replace(/[^\w-]/g, "_")}-${i}`;
+const segArcId = (seg: FanSegment, i: number) => `fa-${seg.key.replace(/[^\w-]/g, "_")}-${i}`;
 
 /**
  * The radial body for the Fan / Circle ancestor charts. Renders the same
@@ -104,6 +104,9 @@ export const FanChartBody = memo(function FanChartBody({
   nativeTooltip = true,
 }: Props) {
   const { t } = useTranslation();
+  // The arcs' ids carry the instance's own: two fans in one document (the
+  // calendar's pages, its print) would otherwise write along each other's arcs.
+  const uid = useId().replace(/[^\w-]/g, "_");
   const curved = chart.segments.filter((s) => s.curved);
   // Where a repeat marker jumps to. `TreeNode.repeatOf` names a tree position,
   // which the radial chart addresses as `gen:slot` instead — so translate. A
@@ -146,17 +149,18 @@ export const FanChartBody = memo(function FanChartBody({
         <defs>
           {curved.map((seg) => (
             <g key={seg.key}>
-              {seg.lines.map((l, i) => l.arc && <path key={i} id={arcId(seg, i)} d={l.arc} />)}
+              {seg.lines.map((l, i) => l.arc && <path key={i} id={uid + segArcId(seg, i)} d={l.arc} />)}
             </g>
           ))}
           {chart.marriages.map((m, i) =>
-            m.lines.map((l, j) => <path key={`${m.key}-${j}`} id={`fm-${i}-${j}`} d={l.arc} />),
+            m.lines.map((l, j) => <path key={`${m.key}-${j}`} id={`${uid}fm-${i}-${j}`} d={l.arc} />),
           )}
         </defs>
         {chart.segments.map((seg) => (
           <Segment
             key={seg.key}
             seg={seg}
+            uid={uid}
             color={colorOf(seg.node, seg)}
             tint={tint}
             nativeTooltip={nativeTooltip}
@@ -185,7 +189,7 @@ export const FanChartBody = memo(function FanChartBody({
               fontSize={m.fontPx}
               dominantBaseline="middle"
             >
-              <textPath href={`#fm-${i}-${j}`} startOffset="50%" textAnchor="middle">
+              <textPath href={`#${uid}fm-${i}-${j}`} startOffset="50%" textAnchor="middle">
                 <YearsText text={l.text} approx={l.approx} svg />
               </textPath>
             </text>
@@ -198,6 +202,7 @@ export const FanChartBody = memo(function FanChartBody({
 
 function Segment({
   seg,
+  uid,
   color,
   selected,
   flashed,
@@ -213,6 +218,8 @@ function Segment({
   nativeTooltip,
 }: {
   seg: FanSegment;
+  /** The chart instance's prefix for its arcs' ids. */
+  uid: string;
   color: string;
   tint?: number;
   nativeTooltip: boolean;
@@ -280,7 +287,7 @@ function Segment({
       {seg.curved ? (
         seg.lines.map((l, i) => (
           <text key={i} {...lineProps(l)} dominantBaseline="middle">
-            <textPath href={`#${arcId(seg, i)}`} startOffset="50%" textAnchor="middle">
+            <textPath href={`#${uid}${segArcId(seg, i)}`} startOffset="50%" textAnchor="middle">
               <YearsText text={l.text} approx={l.approx} svg />
             </textPath>
           </text>

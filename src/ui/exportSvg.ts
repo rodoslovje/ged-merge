@@ -473,6 +473,10 @@ export async function prepareDiagram(live: SVGSVGElement): Promise<PreparedDiagr
   // drop them. Must run after inlineComputedStyles, which walks live/clone in
   // lockstep and would desync if the clone lost nodes first.
   clone.querySelectorAll("title").forEach((el) => el.remove());
+  // A node's accessible name is for the reader at the screen: it carries the
+  // person's name and years whatever the privacy setting draws in the box, and
+  // a file must not.
+  clone.querySelectorAll("[aria-label]").forEach((el) => el.removeAttribute("aria-label"));
 
   // Export at the diagram's native size, ignoring the on-screen zoom: the live
   // SVG carries a native-sized `viewBox` (its width/height attributes are scaled

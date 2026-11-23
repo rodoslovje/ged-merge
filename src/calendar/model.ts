@@ -177,13 +177,15 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
   for (const id of opts.partners ? [...blood.keys()] : [startId]) for (const s of spousesOf(ds, id)) circle.add(s);
 
   const people = new Set<string>();
+  // The age turned or the years married; none in the year of the event itself.
+  const since = (y: number | undefined) => (y !== undefined && year > y ? year - y : undefined);
 
   // Birthdays of the living.
   for (const id of circle) {
     const indi = ds.individuals.get(id);
     const birth = eventDate(indi, "BIRT");
     if (!dayOf(birth) || !living(indi)) continue;
-    add(birth.month, { kind: "birthday", day: clampDay(year, birth.month, birth.day), ids: [id], years: birth.year !== undefined ? year - birth.year : undefined });
+    add(birth.month, { kind: "birthday", day: clampDay(year, birth.month, birth.day), ids: [id], years: since(birth.year) });
     people.add(id);
   }
 
@@ -198,7 +200,7 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
       const marr = fam.events.find((e) => e.tag === "MARR")?.date;
       const pair = [fam.husband, fam.wife];
       if (!dayOf(marr) || !pair.every((p) => living(ds.individuals.get(p)))) continue;
-      add(marr.month, { kind: "anniversary", day: clampDay(year, marr.month, marr.day), ids: pair, years: marr.year !== undefined ? year - marr.year : undefined });
+      add(marr.month, { kind: "anniversary", day: clampDay(year, marr.month, marr.day), ids: pair, years: since(marr.year) });
       pair.forEach((p) => people.add(p));
     }
   }
@@ -246,8 +248,9 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
   const famSeen = new Set<string>();
   for (const id of historyPeople) {
     const indi = ds.individuals.get(id);
-    // A living person's birth is already a birthday; their life is not history yet.
-    if (!indi || !isDeceased(indi)) continue;
+    // A living person's birth is already a birthday; their life is not history
+    // yet. An ancestor with no death on record is history all the same.
+    if (!indi || living(indi)) continue;
     const birt = indi.events.find((e) => e.tag === "BIRT");
     offerFact("birth", birt?.date, [id], placeOf(birt));
     const deat = indi.events.find((e) => e.tag === "DEAT");
@@ -256,7 +259,7 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
       if (famSeen.has(famId)) continue;
       famSeen.add(famId);
       const fam = ds.families.get(famId);
-      if (!fam?.husband || !fam.wife || !isDeceased(ds.individuals.get(fam.husband)) || !isDeceased(ds.individuals.get(fam.wife))) continue;
+      if (!fam?.husband || !fam.wife || living(ds.individuals.get(fam.husband)) || living(ds.individuals.get(fam.wife))) continue;
       const marr = fam.events.find((e) => e.tag === "MARR");
       offerFact("marriage", marr?.date, [fam.husband, fam.wife], placeOf(marr));
     }

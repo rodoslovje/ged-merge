@@ -541,7 +541,8 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   }, []);
 
   const redacted = useCallback(
-    (i: number) => settings.privacyLiving && isPresumedLiving(graph.nodes[i].indi, mainDs),
+    // Declared-private people are hidden exactly like the presumed-living.
+    (i: number) => settings.privacyLiving && (isPresumedLiving(graph.nodes[i].indi, mainDs) || !!graph.nodes[i].indi.private),
     [settings.privacyLiving, graph, mainDs],
   );
   const nameAt = useCallback(

@@ -366,7 +366,7 @@ export function TimelineLines({ mainDs, rootId, startId, backLabel, onBack, onNa
           <ChartSettings lockedType="timeline" availableGenerations={depth} />
           <ChartExportMenu
             disabled={!laid}
-            slug={chartSlug(root?.name, pageKind)}
+            slug={chartSlug(root && rootPoint ? nameFor(rootPoint) : root?.name, pageKind)}
             title={exportTitle}
             legend={colorer.legend}
             gedcom={{ ds: mainDs, personIds: points.flatMap((p) => (p.node.main ? [p.node.main.id] : [])) }}

@@ -12507,6 +12507,7 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 }
 .cal-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cal-thumb.active { border-color: var(--accent); }
+.cal-tight { color: var(--danger); }
 .cal-to-review { align-self: flex-start; font-size: 0.85rem; }
 .cal-print-btn { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 14px; }
 /* The spinner on a filled button: the button's own ink, not the accent it sits on. */

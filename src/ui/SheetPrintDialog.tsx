@@ -1,6 +1,9 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
+import type { TreeNode } from "../chart/personTree";
+import { useChartSettings } from "./ChartSettingsContext";
+import { hiddenName, useLivingNameOf } from "./useLivingName";
 import {
   CUSTOM_MM_MAX,
   CUSTOM_MM_MIN,
@@ -68,6 +71,10 @@ function mmInRange(mm: number): boolean {
 
 export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const { t } = useTranslation();
+  // A person the privacy setting hides is named in a caption as in their box.
+  const { settings } = useChartSettings();
+  const livingNameOf = useLivingNameOf();
+  const hidden = (n: TreeNode) => hiddenName(t, settings.privacyLiving, livingNameOf, n.main ?? n.incoming, n.living, n.sex);
   const [choice, setChoice] = useState<PaperName | "custom">("a4");
   const [orientation, setOrientation] = useState<Orientation>("landscape");
   const [size, setSize] = useState<PrintSize>("medium");
@@ -141,7 +148,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
         subtitle: (page, total) =>
           `${t("sheets.sheetOf", { n: page.number, total })} · ${t("sheets.trees", { list: page.pieces.map((p) => p.label).join(", ") })}`,
         pieceTitle: (piece) => {
-          const who = piece.top.years ? `${piece.top.name} (${piece.top.years})` : piece.top.name;
+          const who = hidden(piece.top) ?? (piece.top.years ? `${piece.top.name} (${piece.top.years})` : piece.top.name);
           return piece.from ? `${who} — ${t("sheets.treeFrom", { label: piece.from })}` : who;
         },
       });
@@ -152,7 +159,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
       subtitle: (sheet, total) => {
         const of = t("sheets.sheetOf", { n: sheet.number, total });
         return sheet.from
-          ? `${of} · ${t("sheets.continues", { name: sheet.from.name, sheet: sheet.from.sheet })}`
+          ? `${of} · ${t("sheets.continues", { name: hidden(sheet.root) ?? sheet.from.name, sheet: sheet.from.sheet })}`
           : of;
       },
     });

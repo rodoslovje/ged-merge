@@ -5,7 +5,7 @@ import { LABEL_LINE_H, NODE_W, PAD, type Flat, type Placed } from "../chart/tree
 import { PANEL_TITLE_H, type PanelBox } from "../chart/completeTree";
 import { ageStandalone, APPROX_YEAR, livingLabelFor, nodeTooltip, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { YearsText } from "./YearsText";
-import { useLivingNameOf, type LivingNameOf } from "./useLivingName";
+import { hiddenName, useLivingNameOf, type LivingNameOf } from "./useLivingName";
 import type { Lineage } from "../match/kinship";
 import type { MediaRefContext } from "./MediaViewer";
 import { NodeBadge, nodeStatusBadges, TreeNodeBox } from "./TreeNodeBox";
@@ -105,7 +105,10 @@ export const TreeSvg = memo(function TreeSvg({
             <rect className="tree-panel-frame" width={p.w} height={p.h} rx={12} ry={12} />
             <text className="tree-panel-title" x={16} y={PANEL_TITLE_H / 2 + 4} dominantBaseline="central">
               <tspan className="tree-panel-number">{p.number}</tspan>
-              <tspan dx={10}>{p.top.years ? `${p.top.name} (${p.top.years})` : p.top.name}</tspan>
+              <tspan dx={10}>
+                {hiddenName(t, display.privacyLiving, livingNameOf, p.top.main ?? p.top.incoming, p.top.living, p.top.sex)
+                  ?? (p.top.years ? `${p.top.name} (${p.top.years})` : p.top.name)}
+              </tspan>
             </text>
           </g>
         ))}
