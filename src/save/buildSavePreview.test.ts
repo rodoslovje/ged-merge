@@ -209,6 +209,43 @@ describe("edit-only save", () => {
     expect(out.report.changes.some((c) => c.recordId === "@R9@" && c.segments?.some((s) => s.text.includes("familysearch")))).toBe(true);
     expect(out.report.changes.some((c) => c.recordId === "@S9@" && c.newRecord)).toBe(true);
   });
+
+  // A research note is a record of its own and a pointer line on whoever it
+  // is filed under; the preview words both, not the TYPE/STAT values and the
+  // `_RESEARCH` lines the file stores them as.
+  it("words a research note and where it is filed", () => {
+    const PLAIN = "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1920\n";
+    const ds = dataset(wrap(
+      "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 DEAT\n2 DATE 1920\n2 _RESEARCH @RN2@\n1 _RESEARCH @RN1@\n" +
+      "0 @RN1@ _RESEARCH\n1 TYPE TASK\n1 STAT DONE\n1 DATE 23 NOV 2026\n1 NOTE Check the passenger lists\n1 WWW https://example.org/lists\n" +
+      "0 @RN2@ _RESEARCH\n1 TYPE QUESTION\n1 STAT DONE\n1 NOTE Where did he die?\n",
+    ));
+    const wasOpen = cloneNode(ds.records.find((r) => r.xref === "@RN2@")!);
+    wasOpen.children.find((c) => c.tag === "STAT")!.value = "OPEN";
+    const out = buildSavePreview(
+      input(ds, {
+        changedPersonIds: new Set(["@I1@"]),
+        changedRecordIds: new Set(["@RN1@", "@RN2@"]),
+        personSnapshots: new Map([["@I1@", dataset(wrap(PLAIN)).individuals.get("@I1@")!.raw]]),
+        recordSnapshots: new Map([["@RN2@", { value: wasOpen }]]),
+        loadedPersonIds: new Set(["@I1@"]),
+        baseline: captureBaseline(dataset(wrap(PLAIN)), () => undefined, () => undefined),
+      }),
+    )!;
+    const rows = (id: string) => out.report.changes.filter((c) => c.recordId === id && (c.field || c.segments));
+    expect(out.report.recordLabels["@RN1@"]).toBe("📓 Check the passenger lists");
+    expect(rows("@RN1@").map((c) => c.segments?.map((s) => s.text))).toEqual([
+      ["research.kind.TASK", "research.done", "https://example.org/lists"],
+    ]);
+    expect(rows("@RN2@")).toEqual([
+      { recordId: "@RN2@", field: "research.field.status", from: "tools.notebook.status.open", to: "research.done", action: "incoming" },
+    ]);
+    expect(rows("@I1@").map((c) => `${c.field}: ${c.to}`)).toEqual([
+      "research.add: event.DEAT — Where did he die?",
+      "research.add: Check the passenger lists",
+    ]);
+    expect(out.report.changes.some((c) => c.undescribed)).toBe(false);
+  });
 });
 
 describe("download names", () => {

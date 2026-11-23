@@ -52,8 +52,10 @@ export function useResearchNotes({
   function apply(noteId: string | undefined, fields: ResearchFields | null, targets: ResearchTarget[], newMedia?: NewResearchMedia) {
     const patches = applyResearchEdit(dataset, noteId, fields, targets, newMedia);
     if (!patches.length) return;
-    for (const patch of patches) if (patch.type !== "record") onDirty(patch.type, patch.id);
+    // The push first: it snapshots each record from the patch's `before`;
+    // marking dirty ahead of it would snapshot the record already changed.
     onPushEdit(patches, selectedId);
+    for (const patch of patches) if (patch.type !== "record") onDirty(patch.type, patch.id);
     setOwnGen((n) => n + 1);
     refresh();
   }
