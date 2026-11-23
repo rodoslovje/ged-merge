@@ -1,6 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { isRoundAnniversary, monthWeeks, type CalendarMonth, type DayEntry, type Fact } from "../../calendar/model";
+import { factKey, isRoundAnniversary, monthWeeks, type CalendarMonth, type DayEntry, type Fact } from "../../calendar/model";
 import type { Holiday } from "../../calendar/holidays";
 import { schemeVars, type CalendarScheme } from "./schemes";
 import { BADGE_BG, LOGO_BADGE_MARKUP } from "../exportSvg";
@@ -141,14 +141,52 @@ function Head({ year, month }: MonthProps) {
   );
 }
 
-function Grid({ year, month, holidays, words, entryOpts }: MonthProps) {
+const NO_CUTS: Record<number, number> = {};
+
+/**
+ * How many of each day's entries its cell has room for. A cell never grows
+ * (every week stays as tall as the others), so a day too busy for it is
+ * measured and cut back one entry at a time until the rest fits, the "+N"
+ * that stands for the others included. `sig` names everything the cells' size
+ * and content follow from: a change starts the measuring anew.
+ */
+function useCellFit(sig: string) {
+  const ref = useRef<HTMLTableElement>(null);
+  const [fit, setFit] = useState<{ sig: string; shown: Record<number, number> }>({ sig, shown: NO_CUTS });
+  const shown = fit.sig === sig ? fit.shown : NO_CUTS;
+  useLayoutEffect(() => {
+    const table = ref.current;
+    if (!table) return;
+    let next: Record<number, number> | undefined;
+    for (const cell of table.querySelectorAll<HTMLElement>(".cal-cell")) {
+      if (cell.scrollHeight <= cell.clientHeight + 1) continue;
+      const n = cell.querySelectorAll(".cal-entry:not(.cal-more)").length;
+      if (n) (next ??= { ...shown })[Number(cell.dataset.day)] = n - 1;
+    }
+    if (next) setFit({ sig, shown: next });
+  }, [sig, shown]);
+  return [ref, shown] as const;
+}
+
+function Grid({ format, year, month, holidays, words, entryOpts, facts, showList, showFacts }: MonthProps) {
   const { t, i18n } = useTranslation();
-  const byDay = new Map<number, DayEntry[]>();
-  for (const e of livingFirst(month.entries)) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e]);
+  // The living first, the memorial days after them — the order a busy day is cut in.
+  const byDay = new Map<number, { e: DayEntry; text: string }[]>();
+  for (const e of livingFirst(month.entries)) byDay.set(e.day, [...(byDay.get(e.day) ?? []), { e, text: entryCell(t, words, e, entryOpts) }]);
   const hol = new Map<number, string[]>();
   for (const h of holidays) if (h.month === month.month) hol.set(h.day, [...(hol.get(h.day) ?? []), t(`calendar.holiday.${h.key}`)]);
+  const [ref, shown] = useCellFit(JSON.stringify([
+    format, year, month.month, !!entryOpts.large, showList, showFacts, facts.map(factKey),
+    [...byDay].map(([day, list]) => [day, list.map((x) => x.text)]), [...hol],
+  ]));
+  const entry = ({ e, text }: { e: DayEntry; text: string }, i: number) => (
+    <div key={i} className={`cal-entry cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
+      <span className="cal-glyph">{isRoundAnniversary(e) ? ROUND_GLYPH : ENTRY_GLYPH[e.kind]}</span>
+      {text}
+    </div>
+  );
   return (
-    <table className="cal-grid">
+    <table className="cal-grid" ref={ref}>
       <thead>
         <tr>
           {weekdayNames(i18n.language).map((w, i) => (
@@ -163,32 +201,23 @@ function Grid({ year, month, holidays, words, entryOpts }: MonthProps) {
               if (!day) return <td key={di} className="cal-blank" />;
               const names = hol.get(day);
               const cls = [di === 5 && "cal-sat", di === 6 && "cal-sun", names && "cal-hol"].filter(Boolean).join(" ");
+              const all = byDay.get(day) ?? [];
+              const fits = all.slice(0, shown[day] ?? all.length);
+              const mems = fits.filter((x) => x.e.kind === "memorial");
               return (
                 <td key={di} className={cls || undefined}>
                   {/* The day's content floats over its cell, so a busy day
                       never stretches its week: every row stays as tall as
                       the others. */}
-                  <div className="cal-cell">
-                  <div className="cal-day">{day}</div>
-                  {names && <div className="cal-holname">{[...new Set(names)].join(", ")}</div>}
-                  {byDay.get(day)?.filter((e) => e.kind !== "memorial").map((e, i) => (
-                    <div key={i} className={`cal-entry cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
-                      <span className="cal-glyph">{isRoundAnniversary(e) ? ROUND_GLYPH : ENTRY_GLYPH[e.kind]}</span>
-                      {entryCell(t, words, e, entryOpts)}
-                    </div>
-                  ))}
-                  {/* The memorial days sit at the foot of the day, stacked
-                      upwards, apart from the living above them. */}
-                  {byDay.get(day)?.some((e) => e.kind === "memorial") && (
-                    <div className="cal-mems">
-                      {byDay.get(day)!.filter((e) => e.kind === "memorial").map((e, i) => (
-                        <div key={i} className="cal-entry cal-memorial">
-                          <span className="cal-glyph">{ENTRY_GLYPH[e.kind]}</span>
-                          {entryCell(t, words, e, entryOpts)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="cal-cell" data-day={day}>
+                    <div className="cal-day">{day}</div>
+                    {names && <div className="cal-holname">{[...new Set(names)].join(", ")}</div>}
+                    {fits.filter((x) => x.e.kind !== "memorial").map(entry)}
+                    {/* What the cell has no room for: how many are left out. */}
+                    {fits.length < all.length && <div className="cal-entry cal-more">+{all.length - fits.length}</div>}
+                    {/* The memorial days sit at the foot of the day, apart
+                        from the living above them. */}
+                    {mems.length > 0 && <div className="cal-mems">{mems.map(entry)}</div>}
                   </div>
                 </td>
               );

@@ -540,6 +540,31 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     />
   );
 
+  // What the pages in front of the reader cannot show whole: a day with more
+  // names than its cell holds (the grid marks it "+N"), or a page whose
+  // content runs past its foot. Read from the pages as drawn — the print is a
+  // copy of them.
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [tight, setTight] = useState({ days: false, page: false });
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const check = () => {
+      const days = !!el.querySelector(".cal-more");
+      const page = Array.from(el.querySelectorAll<HTMLElement>(".cal-page")).some((p) => {
+        const foot = p.querySelector(".cal-foot");
+        const body = p.querySelector<HTMLElement>(".cal-back-body");
+        return (!!foot && foot.getBoundingClientRect().bottom > p.getBoundingClientRect().bottom + 1)
+          || (!!body && body.scrollHeight > body.clientHeight + 1);
+      });
+      setTight((prev) => (prev.days === days && prev.page === page ? prev : { days, page }));
+    };
+    check();
+    const seen = new MutationObserver(check);
+    seen.observe(el, { childList: true, subtree: true, characterData: true, attributes: true });
+    return () => seen.disconnect();
+  }, []);
+
   const reviewRef = useRef<HTMLDivElement>(null);
   const print = async () => {
     const el = reviewRef.current;
@@ -802,9 +827,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           {step !== REVIEW_STEP && (
             <button type="button" className="cal-link" onClick={() => setStep(REVIEW_STEP)}>{t("calendar.toReview")}</button>
           )}
+          {tight.days && <p className="settings-hint cal-tight" role="status">{t("calendar.overflow.days")}</p>}
+          {tight.page && <p className="settings-hint cal-tight" role="status">{t("calendar.overflow.page")}</p>}
           {!persistWorkspace && <p className="settings-hint">{t("calendar.notKept")}</p>}
         </div>
-        <div className={`cal-preview cal-preview-${format}`}>
+        <div ref={previewRef} className={`cal-preview cal-preview-${format}`}>
           {step === REVIEW_STEP ? preview : <div className="cal-sheet">{preview}</div>}
         </div>
       </div>
