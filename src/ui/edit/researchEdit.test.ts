@@ -8,7 +8,7 @@ import { prepareDownload } from "../../save/outputFile";
 import { validateConformance } from "../../tools/conformance/conformance";
 import { findDanglingXrefs } from "../../tools/structure";
 import { applyRecordPatches } from "../historyTypes";
-import { applyResearchEdit, NEW_RESEARCH_FIELDS, researchDraftOf } from "./researchEdit";
+import { applyResearchEdit, NEW_RESEARCH_FIELDS, removeResearchNotes, researchDraftOf } from "./researchEdit";
 
 const dataset = (version: "5.5.1" | "7.0") =>
   buildDataset(parseGedcom(new TextEncoder().encode([
@@ -97,5 +97,31 @@ describe("applyResearchEdit", () => {
     const ds = dataset("5.5.1");
     expect(applyResearchEdit(ds, "@RN9@", FIELDS, [])).toEqual([]);
     expect(applyResearchEdit(ds, undefined, null, [])).toEqual([]);
+  });
+});
+
+describe("removeResearchNotes", () => {
+  it("deletes several notes as one undo step, one patch per record", () => {
+    const ds = dataset("5.5.1");
+    const death = ds.individuals.get("@I1@")!.raw.children.findIndex((c) => c.tag === "DEAT");
+    applyResearchEdit(ds, undefined, { ...FIELDS, done: true }, [{ recordId: "@I1@" }, { recordId: "@I2@" }]);
+    applyResearchEdit(ds, undefined, { ...FIELDS, text: "Still open" }, [{ recordId: "@I1@" }]);
+    applyResearchEdit(ds, undefined, { ...FIELDS, done: true, text: "Checked the register" }, [{ recordId: "@I1@", eventIndex: death }]);
+    const before = serializeGedcom(ds.records);
+
+    const patches = removeResearchNotes(ds, ["@RN1@", "@RN3@"]);
+    // The person filed under both notes is patched once.
+    expect(patches.map((p) => `${p.type} ${p.id}`).sort()).toEqual([
+      "individual @I1@", "individual @I2@", "record @RN1@", "record @RN3@",
+    ]);
+    const left = readResearchNotes(ds.records);
+    expect(left.notes.map((n) => n.id)).toEqual(["@RN2@"]);
+    expect([...left.refs.keys()]).toEqual(["@RN2@"]);
+    expect(findDanglingXrefs(ds.records)).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(before);
+    applyRecordPatches(ds, patches, "redo");
+    expect(readResearchNotes(ds.records).notes.map((n) => n.id)).toEqual(["@RN2@"]);
   });
 });

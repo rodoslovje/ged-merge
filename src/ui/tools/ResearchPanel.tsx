@@ -7,7 +7,7 @@ import type { ResearchNote, ResearchRef } from "../../gedcom/research";
 import type { Dataset } from "../../gedcom/types";
 import { ResearchDialog } from "../edit/ResearchDialog";
 import { RESEARCH_ICON, researchTitle } from "../edit/ResearchContext";
-import { applyResearchEdit, NEW_RESEARCH_FIELDS, researchDraftOf, type NewResearchMedia, type ResearchDraft, type ResearchTarget } from "../edit/researchEdit";
+import { applyResearchEdit, NEW_RESEARCH_FIELDS, removeResearchNotes, researchDraftOf, type NewResearchMedia, type ResearchDraft, type ResearchTarget } from "../edit/researchEdit";
 import { foldSearch, matchesTerms } from "../globalSearch";
 import type { RecordPatch } from "../historyTypes";
 import { PersonLink } from "../PersonLink";
@@ -120,6 +120,16 @@ export function ResearchPanel({
           items={STATUSES.map((key) => ({ key, label: t(`tools.notebook.status.${key}`) }))}
         />
         <TreeSearch value={query} onChange={setQuery} />
+        {status === "done" && shown.length > 0 && (
+          <button
+            type="button"
+            className="nav-btn tools-research-clear"
+            title={t("tools.notebook.removeDone.tooltip")}
+            onClick={() => onApply(removeResearchNotes(dataset, shown.map((note) => note.id)))}
+          >
+            {t("tools.notebook.removeDone", { n: shown.length })}
+          </button>
+        )}
       </div>
       {index.notes.length === 0 ? (
         <p className="tools-research-empty">{t("tools.notebook.empty")}</p>

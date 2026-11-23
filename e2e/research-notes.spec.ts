@@ -190,6 +190,56 @@ test("a note written for later waits in the notebook, is filed from there, and s
   expect(exported).not.toContain("_RESEARCH");
 });
 
+test("the save preview words the notes, and the notebook clears the done ones", async ({ page }) => {
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  const dialog = page.getByRole("dialog", { name: "New research note" });
+  await page.getByRole("button", { name: "+ Research note" }).click();
+  await dialog.getByRole("tab", { name: /Task/ }).click();
+  await dialog.locator("textarea").fill("Check the passenger lists");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  const death = page.locator(".edit-event", { hasText: "Death" });
+  await death.locator(".edit-event-addfield").click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Research note" }).click();
+  await dialog.locator("textarea").fill("Where did he die?");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(death.locator(".research-ref")).toHaveCount(1);
+
+  // The preview: each note under its own text, and the person's card saying
+  // which notes it is filed under — no tag names, no "changed, cause unknown".
+  await page.locator(".app-head-actions .export-btn").click();
+  const preview = page.getByRole("dialog", { name: "Save preview" });
+  await expect(preview).toContainText("Check the passenger lists");
+  await expect(preview).toContainText("Research note: + Death — Where did he die?");
+  await expect(preview).toContainText("Research note: + Check the passenger lists");
+  await expect(preview).not.toContainText("_RESEARCH");
+  await expect(preview).not.toContainText("Other lines");
+  await preview.getByRole("button", { name: "Cancel" }).click();
+
+  // Both settled, the notebook's Done list offers to clear them in one go.
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.locator(".tools-tab", { hasText: "Notebook" }).click();
+  const rows = page.locator(".tools-research .research-row");
+  await expect(rows).toHaveCount(2);
+  await rows.first().locator(".research-chip-check").click();
+  await expect(rows).toHaveCount(1);
+  await rows.first().locator(".research-chip-check").click();
+  await page.locator(".tools-research").getByRole("tab", { name: "Done" }).click();
+  await expect(rows).toHaveCount(2);
+  await page.getByRole("button", { name: "Remove the done notes (2)" }).click();
+  await expect(page.locator(".tools-research-empty")).toHaveText("No research notes yet. Add one here, or in Edit on a person's card or an event.");
+
+  // One undo step brings both back, filed where they were.
+  await page.keyboard.press("Control+z");
+  await expect(rows).toHaveCount(2);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.locator(".research-done-toggle")).toContainText("Done: 2");
+});
+
 test("B opens a research note for later", async ({ page }) => {
   const fixture = writeFixture();
   await page.goto("/");

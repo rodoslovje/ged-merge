@@ -5,7 +5,7 @@ import {
 import { cloneNode } from "../../gedcom/node";
 import { readResearchNote } from "../../gedcom/research";
 import type { Dataset, GedNode } from "../../gedcom/types";
-import type { RecordPatch } from "../historyTypes";
+import { coalescePatches, type RecordPatch } from "../historyTypes";
 
 /** One place a note is filed under: a person or family, or one of its events
  *  (by the event line's position among the record's lines). */
@@ -131,4 +131,28 @@ export function applyResearchEdit(
     patches.push({ type: indi ? "individual" : "family", id: recordId, before: was, after: cloneNode((indi ?? fam)!.raw) });
   }
   return patches;
+}
+
+/**
+ * Delete several research notes as one undo step: each note's record and its
+ * pointer wherever it was filed. A record's index is its position before any
+ * of them went — undo puts records back in ascending order of it — and a
+ * person filed under two of the notes gets one patch, not two.
+ */
+export function removeResearchNotes(dataset: Dataset, noteIds: string[]): RecordPatch[] {
+  const notes = researchRecords(dataset.records);
+  const position = new Map<string, number>();
+  for (const id of noteIds) {
+    const record = notes.get(id);
+    const index = record ? recordPosition(dataset.records, record) : undefined;
+    if (index !== undefined) position.set(id, index);
+  }
+  const patches: RecordPatch[] = [];
+  for (const id of noteIds) {
+    for (const patch of applyResearchEdit(dataset, id, null, [])) {
+      const index = patch.type === "record" ? position.get(patch.id) : undefined;
+      patches.push(index !== undefined ? { ...patch, index } : patch);
+    }
+  }
+  return coalescePatches(patches);
 }

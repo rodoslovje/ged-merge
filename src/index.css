@@ -8453,6 +8453,7 @@ kbd {
 .tools-research-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 14px; }
 .tools-research-bar .tools-run,
 .tools-research-bar .tools-search { margin: 0; }
+.tools-research-clear { margin-left: auto; }
 .tools-research-empty { color: var(--muted); }
 .tools-research-group { margin: 0 0 18px; }
 .tools-research-heading {
