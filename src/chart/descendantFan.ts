@@ -168,14 +168,16 @@ export function buildDescendantFanChart(
   //    arc per person for at least a name line (the floor below hands the
   //    narrow wedges that much, and the total demand must fit the sweep). Past
   //    the cap the people are counted onto the last ring's "+N" markers, as
-  //    the ancestor fan does with its own ring limit.
+  //    the ancestor fan does with its own ring limit. The root's children are
+  //    drawn however many they are — the root disk has no marker to count them
+  //    onto — as wedges too narrow for a name where they must be.
   let cap = Math.min(maxGen, depth);
   {
     let acc = ROOT_R;
     for (let g = 1; g <= cap; g++) {
       if (perGen[g - 1].bands) acc += bandW(g - 1);
       if (perGen[g].people * labelArc(g) > sweep * acc) {
-        cap = g - 1;
+        cap = Math.max(g - 1, 1);
         break;
       }
       acc += g <= photoRings ? PHOTO_RING_W : Math.max(58, RING_W - (g - photoRings - 1) * 6);
@@ -332,13 +334,16 @@ export function buildDescendantFanChart(
 
     const delta = a1 - a0;
     const mid = (a0 + a1) / 2;
+    // An only child in a circle spans the whole 360°, where a sector and its
+    // label arcs start and end on one point and draw nothing: a full ring.
+    const full = delta >= TAU - 1e-6;
     const [rIn, rOut] = ringOf[gen];
     const w = rOut - rIn;
     const rMid = (rIn + rOut) / 2;
 
     const curved = rMid * delta >= w * 0.95;
     const lowerHalf = shape === "circle" && Math.sin(mid) > 0;
-    const flip = curved ? lowerHalf : Math.cos(mid) < 0;
+    const flip = full ? false : curved ? lowerHalf : Math.cos(mid) < 0;
     const photo = gen <= photoRings && hasPhoto(node) ? photoBox(cx, cy, rIn, w, delta, mid, lowerHalf) : undefined;
 
     const rBadge = rOut - 8;
@@ -353,7 +358,7 @@ export function buildDescendantFanChart(
       gen,
       slot,
       title: titleOf(node),
-      d: sectorPath(cx, cy, rIn, rOut, a0, a1),
+      d: full ? donutPath(cx, cy, rIn, rOut) : sectorPath(cx, cy, rIn, rOut, a0, a1),
       x: cx + rMid * Math.cos(mid),
       y: cy + rMid * Math.sin(mid),
       photo,
@@ -379,10 +384,10 @@ export function buildDescendantFanChart(
       segments.push({
         ...base,
         curved: true,
-        lines: texts.map((l, i) => ({
-          ...l,
-          arc: arcPath(cx, cy, centre + (flip ? -1 : 1) * ((n - 1) / 2 - i) * gap, a0, a1, flip),
-        })),
+        lines: texts.map((l, i) => {
+          const r = centre + (flip ? -1 : 1) * ((n - 1) / 2 - i) * gap;
+          return { ...l, arc: full ? circleBaseline(cx, cy, r) : arcPath(cx, cy, r, a0, a1, flip) };
+        }),
       });
       continue;
     }
