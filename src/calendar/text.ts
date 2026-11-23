@@ -27,9 +27,9 @@ export function monthName(lang: string, month: number): string {
   return capitalize(new Intl.DateTimeFormat(lang, { month: "long", timeZone: "UTC" }).format(Date.UTC(2001, month - 1, 1)));
 }
 
-/** Monday-first short weekday names. 1 January 2001 was a Monday. */
+/** Monday-first weekday names, in full. 1 January 2001 was a Monday. */
 export function weekdayNames(lang: string): string[] {
-  const f = new Intl.DateTimeFormat(lang, { weekday: "short", timeZone: "UTC" });
+  const f = new Intl.DateTimeFormat(lang, { weekday: "long", timeZone: "UTC" });
   return Array.from({ length: 7 }, (_, i) => capitalize(f.format(Date.UTC(2001, 0, 1 + i))));
 }
 
@@ -63,7 +63,15 @@ export function yearsAgo(t: Translate, n: number): string {
   return t("calendar.yearsAgo", { count: n });
 }
 
-export const ENTRY_GLYPH: Record<DayEntry["kind"], string> = { birthday: "*", anniversary: "⚭", memorial: "†" };
+/** A round birthday's or a jubilee's mark. */
+export const ROUND_GLYPH = "★";
+
+/** The mark before an entry. A plain birthday carries none: it is what a name
+ *  on a day means unless a mark says otherwise. */
+export function entryGlyph(e: DayEntry, round: boolean): string | undefined {
+  if (round) return ROUND_GLYPH;
+  return e.kind === "anniversary" ? "⚭" : e.kind === "memorial" ? "†" : undefined;
+}
 
 /** How the calendar names the living — on the day cells, in the lines, the
  *  captions and its charts: the initials, the given name, the given name with

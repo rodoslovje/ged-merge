@@ -6,7 +6,7 @@ import { schemeVars, type CalendarScheme } from "./schemes";
 import { BADGE_BG, LOGO_BADGE_MARKUP } from "../exportSvg";
 
 export type { PagePhoto } from "./PhotoArea";
-import { ENTRY_GLYPH, entryCell, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
+import { ROUND_GLYPH, entryCell, entryGlyph, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
 
 // The family calendar's printed pages, drawn the same for the wizard's preview
 // and the print document (see calendarCss). One component per page kind; the
@@ -141,31 +141,39 @@ function Head({ year, month }: MonthProps) {
   );
 }
 
-const NO_CUTS: Record<number, number> = {};
+/** How a busy day is drawn: its birthdays run together, and how many of its
+ *  entries are drawn at all. */
+interface DayFit { compact: boolean; shown: number }
+const NO_FITS: Record<number, DayFit> = {};
 
 /**
- * How many of each day's entries its cell has room for. A cell never grows
- * (every week stays as tall as the others), so a day too busy for it is
- * measured and cut back one entry at a time until the rest fits, the "+N"
- * that stands for the others included. `sig` names everything the cells' size
- * and content follow from: a change starts the measuring anew.
+ * How each day too busy for its cell is drawn. A cell never grows (every week
+ * stays as tall as the others), so such a day is measured and tightened step
+ * by step until it fits: first its birthdays run together as one list of
+ * names, without their marks; then it is cut back one entry at a time, a "+N"
+ * standing for the rest. `sig` names everything the cells' size and content
+ * follow from: a change starts the measuring anew.
  */
 function useCellFit(sig: string) {
   const ref = useRef<HTMLTableElement>(null);
-  const [fit, setFit] = useState<{ sig: string; shown: Record<number, number> }>({ sig, shown: NO_CUTS });
-  const shown = fit.sig === sig ? fit.shown : NO_CUTS;
+  const [fit, setFit] = useState<{ sig: string; days: Record<number, DayFit> }>({ sig, days: NO_FITS });
+  const days = fit.sig === sig ? fit.days : NO_FITS;
   useLayoutEffect(() => {
     const table = ref.current;
     if (!table) return;
-    let next: Record<number, number> | undefined;
+    let next: Record<number, DayFit> | undefined;
     for (const cell of table.querySelectorAll<HTMLElement>(".cal-cell")) {
       if (cell.scrollHeight <= cell.clientHeight + 1) continue;
-      const n = cell.querySelectorAll(".cal-entry:not(.cal-more)").length;
-      if (n) (next ??= { ...shown })[Number(cell.dataset.day)] = n - 1;
+      const day = Number(cell.dataset.day);
+      const shown = Number(cell.dataset.shown);
+      const compact = days[day]?.compact ?? false;
+      // The list of names is tried whole before anything is left out.
+      if (!compact && Number(cell.dataset.birthdays) > 1) (next ??= { ...days })[day] = { compact: true, shown };
+      else if (shown > 0) (next ??= { ...days })[day] = { compact, shown: shown - 1 };
     }
-    if (next) setFit({ sig, shown: next });
-  }, [sig, shown]);
-  return [ref, shown] as const;
+    if (next) setFit({ sig, days: next });
+  }, [sig, days]);
+  return [ref, days] as const;
 }
 
 function Grid({ format, year, month, holidays, words, entryOpts, facts, showList, showFacts }: MonthProps) {
@@ -175,13 +183,13 @@ function Grid({ format, year, month, holidays, words, entryOpts, facts, showList
   for (const e of livingFirst(month.entries)) byDay.set(e.day, [...(byDay.get(e.day) ?? []), { e, text: entryCell(t, words, e, entryOpts) }]);
   const hol = new Map<number, string[]>();
   for (const h of holidays) if (h.month === month.month) hol.set(h.day, [...(hol.get(h.day) ?? []), t(`calendar.holiday.${h.key}`)]);
-  const [ref, shown] = useCellFit(JSON.stringify([
+  const [ref, fitOf] = useCellFit(JSON.stringify([
     format, year, month.month, !!entryOpts.large, showList, showFacts, facts.map(factKey),
     [...byDay].map(([day, list]) => [day, list.map((x) => x.text)]), [...hol],
   ]));
   const entry = ({ e, text }: { e: DayEntry; text: string }, i: number) => (
     <div key={i} className={`cal-entry cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
-      <span className="cal-glyph">{isRoundAnniversary(e) ? ROUND_GLYPH : ENTRY_GLYPH[e.kind]}</span>
+      <Glyph e={e} />
       {text}
     </div>
   );
@@ -202,17 +210,37 @@ function Grid({ format, year, month, holidays, words, entryOpts, facts, showList
               const names = hol.get(day);
               const cls = [di === 5 && "cal-sat", di === 6 && "cal-sun", names && "cal-hol"].filter(Boolean).join(" ");
               const all = byDay.get(day) ?? [];
-              const fits = all.slice(0, shown[day] ?? all.length);
+              const fit = fitOf[day];
+              const fits = all.slice(0, fit?.shown ?? all.length);
               const mems = fits.filter((x) => x.e.kind === "memorial");
+              const living = fits.filter((x) => x.e.kind !== "memorial");
+              const birthdays = living.filter((x) => x.e.kind === "birthday");
               return (
                 <td key={di} className={cls || undefined}>
                   {/* The day's content floats over its cell, so a busy day
                       never stretches its week: every row stays as tall as
                       the others. */}
-                  <div className="cal-cell" data-day={day}>
+                  <div className="cal-cell" data-day={day} data-shown={fits.length} data-birthdays={all.filter((x) => x.e.kind === "birthday").length}>
                     <div className="cal-day">{day}</div>
                     {names && <div className="cal-holname">{[...new Set(names)].join(", ")}</div>}
-                    {fits.filter((x) => x.e.kind !== "memorial").map(entry)}
+                    {/* A busy day's birthdays run together: the names alone,
+                        a round one in bold. */}
+                    {fit?.compact ? (
+                      <>
+                        {birthdays.length > 0 && (
+                          <div className="cal-entry cal-birthday cal-compact">
+                            {birthdays.map((x, i) => (
+                              <span key={i} className={isRoundAnniversary(x.e) ? "cal-round-name" : undefined}>
+                                {i > 0 && ", "}
+                                <Glyph e={x.e} />
+                                {x.text}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {living.filter((x) => x.e.kind !== "birthday").map(entry)}
+                      </>
+                    ) : living.map(entry)}
                     {/* What the cell has no room for: how many are left out. */}
                     {fits.length < all.length && <div className="cal-entry cal-more">+{all.length - fits.length}</div>}
                     {/* The memorial days sit at the foot of the day, apart
@@ -237,7 +265,7 @@ function DayList({ month, words, entryOpts }: MonthProps) {
       {livingFirst(month.entries).map((e, i) => (
         <div key={i} className={`cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
           <b>{e.day}.</b>
-          <span className="cal-glyph">{isRoundAnniversary(e) ? ROUND_GLYPH : ENTRY_GLYPH[e.kind]}</span>
+          <Glyph e={e} />
           {entryLine(t, words, e, entryOpts)}
         </div>
       ))}
@@ -263,16 +291,18 @@ function Facts({ facts, words }: MonthProps) {
   );
 }
 
-/** A round birthday's or a jubilee's mark, in place of the plain glyph. */
-const ROUND_GLYPH = "★";
+/** An entry's mark, where it has one: a plain birthday goes without. */
+export function Glyph({ e }: { e: DayEntry }) {
+  const glyph = entryGlyph(e, isRoundAnniversary(e));
+  return glyph ? <span className="cal-glyph">{glyph}</span> : null;
+}
 
 function Legend() {
   const { t } = useTranslation();
   return (
     <div className="cal-legend">
-      <span>{ENTRY_GLYPH.birthday} {t("calendar.legend.birthday")}</span>
-      <span>{ENTRY_GLYPH.anniversary} {t("calendar.legend.anniversary")}</span>
-      <span>{ENTRY_GLYPH.memorial} {t("calendar.legend.memorial")}</span>
+      <span>⚭ {t("calendar.legend.anniversary")}</span>
+      <span>† {t("calendar.legend.memorial")}</span>
       <span>{ROUND_GLYPH} {t("calendar.legend.round")}</span>
     </div>
   );
