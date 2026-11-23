@@ -12510,6 +12510,7 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
   border: 2px solid var(--border-2); background: transparent; color: var(--text);
   border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.85rem;
 }
+.cal-tight { color: var(--danger); }
 .cal-link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: 0.85rem; align-self: flex-start; }
 .cal-primary {
   display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;

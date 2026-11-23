@@ -48,8 +48,10 @@ export const CALENDAR_CSS = `
   background: color-mix(in srgb, var(--accent) 12%, var(--paper)); }
 .cal-grid th.cal-sun { color: var(--holiday); }
 .cal-grid td { position: relative; border: 0.06em solid var(--rule); vertical-align: top; padding: 0; overflow: hidden; }
-.cal-cell { position: absolute; inset: 0; padding: 0.2em 0.3em; overflow: hidden; }
-.cal-mems { position: absolute; left: 0.3em; right: 0.3em; bottom: 0.2em; display: flex; flex-direction: column-reverse; }
+.cal-cell { position: absolute; inset: 0; padding: 0.2em 0.3em; overflow: hidden; display: flex; flex-direction: column; }
+.cal-cell > * { flex: 0 0 auto; }
+.cal-mems { margin-top: auto; }
+.cal-entry.cal-more { color: var(--muted); font-weight: 700; }
 .cal-grid thead th { height: 1.2em; }
 .cal-grid td.cal-sat { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }
 .cal-grid td.cal-sun, .cal-grid td.cal-hol { background: color-mix(in srgb, var(--holiday) 6%, var(--paper)); }

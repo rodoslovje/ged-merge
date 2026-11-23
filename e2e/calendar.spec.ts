@@ -93,3 +93,32 @@ test("without a kept workspace the wizard says how to keep the work", async ({ p
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.locator(".cal-panel")).toContainText("Remember my work in this browser");
 });
+
+// A day with more names than its cell holds says how many it leaves out, and
+// the wizard says so beside the page: nothing is cut off unseen.
+test("a day too busy for its cell marks what it leaves out", async ({ page }) => {
+  const lines = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8", "0 @I1@ INDI", "1 NAME Ana /Novak/", "1 SEX F", "1 BIRT", "2 DATE 14 MAR 1950", "1 FAMS @F1@"];
+  const children = Array.from({ length: 12 }, (_, i) => `@I${i + 2}@`);
+  children.forEach((id, i) => lines.push(`0 ${id} INDI`, `1 NAME Maksimilijan${i} /Novak/`, "1 SEX M", "1 BIRT", `2 DATE 14 MAR ${1975 + i}`, "1 FAMC @F1@"));
+  lines.push("0 @F1@ FAM", "1 WIFE @I1@", ...children.map((id) => `1 CHIL ${id}`), "0 TRLR");
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles({ name: "busy.ged", mimeType: "text/plain", buffer: Buffer.from(lines.join("\n") + "\n") });
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await page.locator(".charts-open-btn").click();
+  await page.getByRole("tab", { name: "Calendar" }).click();
+  await page.getByRole("button", { name: "Skip to review and print" }).click();
+
+  const march = page.locator(".cal-review .cal-review-month").nth(2);
+  await expect(march.locator(".cal-more")).toHaveCount(1);
+  await expect(page.locator(".cal-tight")).toContainText("more names than fit");
+  // What is drawn fits its cell, the mark included; the list under the grid
+  // names all thirteen.
+  await expect(async () => {
+    const over = await march.locator(".cal-cell").evaluateAll((cells) => cells.filter((c) => c.scrollHeight > c.clientHeight + 1).length);
+    expect(over).toBe(0);
+    const drawn = await march.locator(".cal-cell[data-day='14'] .cal-entry:not(.cal-more)").count();
+    expect(await march.locator(".cal-more").textContent()).toBe(`+${13 - drawn}`);
+  }).toPass();
+  await expect(march.locator(".cal-list > div")).toHaveCount(13);
+});
