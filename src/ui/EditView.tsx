@@ -103,6 +103,9 @@ import { WiderFamilyPanel } from "./edit/WiderFamilyPanel";
 import { RelativesIcon } from "./icons/RelativesIcon";
 import { AssociatesPanel } from "./edit/AssociatesPanel";
 import { AssocProvider, type AssocApi } from "./edit/AssocContext";
+import { ResearchProvider } from "./edit/ResearchContext";
+import { ResearchSection } from "./edit/ResearchSection";
+import { useResearchNotes } from "./edit/useResearchNotes";
 import { addAssociation, moveAssociation, removeAssociation, setAssociationNotes, writeAssociation } from "../gedcom/edit";
 import { deletePerson } from "./edit/deletePerson";
 import { attachDroppedMedia } from "./edit/droppedMedia";
@@ -863,6 +866,19 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     remove: (ownerId, container, node) => commitAssoc(ownerId, () => removeAssociation(container, node)),
     move: (ownerId, from, to, node) => commitAssoc(ownerId, () => moveAssociation(from, to, node)),
   }), [dataset, navigate, commitAssoc]);
+
+  // The research notes filed under this person, and their dialog.
+  const research = useResearchNotes({
+    dataset,
+    person,
+    selectedId,
+    gen: `${undoVersion}:${externalEditGen ?? 0}`,
+    onPushEdit,
+    onDirty,
+    refresh: () => setTick((v) => v + 1),
+    navigate,
+    t,
+  });
 
   /** Attach a photo by folder-relative path, following the main's media mode:
    *  an inline OBJE/FILE block, or a pointer to a shared top-level OBJE. In
@@ -1952,6 +1968,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
     <PlacePeopleProvider value={placePeople}>
     <PlaceLookupProvider value={placeLookup}>
     <AssocProvider value={assocApi}>
+    <ResearchProvider value={research.api}>
     <CardMergePreviewContext.Provider value={cardMergePreview}>
     <div className="section open edit-view" onKeyDown={editFieldKeys}>
       <div className="section-body" ref={editBodyRef}>
@@ -2106,6 +2123,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim()) && !mergePreview.notes}
             onAddNote={() => setNotesAdded(true)}
+            showAddResearch={research.filed.length === 0}
+            onAddResearch={research.add}
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
             addNameNonce={addNameNonce}
@@ -2216,6 +2235,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               </div>
             );
           })()}
+          {research.filed.length > 0 && (
+            <ResearchSection
+              filed={research.filed}
+              t={t}
+              onOpen={research.open}
+              onToggleDone={research.toggleDone}
+              onAdd={research.add}
+            />
+          )}
           {/* What the person never had leads their events. */}
           <NoEventsRow
             assertions={person.noEvents ?? []}
@@ -2453,6 +2481,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         )}
         </div>
       </div>
+      {research.dialog}
       <AddSourceDialog
         isOpen={sourceDialogTarget !== null}
         onClose={() => setSourceDialogTarget(null)}
@@ -2508,6 +2537,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
       )}
     </div>
     </CardMergePreviewContext.Provider>
+    </ResearchProvider>
     </AssocProvider>
     </PlaceLookupProvider>
     </PlacePeopleProvider>

@@ -79,3 +79,9 @@ export type { EditSourceFields, EditRepoFields, NewSourceFields, NewCitation } f
 export { bumpContentVersion, bumpSourceCacheVersion, contentStamp, getMediaAndSourceCtx, getSourceLookup, memoOnContent, rebuildIndividual, rebuildFamily, rebuildReferrers } from "./cache";
 
 export { clearPlaceGov, formatCoordValue, setPlaceCoord } from "./geo";
+
+export {
+  researchRecords, researchIndex, researchNotesOn, researchNotesUnder,
+  fileResearchNote, unfileResearchNote, createResearchNote, writeResearchNote,
+} from "./research";
+export type { FiledNote, ResearchFields } from "./research";

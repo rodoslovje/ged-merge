@@ -77,7 +77,8 @@ export interface ResearchIndex {
   refs: Map<string, ResearchRef[]>;
 }
 
-const isResearchPointer = (node: GedNode): boolean =>
+/** A line that files a research note under its parent (`_RESEARCH @RN1@`). */
+export const isResearchPointer = (node: GedNode): boolean =>
   node.tag === RESEARCH_TAG && !!node.value && isPointer(node.value.trim());
 
 /** Read one research note record. A kind the app does not know reads as an idea. */
