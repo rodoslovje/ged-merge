@@ -2155,6 +2155,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
           <ExternalIdChips
             exids={person.exids ?? []}
             t={t}
+            commit={commit}
             merge={mergePreview.exids && { exids: mergePreview.exids, ...mergeActions("exid") }}
           />
           <TranslationChips
