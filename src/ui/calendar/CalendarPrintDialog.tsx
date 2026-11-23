@@ -69,7 +69,7 @@ export function CalendarPrintDialog({ format, photos, onPrint, onClose }: Props)
         </p>
 
         {soft.length > 0 && (
-          <p className="confirm-dialog-body cal-tight" role="status">
+          <p className="sheet-dialog-warning" role="status">
             {t("calendar.print.soft", {
               dpi: PRINT_DPI,
               list: soft.map((p) => t("calendar.print.soft.page", p)).join(", "),

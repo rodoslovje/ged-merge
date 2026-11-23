@@ -8213,7 +8213,7 @@ kbd {
 .cluster-dialog-name { display: flex; align-items: center; gap: 6px; }
 .cluster-dialog-meta { color: var(--muted); font-size: 0.8rem; }
 /* Not an error — a caveat about what the scan does and does not assert. */
-.cluster-dialog-warning {
+.cluster-dialog-warning, .sheet-dialog-warning {
   margin: 0 0 16px;
   padding: 8px 10px;
   border-left: 3px solid var(--status-diff);
