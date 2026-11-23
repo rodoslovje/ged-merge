@@ -86,6 +86,28 @@ describe("buildSearchRows", () => {
   });
 });
 
+describe("buildSearchRows — research notes", () => {
+  it("puts the research notes filed under a person and their events in the note text", () => {
+    const line = (level: number, tag: string, value?: string, children: Individual["raw"][] = []) => ({ level, tag, value, children });
+    const raw = {
+      ...line(0, "INDI", undefined, [
+        line(1, "DEAT", undefined, [line(2, "_RESEARCH", "@RN2@")]),
+        line(1, "_RESEARCH", "@RN1@"),
+      ]),
+      xref: "@I900@",
+    };
+    const note = (xref: string, text: string) => ({ ...line(0, "_RESEARCH", undefined, [line(1, "NOTE", text)]), xref });
+    const records = [raw, note("@RN1@", "Where did the family come from?"), note("@RN2@", "Check the passenger lists"), note("@RN3@", "Someone else's")];
+    const p = indi([{ full: "Franc Novak", given: "Franc", surname: "Novak" }], [], { raw });
+    const [row] = buildSearchRows(toMap([p]), nameOf, records);
+    expect(row.noteText).toContain("where did the family come from?");
+    expect(row.noteText).toContain("passenger lists");
+    expect(row.noteText).not.toContain("someone else");
+    // Without the record list there is nothing to read them from.
+    expect(buildSearchRows(toMap([p]), nameOf)[0].noteText).toBe("");
+  });
+});
+
 describe("startSearchIndex", () => {
   it("reaches the one-shot result in slices, reporting progress on the way", () => {
     const people = toMap(
