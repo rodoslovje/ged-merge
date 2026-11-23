@@ -4358,7 +4358,6 @@ export const sl = {
   "calendar.facts.none": "Datoteka za ta mesec nima nobenega datiranega dogodka iz družinske zgodovine.",
   "calendar.review.hint": "Tu so vse strani, kot bodo natisnjene. Za tiskarno v pogovornem oknu za tiskanje izberite »Shrani kot PDF«, doma pa natisnite na papir v velikosti izbranega formata.",
   "calendar.print": "Natisni…",
-  "calendar.legend.birthday": "rojstni dan (starost)",
   "calendar.legend.anniversary": "obletnica poroke (leta)",
   "calendar.legend.memorial": "spominski dan (leta od smrti)",
   "calendar.date": "{{day}}. {{month}}. {{year}}",

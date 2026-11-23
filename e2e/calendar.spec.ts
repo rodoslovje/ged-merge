@@ -15,8 +15,11 @@ test("the family calendar walks from settings to a review of every page", async 
   await page.locator(".charts-open-btn").click();
   await page.getByRole("tab", { name: "Calendar" }).click();
 
-  // Settings, with a month previewed beside them.
+  // Settings, with a month previewed beside them. The list of the month's
+  // people under the month is off until asked for.
   await expect(page.locator(".cal-step-label")).toHaveText("Settings");
+  await expect(page.locator(".cal-preview .cal-list")).toHaveCount(0);
+  await page.getByLabel("List of the month's people under the month").check();
   await expect(page.locator(".cal-preview .cal-grid")).toHaveCount(1);
 
   // The cover draws the recipient's fan by default.
@@ -112,12 +115,13 @@ test("a day too busy for its cell marks what it leaves out", async ({ page }) =>
   const march = page.locator(".cal-review .cal-review-month").nth(2);
   await expect(march.locator(".cal-more")).toHaveCount(1);
   await expect(page.locator(".cal-tight")).toContainText("more names than fit");
-  // Its birthdays run together as one list of names, without their marks,
-  // before any is left out. What is drawn fits its cell, the "+N" included;
-  // the list under the grid names all thirty-one.
+  // Its birthdays run together as one list of names before any is left out
+  // — a birthday carries no mark anywhere, a round one its star. What is
+  // drawn fits its cell, the "+N" included.
   const day = march.locator(".cal-cell[data-day='14']");
   await expect(day.locator(".cal-compact")).toContainText(/Ana N\. \d+, Maksimilijan0 N\. \d+/);
-  await expect(day.locator(".cal-glyph")).toHaveCount(0);
+  await expect(day).not.toContainText("*");
+  await expect(day.locator(".cal-round-name").first()).toContainText("★");
   await expect(async () => {
     const over = await march.locator(".cal-cell").evaluateAll((cells) => cells.filter((c) => c.scrollHeight > c.clientHeight + 1).length);
     expect(over).toBe(0);
@@ -125,5 +129,4 @@ test("a day too busy for its cell marks what it leaves out", async ({ page }) =>
     expect(drawn).toBeGreaterThan(1);
     expect(await march.locator(".cal-more").textContent()).toBe(`+${31 - drawn}`);
   }).toPass();
-  await expect(march.locator(".cal-list > div")).toHaveCount(31);
 });

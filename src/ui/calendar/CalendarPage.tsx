@@ -6,7 +6,7 @@ import { schemeVars, type CalendarScheme } from "./schemes";
 import { BADGE_BG, LOGO_BADGE_MARKUP } from "../exportSvg";
 
 export type { PagePhoto } from "./PhotoArea";
-import { ENTRY_GLYPH, entryCell, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
+import { ROUND_GLYPH, entryCell, entryGlyph, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
 
 // The family calendar's printed pages, drawn the same for the wizard's preview
 // and the print document (see calendarCss). One component per page kind; the
@@ -189,7 +189,7 @@ function Grid({ format, year, month, holidays, words, entryOpts, facts, showList
   ]));
   const entry = ({ e, text }: { e: DayEntry; text: string }, i: number) => (
     <div key={i} className={`cal-entry cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
-      <span className="cal-glyph">{isRoundAnniversary(e) ? ROUND_GLYPH : ENTRY_GLYPH[e.kind]}</span>
+      <Glyph e={e} />
       {text}
     </div>
   );
@@ -230,7 +230,11 @@ function Grid({ format, year, month, holidays, words, entryOpts, facts, showList
                         {birthdays.length > 0 && (
                           <div className="cal-entry cal-birthday cal-compact">
                             {birthdays.map((x, i) => (
-                              <span key={i} className={isRoundAnniversary(x.e) ? "cal-round-name" : undefined}>{i > 0 && ", "}{x.text}</span>
+                              <span key={i} className={isRoundAnniversary(x.e) ? "cal-round-name" : undefined}>
+                                {i > 0 && ", "}
+                                <Glyph e={x.e} />
+                                {x.text}
+                              </span>
                             ))}
                           </div>
                         )}
@@ -261,7 +265,7 @@ function DayList({ month, words, entryOpts }: MonthProps) {
       {livingFirst(month.entries).map((e, i) => (
         <div key={i} className={`cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
           <b>{e.day}.</b>
-          <span className="cal-glyph">{isRoundAnniversary(e) ? ROUND_GLYPH : ENTRY_GLYPH[e.kind]}</span>
+          <Glyph e={e} />
           {entryLine(t, words, e, entryOpts)}
         </div>
       ))}
@@ -287,16 +291,18 @@ function Facts({ facts, words }: MonthProps) {
   );
 }
 
-/** A round birthday's or a jubilee's mark, in place of the plain glyph. */
-const ROUND_GLYPH = "★";
+/** An entry's mark, where it has one: a plain birthday goes without. */
+export function Glyph({ e }: { e: DayEntry }) {
+  const glyph = entryGlyph(e, isRoundAnniversary(e));
+  return glyph ? <span className="cal-glyph">{glyph}</span> : null;
+}
 
 function Legend() {
   const { t } = useTranslation();
   return (
     <div className="cal-legend">
-      <span>{ENTRY_GLYPH.birthday} {t("calendar.legend.birthday")}</span>
-      <span>{ENTRY_GLYPH.anniversary} {t("calendar.legend.anniversary")}</span>
-      <span>{ENTRY_GLYPH.memorial} {t("calendar.legend.memorial")}</span>
+      <span>⚭ {t("calendar.legend.anniversary")}</span>
+      <span>† {t("calendar.legend.memorial")}</span>
       <span>{ROUND_GLYPH} {t("calendar.legend.round")}</span>
     </div>
   );

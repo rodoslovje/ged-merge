@@ -4089,7 +4089,6 @@ export const hr = {
   "calendar.facts.none": "Datoteka za ovaj mjesec nema nijednog datiranog događaja iz obiteljske povijesti.",
   "calendar.review.hint": "Ovdje su sve stranice kako će biti ispisane. Za tiskaru u dijalogu za ispis odaberite „Spremi kao PDF“, a kod kuće ispišite na papir veličine odabranog formata.",
   "calendar.print": "Ispiši…",
-  "calendar.legend.birthday": "rođendan (dob)",
   "calendar.legend.anniversary": "godišnjica braka (godine)",
   "calendar.legend.memorial": "dan sjećanja (godine od smrti)",
   "calendar.date": "{{day}}. {{month}}. {{year}}.",
