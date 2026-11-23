@@ -113,6 +113,9 @@ import { fullTextLookup, type FilterContext } from "./ui/globalSearch";
 import { useSearchIndex } from "./ui/useSearchIndex";
 import { SearchIcon } from "./ui/icons/SearchIcon";
 import { AddPersonIcon } from "./ui/icons/AddPersonIcon";
+import { NotebookIcon } from "./ui/icons/NotebookIcon";
+import { ResearchDialog } from "./ui/edit/ResearchDialog";
+import { applyResearchEdit, NEW_RESEARCH_FIELDS } from "./ui/edit/researchEdit";
 import { AppMenu, type AppMenuFile } from "./ui/AppMenu";
 import { FILES_IN_MENU_QUERY, useCompactHeader, useMediaQuery, usePhone } from "./ui/usePhone";
 import { NEW_FILE_BASENAME, newGedcomText, submitterName } from "./gedcom/newFile";
@@ -371,6 +374,8 @@ function AppContent() {
     [],
   );
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  // The "for later" research note: written from anywhere, filed under nobody yet.
+  const [showQuickNote, setShowQuickNote] = useState(false);
   // Outstanding "create a new, unattached person" request handed to Edit mode —
   // see EditView's `addPersonRequest`. The nonce only grows, so each request is
   // acted on exactly once even when the same name is asked for twice.
@@ -1406,7 +1411,7 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addsLanded]);
 
-  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, back: () => {} });
+  const globalShortcutRef = useRef({ undo: handleUndo, redo: handleRedo, save: () => {}, canSave: false, addPerson: () => {}, researchNote: () => {}, back: () => {} });
   globalShortcutRef.current.undo = () => undoStep("undo");
   globalShortcutRef.current.redo = () => undoStep("redo");
 
@@ -1486,6 +1491,13 @@ function AppContent() {
       if (e.key.toLowerCase() === KEY.addPerson && !e.shiftKey && !overlayOpenRef.current) {
         e.preventDefault();
         globalShortcutRef.current.addPerson();
+        return;
+      }
+
+      // `B` opens a research note for later — likewise not over a chart.
+      if (e.key.toLowerCase() === KEY.researchNote && !e.shiftKey && !overlayOpenRef.current) {
+        e.preventDefault();
+        globalShortcutRef.current.researchNote();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -2223,6 +2235,7 @@ function AppContent() {
   globalShortcutRef.current.save = () => void handleSave();
   globalShortcutRef.current.canSave = !!lastMainFile && (changedCount > 0 || confirmedCount > 0 || importCount > 0 || saveWithoutChanges);
   globalShortcutRef.current.addPerson = () => requestAddPerson();
+  globalShortcutRef.current.researchNote = () => { if (mainDataset) setShowQuickNote(true); };
   globalShortcutRef.current.back = goBackPage;
 
   function handleEditDirty(type: "individual" | "family", id: string) {
@@ -2300,7 +2313,7 @@ function AppContent() {
     // convertVersion) and the report lists what the conversion rewrote.
     const from = ownVersion(mainDataset);
     const author = submitterOf(settings);
-    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, author);
+    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, author, true);
     for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(author) }));
     if (conversion) {
       fileNotes.push(t("changeReport.note.converted", { from, to: version, count: conversion.length }));
@@ -2449,6 +2462,19 @@ function AppContent() {
         onClose={() => setShowShortcuts(false)}
         context={overlayOpen ? "chart" : mainDataset ? mode : undefined}
       />
+      {showQuickNote && mainDataset && (
+        <ResearchDialog
+          draft={{ fields: NEW_RESEARCH_FIELDS, targets: [] }}
+          dataset={mainDataset}
+          t={t}
+          onClose={() => setShowQuickNote(false)}
+          onSave={(fields, targets, newMedia) => {
+            setShowQuickNote(false);
+            applyToolPatches(applyResearchEdit(mainDataset, undefined, fields, targets, newMedia));
+          }}
+          onNavigate={(personId) => { setShowQuickNote(false); navigateFromPage(personId); }}
+        />
+      )}
       <GlobalSearchModal
         isOpen={showGlobalSearch}
         onClose={() => setShowGlobalSearch(false)}
@@ -2699,6 +2725,16 @@ function AppContent() {
               <AddPersonIcon size={18} />
             </button>
           )}
+          {!phone && !compactHead && mainDataset && (
+            <button
+              className="nav-btn icon-only"
+              onClick={() => setShowQuickNote(true)}
+              title={keyHint(t("research.quickAdd.tooltip"), KEY.researchNote.toUpperCase())}
+              aria-label={t("research.quickAdd")}
+            >
+              <NotebookIcon size={18} />
+            </button>
+          )}
           {!phone && !compactHead && (
             <button
               className="nav-btn icon-only"
@@ -2731,6 +2767,7 @@ function AppContent() {
               onCharts={mainDataset ? openChartsFromHeader : undefined}
               onSearch={mainDataset ? () => setShowGlobalSearch(true) : undefined}
               onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
+              onResearchNote={mainDataset ? () => setShowQuickNote(true) : undefined}
               onSettings={() => setShowSettings(true)}
               onShortcuts={() => setShowShortcuts(true)}
             />
@@ -2744,6 +2781,7 @@ function AppContent() {
               files={filesInMenu ? menuFiles : []}
               onOpenFiles={onChart ? openFilesFromChart : openInfoPanel}
               onAddPerson={mainDataset ? () => requestAddPerson() : undefined}
+              onResearchNote={mainDataset ? () => setShowQuickNote(true) : undefined}
               onSettings={() => setShowSettings(true)}
               onShortcuts={() => setShowShortcuts(true)}
             />
@@ -3190,6 +3228,7 @@ function AppContent() {
               onTagTranslations={(choices) => applyToolPatches(tagTranslations(mainDataset, choices), true)}
               onSetPlaceTranslations={(values, list) => applyToolPatches(setPlaceTranslations(mainDataset, values, list), true)}
               onApplyBatchPatches={(patches) => applyToolPatches(patches, true)}
+              onApplyResearch={(patches) => { applyToolPatches(patches); }}
               onMergeDuplicate={(survivorId, removedId, decision, alsoMerge) => {
                 // Ticked parents/partners merge first: their families fold
                 // together on their own, so this pair then finds one set of

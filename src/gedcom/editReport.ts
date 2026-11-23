@@ -15,6 +15,7 @@ import { EDITABLE_LINK_TAGS } from "./edit/shared";
 import { formatCoord } from "../geo/points";
 import { NOTE_TAGS } from "./builder";
 import { NO_TAGS } from "./negative";
+import { RESEARCH_TAG, isResearchPointer, readResearchNote } from "./research";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -632,6 +633,49 @@ function diffFamilyNodes(
   return diffs;
 }
 
+/**
+ * The research notes a record is filed under, as the report words them: the
+ * note's own text, led by the event it is about when it is about one. A note
+ * is a pointer line (`_RESEARCH @RN1@`) on the record or on one of its events,
+ * which no typed pass reads — left to the raw-line fallback it arrived as
+ * "DEAT (+2)", and the note the reader had just written was nowhere in it.
+ */
+function diffResearchPointers(
+  id: string,
+  before: GedNode,
+  after: GedNode,
+  fieldLabel: string,
+  eventLabel: (tag: string) => string,
+  noteLabel: (xref: string) => string,
+): FieldChange[] {
+  const filed = (node: GedNode) => {
+    const out = new Map<string, string>();
+    for (const child of node.children) {
+      if (isResearchPointer(child)) {
+        const xref = child.value!.trim();
+        out.set(xref, noteLabel(xref));
+        continue;
+      }
+      for (const sub of child.children) {
+        if (!isResearchPointer(sub)) continue;
+        const xref = sub.value!.trim();
+        out.set(`${child.tag} ${xref}`, `${eventLabel(child.tag)} — ${noteLabel(xref)}`);
+      }
+    }
+    return out;
+  };
+  const was = filed(before);
+  const now = filed(after);
+  const diffs: FieldChange[] = [];
+  for (const [key, text] of was) {
+    if (!now.has(key)) diffs.push({ recordId: id, field: fieldLabel, from: text, to: "", action: "incoming" });
+  }
+  for (const [key, text] of now) {
+    if (!was.has(key)) diffs.push({ recordId: id, field: fieldLabel, from: "", to: text, action: "both" });
+  }
+  return diffs;
+}
+
 /** One line of a record's own structure, as the file writes it — `TAG value`,
  *  with the count of lines beneath where it has any. A pointer value is
  *  labelled the way the rest of the report labels one. */
@@ -822,6 +866,9 @@ export function enrichEditReport(
   personSnapshots: Map<string, GedNode>,
   familySnapshots: Map<string, GedNode>,
   t: Translate,
+  /** A shared record as it stood before the session touched it — names a
+   *  research note the save removes. */
+  goneRecord?: (xref: string) => GedNode | undefined,
 ): ChangeReport {
   const extra: FieldChange[] = [];
   const resolveMedia = makeMediaResolver(dataset.records);
@@ -847,6 +894,15 @@ export function enrichEditReport(
   const sexOfXref = (xref: string): Sex | undefined => dataset.individuals.get(xref)?.sex;
   const described = new Set(report.changes.filter((c) => c.field).map((c) => c.recordId));
   const labelXref = makeXrefLabeler(dataset.records, (xref) => personSnapshots.get(xref) ?? familySnapshots.get(xref));
+  let researchByXref: Map<string, GedNode> | undefined;
+  const researchLabel = (xref: string): string => {
+    if (!researchByXref) {
+      researchByXref = new Map();
+      for (const r of dataset.records) if (r.tag === RESEARCH_TAG && r.xref) researchByXref.set(r.xref, r);
+    }
+    const node = researchByXref.get(xref) ?? goneRecord?.(xref);
+    return node ? sharedRecordTitle(xref, node) : xrefLabel(xref);
+  };
   const describeRest = (id: string, before: GedNode, after: GedNode, from: number) => {
     if (described.has(id) || extra.slice(from).some((c) => c.recordId === id && c.field)) return;
     extra.push(...diffRawLines(id, before, after, t("field.otherLines"), labelXref));
@@ -892,6 +948,7 @@ export function enrichEditReport(
             extra.push({ recordId: id, field: t(fieldKey), from: "", to: currentFamilyLabel(famId, dataset, resolveIndiName), action: "both" });
           }
         }
+        extra.push(...diffResearchPointers(id, snapshot, current.raw, t("research.add"), (tag) => eventDisplayLabel(tag, t), researchLabel));
         describeRest(id, snapshot, current.raw, before);
       } else if (snapshot && !current) {
         // Deleted person: list which families they belonged to
@@ -911,6 +968,7 @@ export function enrichEditReport(
       if (snapshot && current) {
         extra.push(...diffFamilyNodes(id, snapshot, current.raw, t, resolveIndiName, resolveMedia, resolveSource, notePrivate, noteText, nameMedia, namePageMedia));
         extra.push(...diffAssociations(id, snapshot, current.raw, t, labelXref, sexOfXref));
+        extra.push(...diffResearchPointers(id, snapshot, current.raw, t("research.add"), (tag) => familyEventLabel(tag, t), researchLabel));
         describeRest(id, snapshot, current.raw, before);
       }
     }
@@ -936,6 +994,7 @@ export function sharedRecordLabel(id: string, node: GedNode | undefined): string
     : node.tag === "OBJE" ? (objeInfoOf(node).url ? "🔗" : "🖼")
     : node.tag === "REPO" ? "🏛"
     : NOTE_TAGS.includes(node.tag) ? "📝"
+    : node.tag === RESEARCH_TAG ? "📓"
     : undefined;
   const label = sharedRecordTitle(id, node);
   return icon ? `${icon} ${label}` : label;
@@ -951,6 +1010,7 @@ export function sharedRecordTitle(id: string, node: GedNode): string {
     // A note's text *is* its name — a card headed "NOTE N1" told the reader
     // nothing about the note the save was about to write.
     : NOTE_TAGS.includes(node.tag) ? noteHeading(node.value)
+    : node.tag === RESEARCH_TAG ? noteHeading(readResearchNote(node).text)
     : undefined;
   return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
 }
@@ -1122,6 +1182,54 @@ export function diffSharedRecordNodes(
 }
 
 /**
+ * A research note's own card: what kind of note it is, whether it is settled,
+ * its links and media — in the words the note's dialog uses, not the `TYPE` and
+ * `STAT` values the record stores them as. A new note is one line (its text is
+ * the card's heading); an edited one is a row per field that moved.
+ */
+export function researchRecordRows(
+  id: string,
+  before: GedNode | undefined,
+  after: GedNode,
+  t: Translate,
+  labelFor: (xref: string) => string | undefined,
+): FieldChange[] {
+  const now = readResearchNote(after);
+  const status = (done: boolean) => t(done ? "research.done" : "tools.notebook.status.open");
+  const media = (xref: string) => labelFor(xref) ?? xrefLabel(xref);
+  if (!before) {
+    const heading = sharedRecordTitle(id, after);
+    const values = [
+      t(`research.kind.${now.kind}`),
+      ...(now.done ? [status(true)] : []),
+      // A text too long for the heading is cut there, so it is given whole here.
+      ...(now.text && now.text.replace(/\s+/g, " ").trim() !== heading ? [now.text] : []),
+      ...now.links,
+      ...now.media.map(media),
+    ];
+    return [{
+      recordId: id, field: "", from: "", to: "", action: "incoming", noLabel: true,
+      segments: values.map((text) => ({ text, state: "changed" as const })),
+    }];
+  }
+  const was = readResearchNote(before);
+  const rows: FieldChange[] = [];
+  const check = (field: string, from: string, to: string) => {
+    if (from !== to) rows.push({ recordId: id, field, from, to, action: "incoming" });
+  };
+  check(t("research.field.kind"), t(`research.kind.${was.kind}`), t(`research.kind.${now.kind}`));
+  check(t("research.field.status"), status(was.done), status(now.done));
+  check(t("research.field.text"), was.text, now.text);
+  const set = (field: string, from: string[], to: string[]) => {
+    for (const v of from) if (!to.includes(v)) rows.push({ recordId: id, field, from: v, to: "", action: "incoming" });
+    for (const v of to) if (!from.includes(v)) rows.push({ recordId: id, field, from: "", to: v, action: "both" });
+  };
+  set(t("research.field.links"), was.links, now.links);
+  set(t("research.field.media"), was.media.map(media), now.media.map(media));
+  return rows;
+}
+
+/**
  * Whether a record marked changed in fact leaves the file exactly as it was, so
  * the save report should pass over it. Two ways that happens, both from an edit
  * later undoing an earlier one within the session:
@@ -1154,6 +1262,8 @@ export function buildEditReport(
    *  pre-edit snapshots — no person or family carries these changes. */
   changedRecordIds?: Set<string>,
   recordSnapshots?: Map<string, { value: GedNode; owner?: { kind: "individual" | "family"; id: string } }>,
+  /** Words a research note's card; without it the note reads as its raw lines. */
+  t?: Translate,
 ): ChangeReport {
   const changes: FieldChange[] = [];
   const recordLabels: Record<string, string> = {};
@@ -1240,7 +1350,9 @@ export function buildEditReport(
     // A record created this session has no snapshot to diff against, and
     // without this its card would carry a title and nothing else — the whole
     // point of adding a source is the title and the link it brought with it.
-    if (current && isNew) {
+    if (current && t && current.tag === RESEARCH_TAG) {
+      changes.push(...researchRecordRows(id, snapshot, current, t, labelFor));
+    } else if (current && isNew) {
       const row = newSharedRecordRow(id, current, sharedRecordTitle(id, current), labelFor);
       if (row) changes.push(row);
     } else if (current && snapshot) {

@@ -8406,6 +8406,176 @@ kbd {
 .add-source-url-row { margin-bottom: 0; }
 /* The media-link dialog holds a single field — Edit Source's width gapes. */
 .media-link-dialog { width: 520px; }
+
+/* Research notes: the person's row of chips, the marks on an event row, and
+   the note's dialog. */
+.research-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 1px 4px 1px 6px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.research-chip:hover,
+.research-chip:focus-within { border-color: var(--accent); }
+.research-chip-check { margin: 0; cursor: pointer; accent-color: var(--accent); }
+.research-chip-open {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  padding: 1px 2px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.research-chip-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.research-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 44ch;
+}
+.research-chip-where { color: var(--faint); font-size: 0.78rem; white-space: nowrap; }
+.research-chip.is-done { background: transparent; }
+.research-chip.is-done .research-chip-text { color: var(--muted); text-decoration: line-through; }
+.research-done-toggle { color: var(--muted); }
+.research-refs { display: inline-flex; align-items: center; gap: 2px; }
+
+/* The research notebook (Tools → Notebook): one row per note. */
+.tools-research-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 14px; }
+.tools-research-bar .tools-run,
+.tools-research-bar .tools-search { margin: 0; }
+.tools-research-clear { margin-left: auto; }
+.tools-research-empty { color: var(--muted); }
+.tools-research-group { margin: 0 0 18px; }
+.tools-research-heading {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.research-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.research-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 12px;
+  background: var(--panel);
+}
+.research-row + .research-row { border-top: 1px solid var(--border); }
+.research-row .research-chip-check { align-self: center; }
+.research-row-open {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.research-row-open:hover .research-row-text,
+.research-row-open:focus-visible .research-row-text { color: var(--accent); }
+.research-row-text { overflow-wrap: anywhere; }
+.research-row.is-done .research-row-text { color: var(--muted); text-decoration: line-through; }
+.research-row-where { display: inline-flex; flex-wrap: wrap; gap: 2px 14px; }
+.research-row-ref { display: inline-flex; align-items: baseline; gap: 6px; }
+.research-row-date { margin-left: auto; color: var(--faint); font-size: 0.8rem; white-space: nowrap; }
+
+.research-dialog { width: 600px; }
+.research-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 0 12px;
+}
+.research-dialog-done { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.research-dialog-done input { accent-color: var(--accent); }
+.research-dialog-text { width: 100%; resize: vertical; }
+.research-dialog .add-source-url-wrap + .add-source-url-wrap { margin-top: 4px; }
+.research-dialog-unfiled { color: var(--muted); font-size: 0.9rem; }
+.research-media { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.research-media-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 2px 2px 8px;
+  font-size: 0.92rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.research-target {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 4px 8px;
+  font-size: 0.92rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.research-target-name { font-weight: 600; }
+button.research-target-name {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.research-target-name:hover,
+button.research-target-name:focus-visible { color: var(--accent); text-decoration: underline; }
+.research-target-event {
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.research-target-event:hover,
+.research-target-event:focus-visible { border-color: var(--accent); color: var(--text); }
+.research-target-remove {
+  margin-left: auto;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.research-target-remove:hover,
+.research-target-remove:focus-visible { color: var(--danger); }
+.research-target-add { align-self: flex-start; opacity: 1; }
+/* The person search lists its matches in the dialog's own flow: floating, the
+   list was cut off by the dialog's scrolling body. */
+.research-dialog .relative-picker-list { position: static; max-width: 100%; box-shadow: none; }
 .add-source-url-wrap { display: flex; align-items: center; gap: 6px; }
 .add-source-url-wrap input.edit-input { flex: 1; width: auto; }
 /* Reads the page again into the fields — sized to sit beside the link's ↗

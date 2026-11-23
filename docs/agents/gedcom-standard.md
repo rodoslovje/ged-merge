@@ -46,6 +46,8 @@ GED Merge reads anything. What it writes follows the main file's **target format
 
 **Every download goes through one path.** Save, privacy export, branch export, Tools → Normalize, and any new export use `prepareDownload` in `src/save/outputFile.ts`, then `serializeGedcom` with `outputOptions`. Never serialize a download by hand: that skips the HEAD/GEDC/CHAR/SUBM/TRLR repair, the HEAD.SOUR stamp and HEAD.SCHMA. This holds in every mode; the file-level structure is always made valid.
 
+**Research notes leave only through Save.** The reader's research notes (`_RESEARCH` records and the lines pointing at them, `src/gedcom/research.ts`) are working material, not data to share. `prepareDownload` drops them unless the caller passes `keepResearch`, which only Save does; an export that picks its records itself (branch, privacy) drops the pointers before it chases supporting records, so a note's media does not come along. An incoming compare file loses its notes when it is normalized: they are never merged.
+
 **Extension tags.**
 - In a strict mode an extension tag always starts with `_`. A bare vendor tag (`RACE`, `NOBI`, `LATR`, `DEED`, `ILL`, `PRIV`, `SEPA`, `PERI`, `FILN`, `EDTN`, `WWW` on a record…) is never written: use the `_` form, or the standard structure that carries the meaning. In Master file mode a bare vendor tag is written only when the file's dialect already uses it.
 - In 7.0 every `_` tag is declared in HEAD.SCHMA (`writeSchema`) and written uppercase. 7.0 tags are `[A-Z0-9_]`, so clear `GedNode.spelling` when writing 7.0.

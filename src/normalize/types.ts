@@ -341,6 +341,10 @@ export interface NormalizeOptions {
    * longer match its records, so it must not be read afterwards.
    */
   inPlace?: boolean;
+  /** Keep the file's research notes (`gedcom/research.ts`). An incoming
+   * compare file loses them — they are its owner's, and are not merged; the
+   * bulk-normalize tool, which reshapes one's own file, sets this. */
+  keepResearchNotes?: boolean;
   /** Leave the partnership-status encodings as the file writes them, instead of
    * consolidating them into `_MSTAT`. Set by the bulk-normalize tool whenever
    * `_MSTAT` is not the file producer's own tag — the same round-trip doctrine

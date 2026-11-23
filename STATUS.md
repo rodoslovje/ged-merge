@@ -1,5 +1,5 @@
 # STATUS — ged-merge
-_Updated 2026-11-20_
+_Updated 2026-11-23_
 
 GED Merge, live at gedmerge.com (test site test.gedmerge.com). Rules: `CLAUDE.md`/`AGENTS.md` (details in `docs/agents/`). **Backlog and priorities: `IDEAS.md`** (not duplicated here).
 Workflow: one worktree per task, every change a branch + PR; `main` merges only on green CI, every green `main` deploys the test site, production only on request.
@@ -22,6 +22,7 @@ Workflow: one worktree per task, every change a branch + PR; `main` merges only 
 - From that review also: Health check lists unused NOTE/OBJE/SOUR records #239; an incoming address is split onto a place the main already has #245; a sibling added from the siblings row #235; Complete Tree #240
 
 **In flight**
+- **Research notes, #299** (merged 23. 11., on the test site): `_RESEARCH` records for ideas, questions, tasks and finds, filed under a person, family or event, or under nobody; edited in Edit, listed in Tools → Notebook (which also removes the done ones in one step), a note for later from the header (`B`), worded in the save preview. **Its terms page for `_RESEARCH` must reach production before files declaring the tag are written there.** Not done: attaching media by drag-and-drop or paste (media come from the media folder picker only); a research-note filter of its own in the person search (the note filter reads them); a filter by kind in the Notebook.
 - Nothing open. Production was last deployed on 20. 11. at #248 (tag `2026-11-20.2`); #249–#252 are on the test site only. **#252 adds terms pages for new extension tags: production must be deployed before strict files declaring `_CROP`/`_RIN`/`_AFN`/`_RFN` go out** — on request, as always.
 
 **Now (top of IDEAS.md priority queue)**
@@ -46,6 +47,7 @@ Workflow: one worktree per task, every change a branch + PR; `main` merges only 
 - [ ] rodoslovni-viri record `gedmerge.md` exists — keep it current
 
 **Decided**
+- Research notes are written by Save only: every export leaves them out and an incoming file's are never merged; the tag is `_RESEARCH`, not `_TODO` (that one is Brother's Keeper's / Family Historian's)
 - Free, runs entirely in the browser, no backend, MIT
 - Nothing reaches `main` except through a PR with green CI; local `main` only fast-forwards
 - Production deploys only when the user asks (`gh workflow run deploy-production.yml`)

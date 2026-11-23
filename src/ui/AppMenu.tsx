@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
+import { NotebookIcon } from "./icons/NotebookIcon";
 import { AddPersonIcon } from "./icons/AddPersonIcon";
 import { ChartIcon } from "./icons/ChartIcon";
 import { GearIcon } from "./icons/GearIcon";
@@ -33,6 +34,8 @@ interface Props {
   onCharts?: () => void;
   onSearch?: () => void;
   onAddPerson?: () => void;
+  /** Write a research note for later. */
+  onResearchNote?: () => void;
   onSettings: () => void;
   /** The keyboard-shortcut sheet — a phone has no `?` key to press. */
   onShortcuts: () => void;
@@ -46,6 +49,7 @@ export function AppMenu({
   onCharts,
   onSearch,
   onAddPerson,
+  onResearchNote,
   onSettings,
   onShortcuts,
 }: Props) {
@@ -107,6 +111,11 @@ export function AppMenu({
             {onAddPerson && (
               <button role="menuitem" className="app-menu-item" onClick={() => pick(onAddPerson)}>
                 <AddPersonIcon size={17} /> {t("edit.addNewPerson")}
+              </button>
+            )}
+            {onResearchNote && (
+              <button role="menuitem" className="app-menu-item" onClick={() => pick(onResearchNote)}>
+                <NotebookIcon size={17} /> {t("research.quickAdd")}
               </button>
             )}
             <button role="menuitem" className="app-menu-item" onClick={() => pick(onSettings)}>

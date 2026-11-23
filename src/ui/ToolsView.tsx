@@ -16,6 +16,7 @@ import { PublishPanel } from "./tools/PublishPanel";
 import { DnaPanel } from "./tools/DnaPanel";
 import { StatsPanel } from "./tools/StatsPanel";
 import { SourcesPanel } from "./tools/SourcesPanel";
+import { ResearchPanel } from "./tools/ResearchPanel";
 import type { AddSourceResult } from "./AddSourceDialog";
 import type { EditRepoFields, EditSourceFields } from "../gedcom/edit";
 import type { MediaEditFields } from "./MediaViewer";
@@ -31,7 +32,7 @@ import { PickerMenu } from "./PickerMenu";
 import { usePhone } from "./usePhone";
 import { ToolSummarySlotProvider } from "./tools/ToolSummary";
 
-export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "publish" | "sources" | "places" | "stats" | "dna";
+export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "publish" | "sources" | "notebook" | "places" | "stats" | "dna";
 
 /**
  * The page open inside a tool that has more than one — every one of them a
@@ -48,7 +49,7 @@ export type Tool = "validate" | "duplicates" | "normalize" | "privacy" | "publis
  */
 export type ToolView = "tree" | "geocode" | "register" | "cleanup" | "normalize" | "gedcom" | "names" | "lifespan" | "families" | "births" | "deaths" | "occupations" | "migration" | "generations" | "research";
 
-const TOOLS: Tool[] = ["stats", "places", "sources", "duplicates", "validate", "normalize", "privacy", "publish", "dna"];
+const TOOLS: Tool[] = ["stats", "places", "sources", "notebook", "duplicates", "validate", "normalize", "privacy", "publish", "dna"];
 
 interface Props {
   /** The live main dataset — every tool operates on the whole file. */
@@ -142,6 +143,9 @@ interface Props {
   /** Apply a batch action's patches (Normalize & batch → Batch actions) as one
    *  undo entry; returns the patch count. */
   onApplyBatchPatches: (patches: RecordPatch[]) => number;
+  /** Push one research note edit (the notebook) as an undo step of its own —
+   *  a deliberate edit, not a maintenance pass. */
+  onApplyResearch: (patches: RecordPatch[]) => void;
   /** Merge a duplicate pair: fold the removed record into the survivor (kept)
    *  per the field choices, mutating the dataset in place and pushing to undo.
    *  Returns true when the merge applied (records changed). */
@@ -179,7 +183,7 @@ interface Props {
   onViewChange: (view: ToolView) => void;
 }
 
-export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onMarkDeceased, onEstimateBirths, onFixMarriageDates, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onRemoveBranch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange, onOpenRelationship }: Props) {
+export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion, fileName, onNavigate, onAddSource, onEditSource, onRemoveSource, onEditRepo, onEditMediaInfo, onEditMediaFile, active, onApplyPlaceRename, onApplyGeocode, onApplyAddressCoords, onClearPlaceCoords, onRenamePlaceValue, onApplyOfficialNames, onRenameAddresses, onMovePlaceForAddresses, startId, onFixBrokenLinks, onFixSexFromRole, onFixSwappedRoles, onMarkDeceased, onEstimateBirths, onFixMarriageDates, onFixDates, onFixNonStandardDates, onFixDuplicatePointers, onFixDuplicateFamilies, onFixDanglingRefs, onFixConformance, onFixBatch, onRemoveBranch, onSetPlaceTranslations, onTagTranslations, onApplyBatchPatches, onApplyResearch, onMergeDuplicate, onMergeCluster, rejectedDuplicates, onRejectDuplicate, onRejectDuplicatesBulk, onUnrejectDuplicate, tool, view, onToolChange, onViewChange, onOpenRelationship }: Props) {
   const { t } = useTranslation();
   // Which tool and which of its pages — the app's, because they are history
   // steps: see ToolView. Statistics leads the tabs: its overview says what the
@@ -261,6 +265,9 @@ export function ToolsView({ dataset, editVersionRef, changeJournal, editVersion,
         )}
         {tool === "sources" && (
           <SourcesPanel dataset={dataset} scans={scans} onNavigate={onNavigate} onAddSource={onAddSource} onEditSource={onEditSource} onRemoveSource={onRemoveSource} onEditRepo={onEditRepo} onEditMediaInfo={onEditMediaInfo} onApplyPatches={onApplyBatchPatches} active={active} view={view} onViewChange={onViewChange} />
+        )}
+        {tool === "notebook" && (
+          <ResearchPanel dataset={dataset} editVersion={editVersion} onNavigate={onNavigate} onApply={onApplyResearch} />
         )}
         {/* The coordinate panel the three place pages share lists who else the
             file puts at the address it is positioning — the same lookup Edit

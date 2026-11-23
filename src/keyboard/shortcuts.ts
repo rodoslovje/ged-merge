@@ -30,6 +30,9 @@ export const KEY = {
   home: "h",
   /** Add a new person attached to nobody, from any mode. */
   addPerson: "n",
+  /** Write a research note for later, filed under nobody yet (B: beležka,
+   *  the notebook), from any mode. */
+  researchNote: "b",
   confirm: "c",
   reject: "r",
   defer: "d",
@@ -247,6 +250,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     scope: ["edit"],
     items: [
       { keys: [[KEY.addPerson.toUpperCase()]], descKey: "shortcuts.item.addPerson", scope: ["edit", "merge", "tools"] },
+      { keys: [[KEY.researchNote.toUpperCase()]], descKey: "shortcuts.item.researchNote", scope: ["edit", "merge", "tools"] },
       // ⌥⇧, so they fire inside a field too — and clear of the browser's own:
       // ⌥E/⌥S are menu accelerators on Windows and Linux, ⌃⌥ is AltGr, and
       // ⌃⇧N/P/M belong to the browser (see the EditView key handler).

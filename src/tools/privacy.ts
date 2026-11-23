@@ -1,3 +1,4 @@
+import { dropResearchNotes } from "../gedcom/research";
 import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/types";
 import { cloneNode, hasChild } from "../gedcom/node";
 import { VENDOR_PRIVACY_TAGS } from "../gedcom/vendorTags";
@@ -506,6 +507,9 @@ export function privatizeDataset(
     options.file.stripSubmitter ? ds.records.filter((r) => r.tag === "SUBM" && r.xref).map((r) => r.xref!) : [],
   );
   const scrubbed = needsScrub ? interim.map((rec) => scrubGeneric(rec, options, counts, removedSubmitters)) : interim;
+  // The reader's research notes never leave with a shared file; taken out
+  // before the orphan pass, so a note's own media goes with it.
+  dropResearchNotes(scrubbed);
   const records = dropOrphanedPersonalRecords(scrubbed, referencedXrefs(ds.records));
   report.externalIdsStripped = counts.ids;
   report.contactScrubbed = counts.contact;

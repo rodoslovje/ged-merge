@@ -2,6 +2,7 @@ import type { Dataset, Family, GedNode, Individual, Sex } from "../gedcom/types"
 import type { CropRegion } from "../gedcom/source";
 import { lifespanOf, birthYear, birthSortKey, deathYear } from "../gedcom/lifespan";
 import { NOTE_TAGS } from "../gedcom/builder";
+import { researchNotesUnder } from "../gedcom/edit";
 import { isPointer } from "../gedcom/uri";
 import { nameSearchText } from "../match/relatives";
 import type { MatchDecisionStatus } from "../review/types";
@@ -96,8 +97,11 @@ function anyNotes(indi: Individual): boolean {
 function anySources(indi: Individual): boolean {
   return (indi.sources?.length ?? 0) > 0 || indi.events.some((e) => (e.sources?.length ?? 0) > 0);
 }
-function noteText(indi: Individual): string {
+function noteText(indi: Individual, records?: GedNode[]): string {
   const parts: string[] = [];
+  // The research notes filed under the person or one of their events: the
+  // reader's own questions about them are found by the same filter.
+  if (records) for (const { note } of researchNotesUnder(records, indi.raw)) parts.push(note.text);
   // `noteRefs` carries every record-level note verbatim, including the ones the
   // display copy hides because only a URL was left after stripping — which is
   // the case this filter exists for.
@@ -200,7 +204,7 @@ function rowOf(indi: Individual, nameOf: (indi: Individual) => string, records?:
     birthKey: birthSortKey(indi),
     deathKey: deathYear(indi) ?? Infinity,
     placeText: placeText(indi),
-    noteText: noteText(indi),
+    noteText: noteText(indi, records),
     hasLinks: anyLinks(indi),
     hasNotes: anyNotes(indi),
     hasSources: anySources(indi),

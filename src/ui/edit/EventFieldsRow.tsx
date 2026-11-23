@@ -16,6 +16,8 @@ import { termsHref } from "../TagLinks";
 import { ClearableTextarea } from "./ClearableInput";
 import { isTallNoteList, NOTE_CHIP_CH, NotesEditor } from "./NotesEditor";
 import { useAssoc } from "./AssocContext";
+import { useResearch } from "./ResearchContext";
+import { ResearchRefs } from "./ResearchSection";
 import { EventAssociates } from "./EventAssociates";
 import { SuggestInput } from "./SuggestInput";
 import { usePlaceLookup } from "./PlaceLookupContext";
@@ -512,6 +514,7 @@ export function EventFieldsRow({
   // event list. Associations such a file already carries here still show and
   // still edit; only writing a new one is refused.
   const assocApi = useAssoc();
+  const researchApi = useResearch();
   const canAssoc = !!assocApi && !!eventNode && canWriteEventAssociation(assocApi.version);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -634,6 +637,8 @@ export function EventFieldsRow({
     // Like a source, always offered: an event names as many godparents and
     // witnesses as the register does, so "already shown" is no reason to stop.
     ...(canAssoc ? [{ key: "assoc", label: t("assoc.add") }] : []),
+    // And a research note: a question about this event, kept apart from it.
+    ...(researchApi && eventNode ? [{ key: "research", label: t("research.add") }] : []),
     // Rarely used, so last: the age a record states (each spouse's on a family
     // event) and a sort date for an event whose own date is missing or words.
     ...(spouseAgeLabels
@@ -643,7 +648,7 @@ export function EventFieldsRow({
         ]
       : [{ key: "age", label: t("event.colAge") }]),
     { key: "sortDate", label: t("event.colSortDate") },
-  ].filter((f) => f.key === "source" || f.key === "assoc" || !show[f.key as keyof typeof show]);
+  ].filter((f) => f.key === "source" || f.key === "assoc" || f.key === "research" || !show[f.key as keyof typeof show]);
 
   /**
    * The fields a typical event is filled in, in the order they are typed: an
@@ -690,6 +695,10 @@ export function EventFieldsRow({
   function addDetail(key: string) {
     if (key === "source") {
       onAddSource();
+      return;
+    }
+    if (key === "research") {
+      if (eventNode) researchApi?.addTo(eventNode);
       return;
     }
     setRevealed((prev) => new Set(prev).add(key));
@@ -1371,6 +1380,7 @@ export function EventFieldsRow({
         {/* The people this event names — godparents, witnesses, the officiant.
             They belong to the event, not to the person, so they are edited
             here, beside its date and place. */}
+        <ResearchRefs node={eventNode} t={t} />
         {(show.assoc || assocPicking) && (
           <span data-detail="assoc" className={"edit-event-extra edit-event-extra--assoc" + optCls(true)}>
             <span className="edit-event-extra-label">{t("assoc.heading")}</span>

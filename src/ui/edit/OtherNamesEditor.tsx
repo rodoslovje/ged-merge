@@ -22,6 +22,8 @@ export function OtherNamesEditor({
   onAddLink,
   showAddNote,
   onAddNote,
+  showAddResearch,
+  onAddResearch,
   showAddMedia,
   onAddMedia,
   showAddFsId,
@@ -41,6 +43,10 @@ export function OtherNamesEditor({
   onAddLink: () => void;
   showAddNote: boolean;
   onAddNote: () => void;
+  /** True when no research note is filed under the person yet (the section
+   * hosts adding once there is one). */
+  showAddResearch: boolean;
+  onAddResearch: () => void;
   /** True when the person has no media yet, so an empty-state "+ Add media"
    * chip belongs in this row (the tray hosts adding once photos exist). */
   showAddMedia: boolean;
@@ -231,6 +237,16 @@ export function OtherNamesEditor({
             onClick={onAddNote}
           >
             + {t("edit.addNote")}
+          </button>
+        )}
+        {showAddResearch && (
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add"
+            title={t("research.addTooltip")}
+            onClick={onAddResearch}
+          >
+            + {t("research.add")}
           </button>
         )}
         {showAddFsId && (

@@ -141,8 +141,8 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
 
   const editReport = changedCount > 0 || !isMerge
     ? enrichEditReport(
-        buildEditReport(changedPersonIds, changedFamilyIds, main, loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, changedRecordIds, recordSnapshots),
-        main, personSnapshots, familySnapshots, t,
+        buildEditReport(changedPersonIds, changedFamilyIds, main, loadedPersonIds, loadedFamilyIds, personSnapshots, familySnapshots, changedRecordIds, recordSnapshots, t),
+        main, personSnapshots, familySnapshots, t, (xref) => recordSnapshots.get(xref)?.value,
       )
     : null;
 

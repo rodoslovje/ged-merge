@@ -1,3 +1,4 @@
+import { RESEARCH_TAG } from "./research";
 import { describe, expect, it } from "vitest";
 import { FS_EXID_TYPE } from "./exid";
 import {
@@ -82,9 +83,10 @@ describe("termsEntries — one documented page per tag and program", () => {
     // …and the 7.0 conversion's submission record (see save/outputFile.ts).
     // A source's 5.5-EL fields are written in the standard's forms instead
     // (`settleSourceFields`), so they need no page.
-    const written = [serializeGedcom(down), serializeGedcom(up), "0 @S1@ _SUBN"].join("\n");
+    // …and the reader's research notes (see gedcom/research.ts).
+    const written = [serializeGedcom(down), serializeGedcom(up), "0 @S1@ _SUBN", `0 @RN1@ ${RESEARCH_TAG}`].join("\n");
     const tags = new Set([...written.matchAll(/^\d+ (?:@[^@]+@ )?(_[A-Z_]+)/gm)].map((m) => m[1]));
-    expect([...tags].sort()).toEqual(["_AFN", "_CREA", "_CROP", "_FSFTID", "_LANG", "_MIME", "_NO", "_NOTE_SOUR", "_REFN", "_RESN", "_RFN", "_RIN", "_SDATE", "_SEX", "_SUBN", "_TIME", "_TRAN", "_UID"]);
+    expect([...tags].sort()).toEqual(["_AFN", "_CREA", "_CROP", "_FSFTID", "_LANG", "_MIME", "_NO", "_NOTE_SOUR", "_REFN", "_RESEARCH", "_RESN", "_RFN", "_RIN", "_SDATE", "_SEX", "_SUBN", "_TIME", "_TRAN", "_UID"]);
     for (const tag of tags) expect(ownTag(tag), tag).toBeDefined();
     expect(GEDMERGE_TAGS).toHaveLength(tags.size);
   });
