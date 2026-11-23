@@ -40,6 +40,8 @@ import { BackPage, WhoIsWho, YearOverview } from "./BackPage";
 import { familyStats } from "../../calendar/stats";
 import type { FanChart } from "../../chart/fanLayout";
 import { Segmented } from "../Segmented";
+import { SelectMenu } from "../DropdownMenu";
+import { afterPaint } from "../busyCursor";
 import { COLLAGE_STYLES, MAX_PHOTOS, type CollageStyle } from "../../calendar/collage";
 
 // The Charts hub's "Calendar" kind: a family calendar to give as a present,
@@ -576,9 +578,22 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   }, []);
 
   const reviewRef = useRef<HTMLDivElement>(null);
+  // Building the print document reads every photo and redraws every chart: the
+  // button spins from the press until the print dialog is about to open.
+  const [printing, setPrinting] = useState(false);
   const print = async () => {
     const el = reviewRef.current;
-    if (!el) return;
+    if (!el || printing) return;
+    setPrinting(true);
+    try {
+      await afterPaint();
+      const doc = await printSource(el);
+      await new Promise<void>((opened) => printDocument(doc, opened));
+    } finally {
+      setPrinting(false);
+    }
+  };
+  const printSource = async (el: HTMLElement) => {
     // Photos point at object URLs, which mean nothing outside this page: each
     // goes into the print document as data, read once however often it is used.
     const images = new Map<string, string>();
@@ -595,8 +610,17 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       return clone.outerHTML;
     }));
     const title = `${t("calendar.cover.title")} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
-    printDocument(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+    return (`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>${CALENDAR_CSS}${calendarPrintCss(PAPER[format])}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
+  };
+  // The review draws every page at once: the spinner is painted before it does.
+  const [opening, setOpening] = useState(false);
+  const openReview = () => {
+    setOpening(true);
+    void afterPaint().then(() => {
+      setStep(REVIEW_STEP);
+      setOpening(false);
+    });
   };
 
   const setMonthPicture = (i: number, pic: Picture) => setMonthPictures((prev) => { const next = [...prev]; next[i] = pic; return next; });
@@ -635,15 +659,19 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         </label>
         <label className="cal-field">
           <span>{t("calendar.year")}</span>
-          <select value={opts.year} onChange={(e) => setOpts({ ...opts, year: Number(e.target.value) })}>
-            {yearChoices(thisYear).map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+          <SelectMenu
+            value={String(opts.year)}
+            onChange={(v) => setOpts({ ...opts, year: Number(v) })}
+            options={yearChoices(thisYear).map((y) => ({ value: String(y), label: String(y) }))}
+          />
         </label>
         <label className="cal-field">
           <span>{t("calendar.format")}</span>
-          <select value={format} onChange={(e) => setFormat(e.target.value as CalendarFormat)}>
-            {CALENDAR_FORMATS.map((f) => <option key={f} value={f}>{t(`calendar.format.${f}`)}</option>)}
-          </select>
+          <SelectMenu
+            value={format}
+            onChange={(v) => setFormat(v as CalendarFormat)}
+            options={CALENDAR_FORMATS.map((f) => ({ value: f, label: t(`calendar.format.${f}`) }))}
+          />
         </label>
         <div className="cal-field">
           <span>{t("calendar.scheme")}</span>
@@ -656,7 +684,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
                   type="button"
                   role="radio"
                   aria-checked={scheme === k}
-                  className={`cal-choice cal-scheme${scheme === k ? " active" : ""}`}
+                  className={`nav-btn cal-scheme${scheme === k ? " active" : ""}`}
                   onClick={() => setScheme(k)}
                 >
                   <span className="cal-swatches" aria-hidden="true">
@@ -670,15 +698,19 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         </div>
         <label className="cal-field">
           <span>{t("calendar.scope")}</span>
-          <select value={String(opts.scope)} onChange={(e) => setOpts({ ...opts, scope: e.target.value === "descendants" ? "descendants" : (Number(e.target.value) as CalendarScope) })}>
-            {SCOPES.map((s) => <option key={s} value={String(s)}>{t(`calendar.scope.${s}`)}</option>)}
-          </select>
+          <SelectMenu
+            value={String(opts.scope)}
+            onChange={(v) => setOpts({ ...opts, scope: v === "descendants" ? "descendants" : (Number(v) as CalendarScope) })}
+            options={SCOPES.map((s) => ({ value: String(s), label: t(`calendar.scope.${s}`) }))}
+          />
         </label>
         <label className="cal-field">
           <span>{t("calendar.names")}</span>
-          <select value={livingNames} onChange={(e) => setLivingNames(e.target.value as LivingNames)}>
-            {LIVING_NAMES.map((k) => <option key={k} value={k}>{t(`calendar.names.${k}`)}</option>)}
-          </select>
+          <SelectMenu
+            value={livingNames}
+            onChange={(v) => setLivingNames(v as LivingNames)}
+            options={LIVING_NAMES.map((k) => ({ value: k, label: t(`calendar.names.${k}`) }))}
+          />
         </label>
         <label className="cal-check">
           <input type="checkbox" checked={showAge} disabled={large} onChange={(e) => setShowAge(e.target.checked)} />
@@ -706,19 +738,22 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         </label>
         <label className="cal-field">
           <span>{t("calendar.memorial")}</span>
-          <select value={String(opts.memorial)} onChange={(e) => {
-            const v = e.target.value;
-            setOpts({ ...opts, memorial: v === "off" || v === "lifetime" ? v : (Number(v) as MemorialMode) });
-          }}>
-            {MEMORIALS.map((m) => <option key={m} value={String(m)}>{t(`calendar.memorial.${m}`)}</option>)}
-          </select>
+          <SelectMenu
+            value={String(opts.memorial)}
+            onChange={(v) => setOpts({ ...opts, memorial: v === "off" || v === "lifetime" ? v : (Number(v) as MemorialMode) })}
+            options={MEMORIALS.map((m) => ({ value: String(m), label: t(`calendar.memorial.${m}`) }))}
+          />
         </label>
         <label className="cal-field">
           <span>{t("calendar.holidays")}</span>
-          <select value={country} onChange={(e) => setCountry(e.target.value as CountryChoice)}>
-            <option value="none">{t("calendar.holidays.none")}</option>
-            {HOLIDAY_COUNTRIES.map((c) => <option key={c} value={c}>{t(`calendar.holidays.${c}`)}</option>)}
-          </select>
+          <SelectMenu
+            value={country}
+            onChange={(v) => setCountry(v as CountryChoice)}
+            options={[
+              { value: "none", label: t("calendar.holidays.none") },
+              ...HOLIDAY_COUNTRIES.map((c) => ({ value: c, label: t(`calendar.holidays.${c}`) })),
+            ]}
+          />
         </label>
         <p className="settings-hint">{t("calendar.summary", { n: data.months.reduce((n, m) => n + m.entries.length, 0) })}</p>
       </>
@@ -745,8 +780,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     panel = (
       <>
         <p className="settings-hint">{t("calendar.review.hint")}</p>
-        <button type="button" className="cal-primary" onClick={() => void print()}>
-          <PrinterIcon /> {t("calendar.print")}
+        <button type="button" className="nav-btn primary cal-print-btn" disabled={printing} aria-busy={printing} onClick={() => void print()}>
+          {printing ? <span className="spinner" aria-hidden="true" /> : <PrinterIcon />} {t("calendar.print")}
         </button>
       </>
     );
@@ -762,11 +797,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       <>
         <label className="cal-field">
           <span>{t("calendar.back")}</span>
-          <select value={work.back.kind} onChange={(e) => setBack({ kind: e.target.value } as Back)}>
-            {BACK_KINDS.map((k) => (
-              <option key={k} value={k}>{backKindLabel(t, k)}</option>
-            ))}
-          </select>
+          <SelectMenu
+            value={work.back.kind}
+            onChange={(v) => setBack({ kind: v } as Back)}
+            options={BACK_KINDS.map((k) => ({ value: k, label: backKindLabel(t, k) }))}
+          />
         </label>
         {work.back.kind !== "none" && (
           <label className="cal-field">
@@ -829,13 +864,16 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       <div className="cal-wizard">
         <div className="cal-panel">
           <div className="cal-steps">
-            <button type="button" className="btn-secondary" disabled={step === 0} onClick={() => setStep(step - 1)}>{t("calendar.prev")}</button>
-            <span className="cal-step-label">{stepLabel}</span>
-            <button type="button" className="btn-secondary" disabled={step === REVIEW_STEP} onClick={() => setStep(step + 1)}>{t("calendar.next")}</button>
+            <button type="button" className="nav-btn" disabled={step === 0 || opening} onClick={() => setStep(step - 1)}>{t("calendar.prev")}</button>
+            <span className="cal-step-label" aria-busy={opening}>
+              {stepLabel}
+              {opening && <span className="spinner" aria-hidden="true" />}
+            </span>
+            <button type="button" className="nav-btn" disabled={step === REVIEW_STEP || opening} onClick={() => (step === BACK_STEP ? openReview() : setStep(step + 1))}>{t("calendar.next")}</button>
           </div>
           <div className="cal-panel-body">{panel}</div>
           {step !== REVIEW_STEP && (
-            <button type="button" className="cal-link" onClick={() => setStep(REVIEW_STEP)}>{t("calendar.toReview")}</button>
+            <button type="button" className="link-button cal-to-review" disabled={opening} onClick={openReview}>{t("calendar.toReview")}</button>
           )}
           {tight.days && <p className="settings-hint cal-tight" role="status">{t("calendar.overflow.days")}</p>}
           {tight.page && <p className="settings-hint cal-tight" role="status">{t("calendar.overflow.page")}</p>}
@@ -875,15 +913,14 @@ function PicturePicker({
     <div className="cal-picture-picker">
       <label className="cal-field">
         <span>{t("calendar.picture")}</span>
-        <select
+        <SelectMenu
           value={value.kind}
-          onChange={(e) => {
-            const k = e.target.value as Picture["kind"];
+          onChange={(v) => {
+            const k = v as Picture["kind"];
             onChange(k === "photos" ? photos : { kind: k });
           }}
-        >
-          {PICTURE_KINDS.map((k) => <option key={k} value={k}>{t(`calendar.picture.${k}`)}</option>)}
-        </select>
+          options={PICTURE_KINDS.map((k) => ({ value: k, label: t(`calendar.picture.${k}`) }))}
+        />
       </label>
       {value.kind === "photos" && (
         <>
@@ -902,8 +939,8 @@ function PicturePicker({
                 <img src={f.url} alt="" />
               </button>
             ))}
-            <button type="button" className="cal-choice" onClick={() => fileRef.current?.click()}>{t("calendar.photo.own")}</button>
-            <button type="button" className={`cal-choice${photos.items.length ? "" : " active"}`} onClick={() => onChange({ ...photos, items: [] })}>{t("calendar.photo.none")}</button>
+            <button type="button" className="nav-btn" onClick={() => fileRef.current?.click()}>{t("calendar.photo.own")}</button>
+            <button type="button" className={`nav-btn${photos.items.length ? "" : " active"}`} onClick={() => onChange({ ...photos, items: [] })}>{t("calendar.photo.none")}</button>
             <input
               ref={fileRef}
               type="file"
@@ -929,7 +966,7 @@ function PicturePicker({
           {!media.folderName && (
             <p className="settings-hint">
               {t("calendar.photo.noFolder")}{" "}
-              <button type="button" className="cal-link" onClick={() => void media.openFolder()}>{t("calendar.photo.linkFolder")}</button>
+              <button type="button" className="link-button" onClick={() => void media.openFolder()}>{t("calendar.photo.linkFolder")}</button>
             </p>
           )}
         </>
