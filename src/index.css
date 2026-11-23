@@ -12480,14 +12480,16 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 /* Charts hub → Calendar: the wizard's panel beside the page preview. The page
    itself is paper and styles itself (src/ui/calendar/calendarCss.ts). */
 .cal-wizard {
-  flex: 1 1 auto; min-height: 0; overflow: auto;
-  display: grid; grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr); gap: 24px; padding: 16px 20px 32px;
-  align-items: start;
+  flex: 1 1 auto; min-height: 0; overflow: hidden;
+  display: grid; grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+  gap: 8px; padding: 0 0 0 20px; align-items: start;
 }
 .cal-panel {
-  position: sticky; top: 0; display: flex; flex-direction: column; gap: 14px;
+  box-sizing: border-box; margin: 16px 0; max-height: calc(100% - 32px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px;
 }
+.cal-panel > * { flex: none; }
 .cal-steps { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cal-step-label { font-weight: 600; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
 .cal-step-label .select-menu { flex: 1 1 auto; padding: 5px 8px; font-size: 0.9rem; }
@@ -12516,17 +12518,28 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .cal-print-btn { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 14px; }
 /* The spinner on a filled button: the button's own ink, not the accent it sits on. */
 .nav-btn.primary .spinner { border-color: color-mix(in oklch, var(--bg) 35%, transparent); border-top-color: var(--bg); }
-.cal-preview { min-width: 0; }
-.cal-preview > .cal-sheet { margin: 0 auto; box-shadow: 0 2px 14px color-mix(in oklch, var(--text) 18%, transparent); }
-.cal-preview-wallTop > .cal-sheet { max-width: 620px; }
-.cal-preview-wallMiddle > .cal-sheet, .cal-preview-desk > .cal-sheet { max-width: 860px; }
+/* The preview scrolls on its own, so a zoomed-in page leaves the panel in
+   place; the zoom buttons share its cell and stay in its corner. */
+.cal-preview-wrap { display: grid; min-width: 0; height: 100%; }
+.cal-preview { grid-area: 1 / 1; min-width: 0; min-height: 0; overflow: auto; padding: 16px 20px 32px 16px; --cal-fit: 860px; }
+.cal-preview-wallTop { --cal-fit: 620px; }
+.cal-preview-wrap > .tree-zoom {
+  grid-area: 1 / 1; position: sticky; right: auto; bottom: 16px; z-index: 1;
+  align-self: end; justify-self: end; margin: 0 24px 16px 0;
+}
+.cal-preview > .cal-sheet {
+  width: calc(min(100%, var(--cal-fit)) * var(--cal-zoom, 1));
+  margin: 0 auto; box-shadow: 0 2px 14px color-mix(in oklch, var(--text) 18%, transparent);
+}
 .cal-preview-wallMiddle > .cal-sheet > .cal-page + .cal-page { margin-top: 2px; }
-.cal-review { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.cal-review { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(220px * var(--cal-zoom, 1)), 1fr)); gap: 16px; }
 .cal-review .cal-sheet { box-shadow: 0 1px 8px color-mix(in oklch, var(--text) 18%, transparent); align-self: start; }
 .cal-review .cal-sheet > .cal-page + .cal-page { margin-top: 2px; }
 @media (max-width: 880px) {
-  .cal-wizard { grid-template-columns: minmax(0, 1fr); padding: 12px; }
-  .cal-panel { position: static; }
+  .cal-wizard { overflow: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; gap: 24px; padding: 12px; }
+  .cal-panel { margin: 0; max-height: none; overflow-y: visible; }
+  .cal-preview-wrap { height: auto; }
+  .cal-preview { padding: 4px 4px 16px; }
 }
 .cal-schemes { display: flex; flex-wrap: wrap; gap: 6px; }
 .cal-scheme { display: inline-flex; align-items: center; gap: 6px; }

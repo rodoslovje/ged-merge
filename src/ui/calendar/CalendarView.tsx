@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Individual } from "../../gedcom/types";
 import { reducedName } from "../../gedcom/nameDisplay";
@@ -44,6 +44,9 @@ import type { FanChart } from "../../chart/fanLayout";
 import { Segmented } from "../Segmented";
 import { SelectMenu } from "../DropdownMenu";
 import { afterPaint } from "../busyCursor";
+import { ZoomControls } from "../ZoomControls";
+import { MAX_ZOOM, ZOOM_STEP } from "../useTreeCanvas";
+import { useChartShortcuts } from "../../keyboard/useChartShortcuts";
 import { COLLAGE_STYLES, MAX_PHOTOS, type CollageStyle } from "../../calendar/collage";
 
 // The Charts hub's "Calendar" kind: a family calendar to give as a present,
@@ -75,6 +78,9 @@ const FAN_GENERATIONS = 4;
 const MONTH_STEP0 = 2;
 const BACK_STEP = MONTH_STEP0 + 12;
 const REVIEW_STEP = BACK_STEP + 1;
+/** The preview's smallest zoom; 1 is the page at the width the preview gives it. */
+const MIN_PREVIEW_ZOOM = 0.25;
+const clampPreviewZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_PREVIEW_ZOOM, z));
 /** The calendar's charts hang on a wall: the living show by the names choice only — no
  *  years or age — and no couple's wedding year is written. */
 const FAN_DISPLAY_OFF = {
@@ -579,6 +585,34 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     return () => seen.disconnect();
   }, []);
 
+  // The preview's zoom scales the page's width (its em follows), or the
+  // review's thumbnails. What sat in the middle of the pane stays there.
+  const [zoom, setZoom] = useState(1);
+  const shownZoom = useRef(1);
+  useLayoutEffect(() => {
+    const el = previewRef.current;
+    const k = zoom / shownZoom.current;
+    shownZoom.current = zoom;
+    if (!el || k === 1) return;
+    el.scrollLeft = (el.scrollLeft + el.clientWidth / 2) * k - el.clientWidth / 2;
+    el.scrollTop = (el.scrollTop + el.clientHeight / 2) * k - el.clientHeight / 2;
+  }, [zoom]);
+  const zoomTo = (z: number) => setZoom(clampPreviewZoom(z));
+  const zoomIn = () => setZoom((z) => clampPreviewZoom(z * ZOOM_STEP));
+  const zoomOut = () => setZoom((z) => clampPreviewZoom(z / ZOOM_STEP));
+  const resetZoom = () => setZoom(1);
+  // The whole page in the pane: never wider than the preview gives it, and
+  // smaller where the page is taller than the pane.
+  const fitToScreen = () => {
+    const el = previewRef.current;
+    const sheet = el?.querySelector<HTMLElement>(":scope > .cal-sheet");
+    if (!el || !sheet?.offsetHeight) return setZoom(1);
+    const cs = getComputedStyle(el);
+    const room = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    setZoom(clampPreviewZoom(Math.min(1, room / (sheet.offsetHeight / zoom))));
+  };
+  useChartShortcuts({ zoomIn, zoomOut, resetZoom, fitToScreen });
+
   const reviewRef = useRef<HTMLDivElement>(null);
   // Building the print document reads every photo and redraws every chart: the
   // button spins from the press until the print dialog is about to open.
@@ -917,8 +951,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           {tight.page && <p className="settings-hint cal-tight" role="status">{t("calendar.overflow.page")}</p>}
           {!persistWorkspace && <p className="settings-hint">{t("calendar.notKept")}</p>}
         </div>
-        <div ref={previewRef} className={`cal-preview cal-preview-${format}`}>
-          {step === REVIEW_STEP ? preview : <div className="cal-sheet">{preview}</div>}
+        <div className="cal-preview-wrap" style={{ "--cal-zoom": zoom } as React.CSSProperties}>
+          <div ref={previewRef} className={`cal-preview cal-preview-${format}`}>
+            {step === REVIEW_STEP ? preview : <div className="cal-sheet">{preview}</div>}
+          </div>
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fitToScreen} onSetZoom={zoomTo} />
         </div>
       </div>
     </ChartPage>

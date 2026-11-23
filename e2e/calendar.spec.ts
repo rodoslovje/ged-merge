@@ -148,3 +148,35 @@ test("a day too busy for its cell marks what it leaves out", async ({ page }) =>
     expect(await march.locator(".cal-more").textContent()).toBe(`+${31 - drawn}`);
   }).toPass();
 });
+
+// The preview zooms with the charts' buttons and keys: the page grows past
+// the pane, which scrolls by itself while the panel stays put.
+test("the calendar's preview zooms in and out", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FAMILY);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await page.locator(".charts-open-btn").click();
+  await page.getByRole("tab", { name: "Calendar" }).click();
+
+  const sheet = page.locator(".cal-preview > .cal-sheet");
+  const pct = page.locator(".cal-preview-wrap .tree-zoom-pct");
+  await expect(pct).toHaveValue("100%");
+  const width = () => sheet.evaluate((el) => el.getBoundingClientRect().width);
+  const base = await width();
+
+  await page.getByRole("button", { name: "Zoom in (+)" }).click();
+  await expect(pct).toHaveValue("125%");
+  await expect.poll(width).toBeCloseTo(base * 1.25, 0);
+  await page.keyboard.press("-");
+  await page.keyboard.press("-");
+  await expect(pct).toHaveValue("80%");
+  await expect.poll(width).toBeCloseTo(base * 0.8, 0);
+
+  await pct.fill("200");
+  await pct.press("Enter");
+  await expect.poll(width).toBeCloseTo(base * 2, 0);
+  await expect.poll(() => page.locator(".cal-preview").evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  await page.keyboard.press("0");
+  await expect(pct).toHaveValue("100%");
+});

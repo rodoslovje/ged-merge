@@ -17,7 +17,7 @@ import { usePublishedView } from "./PublishedView";
  *  range; "fit" never magnifies past 1× so a small chart keeps its natural size. */
 export const MIN_ZOOM = 0.1;
 export const MAX_ZOOM = 3;
-const ZOOM_STEP = 1.25;
+export const ZOOM_STEP = 1.25;
 /** What one wheel notch or a double-click may do: the old, coarser button step,
  *  kept for them when the buttons took a finer one. */
 const WHEEL_STEP = 1.5;
