@@ -4,6 +4,7 @@ import { factKey, isRoundAnniversary, monthWeeks, type CalendarMonth, type DayEn
 import type { Holiday } from "../../calendar/holidays";
 import { schemeVars, type CalendarScheme } from "./schemes";
 import { BADGE_BG, LOGO_BADGE_MARKUP } from "../exportSvg";
+import { paperMm, type Orientation, type PaperName, type PaperSize } from "../../chart/sheets";
 
 export type { PagePhoto } from "./PhotoArea";
 import { ROUND_GLYPH, entryCell, entryGlyph, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
@@ -15,12 +16,45 @@ import { ROUND_GLYPH, entryCell, entryGlyph, entryLine, factDate, factSentence, 
 export type CalendarFormat = "wallTop" | "wallMiddle" | "desk";
 export const CALENDAR_FORMATS: CalendarFormat[] = ["wallTop", "wallMiddle", "desk"];
 
-/** Paper per format, in millimetres, and the em the page is set in. */
+/** The page each format is designed on, in millimetres, and the em it is set
+ *  in. It fixes the page's proportions; the paper it is printed on is chosen
+ *  at print time and the page is scaled onto it ({@link printGeometry}). */
 export const PAPER: Record<CalendarFormat, { w: number; h: number; em: number }> = {
   wallTop: { w: 210, h: 297, em: 3.5 },
   wallMiddle: { w: 297, h: 210, em: 3.7 },
   desk: { w: 210, h: 148, em: 2.6 },
 };
+
+/** The paper each format's print dialog opens on: a calendar hung by its top
+ *  edge is a single sheet per month, so it goes on A3; the one bound in the
+ *  middle opens out to that size from two A4 sheets. */
+export const DEFAULT_PAPER: Record<CalendarFormat, PaperName> = { wallTop: "a3", wallMiddle: "a4", desk: "a5" };
+
+/** Which way round a named paper goes for a format. */
+export function formatOrientation(format: CalendarFormat): Orientation {
+  return PAPER[format].w > PAPER[format].h ? "landscape" : "portrait";
+}
+
+export interface PrintGeometry {
+  /** The sheet of paper, in mm. */
+  sheet: { w: number; h: number };
+  /** The page drawn on it, in mm, and its em: the designed page scaled as far
+   *  as the sheet allows, proportions kept — a paper of another shape (Letter,
+   *  a typed size) leaves white at two edges. */
+  page: { w: number; h: number; em: number };
+  /** How much larger than designed the page prints. */
+  scale: number;
+}
+
+export function printGeometry(format: CalendarFormat, paper: PaperSize): PrintGeometry {
+  const base = PAPER[format];
+  const sheet = paperMm(paper, formatOrientation(format));
+  const scale = Math.min(sheet.w / base.w, sheet.h / base.h);
+  // Rounded down, so a page never outgrows its sheet by a rounding error and
+  // spills onto a blank one.
+  const mm = (v: number) => Math.floor(v * scale * 100) / 100;
+  return { sheet, page: { w: mm(base.w), h: mm(base.h), em: base.em * scale }, scale };
+}
 
 export function pageStyle(format: CalendarFormat, scheme: CalendarScheme, extra?: Record<string, string>): CSSProperties {
   const p = PAPER[format];

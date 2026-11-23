@@ -30,10 +30,12 @@ import { embedImages, escapeHtml, prepareDiagram, printDocument, siteLinkOf } fr
 import { storedSiteAddress } from "../../publish/stored";
 import { clearSavedCalendars, readSavedCalendar, writeSavedCalendar } from "../../calendar/stored";
 import { useSettingsSlice } from "../SettingsContext";
-import { PrinterIcon } from "../icons/FormatIcons";
 import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
 import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
-import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, type PagePhoto } from "./CalendarPage";
+import { CALENDAR_FORMATS, CoverPage, MonthPages, printGeometry, type CalendarFormat, type PagePhoto } from "./CalendarPage";
+import { CalendarPrintPanel } from "./CalendarPrintPanel";
+import { measurePhotos } from "./photoQuality";
+import type { PaperSize } from "../../chart/sheets";
 import { PhotoArea } from "./PhotoArea";
 import { StatsCard } from "./StatsCard";
 import { BackPage, WhoIsWho, YearOverview } from "./BackPage";
@@ -581,19 +583,44 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   // Building the print document reads every photo and redraws every chart: the
   // button spins from the press until the print dialog is about to open.
   const [printing, setPrinting] = useState(false);
-  const print = async () => {
+  // The photos as the review draws them, for the print panel: how sharp each
+  // prints depends on the paper picked there. Measured again as photos load
+  // and collages settle; nothing is known about a file before it has loaded.
+  const [reviewPhotos, setReviewPhotos] = useState<{ sheet: number; px: number }[]>([]);
+  const reviewing = step === REVIEW_STEP;
+  useEffect(() => {
+    const el = reviewRef.current;
+    if (!reviewing || !el) return;
+    const check = () => {
+      const next = measurePhotos(el);
+      setReviewPhotos((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    };
+    check();
+    el.addEventListener("load", check, true); // an image's load does not bubble
+    const seen = new MutationObserver(check);
+    seen.observe(el, { childList: true, subtree: true, attributes: true });
+    return () => {
+      el.removeEventListener("load", check, true);
+      seen.disconnect();
+    };
+  }, [reviewing]);
+  const sheetLabel = (i: number) =>
+    i === 0 ? t("calendar.step.cover")
+      : i <= data.months.length ? monthName(i18n.language, i)
+      : t("calendar.step.back");
+  const print = async (paper: PaperSize) => {
     const el = reviewRef.current;
     if (!el || printing) return;
     setPrinting(true);
     try {
       await afterPaint();
-      const doc = await printSource(el);
+      const doc = await printSource(el, paper);
       await new Promise<void>((opened) => printDocument(doc, opened));
     } finally {
       setPrinting(false);
     }
   };
-  const printSource = async (el: HTMLElement) => {
+  const printSource = async (el: HTMLElement, paper: PaperSize) => {
     // Photos point at object URLs, which mean nothing outside this page: each
     // goes into the print document as data, read once however often it is used.
     const images = new Map<string, string>();
@@ -607,11 +634,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         if (slots[k]) slots[k].innerHTML = new XMLSerializer().serializeToString((await prepareDiagram(live[k])).clone);
       }
       await embedImages(clone, images);
-      return clone.outerHTML;
+      return `<div class="cal-leaf">${clone.outerHTML}</div>`;
     }));
     const title = `${t("calendar.cover.title")} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
     return (`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>${CALENDAR_CSS}${calendarPrintCss(PAPER[format])}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
+<style>${CALENDAR_CSS}${calendarPrintCss(printGeometry(format, paper))}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
   };
   // The review draws every page at once: the spinner is painted before it does.
   const [opening, setOpening] = useState(false);
@@ -781,9 +808,13 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     panel = (
       <>
         <p className="settings-hint">{t("calendar.review.hint")}</p>
-        <button type="button" className="nav-btn primary cal-print-btn" disabled={printing} aria-busy={printing} onClick={() => void print()}>
-          {printing ? <span className="spinner" aria-hidden="true" /> : <PrinterIcon />} {t("calendar.print")}
-        </button>
+        <CalendarPrintPanel
+          key={format}
+          format={format}
+          photos={reviewPhotos.map((p) => ({ label: sheetLabel(p.sheet), px: p.px }))}
+          printing={printing}
+          onPrint={(paper) => void print(paper)}
+        />
       </>
     );
     preview = (

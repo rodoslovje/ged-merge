@@ -8,6 +8,8 @@
 // in print the page takes its paper size in millimetres and a fixed em.
 // The colours come from the page's scheme (schemes.ts), set inline on it.
 
+import type { PrintGeometry } from "./CalendarPage";
+
 export const CALENDAR_CSS = `
 .cal-sheet { container-type: inline-size; }
 .cal-page {
@@ -142,15 +144,19 @@ export const CALENDAR_CSS = `
 .cal-desk .cal-head { margin-top: 0; }
 `;
 
-/** The print document's own additions: real paper, one page per sheet. */
-export function calendarPrintCss(paper: { w: number; h: number; em: number }): string {
+/** The print document's own additions: real paper, one page per sheet. Each
+ *  page sits centred in a `.cal-leaf` the size of the sheet. */
+export function calendarPrintCss({ sheet, page }: PrintGeometry): string {
   return `
-@page { size: ${paper.w}mm ${paper.h}mm; margin: 0; }
+@page { size: ${sheet.w}mm ${sheet.h}mm; margin: 0; }
 html, body { margin: 0; padding: 0; }
 .cal-sheet { container-type: normal; }
-.cal-page { width: ${paper.w}mm; height: ${paper.h}mm; aspect-ratio: auto; font-size: ${paper.em}mm;
-  break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.cal-page:last-child { break-after: auto; page-break-after: auto; }
+.cal-leaf { width: ${sheet.w}mm; height: ${sheet.h}mm; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  break-after: page; page-break-after: always; }
+.cal-leaf:last-child { break-after: auto; page-break-after: auto; }
+.cal-page { flex: none; width: ${page.w}mm; height: ${page.h}mm; aspect-ratio: auto; font-size: ${page.em}mm;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .cal-photo:has(.cal-photo-empty) { background: none; }
 .cal-photo-empty { visibility: hidden; }
 `;
