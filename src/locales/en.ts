@@ -3882,7 +3882,6 @@ export const en = {
   "calendar.facts.none": "The file has no dated moment from the family's past in this month.",
   "calendar.review.hint": "Here are all the pages as they will print. For a print shop, choose Save as PDF in the print dialog; at home, print on paper of the format's size.",
   "calendar.print": "Print…",
-  "calendar.legend.birthday": "birthday (age)",
   "calendar.legend.anniversary": "wedding anniversary (years)",
   "calendar.legend.memorial": "memorial day (years since)",
   "calendar.date": "{{day}} {{monthName}} {{year}}",

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { isRoundAnniversary, type CalendarMonth } from "../../calendar/model";
-import { ENTRY_GLYPH, entryCell, monthName, type EntryOptions, type PersonWords } from "../../calendar/text";
-import { pageStyle, PageFooter, type CalendarFormat, type PagePhoto } from "./CalendarPage";
+import { entryCell, monthName, type EntryOptions, type PersonWords } from "../../calendar/text";
+import { Glyph, pageStyle, PageFooter, type CalendarFormat, type PagePhoto } from "./CalendarPage";
 import type { CalendarScheme } from "./schemes";
 
 // The calendar's back page: the year on one sheet, a gallery of who is who,
@@ -47,7 +47,7 @@ export function YearOverview({ months, words, entryOpts }: { months: CalendarMon
           {m.entries.map((e, i) => (
             <div key={i} className={`cal-overview-entry cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
               <b>{e.day}.</b>
-              <span className="cal-glyph">{isRoundAnniversary(e) ? "★" : ENTRY_GLYPH[e.kind]}</span>
+              <Glyph e={e} />
               {entryCell(t, words, e, opts)}
             </div>
           ))}

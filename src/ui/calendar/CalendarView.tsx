@@ -130,7 +130,7 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     showAge: true,
     captions: true,
     large: false,
-    showList: true,
+    showList: false,
     showFacts: true,
     country: lang === "hr" ? "hr" : lang === "sl" ? "si" : "none",
     // From September on, the calendar is for the year to come.
