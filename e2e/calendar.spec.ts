@@ -16,11 +16,11 @@ test("the family calendar walks from settings to a review of every page", async 
   await page.getByRole("tab", { name: "Calendar" }).click();
 
   // Settings, with a month previewed beside them.
-  await expect(page.locator(".cal-step-label")).toHaveText("Settings");
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText("Settings");
   await expect(page.locator(".cal-preview .cal-grid")).toHaveCount(1);
 
   // The cover draws the recipient's fan by default.
-  const next = page.getByRole("button", { name: "Next", exact: true });
+  const next = page.getByRole("button", { name: "Next page", exact: true });
   await next.click();
   await expect(page.locator(".cal-preview .cal-chart svg")).toHaveCount(1);
   await page.getByLabel("Dedication").fill("For Ana, with love");
@@ -28,7 +28,7 @@ test("the family calendar walks from settings to a review of every page", async 
 
   // March: the recipient's own birthday, and her mother's as a relative's line.
   for (let i = 0; i < 3; i++) await next.click();
-  await expect(page.locator(".cal-step-label")).toHaveText(/^March/);
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText(/^March/);
   await expect(page.locator(".cal-preview .cal-list")).toContainText("Marija K., mother (65)"); // the living by the default "Given name and surname initial"
   // Every week is as tall as the others, however busy its days.
   const heights = await page.locator(".cal-preview .cal-grid tbody tr").evaluateAll((rows) => rows.map((r) => r.getBoundingClientRect().height));
@@ -52,8 +52,8 @@ test("the family calendar walks from settings to a review of every page", async 
   await print.click();
   await expect(print).toBeEnabled();
   await expect(print.locator(".spinner")).toHaveCount(0);
-  await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page.locator(".cal-step-label")).toHaveText("Back page");
+  await page.getByRole("button", { name: "Previous page", exact: true }).click();
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText("Back page");
   await expect(page.locator(".cal-preview .cal-overview")).toContainText("Marija");
   await page.getByLabel("Signature").fill("From all of us");
   await expect(page.locator(".cal-preview .cal-signature")).toHaveText("From all of us");
@@ -65,8 +65,12 @@ test("the family calendar walks from settings to a review of every page", async 
   // No back page: the review has the cover and the months alone.
   await backKind.click();
   await page.locator('.dd-menu .dd-item[data-value="none"]').click();
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
   await expect(page.locator(".cal-review .cal-page")).toHaveCount(13);
+  // The page name is a menu of every page: one step back to the settings.
+  await page.locator(".cal-step-label .select-menu").click();
+  await page.locator('.dd-menu .dd-item[data-value="0"]').click();
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText("Settings");
 });
 
 // With the workspace kept in the browser, the calendar's work comes back after
@@ -81,13 +85,13 @@ test("the calendar's work is kept while the workspace is", async ({ page }) => {
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.locator(".cal-panel")).not.toContainText("Remember my work");
   await page.getByRole("radio", { name: /Sea/ }).click();
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
   await page.getByLabel("Dedication").fill("For Ana");
 
   await page.getByRole("tab", { name: "Tree" }).click();
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.getByRole("radio", { name: /Sea/ })).toHaveAttribute("aria-checked", "true");
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
   await expect(page.getByLabel("Dedication")).toHaveValue("For Ana");
 });
 

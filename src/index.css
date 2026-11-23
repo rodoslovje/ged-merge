@@ -12490,6 +12490,7 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 }
 .cal-steps { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cal-step-label { font-weight: 600; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+.cal-step-label .select-menu { flex: 1 1 auto; padding: 5px 8px; font-size: 0.9rem; }
 .cal-panel-body { display: flex; flex-direction: column; gap: 12px; }
 .cal-panel-head { margin: 4px 0 0; font-size: 0.95rem; }
 .cal-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
