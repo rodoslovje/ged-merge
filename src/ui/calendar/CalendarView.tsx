@@ -90,6 +90,11 @@ function laidTree(tree: TreeNode | undefined, ancestors: boolean, nodeH: number)
 
 type CountryChoice = HolidayCountry | "none";
 
+/** The years a calendar can be made for. */
+const yearChoices = (thisYear: number) => [thisYear, thisYear + 1, thisYear + 2];
+
+const NO_URLS: Map<string, string | null> = new Map();
+
 const PERSIST_KEYS = ["persistWorkspace"] as const;
 
 /** Everything the reader chooses in the wizard. */
@@ -163,7 +168,7 @@ function readPicture(v: unknown): Picture | undefined {
 
 /** `saved` laid over `base`, field by field: anything of the wrong kind (an
  *  older version, a hand edit) keeps the base's value. */
-function mergeWork(base: CalendarWork, saved: Record<string, unknown>): CalendarWork {
+function mergeWork(base: CalendarWork, saved: Record<string, unknown>, thisYear: number): CalendarWork {
   const pick = <K extends keyof CalendarWork>(k: K, ok: (v: unknown) => boolean): CalendarWork[K] =>
     (ok(saved[k]) ? saved[k] : base[k]) as CalendarWork[K];
   const one = (list: readonly unknown[]) => (v: unknown) => list.includes(v);
@@ -180,7 +185,8 @@ function mergeWork(base: CalendarWork, saved: Record<string, unknown>): Calendar
     showFacts: pick("showFacts", bool),
     country: pick("country", one(["none", ...HOLIDAY_COUNTRIES])),
     opts: {
-      year: typeof o.year === "number" ? o.year : base.opts.year,
+      // A calendar kept in an earlier year: its year is no longer on offer.
+      year: yearChoices(thisYear).includes(o.year as number) ? (o.year as number) : base.opts.year,
       scope: SCOPES.includes(o.scope as CalendarScope) ? (o.scope as CalendarScope) : base.opts.scope,
       partners: typeof o.partners === "boolean" ? o.partners : base.opts.partners,
       memorial: MEMORIALS.includes(o.memorial as MemorialMode) ? (o.memorial as MemorialMode) : base.opts.memorial,
@@ -231,10 +237,10 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       const saved = persistWorkspace && mainFileName ? readSavedCalendar(mainFileName, rootId) : undefined;
       // A recipient with nothing kept keeps the settings, not the choices.
       return saved
-        ? mergeWork(base, saved)
+        ? mergeWork(base, saved, thisYear)
         : { ...base, cover: defaults.cover, dedication: "", back: defaults.back, signature: "", monthPictures: [], monthFacts: [] };
     },
-    [persistWorkspace, mainFileName, rootId, defaults],
+    [persistWorkspace, mainFileName, rootId, defaults, thisYear],
   );
   const [work, setWork] = useState<CalendarWork>(() => restore(defaults));
   const workKey = `${mainFileName ?? ""} ${rootId}`;
@@ -355,7 +361,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     const files = [...(primary ? [primary] : []), ...(imagesOf.get(id) ?? [])];
     return files.find((f) => (photoIndex.get(f)?.ids.length ?? 1) === 1) ?? files[0] ?? null;
   }, [mainDs, imagesOf, photoIndex]);
-  const [urls, setUrls] = useState<Map<string, string | null>>(new Map());
+  // The addresses belong to the folder they were resolved in: linking another
+  // one revokes them all, so they are read anew.
+  const resolveFile = media.resolveFile;
+  const [resolved, setResolved] = useState<{ by: unknown; map: Map<string, string | null> }>({ by: resolveFile, map: NO_URLS });
+  const urls = resolved.by === resolveFile ? resolved.map : NO_URLS;
   const withPhoto = useCallback((ids: string[]) => {
     const out: string[] = [];
     for (const id of ids) if (!out.includes(id) && photoPath(id)) out.push(id);
@@ -372,11 +382,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     const missing = [...wanted].filter((p) => !urls.has(p));
     if (!missing.length) return;
     let live = true;
-    void Promise.all(missing.map(async (p) => [p, await media.resolveFile(p)] as const)).then((got) => {
-      if (live) setUrls((prev) => new Map([...prev, ...got]));
+    void Promise.all(missing.map(async (p) => [p, await resolveFile(p)] as const)).then((got) => {
+      if (live) setResolved((prev) => ({ by: resolveFile, map: new Map([...(prev.by === resolveFile ? prev.map : []), ...got]) }));
     });
     return () => { live = false; };
-  }, [media, coverPeople, monthPeople, photoPath, urls]);
+  }, [media.folderName, resolveFile, coverPeople, monthPeople, photoPath, urls]);
 
   const listFormat = useMemo(() => new Intl.ListFormat(i18n.language, { type: "conjunction" }), [i18n.language]);
 
@@ -601,7 +611,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         <label className="cal-field">
           <span>{t("calendar.year")}</span>
           <select value={opts.year} onChange={(e) => setOpts({ ...opts, year: Number(e.target.value) })}>
-            {[thisYear, thisYear + 1, thisYear + 2].map((y) => <option key={y} value={y}>{y}</option>)}
+            {yearChoices(thisYear).map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </label>
         <label className="cal-field">
