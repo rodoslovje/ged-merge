@@ -17,7 +17,7 @@ writeFileSync(FILE, [
   "0 @I2@ INDI", "1 NAME Franc /Zorman/", "1 SEX M",
   "1 BIRT", "2 DATE 3 JAN 1890", "2 PLAC Škofja Loka,Slovenia",
   "1 DEAT", "2 DATE 7 JUL 1960",
-  "1 NOTE Franc's research note",
+  "1 NOTE Franc kept bees in Poljane",
   "1 FAMS @F1@",
   "0 @I3@ INDI", "1 NAME Ivana /Bergant/", "1 SEX F",
   "1 BIRT", "2 DATE 1895",
@@ -47,7 +47,8 @@ test("the family website downloads as one page that works from disk", async ({ p
   await expect(page.locator(".tools-publish .tools-loading")).toHaveCount(0);
   expect(file.suggestedFilename()).toBe("rodbina-zorman.html");
   const html = readFileSync((await file.path())!, "utf-8");
-  expect(html).not.toContain("research note");
+  // The note's own words — none the app's interface says, which the page carries.
+  expect(html).not.toContain("kept bees");
   expect(html).not.toContain("@I1@");
   expect(html).not.toContain("Petra");
 
