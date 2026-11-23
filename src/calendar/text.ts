@@ -27,9 +27,9 @@ export function monthName(lang: string, month: number): string {
   return capitalize(new Intl.DateTimeFormat(lang, { month: "long", timeZone: "UTC" }).format(Date.UTC(2001, month - 1, 1)));
 }
 
-/** Monday-first short weekday names. 1 January 2001 was a Monday. */
+/** Monday-first weekday names, in full. 1 January 2001 was a Monday. */
 export function weekdayNames(lang: string): string[] {
-  const f = new Intl.DateTimeFormat(lang, { weekday: "short", timeZone: "UTC" });
+  const f = new Intl.DateTimeFormat(lang, { weekday: "long", timeZone: "UTC" });
   return Array.from({ length: 7 }, (_, i) => capitalize(f.format(Date.UTC(2001, 0, 1 + i))));
 }
 
