@@ -47,9 +47,18 @@ test("the family calendar walks from settings to a review of every page", async 
   // with its signature — one page each in the default format.
   await page.getByRole("button", { name: "Skip to review and print" }).click();
   await expect(page.locator(".cal-review .cal-page")).toHaveCount(14);
-  // Printing spins on the button while the document is built, and stops.
-  const print = page.getByRole("button", { name: /Print/ });
+  // Printing asks for the paper first — the format only fixed the pages' shape.
+  // A wall calendar hung by its top edge opens on A3; a smaller paper can be
+  // picked instead.
+  const print = page.locator(".cal-print-btn");
   await print.click();
+  const dialog = page.locator(".sheet-dialog");
+  await expect(dialog.locator(".sheet-dialog-count")).toContainText("297 × 420 mm");
+  await dialog.getByRole("button", { name: "A4", exact: true }).click();
+  await expect(dialog.locator(".sheet-dialog-count")).toContainText("210 × 297 mm · at 100% size");
+  await dialog.locator(".confirm-dialog-confirm").click();
+  await expect(dialog).toHaveCount(0);
+  // It spins on the button while the document is built, and stops.
   await expect(print).toBeEnabled();
   await expect(print.locator(".spinner")).toHaveCount(0);
   await page.getByRole("button", { name: "Back", exact: true }).click();

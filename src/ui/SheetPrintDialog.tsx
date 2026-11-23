@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import type { TreeNode } from "../chart/personTree";
+import { PaperPicker, chosenPaper, validPaperChoice, type PaperChoice } from "./PaperPicker";
+import { loadPrintPrefs, savePrintPrefs } from "./printPrefs";
 import { useChartSettings } from "./ChartSettingsContext";
 import { hiddenName, useLivingNameOf } from "./useLivingName";
 import {
@@ -10,10 +12,8 @@ import {
   ORIENTATIONS,
   PAPER_NAMES,
   PRINT_SIZES,
-  paperMm,
   type Orientation,
   type PaperName,
-  type PaperSize,
   type PrintSize,
 } from "../chart/sheets";
 import {
@@ -60,14 +60,12 @@ interface Props {
   onClose: () => void;
 }
 
-/** A typed millimetre figure — comma or point, as the keyboard offers it. */
-function mmValue(s: string): number {
-  return Number(s.trim().replace(",", "."));
-}
-
-function mmInRange(mm: number): boolean {
-  return Number.isFinite(mm) && mm >= CUSTOM_MM_MIN && mm <= CUSTOM_MM_MAX;
-}
+/** What the dialog opens on, until a print has been made from this browser. */
+const DEFAULT_PAPER: PaperName = "a4";
+const DEFAULTS: PaperChoice & { orientation: Orientation; size: PrintSize } = {
+  name: DEFAULT_PAPER, w: "", h: "", orientation: "landscape", size: "medium",
+};
+const PREFS_SLOT = "chart";
 
 export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const { t } = useTranslation();
@@ -75,28 +73,16 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const { settings } = useChartSettings();
   const livingNameOf = useLivingNameOf();
   const hidden = (n: TreeNode) => hiddenName(t, settings.privacyLiving, livingNameOf, n.main ?? n.incoming, n.living, n.sex);
-  const [choice, setChoice] = useState<PaperName | "custom">("a4");
-  const [orientation, setOrientation] = useState<Orientation>("landscape");
-  const [size, setSize] = useState<PrintSize>("medium");
-  // Kept as typed, so a half-entered "1" doesn't get repaired under the cursor.
-  const [custom, setCustom] = useState({ w: "", h: "" });
+  // Opens on what the last print went out with: the printer rarely changes.
+  const [saved] = useState(() => loadPrintPrefs(PREFS_SLOT, DEFAULTS));
+  const [choice, setChoice] = useState(() => validPaperChoice(saved, PAPER_NAMES, DEFAULT_PAPER));
+  const [orientation, setOrientation] = useState<Orientation>(ORIENTATIONS.includes(saved.orientation) ? saved.orientation : DEFAULTS.orientation);
+  const [size, setSize] = useState<PrintSize>(PRINT_SIZES.includes(saved.size) ? saved.size : DEFAULTS.size);
+  const custom = choice.name === "custom";
 
   // `null` while the typed size is unusable — the plan then has nothing to work
   // from, and the count line explains itself instead of showing a stale number.
-  const paper = useMemo<PaperSize | null>(() => {
-    if (choice !== "custom") return choice;
-    const [w, h] = [mmValue(custom.w), mmValue(custom.h)];
-    return mmInRange(w) && mmInRange(h) ? { wMm: w, hMm: h } : null;
-  }, [choice, custom.w, custom.h]);
-
-  // Opening the fields on the paper currently chosen: the user adjusts a real
-  // size rather than facing two empty boxes.
-  const chooseCustom = () => {
-    if (choice === "custom") return;
-    const mm = paperMm(choice, orientation);
-    setCustom({ w: String(Math.round(mm.w)), h: String(Math.round(mm.h)) });
-    setChoice("custom");
-  };
+  const paper = useMemo(() => chosenPaper(choice), [choice]);
 
   // The full plan, not just its length: it is what the print then draws, and
   // planning a chart of any ordinary size is quick enough to redo per change.
@@ -137,6 +123,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
 
   const print = () => {
     if (!paper) return;
+    savePrintPrefs(PREFS_SLOT, { ...choice, orientation, size });
     onClose();
     if (!source) {
       printCanvasPdf(canvasRef.current, opts, { paper, orientation });
@@ -183,55 +170,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
         <p className="confirm-dialog-title">{t("sheets.title")}</p>
         <p className="confirm-dialog-body">{t(source ? "sheets.intro" : "sheets.intro.one")}</p>
 
-        <div className="sheet-dialog-row sheet-dialog-papers">
-          <span className="chart-settings-heading">{t("sheets.paper")}</span>
-          <div className="chart-settings-segmented">
-            {PAPER_NAMES.map((p) => (
-              <button
-                key={p}
-                className={choice === p ? "active" : ""}
-                onClick={() => setChoice(p)}
-              >
-                {t(`sheets.paper.${p}`)}
-              </button>
-            ))}
-            <button
-              className={choice === "custom" ? "active" : ""}
-              onClick={chooseCustom}
-              title={t("sheets.paper.custom.tip")}
-            >
-              {t("sheets.paper.custom")}
-            </button>
-          </div>
-        </div>
-
-        {choice === "custom" && (
-          <div className="sheet-dialog-row sheet-dialog-custom">
-            <span className="chart-settings-heading">{t("sheets.custom")}</span>
-            <div className="sheet-dialog-custom-fields">
-              <input
-                type="number"
-                inputMode="decimal"
-                min={CUSTOM_MM_MIN}
-                max={CUSTOM_MM_MAX}
-                value={custom.w}
-                aria-label={t("sheets.custom.width")}
-                onChange={(e) => setCustom((c) => ({ ...c, w: e.target.value }))}
-              />
-              <span aria-hidden="true">×</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={CUSTOM_MM_MIN}
-                max={CUSTOM_MM_MAX}
-                value={custom.h}
-                aria-label={t("sheets.custom.height")}
-                onChange={(e) => setCustom((c) => ({ ...c, h: e.target.value }))}
-              />
-              <span className="sheet-dialog-unit">{t("sheets.custom.mm")}</span>
-            </div>
-          </div>
-        )}
+        <PaperPicker papers={PAPER_NAMES} value={choice} orientation={orientation} onChange={setChoice} />
 
         <div className="sheet-dialog-row">
           <span className="chart-settings-heading">{t("sheets.orientation")}</span>
@@ -242,8 +181,8 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
                 className={orientation === o ? "active" : ""}
                 // A typed size is width × height as typed — there is no portrait
                 // of it to switch to.
-                disabled={choice === "custom"}
-                title={choice === "custom" ? t("sheets.orientation.customTip") : undefined}
+                disabled={custom}
+                title={custom ? t("sheets.orientation.customTip") : undefined}
                 onClick={() => setOrientation(o)}
               >
                 {t(`sheets.orientation.${o}`)}

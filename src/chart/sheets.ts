@@ -33,9 +33,9 @@ import {
 
 // ─── Paper ────────────────────────────────────────────────────────────────────
 
-/** The papers offered by name. The A series runs up to A0 because a wall chart
- *  is exactly what a plotter or a copy shop is for. */
-export type PaperName = "a4" | "a3" | "a2" | "a1" | "a0" | "letter";
+/** The papers known by name. The A series runs up to A0 because a wall chart
+ *  is exactly what a plotter or a copy shop is for; A5 is the desk calendar's. */
+export type PaperName = "a5" | "a4" | "a3" | "a2" | "a1" | "a0" | "letter";
 
 /** A size the user typed instead, in millimetres — plotter rolls (say
  *  1100 × 2000) and anything else no standard name covers. It is taken as
@@ -49,6 +49,7 @@ export interface CustomPaper {
 export type PaperSize = PaperName | CustomPaper;
 export type Orientation = "portrait" | "landscape";
 
+/** The papers a diagram is offered. */
 export const PAPER_NAMES: PaperName[] = ["a4", "a3", "a2", "a1", "a0", "letter"];
 export const ORIENTATIONS: Orientation[] = ["landscape", "portrait"];
 
@@ -58,6 +59,7 @@ export const CUSTOM_MM_MAX = 10000;
 
 /** Paper dimensions in millimetres, portrait. */
 const PAPER_MM: Record<PaperName, { w: number; h: number }> = {
+  a5: { w: 148, h: 210 },
   a4: { w: 210, h: 297 },
   a3: { w: 297, h: 420 },
   a2: { w: 420, h: 594 },

@@ -33,7 +33,10 @@ import { useSettingsSlice } from "../SettingsContext";
 import { PrinterIcon } from "../icons/FormatIcons";
 import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
 import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
-import { CALENDAR_FORMATS, CoverPage, MonthPages, PAPER, type CalendarFormat, type PagePhoto } from "./CalendarPage";
+import { CALENDAR_FORMATS, CoverPage, MonthPages, printGeometry, type CalendarFormat, type PagePhoto } from "./CalendarPage";
+import { CalendarPrintDialog } from "./CalendarPrintDialog";
+import { measurePhotos } from "./photoQuality";
+import type { PaperSize } from "../../chart/sheets";
 import { PhotoArea } from "./PhotoArea";
 import { StatsCard } from "./StatsCard";
 import { BackPage, WhoIsWho, YearOverview } from "./BackPage";
@@ -581,19 +584,31 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   // Building the print document reads every photo and redraws every chart: the
   // button spins from the press until the print dialog is about to open.
   const [printing, setPrinting] = useState(false);
-  const print = async () => {
+  // The print dialog, open with the photos as the review draws them: how sharp
+  // each prints depends on the paper picked there.
+  const [printDialog, setPrintDialog] = useState<{ label: string; px: number }[] | null>(null);
+  const openPrintDialog = () => {
+    const el = reviewRef.current;
+    if (!el) return;
+    const sheetLabel = (i: number) =>
+      i === 0 ? t("calendar.step.cover")
+        : i <= data.months.length ? monthName(i18n.language, i)
+        : t("calendar.step.back");
+    setPrintDialog(measurePhotos(el).map((p) => ({ label: sheetLabel(p.sheet), px: p.px })));
+  };
+  const print = async (paper: PaperSize) => {
     const el = reviewRef.current;
     if (!el || printing) return;
     setPrinting(true);
     try {
       await afterPaint();
-      const doc = await printSource(el);
+      const doc = await printSource(el, paper);
       await new Promise<void>((opened) => printDocument(doc, opened));
     } finally {
       setPrinting(false);
     }
   };
-  const printSource = async (el: HTMLElement) => {
+  const printSource = async (el: HTMLElement, paper: PaperSize) => {
     // Photos point at object URLs, which mean nothing outside this page: each
     // goes into the print document as data, read once however often it is used.
     const images = new Map<string, string>();
@@ -607,11 +622,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         if (slots[k]) slots[k].innerHTML = new XMLSerializer().serializeToString((await prepareDiagram(live[k])).clone);
       }
       await embedImages(clone, images);
-      return clone.outerHTML;
+      return `<div class="cal-leaf">${clone.outerHTML}</div>`;
     }));
     const title = `${t("calendar.cover.title")} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
     return (`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>${CALENDAR_CSS}${calendarPrintCss(PAPER[format])}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
+<style>${CALENDAR_CSS}${calendarPrintCss(printGeometry(format, paper))}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
   };
   // The review draws every page at once: the spinner is painted before it does.
   const [opening, setOpening] = useState(false);
@@ -780,7 +795,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     panel = (
       <>
         <p className="settings-hint">{t("calendar.review.hint")}</p>
-        <button type="button" className="nav-btn primary cal-print-btn" disabled={printing} aria-busy={printing} onClick={() => void print()}>
+        <button type="button" className="nav-btn primary cal-print-btn" disabled={printing} aria-busy={printing} onClick={openPrintDialog}>
           {printing ? <span className="spinner" aria-hidden="true" /> : <PrinterIcon />} {t("calendar.print")}
         </button>
       </>
@@ -883,6 +898,10 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           {step === REVIEW_STEP ? preview : <div className="cal-sheet">{preview}</div>}
         </div>
       </div>
+      {/* Beside the wizard, not inside its panel, which the preview paints over. */}
+      {printDialog && (
+        <CalendarPrintDialog format={format} photos={printDialog} onPrint={(paper) => void print(paper)} onClose={() => setPrintDialog(null)} />
+      )}
     </ChartPage>
   );
 }
