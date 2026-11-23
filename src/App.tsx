@@ -2300,7 +2300,7 @@ function AppContent() {
     // convertVersion) and the report lists what the conversion rewrote.
     const from = ownVersion(mainDataset);
     const author = submitterOf(settings);
-    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, author);
+    const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, author, true);
     for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(author) }));
     if (conversion) {
       fileNotes.push(t("changeReport.note.converted", { from, to: version, count: conversion.length }));

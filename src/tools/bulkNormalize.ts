@@ -65,6 +65,8 @@ export function bulkNormalize(
     tidyPlaceWhitespace: false,
     // One's own places stay as written — see `NormalizeOptions.addressOntoKnownPlace`.
     addressOntoKnownPlace: false,
+    // One's own notes — see `NormalizeOptions.keepResearchNotes`.
+    keepResearchNotes: true,
   });
   // The health check's own repairs, so a normalized file leaves none of them
   // for the health check to offer. Before the note and coverage shapes, which

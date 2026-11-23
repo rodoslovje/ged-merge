@@ -1,3 +1,4 @@
+import { dropResearchNotes } from "../gedcom/research";
 import { submitterFields, type Submitter } from "../gedcom/newFile";
 import { firstChild } from "../gedcom/node";
 import { languageNameOf, languageTagOf } from "../gedcom/languageId";
@@ -339,6 +340,10 @@ export interface PreparedDownload {
  * declare UTF-8, stamp GED Merge as the writing system and, for 7.0, declare
  * its extension tags. `author` fills a submitter record the file needs
  * and lacks (see {@link completeStructure}).
+ *
+ * The reader's research notes (`gedcom/research.ts`) are taken out unless
+ * `keepResearch` is set: only Save writes them, never a file made to be
+ * handed to someone else.
  */
 export function prepareDownload(
   records: GedNode[],
@@ -346,8 +351,10 @@ export function prepareDownload(
   version: OutputVersion = ownVersion(ds),
   date: Date = new Date(),
   author?: Submitter,
+  keepResearch = false,
 ): PreparedDownload {
   const from = ownVersion(ds);
+  if (!keepResearch) dropResearchNotes(records);
   // Lines a merge or a normalize built may carry a stale `level`; the steps
   // below read it.
   relevelRecords(records);

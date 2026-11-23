@@ -2,6 +2,7 @@ import { isPresumedLiving } from "./lifespan";
 import { cloneNode, firstChild } from "./node";
 import type { Dataset, GedNode, Individual } from "./types";
 import { isVoidPointer } from "./uri";
+import { RESEARCH_TAG } from "./research";
 import { VOID_XREF } from "./assoc";
 import { versionFamily, type VersionFamily } from "../normalize/migrate";
 import { reducedName, type LivingNameMode } from "./nameDisplay";
@@ -118,6 +119,9 @@ export function extractBranch(
   };
   const scrubOutsiders = (node: GedNode): void => {
     node.children = node.children.filter((child) => {
+      // The reader's research notes stay home: dropped here, before the
+      // supporting records are chased, so a note's media does not come along.
+      if (child.tag === RESEARCH_TAG) return false;
       const v = pointerValue(child);
       if (v && isOutsider(v)) return false;
       // A child-to-parents sealing requires its FAMC: with the family outside

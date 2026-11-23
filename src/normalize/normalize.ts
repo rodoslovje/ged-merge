@@ -18,6 +18,7 @@ import { normalizeFamilyStatus, normalizePedigree } from "./familyStatus";
 import { normalizePrivacyStyle } from "./privacy";
 import { convertUpdToChan, stripInternalTags } from "./vendorInternal";
 import { settleSourceFields } from "../gedcom/edit/sources";
+import { dropResearchNotes } from "../gedcom/research";
 
 const MAX_EXAMPLES = 12;
 
@@ -53,6 +54,10 @@ export function normalizeDataset(
   // Deep clone the record forest so normalization doesn't mutate the input —
   // unless the caller is done with it (see `NormalizeOptions.inPlace`).
   const records = options.inPlace ? compare.records : compare.records.map(cloneNode);
+  // An incoming file's research notes are its owner's working material: they
+  // are not merged, and a pointer left behind would land on whichever of the
+  // main's notes shares the xref.
+  if (options.keepResearchNotes !== true) dropResearchNotes(records);
   const report: NormalizationReport = {
     datesChanged: 0,
     dateExamples: [],
