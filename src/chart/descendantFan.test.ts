@@ -45,8 +45,9 @@ function family(name: string, n: number): TreeNode {
  *  corners, both encoded in the path. */
 function wedgeAngle(d: string, cx: number, cy: number): number {
   // `M x0,y0 A r,r 0 large sweep x1,y1 L …` — the first two points are the
-  // outer corners.
-  const m = /^M([-\d.]+),([-\d.]+) A[-\d.]+,[-\d.]+ 0 (\d) 1 ([-\d.]+),([-\d.]+)/.exec(d)!;
+  // outer corners. A full ring (two closed paths) is the whole turn.
+  if (d.match(/M/g)?.length === 2) return Math.PI * 2;
+  const m =/^M([-\d.]+),([-\d.]+) A[-\d.]+,[-\d.]+ 0 (\d) 1 ([-\d.]+),([-\d.]+)/.exec(d)!;
   const a0 = Math.atan2(+m[2] - cy, +m[1] - cx);
   const a1 = Math.atan2(+m[5] - cy, +m[4] - cx);
   let a = a1 - a0;
@@ -183,6 +184,27 @@ describe("buildDescendantFanChart", () => {
     // A donut is two closed rings; a sector is one path with one M.
     expect(band.d.match(/M/g)?.length).toBe(2);
     expect(band.lines[0].arc!.match(/A/g)?.length).toBe(2);
+  });
+
+  it("draws an only child in a circle as a full ring too, with its name", () => {
+    const root = person("M", "root", { children: [person("M", "kid", { children: [person("M", "grandkid")] })] });
+    const chart = buildDescendantFanChart(root, "circle");
+    for (const key of ["kid", "grandkid"]) {
+      const seg = chart.segments.find((s) => s.node.key === key)!;
+      expect(seg.d.match(/M/g)?.length).toBe(2);
+      expect(seg.lines.length).toBeGreaterThan(0);
+      for (const l of seg.lines) expect(l.arc!.match(/A/g)?.length).toBe(2);
+    }
+  });
+
+  it("draws the root's children however many they are", () => {
+    // Twenty-five children have no room for a name each on the first ring of
+    // the bowtie's narrow descendant half; they are drawn all the same — the
+    // root disk has no "+N" to count them onto.
+    const root = family("root", 25);
+    const chart = buildDescendantFanChart(root, "fan", { arc: { start: 0.3 * Math.PI, sweep: 0.4 * Math.PI } });
+    expect(chart.maxGen).toBe(1);
+    expect(chart.segments.filter((s) => !s.band && s.gen === 1)).toHaveLength(25);
   });
 
   // Which line a person descends from is read off the tree, not off the
