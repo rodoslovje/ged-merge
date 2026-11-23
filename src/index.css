@@ -12509,6 +12509,9 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .cal-thumb.active { border-color: var(--accent); }
 .cal-tight { color: var(--danger); }
 .cal-to-review { align-self: flex-start; font-size: 0.85rem; }
+/* The review step's paper rows: the print dialog's, at the panel's width. */
+.cal-print-panel { display: flex; flex-direction: column; }
+.cal-print-panel .sheet-dialog-count { margin: 4px 0 14px; }
 .cal-print-btn { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 14px; }
 /* The spinner on a filled button: the button's own ink, not the accent it sits on. */
 .nav-btn.primary .spinner { border-color: color-mix(in oklch, var(--bg) 35%, transparent); border-top-color: var(--bg); }

@@ -30,11 +30,10 @@ import { embedImages, escapeHtml, prepareDiagram, printDocument, siteLinkOf } fr
 import { storedSiteAddress } from "../../publish/stored";
 import { clearSavedCalendars, readSavedCalendar, writeSavedCalendar } from "../../calendar/stored";
 import { useSettingsSlice } from "../SettingsContext";
-import { PrinterIcon } from "../icons/FormatIcons";
 import { CALENDAR_CSS, calendarPrintCss } from "./calendarCss";
 import { CALENDAR_SCHEMES, PALETTES, type CalendarScheme } from "./schemes";
 import { CALENDAR_FORMATS, CoverPage, MonthPages, printGeometry, type CalendarFormat, type PagePhoto } from "./CalendarPage";
-import { CalendarPrintDialog } from "./CalendarPrintDialog";
+import { CalendarPrintPanel } from "./CalendarPrintPanel";
 import { measurePhotos } from "./photoQuality";
 import type { PaperSize } from "../../chart/sheets";
 import { PhotoArea } from "./PhotoArea";
@@ -584,18 +583,31 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   // Building the print document reads every photo and redraws every chart: the
   // button spins from the press until the print dialog is about to open.
   const [printing, setPrinting] = useState(false);
-  // The print dialog, open with the photos as the review draws them: how sharp
-  // each prints depends on the paper picked there.
-  const [printDialog, setPrintDialog] = useState<{ label: string; px: number }[] | null>(null);
-  const openPrintDialog = () => {
+  // The photos as the review draws them, for the print panel: how sharp each
+  // prints depends on the paper picked there. Measured again as photos load
+  // and collages settle; nothing is known about a file before it has loaded.
+  const [reviewPhotos, setReviewPhotos] = useState<{ sheet: number; px: number }[]>([]);
+  const reviewing = step === REVIEW_STEP;
+  useEffect(() => {
     const el = reviewRef.current;
-    if (!el) return;
-    const sheetLabel = (i: number) =>
-      i === 0 ? t("calendar.step.cover")
-        : i <= data.months.length ? monthName(i18n.language, i)
-        : t("calendar.step.back");
-    setPrintDialog(measurePhotos(el).map((p) => ({ label: sheetLabel(p.sheet), px: p.px })));
-  };
+    if (!reviewing || !el) return;
+    const check = () => {
+      const next = measurePhotos(el);
+      setReviewPhotos((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    };
+    check();
+    el.addEventListener("load", check, true); // an image's load does not bubble
+    const seen = new MutationObserver(check);
+    seen.observe(el, { childList: true, subtree: true, attributes: true });
+    return () => {
+      el.removeEventListener("load", check, true);
+      seen.disconnect();
+    };
+  }, [reviewing]);
+  const sheetLabel = (i: number) =>
+    i === 0 ? t("calendar.step.cover")
+      : i <= data.months.length ? monthName(i18n.language, i)
+      : t("calendar.step.back");
   const print = async (paper: PaperSize) => {
     const el = reviewRef.current;
     if (!el || printing) return;
@@ -795,9 +807,13 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     panel = (
       <>
         <p className="settings-hint">{t("calendar.review.hint")}</p>
-        <button type="button" className="nav-btn primary cal-print-btn" disabled={printing} aria-busy={printing} onClick={openPrintDialog}>
-          {printing ? <span className="spinner" aria-hidden="true" /> : <PrinterIcon />} {t("calendar.print")}
-        </button>
+        <CalendarPrintPanel
+          key={format}
+          format={format}
+          photos={reviewPhotos.map((p) => ({ label: sheetLabel(p.sheet), px: p.px }))}
+          printing={printing}
+          onPrint={(paper) => void print(paper)}
+        />
       </>
     );
     preview = (
@@ -898,10 +914,6 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           {step === REVIEW_STEP ? preview : <div className="cal-sheet">{preview}</div>}
         </div>
       </div>
-      {/* Beside the wizard, not inside its panel, which the preview paints over. */}
-      {printDialog && (
-        <CalendarPrintDialog format={format} photos={printDialog} onPrint={(paper) => void print(paper)} onClose={() => setPrintDialog(null)} />
-      )}
     </ChartPage>
   );
 }
