@@ -873,6 +873,9 @@ export function printSheetSet(
  * one incomplete page — so the teardown now waits for `afterprint`, with only a
  * far-away timer as a backstop for browsers that never fire it. A previous
  * document is dropped when the next print starts, so at most one lingers.
+ *
+ * `onOpen` is called as the dialog is about to open (or cannot), for a caller
+ * showing that the document is still being prepared.
  */
 let printFrame: HTMLIFrameElement | null = null;
 /** The tab's own title while a print has lent it the document's. */
@@ -884,7 +887,7 @@ function restoreTabTitle(): void {
   tabTitle = null;
 }
 
-export function printDocument(doc: string): void {
+export function printDocument(doc: string, onOpen?: () => void): void {
   printFrame?.remove();
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
@@ -899,7 +902,7 @@ export function printDocument(doc: string): void {
   };
   iframe.onload = () => {
     const win = iframe.contentWindow;
-    if (!win) { cleanup(); return; }
+    if (!win) { cleanup(); onOpen?.(); return; }
     // Browsers name a "Save as PDF" file after the tab's title, not the print
     // frame's, so the tab carries the frame's title until the dialog closes.
     const title = iframe.contentDocument?.title;
@@ -909,6 +912,7 @@ export function printDocument(doc: string): void {
     }
     // Give the data-URI images a frame to decode before printing.
     requestAnimationFrame(() => {
+      onOpen?.();
       win.focus();
       win.print();
       win.addEventListener("afterprint", cleanup);

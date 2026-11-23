@@ -47,17 +47,24 @@ test("the family calendar walks from settings to a review of every page", async 
   // with its signature — one page each in the default format.
   await page.getByRole("button", { name: "Skip to review and print" }).click();
   await expect(page.locator(".cal-review .cal-page")).toHaveCount(14);
-  await expect(page.getByRole("button", { name: /Print/ })).toBeVisible();
+  // Printing spins on the button while the document is built, and stops.
+  const print = page.getByRole("button", { name: /Print/ });
+  await print.click();
+  await expect(print).toBeEnabled();
+  await expect(print.locator(".spinner")).toHaveCount(0);
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.locator(".cal-step-label")).toHaveText("Back page");
   await expect(page.locator(".cal-preview .cal-overview")).toContainText("Marija");
   await page.getByLabel("Signature").fill("From all of us");
   await expect(page.locator(".cal-preview .cal-signature")).toHaveText("From all of us");
   // A chart on the back page is titled by its name.
-  await page.getByLabel("What the back page shows").selectOption("fanDesc");
+  const backKind = page.locator(".cal-field", { hasText: "What the back page shows" }).locator(".select-menu");
+  await backKind.click();
+  await page.locator('.dd-menu .dd-item[data-value="fanDesc"]').click();
   await expect(page.locator(".cal-preview .cal-back-title")).toHaveText("Fan of descendants");
   // No back page: the review has the cover and the months alone.
-  await page.getByLabel("What the back page shows").selectOption("none");
+  await backKind.click();
+  await page.locator('.dd-menu .dd-item[data-value="none"]').click();
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.locator(".cal-review .cal-page")).toHaveCount(13);
 });
