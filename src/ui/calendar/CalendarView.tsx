@@ -132,7 +132,7 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     showAge: true,
     captions: true,
     large: false,
-    showList: true,
+    showList: false,
     showFacts: true,
     country: lang === "hr" ? "hr" : lang === "sl" ? "si" : "none",
     // From September on, the calendar is for the year to come.
@@ -661,12 +661,13 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   });
 
   const monthIndex = step - MONTH_STEP0;
-  const stepLabel =
-    step === 0 ? t("calendar.step.settings")
-      : step === 1 ? t("calendar.step.cover")
-        : step === REVIEW_STEP ? t("calendar.step.review")
-          : step === BACK_STEP ? t("calendar.step.back")
-          : `${monthName(i18n.language, monthIndex + 1)} (${monthIndex + 1}/12)`;
+  const stepName = (s: number) =>
+    s === 0 ? t("calendar.step.settings")
+      : s === 1 ? t("calendar.step.cover")
+        : s === REVIEW_STEP ? t("calendar.step.review")
+          : s === BACK_STEP ? t("calendar.step.back")
+          : `${monthName(i18n.language, s - MONTH_STEP0 + 1)} (${s - MONTH_STEP0 + 1}/12)`;
+  const goToStep = (s: number) => (s === REVIEW_STEP ? openReview() : setStep(s));
 
   let panel: React.ReactNode;
   let preview: React.ReactNode;
@@ -895,12 +896,18 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       <div className="cal-wizard">
         <div className="cal-panel">
           <div className="cal-steps">
-            <button type="button" className="nav-btn" disabled={step === 0 || opening} onClick={() => setStep(step - 1)}>{t("calendar.prev")}</button>
+            <button type="button" className="nav-btn icon-only" disabled={step === 0 || opening} onClick={() => setStep(step - 1)} title={t("calendar.prev")} aria-label={t("calendar.prev")}>‹</button>
             <span className="cal-step-label" aria-busy={opening}>
-              {stepLabel}
+              <SelectMenu
+                value={String(step)}
+                onChange={(v) => goToStep(Number(v))}
+                options={Array.from({ length: REVIEW_STEP + 1 }, (_, s) => ({ value: String(s), label: stepName(s) }))}
+                ariaLabel={t("calendar.step.pick")}
+                disabled={opening}
+              />
               {opening && <span className="spinner" aria-hidden="true" />}
             </span>
-            <button type="button" className="nav-btn" disabled={step === REVIEW_STEP || opening} onClick={() => (step === BACK_STEP ? openReview() : setStep(step + 1))}>{t("calendar.next")}</button>
+            <button type="button" className="nav-btn icon-only" disabled={step === REVIEW_STEP || opening} onClick={() => goToStep(step + 1)} title={t("calendar.next")} aria-label={t("calendar.next")}>›</button>
           </div>
           <div className="cal-panel-body">{panel}</div>
           {step !== REVIEW_STEP && (

@@ -53,6 +53,9 @@ export const CALENDAR_CSS = `
 .cal-cell { position: absolute; inset: 0; padding: 0.2em 0.3em; overflow: hidden; display: flex; flex-direction: column; }
 .cal-cell > * { flex: 0 0 auto; }
 .cal-mems { margin-top: auto; }
+.cal-entry.cal-compact { white-space: normal; overflow: visible; }
+.cal-round-name { font-weight: 700; }
+.cal-round-name .cal-glyph { color: var(--glyph-anniversary); }
 .cal-entry.cal-more { color: var(--muted); font-weight: 700; }
 .cal-grid thead th { height: 1.2em; }
 .cal-grid td.cal-sat { background: color-mix(in srgb, var(--accent) 4%, var(--paper)); }

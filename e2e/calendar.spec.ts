@@ -15,12 +15,15 @@ test("the family calendar walks from settings to a review of every page", async 
   await page.locator(".charts-open-btn").click();
   await page.getByRole("tab", { name: "Calendar" }).click();
 
-  // Settings, with a month previewed beside them.
-  await expect(page.locator(".cal-step-label")).toHaveText("Settings");
+  // Settings, with a month previewed beside them. The list of the month's
+  // people under the month is off until asked for.
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText("Settings");
+  await expect(page.locator(".cal-preview .cal-list")).toHaveCount(0);
+  await page.getByLabel("List of the month's people under the month").check();
   await expect(page.locator(".cal-preview .cal-grid")).toHaveCount(1);
 
   // The cover draws the recipient's fan by default.
-  const next = page.getByRole("button", { name: "Next", exact: true });
+  const next = page.getByRole("button", { name: "Next page", exact: true });
   await next.click();
   await expect(page.locator(".cal-preview .cal-chart svg")).toHaveCount(1);
   await page.getByLabel("Dedication").fill("For Ana, with love");
@@ -28,7 +31,7 @@ test("the family calendar walks from settings to a review of every page", async 
 
   // March: the recipient's own birthday, and her mother's as a relative's line.
   for (let i = 0; i < 3; i++) await next.click();
-  await expect(page.locator(".cal-step-label")).toHaveText(/^March/);
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText(/^March/);
   await expect(page.locator(".cal-preview .cal-list")).toContainText("Marija K., mother (65)"); // the living by the default "Given name and surname initial"
   // Every week is as tall as the others, however busy its days.
   const heights = await page.locator(".cal-preview .cal-grid tbody tr").evaluateAll((rows) => rows.map((r) => r.getBoundingClientRect().height));
@@ -59,8 +62,8 @@ test("the family calendar walks from settings to a review of every page", async 
   await print.click();
   await expect(print).toBeEnabled();
   await expect(print.locator(".spinner")).toHaveCount(0);
-  await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page.locator(".cal-step-label")).toHaveText("Back page");
+  await page.getByRole("button", { name: "Previous page", exact: true }).click();
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText("Back page");
   await expect(page.locator(".cal-preview .cal-overview")).toContainText("Marija");
   await page.getByLabel("Signature").fill("From all of us");
   await expect(page.locator(".cal-preview .cal-signature")).toHaveText("From all of us");
@@ -72,8 +75,12 @@ test("the family calendar walks from settings to a review of every page", async 
   // No back page: the review has the cover and the months alone.
   await backKind.click();
   await page.locator('.dd-menu .dd-item[data-value="none"]').click();
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
   await expect(page.locator(".cal-review .cal-page")).toHaveCount(13);
+  // The page name is a menu of every page: one step back to the settings.
+  await page.locator(".cal-step-label .select-menu").click();
+  await page.locator('.dd-menu .dd-item[data-value="0"]').click();
+  await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText("Settings");
 });
 
 // With the workspace kept in the browser, the calendar's work comes back after
@@ -88,13 +95,13 @@ test("the calendar's work is kept while the workspace is", async ({ page }) => {
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.locator(".cal-panel")).not.toContainText("Remember my work");
   await page.getByRole("radio", { name: /Sea/ }).click();
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
   await page.getByLabel("Dedication").fill("For Ana");
 
   await page.getByRole("tab", { name: "Tree" }).click();
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.getByRole("radio", { name: /Sea/ })).toHaveAttribute("aria-checked", "true");
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
   await expect(page.getByLabel("Dedication")).toHaveValue("For Ana");
 });
 
@@ -112,7 +119,7 @@ test("without a kept workspace the wizard says how to keep the work", async ({ p
 // the wizard says so beside the page: nothing is cut off unseen.
 test("a day too busy for its cell marks what it leaves out", async ({ page }) => {
   const lines = ["0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8", "0 @I1@ INDI", "1 NAME Ana /Novak/", "1 SEX F", "1 BIRT", "2 DATE 14 MAR 1950", "1 FAMS @F1@"];
-  const children = Array.from({ length: 12 }, (_, i) => `@I${i + 2}@`);
+  const children = Array.from({ length: 30 }, (_, i) => `@I${i + 2}@`);
   children.forEach((id, i) => lines.push(`0 ${id} INDI`, `1 NAME Maksimilijan${i} /Novak/`, "1 SEX M", "1 BIRT", `2 DATE 14 MAR ${1975 + i}`, "1 FAMC @F1@"));
   lines.push("0 @F1@ FAM", "1 WIFE @I1@", ...children.map((id) => `1 CHIL ${id}`), "0 TRLR");
   await page.goto("/");
@@ -126,13 +133,18 @@ test("a day too busy for its cell marks what it leaves out", async ({ page }) =>
   const march = page.locator(".cal-review .cal-review-month").nth(2);
   await expect(march.locator(".cal-more")).toHaveCount(1);
   await expect(page.locator(".cal-tight")).toContainText("more names than fit");
-  // What is drawn fits its cell, the mark included; the list under the grid
-  // names all thirteen.
+  // Its birthdays run together as one list of names before any is left out
+  // — a birthday carries no mark anywhere, a round one its star. What is
+  // drawn fits its cell, the "+N" included.
+  const day = march.locator(".cal-cell[data-day='14']");
+  await expect(day.locator(".cal-compact")).toContainText(/Ana N\. \d+, Maksimilijan0 N\. \d+/);
+  await expect(day).not.toContainText("*");
+  await expect(day.locator(".cal-round-name").first()).toContainText("★");
   await expect(async () => {
     const over = await march.locator(".cal-cell").evaluateAll((cells) => cells.filter((c) => c.scrollHeight > c.clientHeight + 1).length);
     expect(over).toBe(0);
-    const drawn = await march.locator(".cal-cell[data-day='14'] .cal-entry:not(.cal-more)").count();
-    expect(await march.locator(".cal-more").textContent()).toBe(`+${13 - drawn}`);
+    const drawn = await day.locator(".cal-compact > span").count();
+    expect(drawn).toBeGreaterThan(1);
+    expect(await march.locator(".cal-more").textContent()).toBe(`+${31 - drawn}`);
   }).toPass();
-  await expect(march.locator(".cal-list > div")).toHaveCount(13);
 });
