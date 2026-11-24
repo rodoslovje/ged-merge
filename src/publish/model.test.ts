@@ -288,6 +288,22 @@ describe("sources, notes and addresses", () => {
     expect(tree.sources).toBe(true);
   });
 
+  it("publishes a formatted note as its text and its clean HTML", () => {
+    const formatted = dataset(SAMPLE.replace(
+      "1 NOTE A private research note",
+      '1 NOTE A private research note\n1 NOTE <p style="margin:0">A <b>farmer</b> <script>x</script>in Kranj</p>',
+    ));
+    const tree = buildPublishedTree(formatted, opts({ living: "all", include: { sources: false, notes: true, addresses: false, photos: false } }), "@I1@", NOW).tree;
+    const joze = byName(tree, "Jože")!;
+    expect(joze.notes).toHaveLength(2);
+    expect(joze.notesRich![0]).toBeNull();
+    // No attribute and no element the note model does not know.
+    expect(joze.notesRich![1]).toMatch(/^<p>A <b>farmer<\/b> /);
+    expect(joze.notesRich![1]).not.toMatch(/style|<script/);
+    // A tree with no formatted note carries no second list.
+    expect(byName(withAll({ notes: true }), "Jože")!.notesRich).toBeUndefined();
+  });
+
   it("never publish a note marked private", () => {
     const hidden = dataset(SAMPLE.replace("1 NOTE A private research note", "1 NOTE A private research note\n2 RESN privacy"));
     const tree = buildPublishedTree(hidden, opts({ living: "all", include: { sources: false, notes: true, addresses: false, photos: false } }), "@I1@", NOW).tree;

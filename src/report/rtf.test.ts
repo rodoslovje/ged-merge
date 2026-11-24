@@ -125,6 +125,36 @@ describe("reportToRtf (register / options)", () => {
     expect(rtf).toContain("\\i\\cf2 Line one.\\line Line two.\\par");
   });
 
+  it("keeps a note's bold and underline, its own italics upright, a line per paragraph", () => {
+    const noted = buildAhnentafel(
+      dataset(wrap("0 @I1@ INDI\n1 NAME Solo /One/\n1 NOTE <p>A <b>farmer</b> and <u>miller</u></p><p>in <i>Kranj</i></p>\n1 BIRT\n2 DATE 1900\n")),
+      "@I1@",
+      nameOf,
+      NOW,
+      { notes: true },
+    )!;
+    const rtf = reportToRtf(tr, noted, "ancestors", "T");
+    expect(rtf).toContain("\\i\\cf2 A {\\b farmer} and {\\ul miller}\\line in {\\i0 Kranj}\\par");
+  });
+
+  it("writes a note's lists and table rows as lines, a link as its words", () => {
+    const html =
+      '<p>See <a href="https://example.org/x">the register</a><br>twice</p>' +
+      "<ol><li>one</li><li>two</li></ol><ul><li>dot</li></ul>" +
+      "<table><tr><th>Year</th><th>Place</th></tr><tr><td>1900</td><td>Kranj</td></tr></table>";
+    const noted = buildAhnentafel(
+      dataset(wrap(`0 @I1@ INDI\n1 NAME Solo /One/\n1 BIRT\n2 DATE 1900\n2 NOTE ${html}\n`)),
+      "@I1@",
+      nameOf,
+      NOW,
+      { notes: true },
+    )!;
+    const rtf = reportToRtf(tr, noted, "ancestors", "T");
+    expect(rtf).toContain(
+      `See the register\\line twice\\line 1. one\\line 2. two\\line ${esc("• ")}dot\\line Year${esc(" · ")}Place\\line 1900${esc(" · ")}Kranj\\par`,
+    );
+  });
+
   it("renders linked sources as HYPERLINK fields, plain ones as text", () => {
     const sourced = buildAhnentafel(
       dataset(

@@ -7,6 +7,7 @@
 // visual reference for sizes and colours.
 
 import type { Translate } from "../locales/i18n";
+import { isHtmlNote, parseNoteHtml, type NoteInline } from "../gedcom/noteHtml";
 import { generationHeading, sourceLabel, tocRows, truncationNote, type ReportData, type ReportEntry, type SourceLine } from "./model";
 import { childrenOfLabel, entryNum, factText, reportName, type ReportTextOptions } from "./text";
 import { citationMark } from "./narrativeText";
@@ -121,10 +122,10 @@ function entryParas(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
     // the event notes too long to weave in).
     const nt = opts.narrativeOf(entry);
     if (nt.paragraph) paras.push(para(`\\li${INDENT}\\cf${CF_FACT}`, esc(nt.paragraph)));
-    for (const note of entry.notes ?? []) paras.push(notePara(note, INDENT));
+    (entry.notes ?? []).forEach((note, i) => paras.push(notePara(note, INDENT, entry.notesRich?.[i])));
     nt.footnotes.forEach((fn, i) => {
       const mark = citationMark(i + 1);
-      if (fn.note !== undefined) paras.push(notePara(`${mark} ${fn.note}`, INDENT));
+      if (fn.note !== undefined) paras.push(notePara(fn.note, INDENT, fn.rich, mark));
       else paras.push(sourcePara(t, fn.source, INDENT, mark));
     });
     return paras;
@@ -133,10 +134,10 @@ function entryParas(t: Translate, entry: ReportEntry, opts: ReportTextOptions): 
   // person's own notes, then their record-level sources.
   for (const f of entry.facts) {
     paras.push(para(`\\li${INDENT}\\cf${CF_FACT}`, esc(factText(t, f, opts))));
-    if (f.note) paras.push(notePara(f.note, NESTED));
+    if (f.note) paras.push(notePara(f.note, NESTED, f.noteRich));
     for (const src of f.sources ?? []) paras.push(sourcePara(t, src, NESTED));
   }
-  for (const note of entry.notes ?? []) paras.push(notePara(note, INDENT));
+  (entry.notes ?? []).forEach((note, i) => paras.push(notePara(note, INDENT, entry.notesRich?.[i])));
   for (const src of entry.sources ?? []) paras.push(sourcePara(t, src, INDENT));
   return paras;
 }
@@ -154,8 +155,30 @@ function genBookmark(gen: number, direction: string): string {
 }
 
 /** An italic note paragraph (notes may span several lines → \line breaks). */
-function notePara(note: string, indent: number): string {
-  return para(`\\li${indent}\\i\\cf${CF_MUTED}`, esc(note));
+function notePara(note: string, indent: number, rich?: string, mark?: string): string {
+  const text = rich && isHtmlNote(rich) ? richNoteRtf(rich) : esc(note);
+  return para(`\\li${indent}\\i\\cf${CF_MUTED}`, (mark ? `${esc(mark)} ` : "") + text);
+}
+
+/**
+ * A formatted note as RTF: bold and underline as written, its paragraphs, list
+ * items and table rows a line each. The note's paragraph is italic already, so
+ * the words the note itself sets in italics stand upright, as emphasis inside
+ * italics does in print.
+ */
+function richNoteRtf(html: string): string {
+  const inline = (kids: NoteInline[]): string =>
+    kids.map((kid) =>
+      kid.t === "text" ? esc(kid.text)
+        : kid.t === "br" ? "\\line "
+        : kid.t === "a" ? inline(kid.kids)
+        : `{\\${kid.t === "b" ? "b" : kid.t === "i" ? "i0" : "ul"} ${inline(kid.kids)}}`).join("");
+  return parseNoteHtml(html).blocks
+    .map((block) =>
+      block.t === "p" || block.t === "h" ? inline(block.kids)
+        : block.t === "list" ? block.items.map((item, i) => esc(block.ordered ? `${i + 1}. ` : "• ") + inline(item)).join("\\line ")
+        : block.rows.map((row) => row.map((cell) => inline(cell.kids)).join(esc(" · "))).join("\\line "))
+    .join("\\line ");
 }
 
 /** A source line: `§ title, page 23` — a clickable HYPERLINK field when the

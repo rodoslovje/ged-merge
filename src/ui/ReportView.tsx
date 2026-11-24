@@ -24,6 +24,8 @@ import { childrenOfLabel, factText, reportName, reportToText, type ReportTextOpt
 import { reportsToRtf } from "../report/rtf";
 import { childGroups, planEntry } from "../report/narrative";
 import { citationMark, narrativeEntry, narrativeLangFor } from "../report/narrativeText";
+import { cleanNoteHtml } from "../gedcom/noteHtml";
+import { NoteText } from "./NoteText";
 import type { Translate } from "../locales/i18n";
 import { individualFieldRows } from "../review/fields";
 import { ChartPage } from "./ChartPage";
@@ -519,13 +521,13 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                                   {nt.paragraph && <div className="report-para">{nt.paragraph}</div>}
                                   {(e.notes ?? []).map((note, j) => (
                                     <div key={`n${j}`} className="report-note">
-                                      {note}
+                                      <NoteText text={note} rich={e.notesRich?.[j]} />
                                     </div>
                                   ))}
                                   {nt.footnotes.map((fn, j) =>
                                     fn.note !== undefined ? (
                                       <div key={`fn${j}`} className="report-note">
-                                        {`${citationMark(j + 1)} ${fn.note}`}
+                                        {`${citationMark(j + 1)} `}<NoteText text={fn.note} rich={fn.rich} />
                                       </div>
                                     ) : (
                                       sourceNode(fn.source, `${citationMark(j + 1)} ${sourceLabel(t, fn.source)}`, `fn${j}`)
@@ -542,7 +544,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                             e.facts.map((f, j) => (
                               <div key={j} className="report-fact gm-data">
                                 {factText(t, f, part.opts)}
-                                {f.note && <div className="report-note">{f.note}</div>}
+                                {f.note && <div className="report-note"><NoteText text={f.note} rich={f.noteRich} /></div>}
                                 {(f.sources ?? []).map((src, k) => sourceNode(src, sourceLabel(t, src), k))}
                               </div>
                             ))}
@@ -550,7 +552,7 @@ export function ReportView({ mainDs, rootId: currentRootId, startId, backLabel, 
                             !part.opts.narrativeOf &&
                             (e.notes ?? []).map((note, j) => (
                               <div key={`n${j}`} className="report-note">
-                                {note}
+                                <NoteText text={note} rich={e.notesRich?.[j]} />
                               </div>
                             ))}
                           {!redacted(e) &&
@@ -667,17 +669,24 @@ function printBody(
         const label = escapeHtml(`${mark ? `${mark} ` : ""}${sourceLabel(t, s)}`);
         return `<div class="source">${s.url ? `<a href="${escapeHtml(s.url)}">${label}</a>` : label}</div>`;
       };
-      const noteDiv = (n: string) => `<div class="note">${escapeHtml(n)}</div>`;
+      // A formatted note goes in as its own clean HTML (see cleanNoteHtml),
+      // a mark ahead of it inside its first paragraph.
+      const noteDiv = (n: string, rich?: string, mark = "") => {
+        const lead = mark ? `${escapeHtml(mark)} ` : "";
+        if (!rich) return `<div class="note">${lead}${escapeHtml(n)}</div>`;
+        const html = cleanNoteHtml(rich);
+        return `<div class="note">${lead && html.startsWith("<p>") ? `<p>${lead}${html.slice(3)}` : lead + html}</div>`;
+      };
       const body: string[] = [];
       if (!hidden && opts.narrativeOf) {
         // Narrative style: paragraph (footnote markers included), person
         // notes, then the numbered footnotes (citations + long event notes).
         const nt = opts.narrativeOf(e);
         if (nt.paragraph) body.push(`<div class="para">${escapeHtml(nt.paragraph)}</div>`);
-        body.push(...(e.notes ?? []).map(noteDiv));
+        body.push(...(e.notes ?? []).map((n, i) => noteDiv(n, e.notesRich?.[i])));
         body.push(
           ...nt.footnotes.map((fn, i) =>
-            fn.note !== undefined ? noteDiv(`${citationMark(i + 1)} ${fn.note}`) : sourceDiv(fn.source, citationMark(i + 1)),
+            fn.note !== undefined ? noteDiv(fn.note, fn.rich, citationMark(i + 1)) : sourceDiv(fn.source, citationMark(i + 1)),
           ),
         );
       } else if (!hidden) {
@@ -687,12 +696,12 @@ function printBody(
           ...e.facts.map(
             (f) =>
               `<div class="fact">${escapeHtml(factText(t, f, opts))}` +
-              (f.note ? noteDiv(f.note) : "") +
+              (f.note ? noteDiv(f.note, f.noteRich) : "") +
               (f.sources ?? []).map((s) => sourceDiv(s)).join("") +
               `</div>`,
           ),
         );
-        body.push(...(e.notes ?? []).map(noteDiv), ...(e.sources ?? []).map((s) => sourceDiv(s)));
+        body.push(...(e.notes ?? []).map((n, i) => noteDiv(n, e.notesRich?.[i])), ...(e.sources ?? []).map((s) => sourceDiv(s)));
       }
       parts.push(`<div class="entry">${head}${body.join("")}</div>`);
     }
@@ -725,6 +734,11 @@ function printSheet(fileName: string, parts: string[]): string {
   .fact { margin-left: 2.6em; color: #222; }
   .para { margin-left: 2.6em; color: #222; }
   .note { font-style: italic; color: #444; white-space: pre-wrap; }
+  .note p { margin: 0; }
+  .note i { font-style: normal; }
+  .note ul, .note ol { margin: 0.2em 0; padding-left: 1.4em; white-space: normal; }
+  .note table { border-collapse: collapse; white-space: normal; }
+  .note th, .note td { border: 1px solid #999; padding: 1px 6px; text-align: left; }
   .source { color: #555; font-size: 10pt; }
   .source a { color: #1a4b7a; text-decoration: none; }
   .entry > .note, .entry > .source { margin-left: 2.6em; }

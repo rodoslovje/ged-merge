@@ -213,6 +213,23 @@ describe("buildAhnentafel", () => {
     expect(text).toContain("1. Solo One (1900–1980)\n   * 1900\n     Born at home.\n   † 1980\n   Emigrated twice.");
   });
 
+  it("carries the HTML of a note written with formatting, beside its plain text", () => {
+    const formatted = wrap(
+      "0 @I1@ INDI\n1 NAME Solo /One/\n1 NOTE Emigrated twice.\n1 NOTE <p>A <b>farmer</b> in Kranj</p>\n" +
+        "1 BIRT\n2 DATE 1900\n2 NOTE <p>Born <i>at home</i>.</p>\n1 DEAT\n2 DATE 1980\n2 NOTE Plain.\n",
+    );
+    const on = buildAhnentafel(dataset(formatted), "@I1@", nameOf, NOW, { notes: true })!.generations[0].entries[0];
+    expect(on.notes).toEqual(["Emigrated twice.", "A farmer in Kranj"]);
+    expect(on.notesRich).toEqual([undefined, "<p>A <b>farmer</b> in Kranj</p>"]);
+    expect(on.facts[0]).toMatchObject({ note: "Born at home.", noteRich: "<p>Born <i>at home</i>.</p>" });
+    expect(on.facts[1].note).toBe("Plain.");
+    expect(on.facts[1].noteRich).toBeUndefined();
+    // The plain-text export reads the words alone.
+    const text = reportToText(tr, buildAhnentafel(dataset(formatted), "@I1@", nameOf, NOW, { notes: true })!, "ancestors", "T");
+    expect(text).toContain("A farmer in Kranj");
+    expect(text).not.toContain("<b>");
+  });
+
   it("keeps URLs listed in notes in the report", () => {
     const linked = wrap(
       "0 @I1@ INDI\n1 NAME Solo /One/\n1 NOTE Zapis: https://data.matricula-online.eu/sl/test/?pg=1\n" +

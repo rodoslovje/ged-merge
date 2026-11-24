@@ -9,7 +9,7 @@ import { marriedSurnamesOf } from "../match/relatives";
 import { unionMarriage } from "../gedcom/union";
 import { planSitePhotos, type PhotoUse, type PubPhoto, type PubPhotoLink } from "./photos";
 import { detectAddress } from "../tools/addresses";
-import { noteToText } from "../gedcom/noteHtml";
+import { cleanNoteHtml, isHtmlNote, noteToText } from "../gedcom/noteHtml";
 import { isWebAddress, withScheme } from "../gedcom/uri";
 import type { GeoCoord, NoteRef, SourceCitation } from "../gedcom/types";
 import type { MapOverlay } from "../ui/SettingsContext";
@@ -194,6 +194,9 @@ export interface PubEvent {
   /** The street address, with addresses published. */
   address?: string;
   notes?: string[];
+  /** Each note's clean HTML where it was written with formatting, by its
+   *  place in `notes`; absent when none was. */
+  notesRich?: (string | null)[];
   sources?: PubSource[];
 }
 
@@ -213,6 +216,8 @@ export interface PubPerson {
   deceased?: true;
   events?: PubEvent[];
   notes?: string[];
+  /** See {@link PubEvent.notesRich}. */
+  notesRich?: (string | null)[];
   sources?: PubSource[];
 }
 
@@ -223,6 +228,8 @@ export interface PubFamily {
   children?: string[];
   events?: PubEvent[];
   notes?: string[];
+  /** See {@link PubEvent.notesRich}. */
+  notesRich?: (string | null)[];
   sources?: PubSource[];
   /** Married, with the marriage's details withheld (a living or private spouse). */
   married?: true;
@@ -328,9 +335,22 @@ function settlementCoords(ds: Dataset): Map<string, GeoCoord> {
   return out;
 }
 
-function pubNotes(refs: NoteRef[] | undefined): string[] | undefined {
-  const out = (refs ?? []).filter((r) => !r.private).map((r) => noteToText(r.text).trim()).filter(Boolean);
-  return out.length ? out : undefined;
+type PubNotes = { notes?: string[]; notesRich?: (string | null)[] };
+
+/** The notes to publish — never a private one — each as its text, and as its
+ *  clean HTML beside it where it was written with formatting. */
+function pubNotes(refs: NoteRef[] | undefined): PubNotes {
+  const notes: string[] = [];
+  const rich: (string | null)[] = [];
+  for (const ref of refs ?? []) {
+    if (ref.private) continue;
+    const text = noteToText(ref.text).trim();
+    if (!text) continue;
+    notes.push(text);
+    rich.push(isHtmlNote(ref.text) ? cleanNoteHtml(ref.text) : null);
+  }
+  if (!notes.length) return {};
+  return rich.some(Boolean) ? { notes, notesRich: rich } : { notes };
 }
 
 /**
@@ -389,8 +409,7 @@ function pubEvent(e: GedEvent, ctx: Ctx): PubEvent {
   }
   if (e.cause?.trim()) out.cause = e.cause.trim();
   if (ctx.include.notes) {
-    const notes = pubNotes(e.noteRefs);
-    if (notes) out.notes = notes;
+    Object.assign(out, pubNotes(e.noteRefs));
   }
   if (ctx.include.sources) {
     const sources = pubSources(e.sources);
@@ -408,11 +427,9 @@ function pubEvents(events: GedEvent[], ctx: Ctx): PubEvent[] | undefined {
 }
 
 /** A record's own notes and sources, as the options allow. */
-function recordExtras(rec: { noteRefs?: NoteRef[]; sources?: SourceCitation[] }, ctx: Ctx): { notes?: string[]; sources?: PubSource[] } {
-  const out: { notes?: string[]; sources?: PubSource[] } = {};
-  const notes = ctx.include.notes ? pubNotes(rec.noteRefs) : undefined;
+function recordExtras(rec: { noteRefs?: NoteRef[]; sources?: SourceCitation[] }, ctx: Ctx): PubNotes & { sources?: PubSource[] } {
+  const out: PubNotes & { sources?: PubSource[] } = ctx.include.notes ? pubNotes(rec.noteRefs) : {};
   const sources = ctx.include.sources ? pubSources(rec.sources) : undefined;
-  if (notes) out.notes = notes;
   if (sources) out.sources = sources;
   return out;
 }

@@ -39,7 +39,7 @@ export interface NarrativeEntryText {
 }
 
 /** One numbered footnote: a source citation, or a long event note. */
-export type NarrativeFootnote = { source: SourceLine; note?: never } | { note: string; source?: never };
+export type NarrativeFootnote = { source: SourceLine; note?: never } | { note: string; /** Its HTML, when formatted. */ rich?: string; source?: never };
 
 /** Notes up to this long (and single-line) join the prose parenthetically. */
 const NOTE_INLINE_MAX = 160;
@@ -78,10 +78,11 @@ export function narrativeEntry(
     ];
     const marks = sources.map((src) => citationMark(cite(src)));
     const asides: string[] = [];
-    for (const note of [stmt.fact?.note, stmt.fact2?.note]) {
+    for (const fact of [stmt.fact, stmt.fact2]) {
+      const note = fact?.note;
       if (!note) continue;
       if (!note.includes("\n") && note.length <= NOTE_INLINE_MAX) asides.push(` (${note})`);
-      else marks.push(citationMark(footnotes.push({ note })));
+      else marks.push(citationMark(footnotes.push({ note, ...(fact.noteRich ? { rich: fact.noteRich } : {}) })));
     }
     return s + marks.join(MARK_JOIN) + asides.join("");
   });

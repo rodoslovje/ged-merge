@@ -527,6 +527,20 @@ function tidyNoteText(text: string): string {
 }
 
 /**
+ * The HTML a note shown as `plain` was written as, when it was: the display
+ * projections (`notes`, an event's `note`) hold a note as tidy plain text, and
+ * a view that shows its formatting finds the original among the record's
+ * {@link NoteRef}s. Nothing for a plain-text note.
+ */
+export function richNoteFor(plain: string, refs: readonly NoteRef[] | undefined): string | undefined {
+  for (const ref of refs ?? []) {
+    if (!isHtmlNote(ref.text)) continue;
+    if (tidyNoteText(ref.text) === plain || stripNoteLinks(ref.text) === plain) return ref.text;
+  }
+  return undefined;
+}
+
+/**
  * Index every top-level multimedia (OBJE) record by its xref, mapping to the
  * URLs it contains (typically a single FILE line). Records reference these by
  * pointer, so this lets `collectLinks` resolve `OBJE @xref@` to a real URL.
