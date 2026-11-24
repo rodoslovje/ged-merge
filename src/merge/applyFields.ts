@@ -7,7 +7,7 @@ import {
   INDI_CHILD_ORDER,
   insertGrouped,
   insertOrdered,
-  insertRecord,
+  insertRecords,
   markEventTouched,
   NAME_CHILD_ORDER,
   SOUR_TRAILING_TAGS,
@@ -1650,12 +1650,15 @@ export function importSourRecords(
   const fileless = new Set<string>();
 
   // Iterate to fixpoint: importing a SOUR may introduce a REPO reference.
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const presentXrefs = new Set(records.filter((r) => r.xref).map((r) => r.xref as string));
-    const needed = new Set<string>(extra);
-    for (const rec of records) collectSourRefs(rec, needed);
+  // The file is scanned once; each later round reads only what the round
+  // before brought in, and a round's records are inserted together — a scan
+  // and an insert per imported record is quadratic on a large import.
+  const presentXrefs = new Set<string>();
+  for (const r of records) if (r.xref) presentXrefs.add(r.xref);
+  let needed = new Set<string>(extra);
+  for (const rec of records) collectSourRefs(rec, needed);
+  while (needed.size > 0) {
+    const batch: GedNode[] = [];
     for (const outXref of needed) {
       if (presentXrefs.has(outXref) || fileless.has(outXref)) continue;
       // Only an xref the map promised to an incoming record is imported: any
@@ -1670,10 +1673,14 @@ export function importSourRecords(
       const imported = cloneNodeRemapped(cRec, sourMap);
       imported.xref = outXref;
       collectCustomTags(imported, customTags);
-      insertRecord(records, imported);
+      presentXrefs.add(outXref);
+      batch.push(imported);
       importedNodes.push(imported);
-      changed = true;
     }
+    if (batch.length === 0) break;
+    insertRecords(records, batch);
+    needed = new Set<string>();
+    for (const rec of batch) collectSourRefs(rec, needed);
   }
   if (fileless.size) {
     const drop = (node: GedNode): void => {
