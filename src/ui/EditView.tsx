@@ -2046,18 +2046,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             >
               <SearchIcon size={16} />
             </button>
-            {/* One switch for every long note on screen — the person's, the
-                families', the events' and their associates'. */}
-            <button
-              type="button"
-              className="tree-open-btn edit-notes-fold-toggle"
-              aria-pressed={notesFold.collapsed}
-              aria-label={t(notesFold.collapsed ? "edit.notesExpandAll" : "edit.notesCollapseAll")}
-              title={t(notesFold.collapsed ? "edit.notesExpandAllTooltip" : "edit.notesCollapseAllTooltip")}
-              onClick={() => setNotesCollapsed(!notesFold.collapsed)}
-            >
-              <FoldNotesIcon size={16} folded={notesFold.collapsed} />
-            </button>
           </div>
         </div>
 
@@ -2103,14 +2091,28 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               }
               modified={changedPersonIds.has(person.id)}
               controls={
-                <button
-                  type="button"
-                  className="edit-delete-btn"
-                  title={t("edit.deletePersonTooltip")}
-                  onClick={handleDeletePerson}
-                >
-                  <TrashIcon />
-                </button>
+                <>
+                  {/* One switch for every long note on screen — the person's,
+                      the families', the events' and their associates'. */}
+                  <button
+                    type="button"
+                    className="edit-notes-fold-toggle"
+                    aria-pressed={notesFold.collapsed}
+                    aria-label={t(notesFold.collapsed ? "edit.notesExpandAll" : "edit.notesCollapseAll")}
+                    title={t(notesFold.collapsed ? "edit.notesExpandAllTooltip" : "edit.notesCollapseAllTooltip")}
+                    onClick={() => setNotesCollapsed(!notesFold.collapsed)}
+                  >
+                    <FoldNotesIcon size={16} folded={notesFold.collapsed} />
+                  </button>
+                  <button
+                    type="button"
+                    className="edit-delete-btn"
+                    title={t("edit.deletePersonTooltip")}
+                    onClick={handleDeletePerson}
+                  >
+                    <TrashIcon />
+                  </button>
+                </>
               }
             />
           </div>

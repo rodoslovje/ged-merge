@@ -2429,14 +2429,11 @@ button:focus-visible {
 .edit-actions {
   margin-left: auto;
   align-self: flex-start;
-  /* Back on a line of its own, the icon toggles in one row under it: stacked
-     one per line, three of them stood taller than the parents beside them. */
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  justify-content: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
 }
-.edit-actions > :first-child { grid-column: 1 / -1; justify-self: end; }
 /* Back and the Relatives toggle: one height, though one carries a label and
    the other only an icon. */
 .edit-actions > .tree-open-btn {
@@ -2454,7 +2451,6 @@ button:focus-visible {
   .edit-actions {
     order: -1;
     flex: 0 0 100%;
-    display: flex;
     flex-direction: row;
     justify-content: flex-end;
   }
@@ -4976,6 +4972,22 @@ button:focus-visible {
   padding: 4px 8px;
   transition: background 0.12s;
 }
+/* Fold/unfold every long note — the quiet neighbour before the trash, which
+   then gives up the push to the row's far end. */
+.edit-notes-fold-toggle {
+  display: inline-flex; align-items: center;
+  margin-left: auto;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.edit-notes-fold-toggle:hover,
+.edit-notes-fold-toggle:focus-visible,
+.edit-notes-fold-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.edit-notes-fold-toggle + .edit-delete-btn { margin-left: 6px; }
 .edit-delete-btn:hover {
   background: var(--danger-soft);
 }
