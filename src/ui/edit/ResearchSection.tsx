@@ -6,7 +6,7 @@ import type { GedNode } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { tipProps } from "../IconTip";
 import { NotebookIcon } from "../icons/NotebookIcon";
-import { RESEARCH_ICON, researchTitle, useResearch } from "./ResearchContext";
+import { RESEARCH_ICON, ResearchTitle, researchTitle, useResearch } from "./ResearchContext";
 
 /** What a note's chip says on hover: its whole text, then its links. */
 function noteTip(note: ResearchNote): string {
@@ -57,7 +57,7 @@ export function ResearchSection({
           onClick={() => onOpen(note.id)}
         >
           <span aria-hidden="true">{RESEARCH_ICON[note.kind]}</span>
-          <span className="research-chip-text">{researchTitle(note)}</span>
+          <span className="research-chip-text"><ResearchTitle note={note} /></span>
           {where.length > 0 && <span className="research-chip-where">{where.join(", ")}</span>}
         </button>
       </span>
@@ -78,7 +78,7 @@ export function ResearchSection({
         )}
         {showDone && done.map(chip)}
         <button type="button" className="edit-name-chip edit-name-chip-add edit-name-chip-task" title={t("research.addTooltip")} onClick={onAdd}>
-          <NotebookIcon size={13} /> + {t("research.add")}
+          <NotebookIcon size={13} /> {t("research.add")}
         </button>
     </span>
   );

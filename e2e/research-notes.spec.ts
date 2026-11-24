@@ -47,7 +47,7 @@ test("edit mode: research notes are added to a person and an event, settled, und
   await page.locator(".edit-person").waitFor();
 
   // A note about the person, from the chip among the card's "+ Add" actions.
-  await page.getByRole("button", { name: "+ Task" }).click();
+  await page.locator(".edit-name-chip-task").click();
   const dialog = page.getByRole("dialog", { name: "New task" });
   await dialog.locator(".note-rich").fill("Where did the family come from?");
   await expect(dialog.locator(".research-target-name")).toHaveText("Franc Novak");
@@ -113,7 +113,7 @@ test("edit mode: deleting a research note takes it off everything it was filed u
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
-  await page.getByRole("button", { name: "+ Task" }).click();
+  await page.locator(".edit-name-chip-task").click();
   await page.getByRole("dialog").locator(".note-rich").fill("A passing thought");
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   const chips = page.locator(".research-section .research-chip");
@@ -123,7 +123,7 @@ test("edit mode: deleting a research note takes it off everything it was filed u
   await page.getByRole("dialog").getByRole("button", { name: "Delete task" }).click();
   await expect(page.locator(".research-section .research-chip")).toHaveCount(0);
   // The card offers the first note again.
-  await expect(page.getByRole("button", { name: "+ Task" })).toBeVisible();
+  await expect(page.locator(".edit-name-chip-task")).toBeVisible();
 
   // Undo brings the note and its filing back together.
   await page.keyboard.press("Control+z");
@@ -139,7 +139,7 @@ test("a note written for later waits in the notebook, is filed from there, and s
   await page.locator(".edit-person").waitFor();
 
   // The header's button, from anywhere: a note filed under nobody.
-  await page.getByRole("button", { name: "Task", exact: true }).click();
+  await page.locator("button.nav-btn[aria-label=\"Task\"]").click();
   const fresh = page.getByRole("dialog", { name: "New task" });
   await expect(fresh.locator(".research-dialog-unfiled")).toBeVisible();
   await fresh.getByRole("tab", { name: /Find/ }).click();
@@ -198,7 +198,7 @@ test("the save preview words the notes, and the notebook clears the done ones", 
   await page.locator(".edit-person").waitFor();
 
   const dialog = page.getByRole("dialog", { name: "New task" });
-  await page.getByRole("button", { name: "+ Task" }).click();
+  await page.locator(".edit-name-chip-task").click();
   await dialog.getByRole("tab", { name: /To-do/ }).click();
   await dialog.locator(".note-rich").fill("Check the passenger lists");
   await dialog.getByRole("button", { name: "Save" }).click();
@@ -247,7 +247,7 @@ test("a task's text takes the formatting a note's does", async ({ page }) => {
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
-  await page.getByRole("button", { name: "+ Task" }).click();
+  await page.locator(".edit-name-chip-task").click();
   const dialog = page.getByRole("dialog", { name: "New task" });
   const box = dialog.locator(".note-rich");
   await box.fill("Check the land register");
@@ -256,9 +256,9 @@ test("a task's text takes the formatting a note's does", async ({ page }) => {
   await expect(box.locator("b")).toHaveText("Check the land register");
   await dialog.getByRole("button", { name: "Save" }).click();
 
-  // The chip reads the words, not the markup; the dialog opens on them bold.
+  // The chip shows the words bold, and the dialog opens on them bold.
   const chip = page.locator(".research-section .research-chip");
-  await expect(chip.locator(".research-chip-text")).toHaveText("Check the land register");
+  await expect(chip.locator(".research-chip-text b")).toHaveText("Check the land register");
   await chip.locator(".research-chip-open").click();
   await expect(page.getByRole("dialog", { name: "Task", exact: true }).locator(".note-rich b")).toHaveText("Check the land register");
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();

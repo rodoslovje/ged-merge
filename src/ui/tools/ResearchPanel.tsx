@@ -6,7 +6,7 @@ import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { researchText, type ResearchNote, type ResearchRef } from "../../gedcom/research";
 import type { Dataset } from "../../gedcom/types";
 import { ResearchDialog } from "../edit/ResearchDialog";
-import { RESEARCH_ICON, researchTitle } from "../edit/ResearchContext";
+import { RESEARCH_ICON, ResearchTitle } from "../edit/ResearchContext";
 import { applyResearchEdit, NEW_RESEARCH_FIELDS, removeResearchNotes, researchDraftOf, type NewResearchMedia, type ResearchDraft, type ResearchTarget } from "../edit/researchEdit";
 import { foldSearch, matchesTerms } from "../globalSearch";
 import type { RecordPatch } from "../historyTypes";
@@ -92,7 +92,7 @@ export function ResearchPanel({
         onClick={() => { const existing = researchDraftOf(dataset, note.id); if (existing) setDraft(existing); }}
       >
         <span aria-hidden="true">{RESEARCH_ICON[note.kind]}</span>
-        <span className="research-row-text">{researchTitle(note)}</span>
+        <span className="research-row-text"><ResearchTitle note={note} /></span>
       </button>
       <span className="research-row-where">
         {(index.refs.get(note.id) ?? []).map((ref, i) => (
