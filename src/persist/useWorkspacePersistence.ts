@@ -358,6 +358,8 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
   // loaded main/compare so a stale restore can be skipped.
   const { main, compare, lastMainFile, decisions, importBranches, mergeScope, rejectedDuplicates, startId } = opts.workspace;
   const { mainDataset, editVersion, cleanEditVersionRef, changeJournal, dirty, undoRedo, sortEligiblePersonIdsRef } = opts;
+  const mainDatasetRef = useRef(mainDataset);
+  mainDatasetRef.current = mainDataset;
   useEffect(() => {
     if (!persistEnabled) return; // caching is opt-in
     const mainFileName = lastMainFile?.fileName;
@@ -409,6 +411,9 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         editState,
         savedAt: Date.now(),
       });
+      // A write that lands after the main was replaced says nothing about the
+      // new main: marking that one cached would keep it from ever being written.
+      if (mainDatasetRef.current !== mainDataset) return;
       if (ok) {
         if (needBlob) {
           mainCachedRef.current = true;
