@@ -118,7 +118,10 @@ export function normalizeDataset(
   if (options.vendorTags) {
     walkNodes(editable, (node) => {
       const canonical = VENDOR_TAG_ALIASES[node.tag];
-      if (canonical && !options.preserveVendorTags?.has(node.tag)) {
+      // A strict target writes no bare vendor tag: `_SEPR` stays as it is
+      // there rather than becoming `SEPA` (the app reads both alike).
+      const bareInStrict = !!profile.standard && !canonical?.startsWith("_");
+      if (canonical && !bareInStrict && !options.preserveVendorTags?.has(node.tag)) {
         record(report.vendorTagExamples, seenVendor, node.tag, canonical);
         report.vendorTagsRenamed++;
         node.tag = canonical;

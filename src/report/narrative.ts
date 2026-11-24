@@ -7,6 +7,7 @@
 // live here once for every language.
 
 import type { GedDate, Sex } from "../gedcom/types";
+import { SEPARATION_TAGS } from "../gedcom/eventTags";
 import { factDateKey, withPublicAges, type ReportData, type ReportEntry } from "./model";
 import type { FactLine } from "./model";
 import { spouseName, spouseRedacted, type ReportTextOptions } from "./text";
@@ -188,7 +189,7 @@ export function planEntry(
     // separation leaves the marriage standing until the death).
     const again = prevMarriage !== undefined;
     const late = !m.unmarried && !!m.parsed && !!m.firstChildBorn && isBefore(m.firstChildBorn, m.parsed);
-    const dissolved = !!prevMarriage?.ended && prevMarriage.ended.tag !== "SEPA";
+    const dissolved = !!prevMarriage?.ended && !SEPARATION_TAGS.has(prevMarriage.ended.tag);
     const widowed =
       again && !m.unmarried && !!m.parsed && !dissolved &&
       !!prevMarriage!.spouseDied && isBefore(prevMarriage!.spouseDied, m.parsed);

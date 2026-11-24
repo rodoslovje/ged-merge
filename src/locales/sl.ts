@@ -3457,6 +3457,7 @@ export const sl = {
   "event.ENGA": "Zaroka",
   "event.MARR": "Poroka",
   "event.SEPA": "Ločeno življenje",
+  "event._SEPR": "Ločeno življenje",
   "event.DIV": "Ločitev",
   "event.DIVF": "Vloga za ločitev",
   "event.ANUL": "Razveljavitev zakona",

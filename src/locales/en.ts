@@ -3026,6 +3026,7 @@ export const en = {
   "event.ENGA": "Engagement",
   "event.MARR": "Marriage",
   "event.SEPA": "Separation",
+  "event._SEPR": "Separation",
   "event.DIV": "Divorce",
   "event.DIVF": "Divorce filed",
   "event.ANUL": "Annulment",

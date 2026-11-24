@@ -11,7 +11,7 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import { ageWholeYears, parseAge } from "../gedcom/ageValue";
 import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS, UNMARRIED_UNION_GLYPH } from "../gedcom/eventTags";
+import { EVENT_GLYPHS, SEPARATION_TAGS, UNMARRIED_UNION_GLYPH } from "../gedcom/eventTags";
 import { unionMark, unionMarriage } from "../gedcom/union";
 import { richNoteFor } from "../gedcom/builder";
 
@@ -414,7 +414,7 @@ export function marriageFact(
   if (opts.age && ds && marr) coupleAges(fact, fam, ds, marr.date, marr);
   // A divorce or annulment wins over a separation recorded beside it.
   const end =
-    fam.events.find((e) => e.tag === "DIV" || e.tag === "ANUL") ?? fam.events.find((e) => e.tag === "SEPA");
+    fam.events.find((e) => e.tag === "DIV" || e.tag === "ANUL") ?? fam.events.find((e) => SEPARATION_TAGS.has(e.tag));
   if (end) {
     fact.ended = {
       tag: end.tag,

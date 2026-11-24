@@ -3235,6 +3235,7 @@ export const hr = {
   "event.ENGA": "Zaruke",
   "event.MARR": "Vjenčanje",
   "event.SEPA": "Odvojeni život",
+  "event._SEPR": "Odvojeni život",
   "event.DIV": "Razvod",
   "event.DIVF": "Zahtjev za razvod",
   "event.ANUL": "Poništenje braka",

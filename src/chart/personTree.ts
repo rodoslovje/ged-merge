@@ -19,6 +19,7 @@ import { isApproximate } from "../gedcom/lifespan";
 import { localityParts } from "../gedcom/place";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
 import { unionMark } from "../gedcom/union";
+import { SEPARATION_TAGS } from "../gedcom/eventTags";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { displayName, primaryName } from "../match/relatives";
@@ -328,7 +329,7 @@ export function marriageOf(fam: Family | undefined, ds: Dataset): MarriageInfo |
 }
 
 /** The family events that end a union, the first one found giving the year. */
-const ENDING_TAGS: Record<string, readonly string[]> = { divorced: ["DIV", "ANUL", "DIVF"], separated: ["SEPA"] };
+const ENDING_TAGS: Record<string, readonly string[]> = { divorced: ["DIV", "ANUL", "DIVF"], separated: [...SEPARATION_TAGS] };
 
 /** The union's mark when it is not a plain marriage (see {@link MarriageInfo.status}). */
 function unionStatus(fam: Family): MarriageInfo["status"] {

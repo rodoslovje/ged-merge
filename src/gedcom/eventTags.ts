@@ -38,8 +38,13 @@ export const FAM_EVENT_TAG_ORDER = [
   "MARB", "MARC", "MARL", "MARS",
   "RESI", "CENS", "NCHI", "SLGS", "EVEN",
   // Non-standard: after every standard one.
-  "_MSTAT", "SEPA",
+  "_MSTAT", "SEPA", "_SEPR",
 ];
+
+/** A couple living apart: `SEPA` as most programs write it, `_SEPR` as
+ *  Brother's Keeper does. Neither standard has the event, so a strict target
+ *  keeps the `_` spelling; both read as the same thing everywhere. */
+export const SEPARATION_TAGS: ReadonlySet<string> = new Set(["SEPA", "_SEPR"]);
 
 /** The Latter-day Saint ordinances: baptism, confirmation, endowment and the
  *  sealing to parents on a person, the sealing to a spouse on a family. Each
@@ -341,7 +346,7 @@ export const EDITABLE_FAM_EVENT_TAGS = [
   "MARR", "ENGA", "DIVF", "DIV", "ANUL",
   "MARC", "MARS",
   "RESI", "CENS", "NCHI", "SLGS", "EVEN",
-  "_MSTAT", "SEPA",
+  "_MSTAT", "SEPA", "_SEPR",
 ];
 
 /** Display name for an event on a family record. The household events read
