@@ -10,6 +10,7 @@ import { MarriedNameEditor } from "./MarriedNameEditor";
 import { NameVariantEditor } from "./NameVariantEditor";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
 import type { Commit } from "./types";
+import { NotebookIcon } from "../icons/NotebookIcon";
 
 /** Nickname plus any further `NAME` records (married/maiden/aka/…), shown as
  * chips that turn into editable fields on click, plus a single "+ Add name"
@@ -239,16 +240,6 @@ export function OtherNamesEditor({
             + {t("edit.addNote")}
           </button>
         )}
-        {showAddResearch && (
-          <button
-            type="button"
-            className="edit-name-chip edit-name-chip-add"
-            title={t("research.addTooltip")}
-            onClick={onAddResearch}
-          >
-            + {t("research.add")}
-          </button>
-        )}
         {showAddFsId && (
           <button
             type="button"
@@ -260,6 +251,18 @@ export function OtherNamesEditor({
           </button>
         )}
         {!hasNamesContent && addNameBtn}
+        {/* Last and apart: a task is the reader's working material, not one
+            more piece of the person's data like the chips before it. */}
+        {showAddResearch && (
+          <button
+            type="button"
+            className="edit-name-chip edit-name-chip-add edit-name-chip-task"
+            title={t("research.addTooltip")}
+            onClick={onAddResearch}
+          >
+            <NotebookIcon size={13} /> + {t("research.add")}
+          </button>
+        )}
       </div>
     </div>
   );

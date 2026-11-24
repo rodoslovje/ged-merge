@@ -47,8 +47,8 @@ test("edit mode: research notes are added to a person and an event, settled, und
   await page.locator(".edit-person").waitFor();
 
   // A note about the person, from the chip among the card's "+ Add" actions.
-  await page.getByRole("button", { name: "+ Research note" }).click();
-  const dialog = page.getByRole("dialog", { name: "New research note" });
+  await page.getByRole("button", { name: "+ Task" }).click();
+  const dialog = page.getByRole("dialog", { name: "New task" });
   await dialog.locator("textarea").fill("Where did the family come from?");
   await expect(dialog.locator(".research-target-name")).toHaveText("Franc Novak");
   await dialog.getByRole("button", { name: "Save" }).click();
@@ -60,9 +60,9 @@ test("edit mode: research notes are added to a person and an event, settled, und
   // A note about one event, from that event's "+ Detail" menu.
   const death = page.locator(".edit-event", { hasText: "Death" });
   await death.locator(".edit-event-addfield").click();
-  await page.locator(".dd-menu [role=option]", { hasText: "Research note" }).click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Task" }).click();
   await expect(dialog.locator(".research-target-event")).toContainText("Death");
-  await dialog.getByRole("tab", { name: /Task/ }).click();
+  await dialog.getByRole("tab", { name: /To-do/ }).click();
   await dialog.locator("textarea").fill("Check the passenger lists");
   await dialog.locator(".add-source-url-wrap input").first().fill("https://example.org/lists");
   await dialog.getByRole("button", { name: "Save" }).click();
@@ -75,7 +75,7 @@ test("edit mode: research notes are added to a person and an event, settled, und
 
   // The mark opens the note; filing it under a second person too.
   await death.locator(".research-ref").click();
-  const editing = page.getByRole("dialog", { name: "Research note", exact: true });
+  const editing = page.getByRole("dialog", { name: "Task", exact: true });
   await editing.getByRole("button", { name: "+ Add person" }).click();
   await editing.locator(".relative-picker-input").fill("ana");
   await editing.locator(".relative-picker-option", { hasText: "Ana Kos" }).click();
@@ -113,17 +113,17 @@ test("edit mode: deleting a research note takes it off everything it was filed u
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
-  await page.getByRole("button", { name: "+ Research note" }).click();
+  await page.getByRole("button", { name: "+ Task" }).click();
   await page.getByRole("dialog").locator("textarea").fill("A passing thought");
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   const chips = page.locator(".research-section .research-chip");
   await expect(chips).toHaveCount(1);
 
   await chips.first().locator(".research-chip-open").click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete note" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete task" }).click();
   await expect(page.locator(".research-section")).toHaveCount(0);
   // The card offers the first note again.
-  await expect(page.getByRole("button", { name: "+ Research note" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Task" })).toBeVisible();
 
   // Undo brings the note and its filing back together.
   await page.keyboard.press("Control+z");
@@ -139,8 +139,8 @@ test("a note written for later waits in the notebook, is filed from there, and s
   await page.locator(".edit-person").waitFor();
 
   // The header's button, from anywhere: a note filed under nobody.
-  await page.getByRole("button", { name: "Research note", exact: true }).click();
-  const fresh = page.getByRole("dialog", { name: "New research note" });
+  await page.getByRole("button", { name: "Task", exact: true }).click();
+  const fresh = page.getByRole("dialog", { name: "New task" });
   await expect(fresh.locator(".research-dialog-unfiled")).toBeVisible();
   await fresh.getByRole("tab", { name: /Find/ }).click();
   await fresh.locator("textarea").fill("Newspaper clipping about the Novak farm");
@@ -156,7 +156,7 @@ test("a note written for later waits in the notebook, is filed from there, and s
 
   // Filed under Ana from the notebook: it moves to the filed group.
   await unfiled.locator(".research-row-open").click();
-  const editing = page.getByRole("dialog", { name: "Research note", exact: true });
+  const editing = page.getByRole("dialog", { name: "Task", exact: true });
   await editing.getByRole("button", { name: "+ Add person" }).click();
   await editing.locator(".relative-picker-input").fill("ana");
   await editing.locator(".relative-picker-option", { hasText: "Ana Kos" }).click();
@@ -167,7 +167,7 @@ test("a note written for later waits in the notebook, is filed from there, and s
 
   // Settled, it leaves the open list and shows under Done.
   await filed.locator(".research-chip-check").click();
-  await expect(page.locator(".tools-research-empty")).toHaveText("No note matches.");
+  await expect(page.locator(".tools-research-empty")).toHaveText("No task matches.");
   await page.locator(".tools-research").getByRole("tab", { name: "Done" }).click();
   await expect(page.locator(".research-row.is-done")).toHaveCount(1);
 
@@ -197,14 +197,14 @@ test("the save preview words the notes, and the notebook clears the done ones", 
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.locator(".edit-person").waitFor();
 
-  const dialog = page.getByRole("dialog", { name: "New research note" });
-  await page.getByRole("button", { name: "+ Research note" }).click();
-  await dialog.getByRole("tab", { name: /Task/ }).click();
+  const dialog = page.getByRole("dialog", { name: "New task" });
+  await page.getByRole("button", { name: "+ Task" }).click();
+  await dialog.getByRole("tab", { name: /To-do/ }).click();
   await dialog.locator("textarea").fill("Check the passenger lists");
   await dialog.getByRole("button", { name: "Save" }).click();
   const death = page.locator(".edit-event", { hasText: "Death" });
   await death.locator(".edit-event-addfield").click();
-  await page.locator(".dd-menu [role=option]", { hasText: "Research note" }).click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Task" }).click();
   await dialog.locator("textarea").fill("Where did he die?");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(death.locator(".research-ref")).toHaveCount(1);
@@ -214,8 +214,8 @@ test("the save preview words the notes, and the notebook clears the done ones", 
   await page.locator(".app-head-actions .export-btn").click();
   const preview = page.getByRole("dialog", { name: "Save preview" });
   await expect(preview).toContainText("Check the passenger lists");
-  await expect(preview).toContainText("Research note: + Death — Where did he die?");
-  await expect(preview).toContainText("Research note: + Check the passenger lists");
+  await expect(preview).toContainText("Task: + Death — Where did he die?");
+  await expect(preview).toContainText("Task: + Check the passenger lists");
   await expect(preview).not.toContainText("_RESEARCH");
   await expect(preview).not.toContainText("Other lines");
   await preview.getByRole("button", { name: "Cancel" }).click();
@@ -230,8 +230,8 @@ test("the save preview words the notes, and the notebook clears the done ones", 
   await rows.first().locator(".research-chip-check").click();
   await page.locator(".tools-research").getByRole("tab", { name: "Done" }).click();
   await expect(rows).toHaveCount(2);
-  await page.getByRole("button", { name: "Remove the done notes (2)" }).click();
-  await expect(page.locator(".tools-research-empty")).toHaveText("No research notes yet. Add one here, or in Edit on a person's card or an event.");
+  await page.getByRole("button", { name: "Remove the done tasks (2)" }).click();
+  await expect(page.locator(".tools-research-empty")).toHaveText("No tasks yet. Add one here, or in Edit on a person's card or an event.");
 
   // One undo step brings both back, filed where they were.
   await page.keyboard.press("Control+z");
@@ -248,5 +248,5 @@ test("B opens a research note for later", async ({ page }) => {
   await page.locator(".edit-person").waitFor();
   // From the page itself, not from inside a field, where B is a letter.
   await page.locator("body").press("b");
-  await expect(page.getByRole("dialog", { name: "New research note" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "New task" })).toBeVisible();
 });

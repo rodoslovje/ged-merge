@@ -3631,6 +3631,15 @@ button:focus-visible {
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
+/* "+ Task" stands at the row's far end under the notebook's mark: it adds the
+   reader's working material, not the person's data. */
+.edit-name-chip-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  border-style: solid;
+}
 /* The couple's own "+ Add note" / "+ Add link" beside the partner: shown, as
    "+ Add family event" is — hidden, nothing said a family could hold a note. */
 .edit-family-card-row .edit-name-chip-add { opacity: 1; }
