@@ -124,6 +124,8 @@ import { TranslationChips } from "./edit/TranslationChips";
 import { EventList } from "./edit/EventList";
 import { CopyEventDialog, type CopyEventRequest } from "./edit/CopyEventDialog";
 import { NotesEditor } from "./edit/NotesEditor";
+import { setNotesCollapsed, useNotesCollapsed } from "./notesCollapse";
+import { FoldNotesIcon } from "./icons/FoldNotesIcon";
 import { personMapOf } from "./map/personMap";
 
 /** The person's places map, in the shared Leaflet lazy chunk. */
@@ -287,6 +289,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
   const [notesAdded, setNotesAdded] = useState(false);
   /** The "search elsewhere" rail, in the Relatives rail's place; stays open from person to person. */
   const [searchOpen, setSearchOpen] = useState(false);
+  const notesFold = useNotesCollapsed();
   const widerOpen = settings.widerFamily.open && !searchOpen;
   // Whether the user has clicked "+ FamilySearch ID" for the current person.
   const [fsIdAdded, setFsIdAdded] = useState(false);
@@ -2042,6 +2045,18 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               }}
             >
               <SearchIcon size={16} />
+            </button>
+            {/* One switch for every long note on screen — the person's, the
+                families', the events' and their associates'. */}
+            <button
+              type="button"
+              className="tree-open-btn edit-notes-fold-toggle"
+              aria-pressed={notesFold.collapsed}
+              aria-label={t(notesFold.collapsed ? "edit.notesExpandAll" : "edit.notesCollapseAll")}
+              title={t(notesFold.collapsed ? "edit.notesExpandAllTooltip" : "edit.notesCollapseAllTooltip")}
+              onClick={() => setNotesCollapsed(!notesFold.collapsed)}
+            >
+              <FoldNotesIcon size={16} folded={notesFold.collapsed} />
             </button>
           </div>
         </div>

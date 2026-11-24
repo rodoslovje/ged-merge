@@ -47,8 +47,8 @@ test("edit mode: long notes fold to their first line, one by one or all at once"
   await expect(folded).toHaveCount(1);
   await expect.poll(async () => (await second.boundingBox())!.height).toBeLessThan(openHeight / 3);
 
-  // "Collapse all" folds the rest and is remembered by the browser.
-  await page.getByRole("button", { name: "Collapse all" }).click();
+  // "Collapse notes" folds the rest and is remembered by the browser.
+  await page.getByRole("button", { name: "Collapse notes" }).click();
   await expect(folded).toHaveCount(2);
   await expect.poll(() => page.evaluate(() => localStorage.getItem("notesCollapsed"))).toBe("true");
 
@@ -57,8 +57,8 @@ test("edit mode: long notes fold to their first line, one by one or all at once"
   await expect(folded).toHaveCount(1);
   await expect(second).toContainText("next: the death register");
 
-  await page.getByRole("button", { name: "Collapse all" }).click();
-  await expect(folded).toHaveCount(2);
-  await page.getByRole("button", { name: "Expand all" }).click();
+  await page.getByRole("button", { name: "Expand notes" }).click();
   await expect(folded).toHaveCount(0);
+  await page.getByRole("button", { name: "Collapse notes" }).click();
+  await expect(folded).toHaveCount(2);
 });

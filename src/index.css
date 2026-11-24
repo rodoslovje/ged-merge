@@ -2429,11 +2429,14 @@ button:focus-visible {
 .edit-actions {
   margin-left: auto;
   align-self: flex-start;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  /* Back on a line of its own, the icon toggles in one row under it: stacked
+     one per line, three of them stood taller than the parents beside them. */
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: end;
   gap: 8px;
 }
+.edit-actions > :first-child { grid-column: 1 / -1; justify-self: end; }
 /* Back and the Relatives toggle: one height, though one carries a label and
    the other only an icon. */
 .edit-actions > .tree-open-btn {
@@ -2451,6 +2454,7 @@ button:focus-visible {
   .edit-actions {
     order: -1;
     flex: 0 0 100%;
+    display: flex;
     flex-direction: row;
     justify-content: flex-end;
   }
@@ -4902,7 +4906,6 @@ button:focus-visible {
   overflow: hidden;
   font-weight: 600;
 }
-.note-fold-all { color: var(--muted); }
 
 /* The private lock sits inside the box at the LEFT edge — the mirror of the
  * × clear button: invisible at rest, revealed on the chip's hover/focus,

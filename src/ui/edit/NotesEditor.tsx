@@ -10,7 +10,7 @@ import { translationLine } from "../../gedcom/translation";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
 import { useTargetFormat } from "../TargetFormatContext";
 import { privateFlagWritable } from "../../gedcom/private";
-import { isCollapsibleNote, setNotesCollapsed, useNotesCollapsed } from "../notesCollapse";
+import { isCollapsibleNote, useNotesCollapsed } from "../notesCollapse";
 
 /**
  * How wide a note may be before it stops riding beside the fields it belongs to.
@@ -238,11 +238,6 @@ export function NotesEditor({
     )));
   }
 
-  // "Fold all" while any long note here is open, "unfold all" otherwise — so
-  // the button always does something to the notes it sits beside.
-  const longNotes = notes.flatMap((n, i) => (!isHidden(n) && isCollapsibleNote(n.text) ? [i] : []));
-  const anyOpen = longNotes.length ? longNotes.some((i) => !isFolded(i)) : !fold.collapsed;
-
   return (
     <div className={`edit-notes${className ? ` ${className}` : ""}`}>
       {sectionLabel ? (
@@ -257,16 +252,6 @@ export function NotesEditor({
           >
             + {t("edit.addNote")}
           </button>
-          {(longNotes.length > 0 || fold.collapsed) && (
-            <button
-              type="button"
-              className="edit-name-chip note-fold-all"
-              title={t(anyOpen ? "edit.notesCollapseAllTooltip" : "edit.notesExpandAllTooltip")}
-              onClick={() => setNotesCollapsed(anyOpen)}
-            >
-              {anyOpen ? "▸" : "▾"} {t(anyOpen ? "edit.notesCollapseAll" : "edit.notesExpandAll")}
-            </button>
-          )}
         </div>
       ) : (
         noteFields
