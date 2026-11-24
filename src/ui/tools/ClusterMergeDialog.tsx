@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { xrefLabel } from "../../gedcom/nameDisplay";
@@ -49,6 +49,7 @@ export function ClusterMergeDialog({
   const picked = groups.filter((g) => ticked.has(g.key));
   // Keyboard confirm: no press to paint the progress cursor in (see busyCursor).
   const ref = useModalKeyboard(true, onCancel, { onConfirm: () => void withBusyCursor(() => onConfirm(survivorId, picked)) });
+  const titleId = useId();
   const indirect = membersWithoutDirectPair(cluster, survivorId);
   const removedCount =
     cluster.memberIds.length - 1 + picked.reduce((n, g) => n + g.memberIds.length - 1, 0);
@@ -103,9 +104,10 @@ export function ClusterMergeDialog({
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="confirm-dialog-title">
+        <p id={titleId} className="confirm-dialog-title">
           {t("tools.duplicates.cluster.mergeAllTitle", { count: cluster.memberIds.length })}
         </p>
         <p className="confirm-dialog-body">{t("tools.duplicates.cluster.mergeAllBody")}</p>
