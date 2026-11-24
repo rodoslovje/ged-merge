@@ -177,6 +177,9 @@ function truncate(s: string, n = 60): string {
 
 interface Ctx {
   spec: Compiled;
+  /** Every tag the other standard defines (7.0 for a 5.x file, 5.5.1 for a
+   *  7.0 one): a tag only that one knows is out of place in this file. */
+  otherUniverse: Set<string>;
   /** xref → record tag, for pointer targets. */
   recordTags: Map<string, string>;
   emit: (issue: ConformanceIssue) => void;
@@ -192,7 +195,9 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
   const base = { recordId, recordTag };
   const id = spec.roots[rec.tag];
   if (!id) {
-    if (spec.universe.has(rec.tag)) tallyMisplaced(ctx, rec, "", "misplacedRoot", base, "");
+    if (spec.universe.has(rec.tag) || (ctx.otherUniverse.has(rec.tag) && !vendorTagInfo(rec.tag))) {
+      tallyMisplaced(ctx, rec, "", "misplacedRoot", base, "");
+    }
     return;
   }
 
@@ -217,7 +222,7 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       if (!tag || tag.startsWith("_")) return;
       const childSpec = struct.children.get(tag);
       if (!childSpec) {
-        if (spec.universe.has(tag) && !vendorTagInfo(tag)) {
+        if ((spec.universe.has(tag) || ctx.otherUniverse.has(tag)) && !vendorTagInfo(tag)) {
           indices.push(i);
           tallyMisplaced(ctx, child, loc.where(), "misplaced", base, loc.path());
           indices.pop();
@@ -559,7 +564,9 @@ function scan(records: GedNode[], table: SpecTable, only?: string): ConformanceI
   const issues: ConformanceIssue[] = [];
   const recordTags = new Map<string, string>();
   for (const r of records) if (r.xref) recordTags.set(r.xref, r.tag);
-  const ctx: Ctx = { spec: compile(table), recordTags, emit: (i) => issues.push(i), misplaced: new Map() };
+  const spec = compile(table);
+  const otherUniverse = compile(spec.is70 ? SPEC_551 : SPEC_70).universe;
+  const ctx: Ctx = { spec, otherUniverse, recordTags, emit: (i) => issues.push(i), misplaced: new Map() };
   for (const rec of records) {
     if (only !== undefined && rec.xref !== only) continue;
     checkRecord(rec, ctx);
