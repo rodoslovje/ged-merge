@@ -108,17 +108,25 @@ export function useDirtyTracking() {
         snapshotsFor(op.kind).current.delete(op.id);
       }
     }
+    const byKind = new Map<SnapshotKind, DirtyOp[]>();
     for (const op of dirtyOps) {
-      const setChanged = setChangedFor(op.kind);
-      if (op.action === "add") {
-        setChanged((prev) => (prev.has(op.id) ? prev : new Set(prev).add(op.id)));
-      } else {
-        setChanged((prev) => {
-          const next = new Set(prev);
-          next.delete(op.id);
-          return next;
-        });
-      }
+      const list = byKind.get(op.kind);
+      if (list) list.push(op);
+      else byKind.set(op.kind, [op]);
+    }
+    for (const [kind, list] of byKind) {
+      setChangedFor(kind)((prev) => {
+        let next: Set<string> | undefined;
+        for (const op of list) {
+          const cur = next ?? prev;
+          if (op.action === "add") {
+            if (!cur.has(op.id)) (next ??= new Set(prev)).add(op.id);
+          } else if (cur.has(op.id)) {
+            (next ??= new Set(prev)).delete(op.id);
+          }
+        }
+        return next ?? prev;
+      });
     }
   }
 
@@ -216,6 +224,27 @@ export function useDirtyTracking() {
       if (raw) snaps.current.set(id, cloneNode(raw));
     }
     setChangedFor(kind)((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }
+
+  /** Mark a batch of individual/family records dirty in one state update per
+   *  kind — avoids O(P²) Set cloning when a bulk tool touches tens of thousands
+   *  of records at once. */
+  function markDirtyBatch(items: ReadonlyArray<{ type: SnapshotKind; id: string }>, dataset: Dataset) {
+    const ops: DirtyOp[] = [];
+    for (const item of items) {
+      if (item.type === "record") continue;
+      const kind = item.type;
+      const snaps = snapshotsFor(kind);
+      if (shouldCaptureFallbackSnapshot(snaps.current.has(item.id), wasLoaded(kind, item.id))) {
+        const raw =
+          kind === "individual"
+            ? dataset.individuals.get(item.id)?.raw
+            : dataset.families.get(item.id)?.raw;
+        if (raw) snaps.current.set(item.id, cloneNode(raw));
+      }
+      ops.push({ kind, id: item.id, action: "add" });
+    }
+    if (ops.length) applyOps(ops, []);
   }
 
   /** Capture first-dirty snapshots when an edit patch is pushed to the undo
@@ -441,6 +470,7 @@ export function useDirtyTracking() {
     recordSnapshots,
     // actions
     markDirty,
+    markDirtyBatch,
     captureSnapshotsForPush,
     onPatchApplied,
     isSubstantive,

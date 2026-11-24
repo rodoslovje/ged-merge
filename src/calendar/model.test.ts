@@ -129,6 +129,12 @@ describe("partners", () => {
     expect(named(ended("DIV"))).not.toContain("@I11@");
     expect(named(ended("SEPA"))).not.toContain("@I11@");
   });
+
+  it("excludes individuals marked private from calendar entries", () => {
+    const priv = dated.replace("0 @I11@ INDI\n", "0 @I11@ INDI\n1 RESN privacy\n");
+    expect(named(dated)).toContain("@I11@");
+    expect(named(priv)).not.toContain("@I11@");
+  });
 });
 
 describe("isRoundAnniversary", () => {

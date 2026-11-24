@@ -149,9 +149,9 @@ function asInlineNote({ node, path }: Dangling): GedNode | undefined {
 
 /** @param only — repair just the pointers one finding names (its row's own
  *  button), instead of every dangling pointer in the file. */
-export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef): RecordPatch[] {
+export function fixDanglingRefs(dataset: Dataset, only?: DanglingRef, targetVersion?: "5.5.1" | "7.0"): RecordPatch[] {
   const defined = definedXrefs(dataset.records);
-  const v70 = versionFamily(dataset.version) === "7.0";
+  const v70 = (targetVersion ?? versionFamily(dataset.version)) === "7.0";
   const patches: RecordPatch[] = [];
 
   for (const rec of dataset.records) {

@@ -76,11 +76,14 @@ export function familyStats(ds: Dataset, rootId: string, nowYear: number): Famil
     if (y !== undefined && (!oldestAncestor || y < oldestAncestor.year)) oldestAncestor = { id, year: y };
   }
 
+  let ancestorGens = 0;
+  for (const g of ancGen.values()) if (g > ancestorGens) ancestorGens = g;
+
   return {
     descendantsByGen,
     descendants: seenDown.size - 1,
     ancestors: ancGen.size - 1,
-    ancestorGens: Math.max(0, ...ancGen.values()),
+    ancestorGens,
     bloodRelatives: blood.size,
     livingBloodRelatives: living,
     oldestAncestor,

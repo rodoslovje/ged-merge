@@ -264,8 +264,14 @@ export function layoutComplete(
       n.key === tree.rootKey ? n : [...n.partners, ...n.children].reduce<Placed | undefined>((hit, c) => hit ?? find(c), undefined);
     root = trees.reduce<Placed | undefined>((hit, t) => hit ?? find(t), undefined) ?? root;
   }
-  const width = Math.max(...panels.map((p) => p.x + p.w)) + PAD * 2;
-  const height = Math.max(...panels.map((p) => p.y + p.h)) + PAD * 2;
+  let maxX = 0;
+  let maxY = 0;
+  for (const p of panels) {
+    if (p.x + p.w > maxX) maxX = p.x + p.w;
+    if (p.y + p.h > maxY) maxY = p.y + p.h;
+  }
+  const width = maxX + PAD * 2;
+  const height = maxY + PAD * 2;
   return { root, trees, panels, width, height };
 }
 

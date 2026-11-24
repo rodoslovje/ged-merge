@@ -89,7 +89,8 @@ export function normalizeDataset(
   // main's spec so the house-style passes below see parseable values. An
   // "unknown" declared version is treated as legacy 5.5.x, matching the
   // serializer's download convention.
-  if (options.version !== false && versionFamily(compare.version) !== versionFamily(profile.version)) {
+  const didMigrateVersion = options.version !== false && versionFamily(compare.version) !== versionFamily(profile.version);
+  if (didMigrateVersion) {
     const seenMigration = new Set<string>();
     const examples: NormChange[] = [];
     const changed = migrateVersion(
@@ -329,7 +330,7 @@ export function normalizeDataset(
   }
 
   const parsed: ParseResult = {
-    version: compare.version,
+    version: didMigrateVersion ? profile.version : compare.version,
     charset: compare.charset,
     records,
     warnings: compare.warnings,

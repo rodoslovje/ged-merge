@@ -406,4 +406,42 @@ describe("privatizeDataset — shared records of a scrubbed person", () => {
     expect(out).toContain("12 Main St");
     expect(out).toContain("jane_passport.jpg");
   });
+
+  it("sanitizes FAM records marked private and strips private child events/notes on deceased people", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 BIRT
+2 DATE 1850
+1 DEAT
+2 DATE 1920
+1 NOTE Public bio
+1 NOTE Secret affair
+2 RESN privacy
+1 EVEN Secret event
+2 DATE 1890
+2 _PRIV Y
+0 @I2@ INDI
+1 NAME Ana /Kovač/
+1 BIRT
+2 DATE 1855
+1 DEAT
+2 DATE 1925
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 RESN privacy
+1 MARR
+2 DATE 1880
+2 PLAC Secret Chapel
+0 TRLR`);
+    const { records, report } = privatizeDataset(ds, opts(), NOW);
+    const out = serializeGedcom(records);
+    expect(out).toContain("Public bio");
+    expect(out).not.toContain("Secret affair");
+    expect(out).not.toContain("Secret event");
+    expect(out).not.toContain("Secret Chapel");
+    expect(report.familiesPrivatized).toBe(1);
+  });
 });

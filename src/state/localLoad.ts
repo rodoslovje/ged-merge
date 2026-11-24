@@ -145,7 +145,10 @@ export class LocalLoads {
     let parsed = await this.freshCompareParse(msg.fileName);
     if (!parsed) return undefined;
     if (msg.normalized) {
-      if (applyNormPatch(parsed.records, msg.normalized)) return runSliced(buildDatasetSteps(parsed), alive);
+      if (applyNormPatch(parsed.records, msg.normalized)) {
+        if (msg.report?.versionMigration) parsed.version = msg.report.versionMigration.to;
+        return runSliced(buildDatasetSteps(parsed), alive);
+      }
       // Not the forest the edits were made against — never expected, as both
       // sides parse the same bytes. Normalize here instead, as a fallback.
       parsed = await this.freshCompareParse(msg.fileName);

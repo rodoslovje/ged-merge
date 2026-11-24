@@ -69,8 +69,15 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
   const via = new Map<string, Set<string>>();
   // Each position carries the side it stands on: the root's father opens the
   // paternal side, the mother the maternal one, and their ancestors inherit it.
-  type Position = { id: string; paternal: boolean };
-  let generation: Position[] = [{ id: rootId, paternal: true }];
+  // `chain` is a singly-linked ancestor path for this position so a corrupt
+  // parent-child cycle cannot loop and exponentially explode the walk.
+  type Chain = { id: string; prev?: Chain };
+  type Position = { id: string; paternal: boolean; chain: Chain };
+  const inChain = (chain: Chain | undefined, id: string): boolean => {
+    for (let c = chain; c; c = c.prev) if (c.id === id) return true;
+    return false;
+  };
+  let generation: Position[] = [{ id: rootId, paternal: true, chain: { id: rootId } }];
   const walls: LineageStats["walls"] = [];
   const walled = new Set<string>();
   for (let gen = 1; gen <= MAX_GENERATIONS; gen++) {
@@ -81,12 +88,16 @@ export function lineageStats(facts: StatsFacts, rootId: string): LineageStats {
       if (!p?.father || !p?.mother) walls.push({ id, gen, father: !p?.father, mother: !p?.mother });
     }
     const next: Position[] = [];
-    for (const { id, paternal } of generation) {
+    for (const { id, paternal, chain } of generation) {
       const p = facts.byId.get(id);
-      if (p?.father) next.push({ id: p.father, paternal: gen === 1 ? true : paternal });
-      if (p?.mother) next.push({ id: p.mother, paternal: gen === 1 ? false : paternal });
+      if (p?.father && !inChain(chain, p.father)) {
+        next.push({ id: p.father, paternal: gen === 1 ? true : paternal, chain: { id: p.father, prev: chain } });
+      }
+      if (p?.mother && !inChain(chain, p.mother)) {
+        next.push({ id: p.mother, paternal: gen === 1 ? false : paternal, chain: { id: p.mother, prev: chain } });
+      }
       for (const parent of [p?.father, p?.mother]) {
-        if (!parent) continue;
+        if (!parent || inChain(chain, parent)) continue;
         const kids = via.get(parent);
         if (kids) kids.add(id);
         else via.set(parent, new Set([id]));

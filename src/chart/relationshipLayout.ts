@@ -287,8 +287,14 @@ export function buildRelationshipChart(
     links.push({ id: `c~${child}`, d, kind: "parent" });
   }
 
-  const width = Math.max(0, ...boxes.map((b) => b.x + NODE_W)) + PAD * 2;
-  const height = Math.max(0, ...boxes.map((b) => b.y + nodeH)) + PAD * 2;
+  let maxX = 0;
+  let maxY = 0;
+  for (const b of boxes) {
+    if (b.x + NODE_W > maxX) maxX = b.x + NODE_W;
+    if (b.y + nodeH > maxY) maxY = b.y + nodeH;
+  }
+  const width = maxX + PAD * 2;
+  const height = maxY + PAD * 2;
   return { boxes, links, width, height, rootKey: steps[0].id };
 }
 

@@ -117,6 +117,11 @@ export function isSmartMatchEven(node: GedNode): boolean {
   return node.tag === "EVEN" && /^(?:smart\s*match(?:ing)?|discovery|record)$/i.test(node.value?.trim() ?? "");
 }
 
+/** The table for an explicit version family ("5.5.1" or "7.0"). */
+export function tableForVersion(version: "5.5.1" | "7.0"): SpecTable {
+  return version === "7.0" ? SPEC_70 : SPEC_551;
+}
+
 /** The table for the version the file's header declares, or undefined when it
  *  names none we hold (the version finding reports that). */
 export function tableFor(records: GedNode[]): SpecTable | undefined {
@@ -191,8 +196,11 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
   const recordTag = rec.tag;
   const base = { recordId, recordTag };
   const id = spec.roots[rec.tag];
+  const otherUniverse = spec.is70 ? compile(SPEC_551).universe : compile(SPEC_70).universe;
   if (!id) {
-    if (spec.universe.has(rec.tag)) tallyMisplaced(ctx, rec, "", "misplacedRoot", base, "");
+    if (spec.universe.has(rec.tag) || (otherUniverse.has(rec.tag) && !vendorTagInfo(rec.tag))) {
+      tallyMisplaced(ctx, rec, "", "misplacedRoot", base, "");
+    }
     return;
   }
 
@@ -217,7 +225,7 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       if (!tag || tag.startsWith("_")) return;
       const childSpec = struct.children.get(tag);
       if (!childSpec) {
-        if (spec.universe.has(tag) && !vendorTagInfo(tag)) {
+        if ((spec.universe.has(tag) || otherUniverse.has(tag)) && !vendorTagInfo(tag)) {
           indices.push(i);
           tallyMisplaced(ctx, child, loc.where(), "misplaced", base, loc.path());
           indices.pop();
@@ -592,9 +600,10 @@ export function isFixable(issue: ConformanceIssue): boolean {
 }
 
 /** The findings in `records` that the fix would settle — for one record only
- *  when `only` names it. */
-export function fixableConformance(records: GedNode[], only?: string): ConformanceIssue[] {
-  const table = tableFor(records);
+ *  when `only` names it. When `version` is given, checks against that target
+ *  version's table instead of re-reading HEAD. */
+export function fixableConformance(records: GedNode[], only?: string, version?: "5.5.1" | "7.0"): ConformanceIssue[] {
+  const table = version ? tableForVersion(version) : tableFor(records);
   if (!table) return [];
   return scan(records, table, only).filter(isFixable);
 }

@@ -1782,9 +1782,7 @@ function AppContent() {
     // captureSnapshotsForPush): a record with no owner card behind it — e.g.
     // the date repair rewriting a SOUR's DATE — is its own dirty subject; with
     // an owner, the owner's patch in the same batch carries the flag.
-    for (const p of patches) {
-      if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-    }
+    dirty.markDirtyBatch(patches, mainDataset);
     return patches.length;
   }
 
@@ -2053,7 +2051,16 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [importRequests, mainDataset, compareDataset, decisions, matches, editVersion],
   );
-  const importRecordCount = wholeFileState ? new Set([...importRecords, ...wholeFileState.records]).size : importRecords.size;
+  const importRecordCount = useMemo(
+    () => (wholeFileState ? new Set([...importRecords, ...wholeFileState.records]).size : importRecords.size),
+    [importRecords, wholeFileState],
+  );
+  const saveActionCount = useMemo(
+    () =>
+      new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size +
+      importRecordCount,
+    [changedPersonIds, changedFamilyIds, changedRecordIds, confirmedMainIds, importRecordCount],
+  );
   // The incoming people those branches add — Merge marks them as added.
   const branchAddIds = useMemo(
     () => new Set([...importRecords, ...(wholeFileState?.records ?? [])].filter((k) => k.startsWith("I:")).map((k) => k.slice(2))),
@@ -2621,7 +2628,7 @@ function AppContent() {
             <>
               <span className="export-btn-label-full">{t("save.gedcom")}</span>
               <span className="export-btn-label-short">{t("save")}</span>
-              {hasSaveAction && <>{" "}({new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds, ...confirmedMainIds]).size + importRecordCount})</>}
+              {hasSaveAction && <>{" "}({saveActionCount})</>}
             </>
           )}
         </button>

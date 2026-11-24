@@ -1066,10 +1066,10 @@ describe("corpus", () => {
     "reunion-5.5.1-utf8.ged": ["pointerExpected ALIA@INDI.ALIA"],
     // A NAME line inside source citations.
     "rootsmagic-5.5.1-utf8.ged": ["misplaced NAME@FAM.MARR.SOUR", "misplaced NAME@INDI.BIRT.SOUR", "misplaced NAME@INDI.BURI.SOUR", "misplaced NAME@INDI.DEAT.SOUR", "misplaced NAME@INDI.SOUR"],
-    // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (NOTE records,
-    // GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN without LANG,
-    // event descriptions on BIRT/MARR, lower-case NAME TYPE.
-    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
+    // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (HEAD.CHAR, NOTE
+    // records, GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN
+    // without LANG, event descriptions on BIRT/MARR, lower-case NAME TYPE.
+    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAR@HEAD", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
     // webtrees: RESN NONE, RESN on source/media records, TIME on event dates,
@@ -1115,5 +1115,25 @@ describe("corpus", () => {
       fixConformance(ds, "notes");
       expect(validateConformance(ds), file).toEqual([]);
     }
+  });
+
+  it("reports other-version standard tags (7.0-only in 5.5.1 and 5.5.1-only in 7.0)", () => {
+    const v551 = buildDataset(parseGedcom(new TextEncoder().encode(
+      "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n1 SOUR TEST\n1 CHAR UTF-8\n" +
+      "0 @I1@ INDI\n1 NAME Jane /Doe/\n1 EXID 123\n1 SNOTE @N1@\n" +
+      "0 @N1@ SNOTE Hello\n0 TRLR\n",
+    ).buffer));
+    const issues551 = validateConformance(v551).map((i) => `${i.category}:${i.messageVars.tag}@${i.messageVars.parent}`);
+    expect(issues551).toContain("misplacedTag:EXID@INDI");
+    expect(issues551).toContain("misplacedTag:SNOTE@INDI");
+    expect(issues551).toContain("misplacedTag:SNOTE@");
+
+    const v70 = buildDataset(parseGedcom(new TextEncoder().encode(
+      "0 HEAD\n1 GEDC\n2 VERS 7.0\n1 CHAR UTF-8\n" +
+      "0 @I1@ INDI\n1 NAME Jane /Doe/\n1 AFN 1234\n0 TRLR\n",
+    ).buffer));
+    const issues70 = validateConformance(v70).map((i) => `${i.category}:${i.messageVars.tag}@${i.messageVars.parent}`);
+    expect(issues70).toContain("misplacedTag:CHAR@HEAD");
+    expect(issues70).toContain("misplacedTag:AFN@INDI");
   });
 });

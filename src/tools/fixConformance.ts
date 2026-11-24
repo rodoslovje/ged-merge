@@ -5,7 +5,7 @@ import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, keepsSourceTag, rebuildFamily, rebuildIndividual, settleSourceFields } from "../gedcom/edit";
-import type { FormatOverrides } from "../normalize/formatOverrides";
+import { writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
 import { untypedEvents, upgradeExtensions } from "../normalize/migrate";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
@@ -276,19 +276,29 @@ type MediaPass = (obje: GedNode) => GedNode[];
 
 /** The media pass a kind runs, when the file's own standard calls the lines
  *  beside FILE out of place (5.5 allows them). */
-function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, issues: ConformanceIssue[]): MediaPass | undefined {
+function mediaPassFor(
+  records: GedNode[],
+  kind: ConformanceFixKind | undefined,
+  issues: ConformanceIssue[],
+  targetVersion?: "5.5.1" | "7.0",
+): MediaPass | undefined {
   if (kind === "fileTitles") {
     return issues.some((i) => i.relocate && i.sample === "TITL") ? dropTitleBesideFileTitle : undefined;
   }
   if (!issues.some((i) => i.relocate)) return undefined;
   // 7.0 writes a FORM as a media type, so a moved `jpg` arrives as one.
-  const form = tableFor(records)?.version.startsWith("7") ? mimeFormOf : undefined;
+  const form = isV7Target(records, targetVersion) ? mimeFormOf : undefined;
   return (obje) => hangMediaLinesUnderFile(obje, form);
 }
 
 /** How many findings of `kind` the fix would settle — the count on its button;
  *  for the media passes, the media records they would change. */
-export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind, overrides?: Pick<FormatOverrides, "standard">): number {
+export function countFixableConformance(
+  dataset: Dataset,
+  kind: ConformanceFixKind,
+  overrides?: Pick<FormatOverrides, "standard" | "writeVersion">,
+): number {
+  const targetVersion = overrides?.writeVersion ? writeVersionOf(overrides) : undefined;
   if (kind === "sourceFields") {
     const pass = sourceFieldPass(dataset.records, overrides);
     return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && pass(cloneNode(r)).length > 0).length;
@@ -296,7 +306,7 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
   if (kind === "extensions") {
     return dataset.records.filter((r) => r.xref && upgradeExtensions([cloneNode(r)]) > 0).length;
   }
-  const fixable = fixableConformance(dataset.records);
+  const fixable = fixableConformance(dataset.records, undefined, targetVersion);
   if (kind === "citationPage") {
     if (!fixable.some((i) => i.citationPage)) return 0;
     return dataset.records.reduce((n, r) => n + (r.xref ? strayCitationPages(r, false) : 0), 0);
@@ -325,14 +335,14 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
   }
   if (kind === "stamps") {
     if (!fixable.some((i) => i.stamps)) return 0;
-    const v7 = isV7Table(dataset.records);
+    const v7 = isV7Target(dataset.records, targetVersion);
     return dataset.records.filter((r) => r.xref && liftNestedStamps(cloneNode(r), v7).length > 0).length;
   }
   if (kind === "agency") {
     if (!fixable.some((i) => i.agency)) return 0;
     return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && hangAgencyUnderData(cloneNode(r)).length > 0).length;
   }
-  const pass = kind === "relocate" || kind === "fileTitles" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
+  const pass = kind === "relocate" || kind === "fileTitles" ? mediaPassFor(dataset.records, kind, fixable, targetVersion) : undefined;
   if (pass) return dataset.records.filter((r) => r.tag === "OBJE" && r.xref && pass(cloneNode(r)).length > 0).length;
   // A grouped row (the media forms) stands for as many lines as it counts.
   return fixable
@@ -347,8 +357,9 @@ export function fixConformance(
   dataset: Dataset,
   kind?: ConformanceFixKind,
   only?: ConformanceRef,
-  overrides?: Pick<FormatOverrides, "standard">,
+  overrides?: Pick<FormatOverrides, "standard" | "writeVersion">,
 ): RecordPatch[] {
+  const targetVersion = overrides?.writeVersion ? writeVersionOf(overrides) : undefined;
   if (kind === "customTags") return only?.value ? removeCustomTag(dataset, only.value) : [];
   if (kind === "xrefs") return only?.id ? renameXref(dataset, only.id, only.value === "7.0") : [];
   if (kind === "sourceFields") {
@@ -368,14 +379,14 @@ export function fixConformance(
       return patches;
     });
   }
-  const scanned = fixableConformance(dataset.records, only?.id);
-  if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
+  const scanned = fixableConformance(dataset.records, only?.id, targetVersion);
+  if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned, targetVersion));
   const issues = scanned.filter(
     (i) => (!kind || kindOf(i) === kind) && (!only || only.path === undefined || i.path === only.path)
       && (!only?.match || (i.messageVars.tag === only.match.tag && i.messageVars.parent === only.match.parent
         && i.sample === only.match.sample && i.fix === only.match.fix)),
   );
-  const mediaPass = mediaPassFor(dataset.records, kind, issues);
+  const mediaPass = mediaPassFor(dataset.records, kind, issues, targetVersion);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
     if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || issue.citationPage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
@@ -436,7 +447,7 @@ export function fixConformance(
     if (mediaPass) for (const p of mediaPassOver(dataset.records, mediaPass, journal)) patches.push(p);
     if (agencyPass) for (const p of mediaPassOver(dataset.records, hangAgencyUnderData, journal, "SOUR")) patches.push(p);
     if (formsPass) {
-      const v7 = isV7Table(dataset.records);
+      const v7 = isV7Target(dataset.records, targetVersion);
       for (const rec of dataset.records) {
         if (!rec.xref || (only?.id && rec.xref !== only.id)) continue;
         if (!fillMediaForms(rec, v7, only?.value, false)) continue;
@@ -517,7 +528,7 @@ export function fixConformance(
       }
     }
     if (stampsPass) {
-      const v7 = isV7Table(dataset.records);
+      const v7 = isV7Target(dataset.records, targetVersion);
       for (const rec of dataset.records) {
         if (!rec.xref || !liftNestedStamps(cloneNode(rec), v7).length) continue;
         const before = cloneNode(rec);
@@ -530,17 +541,17 @@ export function fixConformance(
   return patches;
 }
 
-/** The file's declared version is 7.0 — the stamps pass writes `CREA`
- *  there and `_CREA` in 5.5.1. */
-function isV7Table(records: GedNode[]): boolean {
-  return !!tableFor(records)?.version.startsWith("7");
+/** Whether the repair targets 7.0 — uses the explicit target version when
+ *  given, else the file's declared HEAD version. */
+function isV7Target(records: GedNode[], targetVersion?: "5.5.1" | "7.0"): boolean {
+  return targetVersion ? targetVersion === "7.0" : !!tableFor(records)?.version.startsWith("7");
 }
 
 /** The pass that restates a source's `FILN`/`PERI` lines (see
- *  `settleSourceFields`), in the version the file declares — the save converts
- *  it with the rest when the target is the other one. */
-function sourceFieldPass(records: GedNode[], overrides?: Pick<FormatOverrides, "standard">): MediaPass {
-  const version = isV7Table(records) ? "7.0" : "5.5.1";
+ *  `settleSourceFields`), in the target version (or the file's declared one). */
+function sourceFieldPass(records: GedNode[], overrides?: Pick<FormatOverrides, "standard" | "writeVersion">): MediaPass {
+  const targetVersion = overrides?.writeVersion ? writeVersionOf(overrides) : undefined;
+  const version = isV7Target(records, targetVersion) ? "7.0" : "5.5.1";
   const keep = { FILN: keepsSourceTag(records, "FILN", overrides), PERI: keepsSourceTag(records, "PERI", overrides) };
   return (rec) => settleSourceFields(rec, version, keep);
 }

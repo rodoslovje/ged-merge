@@ -254,7 +254,9 @@ export function buildDescendantFanChart(
       const lane = laneOf[g];
       if (!lane || g > cap) return 0;
       const forms = nameForms(partner, dispOf(partner).name);
-      const px = forms[forms.length - 1].length * bandFont(g) * 0.5 + 10;
+      const shortest = forms[forms.length - 1];
+      if (!shortest) return 0;
+      const px = shortest.length * bandFont(g) * 0.5 + 10;
       return Math.min(px / lane[0] / unit, (BAND_NAME_MAX_FLOORS * labelArc(g + 1)) / lane[0] / unit);
     };
     total = weigh(root, 0, floorOf, bandFloorOf);

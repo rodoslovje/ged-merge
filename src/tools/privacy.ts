@@ -1,6 +1,7 @@
 import { dropResearchNotes } from "../gedcom/research";
 import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/types";
 import { cloneNode, hasChild } from "../gedcom/node";
+import { isPrivateNode } from "../gedcom/private";
 import { VENDOR_PRIVACY_TAGS } from "../gedcom/vendorTags";
 import { birthYear, deathYear, estimateBirthYear, isDeceased, lifespanOf, type BirthEstimate } from "../gedcom/lifespan";
 import { isPointerValue } from "./structure";
@@ -395,6 +396,15 @@ function collectDescendants(id: string, ds: Dataset, into: Set<string>): void {
   }
 }
 
+/** Strip explicitly marked private child nodes (events, notes, media, …) from
+ *  a record that is not itself being sanitized. */
+function stripPrivateChildren(node: GedNode): GedNode {
+  return {
+    ...node,
+    children: node.children.filter((c) => !isPrivateNode(c)).map(stripPrivateChildren),
+  };
+}
+
 /**
  * Produce a redacted copy of `ds.records` per `options`. The live dataset is not
  * mutated; the returned records are ready to serialize and download.
@@ -468,7 +478,7 @@ export function privatizeDataset(
       } else if (isFlagged && addResn) {
         node = stampResn(cloneNode(rec), ds.version); // markOnly: keep data, label it
       } else {
-        node = cloneNode(rec);
+        node = stripData ? stripPrivateChildren(cloneNode(rec)) : cloneNode(rec);
       }
       interim.push(removeSet.size ? scrubRemovedAssociations(node, removeSet) : node);
       continue;
@@ -476,20 +486,22 @@ export function privatizeDataset(
 
     if (rec.tag === "FAM" && rec.xref) {
       const fam = ds.families.get(rec.xref);
-      const spouseFlagged = !!fam && ((!!fam.husband && flagged.has(fam.husband)) || (!!fam.wife && flagged.has(fam.wife)));
+      const famFlagged = !!fam && (fam.private || (!!fam.husband && flagged.has(fam.husband)) || (!!fam.wife && flagged.has(fam.wife)));
       let node = cloneNode(rec);
       if (removeSet.size) node = scrubRemovedAssociations(scrubFamilyPointers(node, removeSet), removeSet);
       if (familyIsEmpty(node)) {
         report.familiesRemoved++;
         continue;
       }
-      if (spouseFlagged && stripData) {
+      if (famFlagged && stripData) {
         node = sanitizeFamily(node, options);
         if (addResn) node = stampResn(node, ds.version);
         report.familiesPrivatized++;
-      } else if (spouseFlagged && addResn) {
+      } else if (famFlagged && addResn) {
         node = stampResn(node, ds.version);
         report.familiesPrivatized++;
+      } else if (stripData) {
+        node = stripPrivateChildren(node);
       }
       interim.push(node);
       continue;

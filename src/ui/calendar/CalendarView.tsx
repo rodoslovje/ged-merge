@@ -268,6 +268,32 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   }, [work, persistWorkspace, mainFileName, rootId, loadedKey, workKey]);
 
   const { format, scheme, livingNames, showAge, captions, large, country, opts, cover, dedication, monthPictures, monthFacts } = work;
+  // Track object URLs created for user-picked photo files so removed/evicted
+  // images and unmount never leak blobs.
+  const fileBlobUrlsRef = useRef(new Set<string>());
+  useEffect(() => {
+    const active = new Set<string>();
+    const collect = (pic: Picture | null | undefined) => {
+      if (pic?.kind !== "photos") return;
+      for (const it of pic.items) if (it.kind === "file") active.add(it.url);
+    };
+    collect(cover);
+    for (const pic of monthPictures) collect(pic);
+    for (const url of active) fileBlobUrlsRef.current.add(url);
+    for (const url of fileBlobUrlsRef.current) {
+      if (!active.has(url)) {
+        URL.revokeObjectURL(url);
+        fileBlobUrlsRef.current.delete(url);
+      }
+    }
+  }, [cover, monthPictures]);
+  useEffect(() => {
+    const urls = fileBlobUrlsRef.current;
+    return () => {
+      for (const url of urls) URL.revokeObjectURL(url);
+      urls.clear();
+    };
+  }, []);
   const patch = (p: Partial<CalendarWork>) => setWork((w) => ({ ...w, ...p }));
   const setFormat = (format: CalendarFormat) => patch({ format });
   const setScheme = (scheme: CalendarScheme) => patch({ scheme });

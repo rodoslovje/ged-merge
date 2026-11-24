@@ -1,5 +1,5 @@
 import type { Dataset } from "../gedcom/types";
-import type { FormatOverrides } from "../normalize/formatOverrides";
+import { writeVersionOf, type FormatOverrides } from "../normalize/formatOverrides";
 import { detectDialect, type FileDialect } from "../normalize/target";
 import { detectSourceCoverage } from "../gedcom/source";
 import type { RecordPatch } from "../ui/historyTypes";
@@ -73,8 +73,9 @@ export const DATE_REPAIRS: ReadonlySet<NormalizeRepairKind> = new Set(["dates", 
 /** Run one repair over the whole file, in place; its undo patches.
  *  `onDate` is told each date a date repair rewrites. */
 export function runNormalizeRepair(dataset: Dataset, kind: NormalizeRepairKind, overrides?: FormatOverrides, onDate?: OnDateFix): RecordPatch[] {
+  const targetVersion = overrides?.writeVersion ? writeVersionOf(overrides) : undefined;
   switch (kind) {
-    case "dangling": return fixDanglingRefs(dataset);
+    case "dangling": return fixDanglingRefs(dataset, undefined, targetVersion);
     case "dups": return fixDuplicatePointers(dataset);
     case "dates": return fixDates(dataset, undefined, onDate);
     case "nonStandard": return fixNonStandardDates(dataset, overrides, undefined, onDate);

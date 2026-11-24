@@ -176,9 +176,11 @@ function adoptRecords(ds: Dataset, next: GedNode[], journal: PassJournal): Recor
     if (nodesEqual(node, r)) continue;
     const before = cloneNode(node);
     journal.keep(r.xref, before);
+    node.tag = r.tag;
+    node.spelling = r.spelling;
     node.value = r.value;
     node.children = r.children;
-    if (NOTE_TAGS.includes(node.tag)) notes.push({ xref: r.xref });
+    if (NOTE_TAGS.includes(before.tag) || NOTE_TAGS.includes(node.tag)) notes.push({ xref: r.xref });
     changed.push({ node, before });
   }
   records.push(...headless);

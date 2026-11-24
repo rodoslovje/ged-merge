@@ -215,11 +215,14 @@ export function computePushCaptureOps(
   wasLoaded: (kind: SnapshotKind, id: string) => boolean = () => true,
 ): PushCaptureOp[] {
   const ops: PushCaptureOp[] = [];
+  const seen = new Set<string>();
   for (const patch of patches) {
     if (patch.before === null) continue;
     const kind: SnapshotKind = patch.type;
     if (!wasLoaded(kind, patch.id)) continue;
-    if (hasSnapshot(kind, patch.id) || ops.some((o) => o.kind === kind && o.id === patch.id)) continue;
+    const key = `${kind}:${patch.id}`;
+    if (seen.has(key) || hasSnapshot(kind, patch.id)) continue;
+    seen.add(key);
     const op: PushCaptureOp = { kind, id: patch.id, value: cloneNode(patch.before) };
     if (patch.type === "record" && patch.owner) op.owner = patch.owner;
     ops.push(op);
