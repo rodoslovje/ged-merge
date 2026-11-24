@@ -185,18 +185,19 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, auth
  * readable line per rewritten structure, for the preview and the report.
  */
 /**
- * Give every record whose id 7.0 does not accept (`@f1_I1@`, `@I-12@`) one
- * it does — upper case, any other character as `_`, a suffix when that is
- * taken — and point every line at the new id. A download does this for every
- * record; the health check offers it record by record (`fixConformance`).
+ * Give every record whose id the target version does not accept one it does
+ * (`conformingXref`: `@f1_I1@` → `@F1_I1@` for 7.0; a leading letter and at
+ * most 22 characters for 5.5.1) and point every line at the new id. A
+ * download does this for every record; the health check offers it record by
+ * record (`fixConformance`).
  */
-function renameXrefsFor70(records: GedNode[], note: (before: string, after: string) => void): void {
+function renameXrefs(records: GedNode[], to70: boolean, note: (before: string, after: string) => void): void {
   const taken = new Set(records.map((r) => r.xref).filter((x): x is string => !!x));
   const renamed = new Map<string, string>();
   for (const rec of records) {
     const xref = rec.xref;
-    if (!xref || xrefConforms(xref, true)) continue;
-    const next = conformingXref(xref, true, taken);
+    if (!xref || xrefConforms(xref, to70)) continue;
+    const next = conformingXref(xref, to70, taken);
     taken.add(next);
     renamed.set(xref, next);
     rec.xref = next;
@@ -214,7 +215,7 @@ export function convertVersion(records: GedNode[], from: OutputVersion, to: Outp
   if (from === to) return changes;
   const note = (before: string, after: string) => changes.push(`${before} → ${after}`);
   migrateVersion(records, from, to, note);
-  if (to === "7.0") renameXrefsFor70(records, note);
+  renameXrefs(records, to === "7.0", note);
   // A converted file is written by its new version's at-sign rule throughout.
   walkNodes(records, (node) => { delete node.atBare; });
 
