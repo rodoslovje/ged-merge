@@ -9,7 +9,7 @@ import { serializeGedcom } from "../../gedcom/serialize";
 import { applyRecordPatches } from "../../ui/historyTypes";
 import { validateStructure } from "../structure";
 import { countFixableConformance, fixConformance } from "../fixConformance";
-import { nodeAtPath, tableFor, validateConformance, type ConformanceIssue } from "./conformance";
+import { fixableConformance, nodeAtPath, tableFor, validateConformance, type ConformanceIssue } from "./conformance";
 import { SPEC_55, SPEC_551, SPEC_555 } from "./spec551";
 import { SPEC_70 } from "./spec70";
 
@@ -1066,10 +1066,10 @@ describe("corpus", () => {
     "reunion-5.5.1-utf8.ged": ["pointerExpected ALIA@INDI.ALIA"],
     // A NAME line inside source citations.
     "rootsmagic-5.5.1-utf8.ged": ["misplaced NAME@FAM.MARR.SOUR", "misplaced NAME@INDI.BIRT.SOUR", "misplaced NAME@INDI.BURI.SOUR", "misplaced NAME@INDI.DEAT.SOUR", "misplaced NAME@INDI.SOUR"],
-    // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (NOTE records,
-    // GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN without LANG,
-    // event descriptions on BIRT/MARR, lower-case NAME TYPE.
-    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
+    // MacFamilyTree 7.0: CHAN/CREA on events, 5.5.1 leftovers (HEAD.CHAR, NOTE
+    // records, GEDC.FORM, source DATE/PLAC/AGNC), FILE without FORM, TRAN
+    // without LANG, event descriptions on BIRT/MARR, lower-case NAME TYPE.
+    "synium-7.0-utf8.ged": ["badY BIRT@INDI.BIRT", "badY MARR@FAM.MARR", "badY NATU@INDI.NATU", "enumCase TYPE@INDI.NAME.TYPE", "misplaced AGNC@SOUR", "misplaced CHAR@HEAD", "misplaced DATE@SOUR", "misplaced FORM@HEAD.GEDC", "misplaced PLAC@REPO", "misplaced PLAC@SOUR", "misplacedRoot NOTE@", "misplacedStamps CREA@INDI.NAME", "missing LANG@FAM.MARR.PLAC.TRAN", "missing LANG@INDI.BIRT.PLAC.TRAN", "missing LANG@INDI.DEAT.PLAC.TRAN", "missing LANG@INDI.RESI.PLAC.TRAN", "missingMany FORM@OBJE.FILE", "nameTypeNearest TYPE@INDI.NAME.TYPE", "pointerUnexpected NOTE@FAM.MARR.NOTE", "pointerUnexpected NOTE@INDI.RESI.NOTE", "pointerUnexpected NOTE@SOUR.NOTE"],
     // A DATE on NAME lines; a header with no SOUR.
     "unknown-5.5.1-utf8.ged": ["misplaced DATE@INDI.NAME", "missing SOUR@HEAD"],
     // webtrees: RESN NONE, RESN on source/media records, TIME on event dates,
@@ -1115,5 +1115,33 @@ describe("corpus", () => {
       fixConformance(ds, "notes");
       expect(validateConformance(ds), file).toEqual([]);
     }
+  });
+  // The table checked is the declared version's alone: a tag only the other
+  // standard defines is as out of place as one in the wrong structure.
+  describe("tags of the other version", () => {
+    const load = (text: string) => buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
+    const found = (text: string) => validateConformance(load(text)).map((i) => `${i.messageKey.split(".").pop()} ${i.messageVars.tag}@${i.messageVars.parent}`);
+    const V551 = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 SOUR TEST\n1 SUBM @U1@\n1 CHAR UTF-8\n0 @U1@ SUBM\n1 NAME A\n";
+    const V70 = "0 HEAD\n1 GEDC\n2 VERS 7.0\n";
+
+    it("reports 7.0 tags in a 5.5.1 file", () => {
+      const out = found(`${V551}0 @I1@ INDI\n1 NAME Jane /Doe/\n1 EXID 123\n1 SNOTE @N1@\n0 @N1@ SNOTE Hello\n0 TRLR\n`);
+      expect(out).toEqual(expect.arrayContaining(["misplaced EXID@INDI", "misplaced SNOTE@INDI", "misplacedRoot SNOTE@"]));
+    });
+
+    it("reports 5.5.1 tags in a 7.0 file", () => {
+      const out = found(`${V70}1 CHAR UTF-8\n0 @I1@ INDI\n1 NAME Jane /Doe/\n1 AFN 1234\n0 TRLR\n`);
+      expect(out).toEqual(expect.arrayContaining(["misplaced CHAR@HEAD", "misplaced AFN@INDI"]));
+    });
+
+    it("leaves a program's own bare tag to the vendor-tag row", () => {
+      expect(found(`${V551}0 @I1@ INDI\n1 NAME Jane /Doe/\n1 NOBI Baron\n0 TRLR\n`).filter((f) => f.includes("NOBI"))).toEqual([]);
+    });
+
+    it("offers no fix that would remove the line", () => {
+      const ds = load(`${V70}0 @I1@ INDI\n1 NAME Jane /Doe/\n1 AFN 1234\n0 TRLR\n`);
+      expect(fixableConformance(ds.records)).toEqual([]);
+      expect(fixConformance(ds)).toEqual([]);
+    });
   });
 });
