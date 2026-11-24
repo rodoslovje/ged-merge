@@ -10,7 +10,6 @@ import { MarriedNameEditor } from "./MarriedNameEditor";
 import { NameVariantEditor } from "./NameVariantEditor";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
 import type { Commit } from "./types";
-import { NotebookIcon } from "../icons/NotebookIcon";
 
 /** Nickname plus any further `NAME` records (married/maiden/aka/…), shown as
  * chips that turn into editable fields on click, plus a single "+ Add name"
@@ -23,8 +22,7 @@ export function OtherNamesEditor({
   onAddLink,
   showAddNote,
   onAddNote,
-  showAddResearch,
-  onAddResearch,
+  trailingControl,
   showAddMedia,
   onAddMedia,
   showAddFsId,
@@ -46,8 +44,9 @@ export function OtherNamesEditor({
   onAddNote: () => void;
   /** True when no research note is filed under the person yet (the section
    * hosts adding once there is one). */
-  showAddResearch: boolean;
-  onAddResearch: () => void;
+  /** What stands at the row's far end, apart from the chips that add the
+   *  person's data — their tasks. */
+  trailingControl?: ReactNode;
   /** True when the person has no media yet, so an empty-state "+ Add media"
    * chip belongs in this row (the tray hosts adding once photos exist). */
   showAddMedia: boolean;
@@ -251,18 +250,7 @@ export function OtherNamesEditor({
           </button>
         )}
         {!hasNamesContent && addNameBtn}
-        {/* Last and apart: a task is the reader's working material, not one
-            more piece of the person's data like the chips before it. */}
-        {showAddResearch && (
-          <button
-            type="button"
-            className="edit-name-chip edit-name-chip-add edit-name-chip-task"
-            title={t("research.addTooltip")}
-            onClick={onAddResearch}
-          >
-            <NotebookIcon size={13} /> + {t("research.add")}
-          </button>
-        )}
+        {trailingControl}
       </div>
     </div>
   );

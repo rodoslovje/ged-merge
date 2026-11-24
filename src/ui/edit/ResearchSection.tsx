@@ -5,6 +5,7 @@ import type { ResearchNote } from "../../gedcom/research";
 import type { GedNode } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { tipProps } from "../IconTip";
+import { NotebookIcon } from "../icons/NotebookIcon";
 import { RESEARCH_ICON, researchTitle, useResearch } from "./ResearchContext";
 
 /** What a note's chip says on hover: its whole text, then its links. */
@@ -14,8 +15,10 @@ function noteTip(note: ResearchNote): string {
 
 /**
  * The person's research notes: everything filed under them, their events and
- * their families, as one row of chips. An open note leads with a box that
- * settles it; the settled ones fold away behind a count.
+ * their families, as chips at the far end of the card's row of "+ Add" chips —
+ * the same place whether there are any or not, apart from the person's data.
+ * An open note leads with a box that settles it; the settled ones fold away
+ * behind a count.
  */
 export function ResearchSection({
   filed,
@@ -61,9 +64,7 @@ export function ResearchSection({
     );
   };
   return (
-    <div className="edit-record-section research-section">
-      <div className="edit-record-label-row">
-        <span className="edit-record-label">{t("research.section")}</span>
+    <span className="research-section" role="group" aria-label={t("research.section")}>
         {open.map(chip)}
         {done.length > 0 && (
           <button
@@ -76,11 +77,10 @@ export function ResearchSection({
           </button>
         )}
         {showDone && done.map(chip)}
-        <button type="button" className="edit-name-chip edit-name-chip-add" title={t("research.addTooltip")} onClick={onAdd}>
-          + {t("research.add")}
+        <button type="button" className="edit-name-chip edit-name-chip-add edit-name-chip-task" title={t("research.addTooltip")} onClick={onAdd}>
+          <NotebookIcon size={13} /> + {t("research.add")}
         </button>
-      </div>
-    </div>
+    </span>
   );
 }
 

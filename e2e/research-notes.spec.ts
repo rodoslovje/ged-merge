@@ -121,7 +121,7 @@ test("edit mode: deleting a research note takes it off everything it was filed u
 
   await chips.first().locator(".research-chip-open").click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete task" }).click();
-  await expect(page.locator(".research-section")).toHaveCount(0);
+  await expect(page.locator(".research-section .research-chip")).toHaveCount(0);
   // The card offers the first note again.
   await expect(page.getByRole("button", { name: "+ Task" })).toBeVisible();
 
@@ -146,7 +146,7 @@ test("a note written for later waits in the notebook, is filed from there, and s
   await fresh.locator("textarea").fill("Newspaper clipping about the Novak farm");
   await fresh.getByRole("button", { name: "Save" }).click();
   // Nothing on the person's card: it is not about them yet.
-  await expect(page.locator(".research-section")).toHaveCount(0);
+  await expect(page.locator(".research-section .research-chip")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
   await page.locator(".tools-tab", { hasText: "Tasks" }).click();

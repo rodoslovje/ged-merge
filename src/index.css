@@ -3631,13 +3631,22 @@ button:focus-visible {
 .edit-name-chip-add:focus-visible { opacity: 1; }
 /* Action chips row — always visible */
 .edit-other-names-actions .edit-name-chip-add { opacity: 1; }
-/* "+ Task" stands at the row's far end under the notebook's mark: it adds the
-   reader's working material, not the person's data. */
+/* The person's tasks stand at the row's far end, "+ Task" last under the
+   notebook's mark: the reader's working material, not the person's data. */
+.research-section {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
 .edit-name-chip-task {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: auto;
   border-style: solid;
 }
 /* The couple's own "+ Add note" / "+ Add link" beside the partner: shown, as
@@ -8427,7 +8436,7 @@ kbd {
   font-size: 0.85rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--panel);
+  background: var(--accent-soft);
 }
 .research-chip:hover,
 .research-chip:focus-within { border-color: var(--accent); }
@@ -8450,7 +8459,7 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 44ch;
+  max-width: 28ch;
 }
 .research-chip-where { color: var(--faint); font-size: 0.78rem; white-space: nowrap; }
 .research-chip.is-done { background: transparent; }
