@@ -1,6 +1,7 @@
 import { dropResearchNotes } from "../gedcom/research";
 import type { Dataset, GedNode, GedcomVersion, Individual } from "../gedcom/types";
 import { cloneNode, hasChild } from "../gedcom/node";
+import { isPrivateNode } from "../gedcom/private";
 import { VENDOR_PRIVACY_TAGS } from "../gedcom/vendorTags";
 import { birthYear, deathYear, estimateBirthYear, isDeceased, lifespanOf, type BirthEstimate } from "../gedcom/lifespan";
 import { isPointerValue } from "./structure";
@@ -84,6 +85,9 @@ export interface PrivacyReport {
   familiesPrivatized: number;
   /** Family records dropped because removal left them empty. */
   familiesRemoved: number;
+  /** Lines and shared records left out because they are marked private
+   *  themselves, whoever they belong to. */
+  privateEntriesRemoved: number;
   submitterRemoved: boolean;
   externalIdsStripped: number;
   contactScrubbed: number;
@@ -380,6 +384,33 @@ function dropOrphanedPersonalRecords(records: GedNode[], referencedBefore: Set<s
   }
 }
 
+// Records that are never left out for a private mark of their own: a person
+// and a family are redacted in place, and the file needs its frame.
+const NEVER_DROPPED = new Set(["INDI", "FAM", "HEAD", "TRLR", "SUBM"]);
+
+/**
+ * `node` without the lines marked private — an event, a note, a media link, a
+ * name, at any depth — and without the pointers to a shared record left out
+ * for the same reason (`dropped`). The mark is the user's own word about that
+ * one line, so it goes whoever the record belongs to, living or not, and
+ * whatever the strip toggles say about flagged people.
+ */
+function withoutPrivateLines(node: GedNode, dropped: ReadonlySet<string>, count: { n: number }): GedNode {
+  let children: GedNode[] | undefined;
+  node.children.forEach((child, i) => {
+    const v = child.value?.trim();
+    if (isPrivateNode(child) || (!!v && dropped.has(v))) {
+      children ??= node.children.slice(0, i);
+      count.n++;
+      return;
+    }
+    const kept = child.children.length ? withoutPrivateLines(child, dropped, count) : child;
+    if (kept !== child) children ??= node.children.slice(0, i);
+    children?.push(kept);
+  });
+  return children ? { ...node, children } : node;
+}
+
 /** Collect an individual and all their descendants (children, grandchildren…). */
 function collectDescendants(id: string, ds: Dataset, into: Set<string>): void {
   const indi = ds.individuals.get(id);
@@ -430,14 +461,27 @@ export function privatizeDataset(
     removed: 0,
     familiesPrivatized: 0,
     familiesRemoved: 0,
+    privateEntriesRemoved: 0,
     submitterRemoved: false,
     externalIdsStripped: 0,
     contactScrubbed: 0,
   };
 
+  // What is marked private on its own — a shared note, a media item, a source;
+  // an event or a note inside a record — leaves a stripped copy as well.
+  const privateRecords = new Set<string>();
+  if (stripData) {
+    for (const rec of ds.records) {
+      if (rec.xref && !NEVER_DROPPED.has(rec.tag) && isPrivateNode(rec)) privateRecords.add(rec.xref);
+    }
+  }
+  const privateCount = { n: privateRecords.size };
+  const publishable = (node: GedNode) => (stripData ? withoutPrivateLines(node, privateRecords, privateCount) : node);
+
   // Phase 1 — flag / remove transform on top-level records.
   const interim: GedNode[] = [];
   for (const rec of ds.records) {
+    if (rec.xref && privateRecords.has(rec.xref)) continue;
     if (rec.tag === "SUBM" && rec.xref && options.file.stripSubmitter) {
       report.submitterRemoved = true;
       continue;
@@ -470,13 +514,19 @@ export function privatizeDataset(
       } else {
         node = cloneNode(rec);
       }
+      node = publishable(node);
+      // A person whose every name was private keeps the redacted one.
+      if (indi && hasChild(rec, "NAME") && !hasChild(node, "NAME")) {
+        node = { ...node, children: [nameNode(indi, options.nameStrategy, options.customName), ...node.children] };
+      }
       interim.push(removeSet.size ? scrubRemovedAssociations(node, removeSet) : node);
       continue;
     }
 
     if (rec.tag === "FAM" && rec.xref) {
       const fam = ds.families.get(rec.xref);
-      const spouseFlagged = !!fam && ((!!fam.husband && flagged.has(fam.husband)) || (!!fam.wife && flagged.has(fam.wife)));
+      // A family marked private is treated as one with a flagged spouse.
+      const spouseFlagged = !!fam && (fam.private || (!!fam.husband && flagged.has(fam.husband)) || (!!fam.wife && flagged.has(fam.wife)));
       let node = cloneNode(rec);
       if (removeSet.size) node = scrubRemovedAssociations(scrubFamilyPointers(node, removeSet), removeSet);
       if (familyIsEmpty(node)) {
@@ -491,12 +541,13 @@ export function privatizeDataset(
         node = stampResn(node, ds.version);
         report.familiesPrivatized++;
       }
-      interim.push(node);
+      interim.push(publishable(node));
       continue;
     }
 
-    interim.push(cloneNode(rec));
+    interim.push(publishable(cloneNode(rec)));
   }
+  report.privateEntriesRemoved = privateCount.n;
 
   // Phase 2 — file-level scrubs across every surviving record.
   const counts = { ids: 0, contact: 0 };
