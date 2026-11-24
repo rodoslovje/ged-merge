@@ -1,5 +1,5 @@
 import { Notice } from "./ui/Notice";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ButtonHTMLAttributes, type DragEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ButtonHTMLAttributes, type DragEvent } from "react";
 import { type RecordPatch, type PendingEditApply, coalescePatches, dropNoopPatches, markMechanical } from "./ui/historyTypes";
 import { cloneNode, recordLookup } from "./gedcom/node";
 import { useUndoRedo } from "./edit-state/useUndoRedo";
@@ -40,18 +40,17 @@ import { rematchedCandidates } from "./state/rematch";
 import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui/scoreDetail";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
-import { confirmedPeople, decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
+import { confirmedPeople, decisionKey, decisionStatusByMainId, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, stampUsageFor, todayGedcom } from "./gedcom/chanCrea";
 import { baseStem, downloadText } from "./ui/download";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { CompareTree } from "./ui/CompareTree";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
-import { SettingsModal } from "./ui/SettingsModal";
 import { KEY, isModalOpen, isEditableTarget, keyHint, modLabel, modShiftLabel } from "./keyboard/shortcuts";
 import { HelpIcon } from "./ui/icons/HelpIcon";
 import { MergeView } from "./ui/MergeView";
 import { EditView } from "./ui/EditView";
-import { ToolsView, type Tool, type ToolView } from "./ui/ToolsView";
+import type { Tool, ToolView } from "./ui/ToolsView";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { ErrorFallback } from "./ui/ErrorFallback";
 import { applyPlaceRename } from "./tools/placeEdit";
@@ -77,12 +76,15 @@ import { useDateEntrySource } from "./ui/edit/DateEntryContext";
 import { mergeDuplicateChain } from "./tools/mergeDuplicate";
 import { mergeCluster } from "./tools/mergeCluster";
 import { duplicatePairKey, parseDuplicatePairKey } from "./tools/duplicates";
-import { SaveDialog } from "./ui/SaveDialog";
 import { recordLabeller } from "./ui/recordLabel";
 import { charsetNotices } from "./ui/charsetNotice";
 import { useConfirmDialog } from "./ui/useConfirmDialog";
 import { ChartsHub } from "./ui/ChartsHub";
 import { Landing } from "./ui/Landing";
+
+const ToolsView = lazy(() => import("./ui/ToolsView").then((m) => ({ default: m.ToolsView })));
+const SettingsModal = lazy(() => import("./ui/SettingsModal").then((m) => ({ default: m.SettingsModal })));
+const SaveDialog = lazy(() => import("./ui/SaveDialog").then((m) => ({ default: m.SaveDialog })));
 import { AppFooter } from "./ui/AppFooter";
 import { PwaReloadPrompt } from "./ui/PwaReloadPrompt";
 import { IconTipLayer } from "./ui/IconTip";
@@ -653,13 +655,20 @@ function AppContent() {
   // worker since torn down (resetWorker) are dropped unhandled.
   const handleWorkerMessageRef = useRef(handleWorkerMessage);
   handleWorkerMessageRef.current = handleWorkerMessage;
+  const handleWorkerFailureRef = useRef(handleWorkerFailure);
+  handleWorkerFailureRef.current = handleWorkerFailure;
   const workerQueueRef = useRef<Promise<void>>(Promise.resolve());
   const workerEpochRef = useRef(0);
   const queueWorkerMessage = useCallback((msg: WorkerResponse) => {
     const epoch = workerEpochRef.current;
     workerQueueRef.current = workerQueueRef.current
       .then(() => (epoch === workerEpochRef.current ? handleWorkerMessageRef.current(msg) : undefined))
-      .catch((err: unknown) => console.error("gedcom worker message:", err));
+      .catch((err: unknown) => {
+        console.error("gedcom worker message:", err);
+        if (epoch === workerEpochRef.current) {
+          handleWorkerFailureRef.current(err instanceof Error ? err.message : String(err));
+        }
+      });
   }, []);
   const { post, reset: respawnWorker } = useGedcomWorker(queueWorkerMessage, handleWorkerFailure);
   const resetWorker = () => {
@@ -767,12 +776,17 @@ function AppContent() {
     return true;
   }
 
+  const slotLoadGenRef = useRef({ main: 0, compare: 0 });
+
   async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
     // Also guards a reload triggered by the external-change check below: if
     // there's unsaved work, this asks before discarding it exactly as it would
     // for any other replace.
     if (role === "main" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.mainReplaceConfirm"), t("confirm.continue")))) return;
+    }
+    if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
+      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
     // A user-initiated load supersedes any in-flight startup restore, so enable
     // session persistence (and stop expecting the cached compare to arrive).
@@ -783,9 +797,8 @@ function AppContent() {
     persistence.expectCompareRef.current = false;
     persistence.pendingSessionRef.current = null;
     persistence.pendingEditStateRef.current = null;
-    if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
-      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
-    }
+
+    const loadGen = ++slotLoadGenRef.current[role];
 
     // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
     // c + combining caron. Our subset fonts don't carry the combining marks, so
@@ -809,10 +822,12 @@ function AppContent() {
       originalHash = await hashFile(file);
       buffer = await file.arrayBuffer();
     } catch {
+      if (loadGen !== slotLoadGenRef.current[role]) return;
       if (role === "main" && keepOpenMain(t("load.unreadable"), false)) return;
       dispatch({ type: "slotError", role, fileName, message: t("load.unreadable") });
       return;
     }
+    if (loadGen !== slotLoadGenRef.current[role]) return;
     // Cache the compare's raw bytes so a reload restores it (only when opted in).
     // The main is NOT written here — the debounced effect owns the main key
     // (it serializes the live, possibly-edited dataset), so a stale original
@@ -1342,9 +1357,7 @@ function AppContent() {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
       if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "undo" });
-      requestAnimationFrame(() => {
-        dispatch({ type: "decisionsSet", decisions: entry.before });
-      });
+      dispatch({ type: "decisionsSet", decisions: entry.before });
     }
   }
 
@@ -1365,9 +1378,7 @@ function AppContent() {
       setSelectedId({ mainId: entry.mainId, compareId: entry.compareId });
       setMode("merge");
       if (entry.patches) setPendingEditApply({ patches: entry.patches, direction: "redo" });
-      requestAnimationFrame(() => {
-        dispatch({ type: "decisionsSet", decisions: entry.after });
-      });
+      dispatch({ type: "decisionsSet", decisions: entry.after });
     }
   }
 
@@ -1531,7 +1542,7 @@ function AppContent() {
   // falls back to leaving Merge's selection untouched when that person isn't
   // itself a match candidate.
   function switchToMerge() {
-    const c = editPersonId ? allSorted.find((c) => c.mainId === editPersonId) : undefined;
+    const c = editPersonId ? indexByMain.get(editPersonId) : undefined;
     if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
     goToPage({ mode: "merge" });
   }
@@ -1559,7 +1570,7 @@ function AppContent() {
     const personId = chartsRootId ?? treeView?.mainId;
     if (target === "edit" && personId) return navigateFromOverlay(personId);
     if (target === "merge" && personId) {
-      const c = allSorted.find((c) => c.mainId === personId);
+      const c = indexByMain.get(personId);
       if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
     }
     goToPageFromOverlay({ mode: target });
@@ -1855,17 +1866,8 @@ function AppContent() {
   const searchIndex = useSearchIndex(mainDataset, nameOf, editVersion, showGlobalSearch);
 
   // Main id → its merge decision (confirmed/deferred/rejected), for the global
-  // search "decision" facet. Undecided candidates carry no entry.
-  const decisionByMain = useMemo(() => {
-    const m = new Map<string, MatchDecisionStatus>();
-    for (const [key, d] of decisions) {
-      if (d.status === "undecided") continue;
-      const parsed = parseDecisionKey(key);
-      if (!parsed) continue;
-      if (!m.has(parsed.mainId)) m.set(parsed.mainId, d.status);
-    }
-    return m;
-  }, [decisions]);
+  // search "decision" facet. Undecided candidates carry no entry; confirmed wins.
+  const decisionByMain = useMemo(() => decisionStatusByMainId(decisions), [decisions]);
 
   // Cross-cutting lookups the search facets need but that aren't baked into the
   // (dataset-derived) rows: unsaved-edit, merge-decision, and kinship-hop per
@@ -2487,20 +2489,25 @@ function AppContent() {
         hasDecisions={decisions.size > 0}
         onCreatePerson={(name) => requestAddPerson(name)}
       />
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        themeMode={themeMode}
-        onThemeMode={changeThemeMode}
-        onClearCache={() => { setShowSettings(false); void persistence.handleClearCache(); }}
-        detectedFormats={lastMainFile?.detectedFormats}
-        initialTab={settingsTab}
-      />
+      {showSettings && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={showSettings}
+            onClose={() => setShowSettings(false)}
+            themeMode={themeMode}
+            onThemeMode={changeThemeMode}
+            onClearCache={() => { setShowSettings(false); void persistence.handleClearCache(); }}
+            detectedFormats={lastMainFile?.detectedFormats}
+            initialTab={settingsTab}
+          />
+        </Suspense>
+      )}
       {confirmDialogElement}
       {/* Save is in the header on a chart too, so its preview and toast must
           show over the chart rather than in the hidden app beneath it. */}
       {preview && (
-        <SaveDialog
+        <Suspense fallback={null}>
+          <SaveDialog
           report={preview.report}
           title={preview.title}
           records={preview.records}
@@ -2528,6 +2535,7 @@ function AppContent() {
             (overlayOpen ? goToPageFromOverlay : goToPage)({ mode: "merge" });
           }}
         />
+        </Suspense>
       )}
       {saveToast && (
         <div className="save-toast" role="status" onClick={() => setSaveToast(null)}>
@@ -3097,6 +3105,7 @@ function AppContent() {
           </div>
           <div className={mode === "tools" ? modeLayerClass : modeLayerHiddenClass}>
             <ErrorBoundary resetKey={mainLoadGen} fallback={(error, reset) => <ErrorFallback error={error} reset={reset} />}>
+            <Suspense fallback={null}>
             <ToolsView
               // Same remount-on-load rule as EditView: tool results (validation
               // report, duplicate pairs) computed from the previous dataset must
@@ -3299,6 +3308,7 @@ function AppContent() {
                 dispatch({ type: "rejectedDuplicatesSet", pairs: next });
               }}
             />
+            </Suspense>
             </ErrorBoundary>
           </div>
         </>

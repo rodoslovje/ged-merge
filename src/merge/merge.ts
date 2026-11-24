@@ -559,7 +559,7 @@ export function mergeDecisions(
   // confirmed matches and their families exist to anchor onto. Records added from
   // here on are reported as imported (preview flags them "Incoming").
   ctx.beginGraftPhase();
-  applyImportBranches(importBranches, main, compare, ctx);
+  ctx.batchInserts(() => applyImportBranches(importBranches, main, compare, ctx));
   if (wholeFile) ctx.batchInserts(() => applyWholeFile(compare, ctx));
 
   // Every family pointer written onto a person, now that the families it names

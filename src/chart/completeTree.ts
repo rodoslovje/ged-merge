@@ -81,7 +81,8 @@ export function buildCompleteTree(
   nameOf?: NameFormatter,
   maxPeople = COMPLETE_MAX_PEOPLE,
 ): CompleteTree {
-  const b = treeBuilder(t, ds, EMPTY_DS, EMPTY_MAPS, undefined, nameOf);
+  const budget = { remaining: maxPeople, hit: false };
+  const b = treeBuilder(t, ds, EMPTY_DS, EMPTY_MAPS, undefined, nameOf, budget);
   const drawn = (p: Individual) => b.expanded.has(nodeKey(p, undefined));
 
   /** The person a panel for `p` hangs from: up through the parents whose line
@@ -115,12 +116,13 @@ export function buildCompleteTree(
     const top = topOf(queue[i]);
     // The root's own panel is drawn whatever it holds, even the root alone.
     if (i > 0 && !worthAPanel(top)) continue;
-    if (people >= maxPeople) {
+    if (people >= maxPeople || budget.hit) {
       truncated = true;
       break;
     }
     const tree = b.build(top);
     if (!tree) continue;
+    if (budget.hit) truncated = true;
     const number = panels.length + 1;
     panels.push({ number, tree });
     walkTree(tree, (n, partner) => {

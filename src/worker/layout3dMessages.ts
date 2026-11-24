@@ -23,4 +23,5 @@ export type Layout3dRequest =
  *  watching the cloud unfold says nothing about the family. */
 export type Layout3dReply =
   | { type: "progress"; share: number }
-  | { type: "pos"; pos: Float32Array };
+  | { type: "pos"; pos: Float32Array }
+  | { type: "error"; message: string };

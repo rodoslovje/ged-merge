@@ -221,6 +221,7 @@ export function treeBuilder(
   maps: MatchMaps,
   isRejected?: (mainId: string, compareId: string) => boolean,
   nameOf: NameFormatter = primaryNameOf,
+  budget?: { remaining: number; hit: boolean },
 ): TreeBuilder {
   // Occurrence count per person: pedigree collapse (and spouses who are also
   // blood relatives) repeat a person in several positions, and every occurrence
@@ -271,9 +272,18 @@ export function treeBuilder(
   };
 
   const build = (main?: Individual, incoming?: Individual): TreeNode | undefined => {
+    if (budget && budget.remaining <= 0) {
+      budget.hit = true;
+      return undefined;
+    }
     const placed = place(main, incoming);
     if (!placed || placed.node.repeat) return placed?.node;
+    if (budget) budget.remaining--;
     const { node } = placed;
+    if (budget && budget.remaining <= 0) {
+      budget.hit = true;
+      return node;
+    }
     const { partners, directChildren } = descend(t, placed.main, placed.incoming, mainDs, compareDs, maps, build, claimKey, expandedFams, placeFmt, nameOf);
     node.partners = partners;
     node.children = directChildren;

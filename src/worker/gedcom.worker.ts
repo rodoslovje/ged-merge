@@ -89,10 +89,15 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     }
     const waiting = held;
     held = undefined;
+    const prevMain = mainDataset;
     handle(req);
-    // A patch that waited was made against a copy older than the whole main
-    // just parsed, which already holds its records as they are now.
-    for (const r of waiting) if (r.type !== "patchMain") handle(r);
+    // Only drain queued work when the whole main actually parsed; if it failed,
+    // running queued requests against the old/missing main would corrupt state.
+    if (mainDataset && mainDataset !== prevMain) {
+      // A patch that waited was made against a copy older than the whole main
+      // just parsed, which already holds its records as they are now.
+      for (const r of waiting) if (r.type !== "patchMain") handle(r);
+    }
     return;
   }
   handle(req);
@@ -112,6 +117,7 @@ function handle(req: WorkerRequest): void {
     // kept to re-rank.
     mainDataset = next;
     lastResult = undefined;
+    explain = undefined;
     mainOverrides = req.formatOverrides;
     profile = applyFormatOverrides(inferMainProfile(next), req.formatOverrides);
     return;
@@ -255,7 +261,7 @@ function handle(req: WorkerRequest): void {
   // and the slot is genuinely loaded, so a throw in the match pipeline must
   // not be reported as a parse error — that would flip a healthy slot to
   // error, evict its cached file, and leave the matching spinner up forever.
-  tryMatch();
+  if (!held) tryMatch();
 };
 
 function errorMessage(err: unknown): string {
@@ -295,7 +301,7 @@ async function loadCompareTable(fileName: string, buffer: ArrayBuffer, generatio
     }
     return;
   }
-  tryMatch();
+  if (!held) tryMatch();
 }
 
 /** Emit the compare slot, normalized to the main profile when available.

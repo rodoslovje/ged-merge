@@ -227,7 +227,10 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       if (workerRef.current !== worker) return;
       const r = e.data;
       if (r.type === "progress") setProgress(r.share);
-      else {
+      else if (r.type === "error") {
+        setProgress(null);
+        setFailed(true);
+      } else {
         positions.current = { pos: r.pos, fresh: true };
         setProgress(null);
       }

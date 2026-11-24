@@ -11,16 +11,15 @@ import { EditTree } from "./EditTree";
 import { RelationshipChart } from "./RelationshipChart";
 import { TimelineChart } from "./TimelineChart";
 import { TimelineLines } from "./TimelineLines";
-import { KinshipChart } from "./KinshipChart";
-import { ReportView } from "./ReportView";
-import { NetworkChart } from "./NetworkChart";
 import { StartPersonSelector } from "./StartPersonSelector";
-import { CalendarView } from "./calendar/CalendarView";
 import { usePublishedView } from "./PublishedView";
 
-// The Map is the one kind with a heavyweight dependency (Leaflet + the offline
-// world outline), so it loads as its own chunk on first use.
+// Heavier chart kinds load as their own chunks on first use.
 const MapChart = lazy(() => import("./map/MapChart"));
+const KinshipChart = lazy(() => import("./KinshipChart").then((m) => ({ default: m.KinshipChart })));
+const ReportView = lazy(() => import("./ReportView").then((m) => ({ default: m.ReportView })));
+const NetworkChart = lazy(() => import("./NetworkChart").then((m) => ({ default: m.NetworkChart })));
+const CalendarView = lazy(() => import("./calendar/CalendarView").then((m) => ({ default: m.CalendarView })));
 
 // The full-page "Charts" hub for a person in the main file: one overlay that
 // hosts every per-person diagram — the pedigree charts (tree / grid / fan /
@@ -120,63 +119,71 @@ export function ChartsHub({ mainDs, rootId, onRootChange, startId, relationFromI
 
   if (settings.kind === "report") {
     return (
-      <ReportView
-        mainDs={mainDs}
-        rootId={rootId}
-        startId={startId}
-        backLabel={backLabel}
-        onBack={onBack}
-        onNavigate={onNavigate}
-        onRootChange={onRootChange}
-        kindSwitcher={kindSwitcher}
-        mode={direction}
-        onModeChange={setDirection}
-      />
+      <Suspense fallback={null}>
+        <ReportView
+          mainDs={mainDs}
+          rootId={rootId}
+          startId={startId}
+          backLabel={backLabel}
+          onBack={onBack}
+          onNavigate={onNavigate}
+          onRootChange={onRootChange}
+          kindSwitcher={kindSwitcher}
+          mode={direction}
+          onModeChange={setDirection}
+        />
+      </Suspense>
     );
   }
 
   if (settings.kind === "calendar") {
     return (
-      <CalendarView
-        mainDs={mainDs}
-        mainFileName={mainFileName}
-        rootId={rootId}
-        backLabel={backLabel}
-        onBack={onBack}
-        onRootChange={onRootChange}
-        kindSwitcher={kindSwitcher}
-      />
+      <Suspense fallback={null}>
+        <CalendarView
+          mainDs={mainDs}
+          mainFileName={mainFileName}
+          rootId={rootId}
+          backLabel={backLabel}
+          onBack={onBack}
+          onRootChange={onRootChange}
+          kindSwitcher={kindSwitcher}
+        />
+      </Suspense>
     );
   }
 
   if (settings.kind === "network") {
     return (
-      <NetworkChart
-        mainDs={mainDs}
-        rootId={rootId}
-        startId={startId}
-        backLabel={backLabel}
-        onBack={onBack}
-        onNavigate={onNavigate}
-        onRootChange={onRootChange}
-        kindSwitcher={kindSwitcher}
-      />
+      <Suspense fallback={null}>
+        <NetworkChart
+          mainDs={mainDs}
+          rootId={rootId}
+          startId={startId}
+          backLabel={backLabel}
+          onBack={onBack}
+          onNavigate={onNavigate}
+          onRootChange={onRootChange}
+          kindSwitcher={kindSwitcher}
+        />
+      </Suspense>
     );
   }
 
   if (settings.kind === "kin") {
     return (
-      <KinshipChart
-        mainDs={mainDs}
-        rootId={rootId}
-        startId={startId}
-        backLabel={backLabel}
-        onBack={onBack}
-        onNavigate={onNavigate}
-        onRootChange={onRootChange}
-        kindSwitcher={kindSwitcher}
-        onOpenGeocode={onOpenGeocode}
-      />
+      <Suspense fallback={null}>
+        <KinshipChart
+          mainDs={mainDs}
+          rootId={rootId}
+          startId={startId}
+          backLabel={backLabel}
+          onBack={onBack}
+          onNavigate={onNavigate}
+          onRootChange={onRootChange}
+          kindSwitcher={kindSwitcher}
+          onOpenGeocode={onOpenGeocode}
+        />
+      </Suspense>
     );
   }
 

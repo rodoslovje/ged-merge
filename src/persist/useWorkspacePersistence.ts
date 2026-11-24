@@ -205,10 +205,10 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
       // A cached start person will be restored explicitly; suppress the one-time
       // auto-default so it doesn't fight the restore.
       if (ws.session?.startId) autoStartRef.current = true;
-      const feed = (role: DatasetRole, sf: NonNullable<typeof ws.main>) => {
+      const feed = (role: DatasetRole, sf: NonNullable<typeof ws.main>): Promise<boolean> => {
         dispatch({ type: "slotLoading", role, fileName: sf.fileName });
-        void sf.blob.arrayBuffer().then((buffer) => {
-          if (cancelled || userLoadedRef.current) return;
+        return sf.blob.arrayBuffer().then((buffer) => {
+          if (cancelled || userLoadedRef.current) return false;
           post(
             sf.isCsv
               ? { type: "parseCsv", fileName: sf.fileName, buffer }
@@ -218,15 +218,17 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
                 },
             [buffer],
           );
+          return true;
         }).catch(() => {
           // A Blob stored in IndexedDB can refuse to be read (the browser
           // evicted its bytes). Without this the slot stays "parsing…" at
           // every boot with nothing dispatched; fail it, drop the unreadable
           // cache entry, and let later loads persist again.
-          if (cancelled || userLoadedRef.current) return;
+          if (cancelled || userLoadedRef.current) return false;
           dispatch({ type: "slotError", role, fileName: sf.fileName, message: t("load.unreadable") });
           void deleteFile(role);
           hydratedRef.current = true;
+          return false;
         });
       };
       // A cached main that crashes the tab (a renderer killed for memory
@@ -241,8 +243,10 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         return;
       }
       writeRestoreMark();
-      feed("main", ws.main); // main first so its profile is set before compare normalizes
-      if (ws.compare) feed("compare", ws.compare);
+      // Read and post main before compare so its profile is always set first.
+      void feed("main", ws.main).then(() => {
+        if (ws.compare && !cancelled && !userLoadedRef.current) void feed("compare", ws.compare);
+      });
 
       // Best-effort, silent check that the on-disk file still matches what we
       // cached (Chrome/Edge only, and only when the browser still reports read
@@ -369,7 +373,9 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
     // reload would restore the old one. `main` is in the deps, so the
     // slotLoading dispatch also cancels any already-scheduled write below.
     if (main.status !== "loaded") return;
+    let active = true;
     const handle = window.setTimeout(async () => {
+      if (!active) return;
       const edited = editVersion !== cleanEditVersionRef.current; // dataset differs from the cached original
       const editState: StoredEditState | undefined = edited
         ? { ...dirty.serialize(), sortEligiblePersonIds: [...sortEligiblePersonIdsRef.current], ...undoRedo.serialize() }
@@ -409,6 +415,7 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         editState,
         savedAt: Date.now(),
       });
+      if (!active) return;
       if (ok) {
         if (needBlob) {
           mainCachedRef.current = true;
@@ -424,7 +431,10 @@ export function useWorkspacePersistence(opts: WorkspacePersistenceOptions) {
         opts.setSaveToast(t("persist.writeFailed"));
       }
     }, 800);
-    return () => window.clearTimeout(handle);
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistEnabled, decisions, importBranches, mergeScope, rejectedDuplicates, startId, main, compare, lastMainFile, editVersion, dirty.changedPersonIds, dirty.changedFamilyIds, dirty.changedRecordIds, mainHandle]);
 

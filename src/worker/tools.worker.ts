@@ -32,7 +32,20 @@ self.onmessage = (e: MessageEvent<ToolsRequest>) => {
   }
   const waiting = req.type === "setMain" ? held : undefined;
   held = undefined;
-  handle(req);
+  if (req.type === "setMain") {
+    try {
+      dataset = datasetFromSnapshot(req.snapshot);
+    } catch (err) {
+      dataset = undefined;
+      const message = err instanceof Error ? err.message : String(err);
+      for (const r of waiting ?? []) {
+        if ("requestId" in r) post({ type: "error", requestId: r.requestId, message });
+      }
+      return;
+    }
+  } else {
+    handle(req);
+  }
   // A patch that waited was made against a copy older than the whole main
   // just taken, which already holds its records as they are now.
   for (const r of waiting ?? []) if (r.type !== "patchMain") handle(r);

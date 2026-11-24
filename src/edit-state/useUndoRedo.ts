@@ -40,6 +40,16 @@ export type UndoEntry =
     };
 
 const MAX_STACK = 100;
+/** Cap retained patches across the undo stack so repeated bulk tool passes
+ *  (each holding before/after clones of tens of thousands of records) cannot
+ *  exhaust browser memory or IndexedDB. Always keeps at least the newest entry. */
+const MAX_TOTAL_PATCHES = 50_000;
+
+function patchCount(entry: UndoEntry): number {
+  if (entry.mode === "edit") return entry.patches.length;
+  if (entry.mode === "merge") return entry.patches?.length ?? 0;
+  return 0;
+}
 
 /** A history stack without the entries that reference the incoming file
  *  (merge decisions, import branches). A merge entry that also changed the
@@ -69,6 +79,10 @@ export function useUndoRedo() {
   const push = useCallback((entry: UndoEntry) => {
     if (undoStack.current.length >= MAX_STACK) undoStack.current.shift();
     undoStack.current.push(entry);
+    let total = undoStack.current.reduce((sum, e) => sum + patchCount(e), 0);
+    while (undoStack.current.length > 1 && total > MAX_TOTAL_PATCHES) {
+      total -= patchCount(undoStack.current.shift()!);
+    }
     redoStack.current = [];
     setCanUndo(true);
     setCanRedo(false);
