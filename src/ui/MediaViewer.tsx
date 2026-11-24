@@ -784,8 +784,10 @@ function MediaStage({
       className={`person-media-cropwrap ${cropEdit ? "crop-editing" : ""}`}
       // Tracked even before there is anything to reveal: faces found while the
       // mouse already rests on the photo must show without leaving and coming back.
-      onMouseEnter={cropEdit ? undefined : () => setRevealing(true)}
-      onMouseLeave={cropEdit ? undefined : () => setRevealing(false)}
+      // Tracked while a region is drawn too: drawing ends with the mouse still
+      // on the photo, and the marked people must show without it leaving first.
+      onMouseEnter={() => setRevealing(true)}
+      onMouseLeave={() => setRevealing(false)}
       onTouchStart={canReveal ? () => setRevealing((v) => !v) : undefined}
       onPointerDown={cropEdit && natural ? (e) => {
         e.preventDefault();
