@@ -47,6 +47,13 @@ describe("onThisWeek", () => {
     expect(week.flatMap((d) => d.items.map((a) => a.event.date?.raw))).toEqual(["30 NOV 1960"]);
   });
 
+  it("keeps a 29 February on the 28th in a year without one", () => {
+    const leap = dataset("0 HEAD\n0 @I1@ INDI\n1 NAME Ana /Kos/\n1 BIRT\n2 DATE 29 FEB 1904\n0 TRLR\n");
+    const days = (today: Date) => onThisWeek(leap, today).flatMap((d) => d.items.map(() => [d.month, d.day]));
+    expect(days(new Date(2027, 1, 25))).toEqual([[2, 28]]);
+    expect(days(new Date(2028, 1, 25))).toEqual([[2, 29]]);
+  });
+
   it("groups a day's events, oldest year first, and counts those past the limit", () => {
     const ds = dataset(`0 HEAD
 0 @I1@ INDI

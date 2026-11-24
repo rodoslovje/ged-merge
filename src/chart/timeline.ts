@@ -338,7 +338,7 @@ function residencePeriods(t: Translate, indi: Individual, barEnd: number | undef
       from,
       to: Math.max(from, to),
       place,
-      label: `${t("event.RESI")}: ${e.date!.raw}${place ? `, ${place}` : ""}`,
+      label: `${t("event.RESI")}: ${displayDate(e.date!)}${place ? `, ${place}` : ""}`,
     };
   });
 }
