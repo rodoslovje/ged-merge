@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { GedNode } from "../../gedcom/types";
-import type { ResearchKind, ResearchNote } from "../../gedcom/research";
+import { researchText, type ResearchKind, type ResearchNote } from "../../gedcom/research";
 
 // A research note about an event is shown and added on the event's own row.
 // What the row needs — the notes filed on its node, a way to open one and to
@@ -35,5 +35,5 @@ export const RESEARCH_ICON: Record<ResearchKind, string> = {
 
 /** A note's first line, for a chip or a list row. */
 export function researchTitle(note: ResearchNote): string {
-  return note.text.split("\n").find((line) => line.trim())?.trim() ?? note.links[0] ?? "";
+  return researchText(note).split("\n").find((line) => line.trim())?.trim() ?? note.links[0] ?? "";
 }

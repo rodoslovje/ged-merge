@@ -15,7 +15,7 @@ import { EDITABLE_LINK_TAGS } from "./edit/shared";
 import { formatCoord } from "../geo/points";
 import { NOTE_TAGS } from "./builder";
 import { NO_TAGS } from "./negative";
-import { RESEARCH_TAG, isResearchPointer, readResearchNote } from "./research";
+import { RESEARCH_TAG, isResearchPointer, readResearchNote, researchText } from "./research";
 import type { Translate } from "../locales/i18n";
 
 /** Individual events the report diffs — the canonical set minus MARR, which
@@ -1010,7 +1010,7 @@ export function sharedRecordTitle(id: string, node: GedNode): string {
     // A note's text *is* its name — a card headed "NOTE N1" told the reader
     // nothing about the note the save was about to write.
     : NOTE_TAGS.includes(node.tag) ? noteHeading(node.value)
-    : node.tag === RESEARCH_TAG ? noteHeading(readResearchNote(node).text)
+    : node.tag === RESEARCH_TAG ? noteHeading(researchText(readResearchNote(node)))
     : undefined;
   return title?.trim() || `${node.tag} ${xrefLabel(id)}`;
 }
@@ -1195,6 +1195,7 @@ export function researchRecordRows(
   labelFor: (xref: string) => string | undefined,
 ): FieldChange[] {
   const now = readResearchNote(after);
+  const nowText = researchText(now);
   const status = (done: boolean) => t(done ? "research.done" : "tools.notebook.status.open");
   const media = (xref: string) => labelFor(xref) ?? xrefLabel(xref);
   if (!before) {
@@ -1203,7 +1204,7 @@ export function researchRecordRows(
       t(`research.kind.${now.kind}`),
       ...(now.done ? [status(true)] : []),
       // A text too long for the heading is cut there, so it is given whole here.
-      ...(now.text && now.text.replace(/\s+/g, " ").trim() !== heading ? [now.text] : []),
+      ...(nowText && nowText.replace(/\s+/g, " ").trim() !== heading ? [nowText] : []),
       ...now.links,
       ...now.media.map(media),
     ];
@@ -1219,7 +1220,7 @@ export function researchRecordRows(
   };
   check(t("research.field.kind"), t(`research.kind.${was.kind}`), t(`research.kind.${now.kind}`));
   check(t("research.field.status"), status(was.done), status(now.done));
-  check(t("research.field.text"), was.text, now.text);
+  check(t("research.field.text"), researchText(was), nowText);
   const set = (field: string, from: string[], to: string[]) => {
     for (const v of from) if (!to.includes(v)) rows.push({ recordId: id, field, from: v, to: "", action: "incoming" });
     for (const v of to) if (!from.includes(v)) rows.push({ recordId: id, field, from: "", to: v, action: "both" });

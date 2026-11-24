@@ -3,6 +3,7 @@ import type { CropRegion } from "../gedcom/source";
 import { lifespanOf, birthYear, birthSortKey, deathYear } from "../gedcom/lifespan";
 import { NOTE_TAGS } from "../gedcom/builder";
 import { researchNotesUnder } from "../gedcom/edit";
+import { researchText } from "../gedcom/research";
 import { isPointer } from "../gedcom/uri";
 import { nameSearchText } from "../match/relatives";
 import type { MatchDecisionStatus } from "../review/types";
@@ -101,7 +102,7 @@ function noteText(indi: Individual, records?: GedNode[]): string {
   const parts: string[] = [];
   // The research notes filed under the person or one of their events: the
   // reader's own questions about them are found by the same filter.
-  if (records) for (const { note } of researchNotesUnder(records, indi.raw)) parts.push(note.text);
+  if (records) for (const { note } of researchNotesUnder(records, indi.raw)) parts.push(researchText(note));
   // `noteRefs` carries every record-level note verbatim, including the ones the
   // display copy hides because only a URL was left after stripping — which is
   // the case this filter exists for.

@@ -8527,7 +8527,10 @@ kbd {
 }
 .research-dialog-done { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .research-dialog-done input { accent-color: var(--accent); }
-.research-dialog-text { width: 100%; resize: vertical; }
+/* The task's text: an ordinary note's box, with its toolbar always on show. */
+.research-dialog-text { width: 100%; }
+.research-dialog-text > .note-rich { min-height: 7em; }
+.research-dialog-text .note-toolbar { display: flex; border-top: none; }
 .research-dialog .add-source-url-wrap + .add-source-url-wrap { margin-top: 4px; }
 .research-dialog-unfiled { color: var(--muted); font-size: 0.9rem; }
 .research-media { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

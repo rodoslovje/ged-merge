@@ -49,7 +49,7 @@ test("edit mode: research notes are added to a person and an event, settled, und
   // A note about the person, from the chip among the card's "+ Add" actions.
   await page.getByRole("button", { name: "+ Task" }).click();
   const dialog = page.getByRole("dialog", { name: "New task" });
-  await dialog.locator("textarea").fill("Where did the family come from?");
+  await dialog.locator(".note-rich").fill("Where did the family come from?");
   await expect(dialog.locator(".research-target-name")).toHaveText("Franc Novak");
   await dialog.getByRole("button", { name: "Save" }).click();
 
@@ -63,7 +63,7 @@ test("edit mode: research notes are added to a person and an event, settled, und
   await page.locator(".dd-menu [role=option]", { hasText: "Task" }).click();
   await expect(dialog.locator(".research-target-event")).toContainText("Death");
   await dialog.getByRole("tab", { name: /To-do/ }).click();
-  await dialog.locator("textarea").fill("Check the passenger lists");
+  await dialog.locator(".note-rich").fill("Check the passenger lists");
   await dialog.locator(".add-source-url-wrap input").first().fill("https://example.org/lists");
   await dialog.getByRole("button", { name: "Save" }).click();
 
@@ -114,7 +114,7 @@ test("edit mode: deleting a research note takes it off everything it was filed u
   await page.locator(".edit-person").waitFor();
 
   await page.getByRole("button", { name: "+ Task" }).click();
-  await page.getByRole("dialog").locator("textarea").fill("A passing thought");
+  await page.getByRole("dialog").locator(".note-rich").fill("A passing thought");
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   const chips = page.locator(".research-section .research-chip");
   await expect(chips).toHaveCount(1);
@@ -143,7 +143,7 @@ test("a note written for later waits in the notebook, is filed from there, and s
   const fresh = page.getByRole("dialog", { name: "New task" });
   await expect(fresh.locator(".research-dialog-unfiled")).toBeVisible();
   await fresh.getByRole("tab", { name: /Find/ }).click();
-  await fresh.locator("textarea").fill("Newspaper clipping about the Novak farm");
+  await fresh.locator(".note-rich").fill("Newspaper clipping about the Novak farm");
   await fresh.getByRole("button", { name: "Save" }).click();
   // Nothing on the person's card: it is not about them yet.
   await expect(page.locator(".research-section .research-chip")).toHaveCount(0);
@@ -200,12 +200,12 @@ test("the save preview words the notes, and the notebook clears the done ones", 
   const dialog = page.getByRole("dialog", { name: "New task" });
   await page.getByRole("button", { name: "+ Task" }).click();
   await dialog.getByRole("tab", { name: /To-do/ }).click();
-  await dialog.locator("textarea").fill("Check the passenger lists");
+  await dialog.locator(".note-rich").fill("Check the passenger lists");
   await dialog.getByRole("button", { name: "Save" }).click();
   const death = page.locator(".edit-event", { hasText: "Death" });
   await death.locator(".edit-event-addfield").click();
   await page.locator(".dd-menu [role=option]", { hasText: "Task" }).click();
-  await dialog.locator("textarea").fill("Where did he die?");
+  await dialog.locator(".note-rich").fill("Where did he die?");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(death.locator(".research-ref")).toHaveCount(1);
 
@@ -238,6 +238,33 @@ test("the save preview words the notes, and the notebook clears the done ones", 
   await expect(rows).toHaveCount(2);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.locator(".research-done-toggle")).toContainText("Done: 2");
+});
+
+test("a task's text takes the formatting a note's does", async ({ page }) => {
+  const fixture = writeFixture();
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(fixture);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  await page.getByRole("button", { name: "+ Task" }).click();
+  const dialog = page.getByRole("dialog", { name: "New task" });
+  const box = dialog.locator(".note-rich");
+  await box.fill("Check the land register");
+  await box.press(process.platform === "darwin" ? "Meta+a" : "Control+a");
+  await dialog.locator(".note-tool--b").click();
+  await expect(box.locator("b")).toHaveText("Check the land register");
+  await dialog.getByRole("button", { name: "Save" }).click();
+
+  // The chip reads the words, not the markup; the dialog opens on them bold.
+  const chip = page.locator(".research-section .research-chip");
+  await expect(chip.locator(".research-chip-text")).toHaveText("Check the land register");
+  await chip.locator(".research-chip-open").click();
+  await expect(page.getByRole("dialog", { name: "Task", exact: true }).locator(".note-rich b")).toHaveText("Check the land register");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+
+  const content = await saveFile(page);
+  expect(content).toMatch(/1 NOTE <p><b>Check the land register<\/b><\/p>/);
 });
 
 test("B opens a research note for later", async ({ page }) => {

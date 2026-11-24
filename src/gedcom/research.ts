@@ -1,4 +1,5 @@
 import { childText, childrenByTag } from "./node";
+import { noteToText } from "./noteHtml";
 import type { GedNode } from "./types";
 import { isPointer } from "./uri";
 
@@ -52,6 +53,8 @@ export interface ResearchNote {
   done: boolean;
   /** When it was written down, as a GEDCOM date (`23 NOV 2026`). */
   created?: string;
+  /** As the file keeps it: plain text, or HTML once formatting was applied —
+   *  the same two shapes an ordinary note has (see {@link researchText}). */
   text: string;
   /** Web addresses (`WWW`). */
   links: string[];
@@ -94,6 +97,9 @@ export function readResearchNote(record: GedNode): ResearchNote {
     media: childrenByTag(record, "OBJE").map((n) => n.value?.trim() ?? "").filter(isPointer),
   };
 }
+
+/** A note's text without its formatting — for a chip, a list row, a search. */
+export const researchText = (note: Pick<ResearchNote, "text">): string => noteToText(note.text);
 
 /**
  * Every research note of a file and where each is filed. One pass over the

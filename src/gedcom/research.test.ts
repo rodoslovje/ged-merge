@@ -5,7 +5,7 @@ import { parseGedcom } from "./parser";
 import { serializeGedcom } from "./serialize";
 import type { GedNode } from "./types";
 import {
-  dropResearchNotes, readResearchNotes, researchNoteNode, researchPointerNode, RESEARCH_TAG, type ResearchNote,
+  dropResearchNotes, readResearchNote, readResearchNotes, researchNoteNode, researchPointerNode, researchText, RESEARCH_TAG, type ResearchNote,
 } from "./research";
 import { mergeDecisions } from "../merge/merge";
 import { decisionKey, type CandidateDecision } from "../review/types";
@@ -128,6 +128,20 @@ describe("research notes — only Save writes them", () => {
       expect(validateConformance({ records: ds.records })).toEqual([]);
       const reread = parse(serializeGedcom(ds.records, outputOptions(ds, other)));
       expect(readResearchNotes(reread.records)).toEqual(readResearchNotes(parse(file(version)).records));
+    });
+  }
+
+  for (const version of ["5.5.1", "7.0"] as const) {
+    it(`keeps a formatted text as the note's HTML in a valid ${version} file`, () => {
+      const ds = parse(file(version));
+      const html = "<p>Check the <b>land register</b></p><p>in Kranj</p>";
+      ds.records.find((r) => r.xref === "@RN2@")!.children.find((c) => c.tag === "NOTE")!.value = html;
+      prepareDownload(ds.records, ds, version, undefined, undefined, true);
+      expect(validateConformance({ records: ds.records })).toEqual([]);
+      const reread = parse(serializeGedcom(ds.records, outputOptions(ds, version)));
+      const note = readResearchNote(reread.records.find((r) => r.xref === "@RN2@")!);
+      expect(note.text).toBe(html);
+      expect(researchText(note)).toBe("Check the land register\nin Kranj");
     });
   }
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FiledNote } from "../../gedcom/edit";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
-import type { ResearchNote } from "../../gedcom/research";
+import { researchText, type ResearchNote } from "../../gedcom/research";
 import type { GedNode } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { tipProps } from "../IconTip";
@@ -10,7 +10,7 @@ import { RESEARCH_ICON, researchTitle, useResearch } from "./ResearchContext";
 
 /** What a note's chip says on hover: its whole text, then its links. */
 function noteTip(note: ResearchNote): string {
-  return [note.text, ...note.links].filter(Boolean).join("\n");
+  return [researchText(note), ...note.links].filter(Boolean).join("\n");
 }
 
 /**
