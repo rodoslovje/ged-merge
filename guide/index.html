@@ -165,7 +165,7 @@
             <li class="guide-toc-sub"><a href="#tool-privacy">↳ Privacy</a></li>
             <li class="guide-toc-sub"><a href="#tool-website">↳ Family website</a></li>
             <li class="guide-toc-sub"><a href="#tool-dna">↳ DNA</a></li>
-            <li class="guide-toc-sub"><a href="#tool-notebook">↳ Notebook</a></li>
+            <li class="guide-toc-sub"><a href="#tool-notebook">↳ Tasks</a></li>
             <li class="guide-toc-sub"><a href="#tool-sources">↳ Sources</a></li>
             <li class="guide-toc-sub"><a href="#places">↳ Places</a></li>
 
@@ -247,7 +247,7 @@
               <li><strong>Background downloads</strong> — while anything is being fetched, a spinner with a count appears beside Undo. Click it for the list: place and address lookups, source pages being read and place registers being downloaded, each with how far it has got. It shows them whichever view started them, so a lookup or download goes on after you close its panel; a register download in the list opens <em>Settings › Map</em>.</li>
               <li><strong>Search everyone</strong> — the <span class="gm-glyph">⌕</span> button (or <span class="gm-key">/</span>) finds any person in the file by name — the opening letters of each part are enough, in any order and with the accents optional, so <em>sebas kala</em> finds Sebastjan Kalan, and every other box you type a name into (the relative pickers, the start person, find-in-chart, the match list) reads a name the same way; <span class="gm-key">Enter</span> opens them, <span class="gm-key">Shift</span><span class="gm-key">Enter</span> opens their charts. Typing a record id instead of a name — <em>@I1262@</em>, or just <em>I1262</em> — finds exactly that person. When a media folder is connected (<a href="#photos">§12</a>), each result also shows the person's photo — their marked region of a group photo — so namesakes are told apart at a glance. Here and in every other list you pick a person from, each person also shows where they lived: the place and address of their last residence, else of their birth, else of their death. <strong>Filters</strong> narrow a common name down: sex, a birth-year range, a place, text in <em>any field</em> of the person's record or of their unions' events (an occupation, a marriage place, a citation's page, a word in a note), whether the person has links, notes or sources, whether you have edited them, their merge decision, and how close they are to your <a href="#home-person">start person</a> (<a href="#home-person">§7</a>). If the search finds nobody, it offers to <strong>add the name you typed</strong> as a new person. On a very large file the search list is prepared in the background once the file has opened; a search opened before it is ready shows how far the preparation has got.</li>
               <li><strong>Add new person</strong> — the <span class="gm-glyph">＋</span> button (or <span class="gm-key">N</span>) creates a person linked to nobody, from any mode — see <a href="#edit">§8</a>.</li>
-              <li><strong>Research note</strong> — the <span class="gm-glyph">🗒</span> button (or <span class="gm-key">B</span>) writes down an idea, a question or a find for later, from any mode — see <a href="#research-notes">§8</a>.</li>
+              <li><strong>Task</strong> — the <span class="gm-glyph">🗒</span> button (or <span class="gm-key">B</span>) writes down an idea, a question or a find for later, from any mode — see <a href="#research-notes">§8</a>.</li>
               <li><strong>Settings</strong> — the <span class="gm-glyph">⚙</span> menu holds appearance (theme and language), name and record display, and data options — see <em>Settings</em> below.</li>
             </ul>
             <div class="gm-callout note">
@@ -1054,32 +1054,33 @@
               read-only chips, each with the name of its system; Merge compares and brings them in, and two people
               carrying the same id from the same system are matched as one, just as with FamilySearch.
             </p>
-            <h3 id="research-notes">Research notes</h3>
+            <h3 id="research-notes">Tasks</h3>
             <p>
-              A research note holds what occurs to you while you work: an idea, a question, a task, or a find you cannot
-              place yet — a newspaper clipping, a photo, a web page. It is your working material, so it is kept apart from
-              the person's data and from their ordinary notes.
+              A task holds what occurs to you while you research: an idea, a question, a to-do, or a find you cannot place
+              yet — a newspaper clipping, a photo, a web page. It is your working material, so it is kept apart from the
+              person's data and from their notes.
             </p>
             <p>
-              On a person, <strong>+ Research note</strong> opens the note's dialog: choose what kind of note it is, write
-              the text, and add links and media as needed. On an event the same entry is in the event's
-              <strong>+ Add</strong> menu, and the note is then about that event. Under <em>Filed under</em> the dialog
-              lists the people and events the note belongs to. <strong>+ Add person</strong> files it under one more: a
+              On a person, <strong>Task</strong> is the last button in the row under the name, set apart from the ones
+              that add to the person's data. It opens the task's dialog: choose what kind of task it is, write its
+              description, formatted like a note where that helps, and add links and media as needed. On an event the same entry is in the event's
+              <strong>+ Add</strong> menu, and the task is then about that event. Under <em>Filed under</em> the dialog
+              lists the people and events the task belongs to. <strong>+ Add person</strong> files it under one more: a
               doubt whether two records are the same person belongs to both.
             </p>
             <p>
-              A person's notes are listed under <strong>Research notes</strong> above their events, each with the event it
-              is about, and an event with an open note carries the note's mark on its own row. Tick a note's box when it
-              is settled: the note folds away behind <em>Done</em>, and its mark leaves the event. The
-              <span class="gm-glyph">🗒</span> button in the header (or <span class="gm-key">B</span>) writes a note for later
-              from any mode; such a note is filed under nobody yet and waits in the <a href="#tool-notebook">Notebook</a>
-              until you know where it belongs. When you delete a person a note is filed under, the note stays and returns
+              A person's tasks stand in the same place, before <strong>Task</strong>, each with the event it is about,
+              and an event with an open task carries the task's mark on its own row. Tick a task's box when it is settled:
+              the task folds away behind <em>Done</em>, and its mark leaves the event. The
+              <span class="gm-glyph">🗒</span> button in the header (or <span class="gm-key">B</span>) writes a task for later
+              from any mode; such a task is filed under nobody yet and waits in the <a href="#tool-notebook">Tasks</a> tool
+              until you know where it belongs. When you delete a person a task is filed under, the task stays and returns
               to the unfiled ones.
             </p>
             <p>
-              Research notes are written only when you save your file: a branch exported from a chart, the Privacy
-              download and the family website leave them out, and the research notes of an incoming file are not brought
-              into yours. In the file each note is a record of its own with the tag <code>_RESEARCH</code>
+              Tasks are written only when you save your file: a branch exported from a chart, the Privacy download and the
+              family website leave them out, and the tasks of an incoming file are not brought into yours. In the file each
+              task is a record of its own with the tag <code>_RESEARCH</code>
               (<a href="#extension-tags">§14</a>). Another genealogy program usually drops such records when it opens the
               file, so keep them in a file GED Merge saves.
             </p>
@@ -1418,7 +1419,7 @@
               hand you a separate file to download. Either way the <em>.ged</em> on your disk is never rewritten: every
               save is a new file in your Downloads folder (<a href="#saving">§14</a>).
               Ten tools sit in the picker at the top —
-              <strong>Statistics</strong>, <strong>Places</strong>, <strong>Sources</strong>, <strong>Notebook</strong>,
+              <strong>Statistics</strong>, <strong>Places</strong>, <strong>Sources</strong>, <strong>Tasks</strong>,
               <strong>Health check</strong>,
               <strong>Find duplicates</strong>, <strong>Normalize &amp; batch</strong>, <strong>Privacy</strong>,
               <strong>Family website</strong> and <strong>DNA</strong> —
@@ -1915,14 +1916,14 @@
                 other testers' lists better. Untick the rows you do not want and <em>Download CSV for
                 FamilyTreeDNA</em>; upload the file there under <em>Genealogy → Surnames → Upload CSV</em>.</li>
             </ul>
-            <h3 id="tool-notebook">Notebook</h3>
+            <h3 id="tool-notebook">Tasks</h3>
             <p>
-              Lists every research note of the file (<a href="#research-notes">§8</a>) in one place: the notes not
-              filed under anyone first, then the rest, each with the people and events it is filed under — a name opens
-              that person in <span class="gm-pill">Edit</span>. Choose between the open notes, the settled ones and all of
-              them, and narrow the list with a word of the text or a person's name. <strong>+ New note</strong> writes a
-              new one, a click on a note opens it, and the box in front of it settles it. Among the settled notes,
-              <strong>Remove the done notes</strong> deletes the ones listed, together with their place under the people
+              Lists every task of the file (<a href="#research-notes">§8</a>) in one place: the tasks not filed under
+              anyone first, then the rest, each with the people and events it is filed under — a name opens that person in
+              <span class="gm-pill">Edit</span>. Choose between the open tasks, the settled ones and all of them, and narrow
+              the list with a word of the text or a person's name. <strong>+ New task</strong> writes a new one, a click on
+              a task opens it, and the box in front of it settles it. Among the settled tasks,
+              <strong>Remove the done tasks</strong> deletes the ones listed, together with their place under the people
               and events they were filed under; their media stay in the file.
             </p>
             <h3 id="tool-sources">Sources</h3>
@@ -3735,7 +3736,7 @@
                 <tr><td><span class="gm-glyph danger">−</span></td><td>Detach a family role (parent, partner, child) without deleting the record</td></tr>
                 <tr><td><span class="gm-glyph">↗</span></td><td>Open an attached link in a new tab</td></tr>
                 <tr><td><span class="gm-glyph">✎</span></td><td>Edit — swap a relationship endpoint, edit a source, or rename a place value</td></tr>
-                <tr><td><span class="gm-glyph">💡</span> <span class="gm-glyph">❓</span> <span class="gm-glyph">📋</span> <span class="gm-glyph">📎</span></td><td>A research note, by its kind: an idea, a question, a task, a find (<a href="#research-notes">§8</a>)</td></tr>
+                <tr><td><span class="gm-glyph">💡</span> <span class="gm-glyph">❓</span> <span class="gm-glyph">📋</span> <span class="gm-glyph">📎</span></td><td>A task, by its kind: an idea, a question, a to-do, a find (<a href="#research-notes">§8</a>)</td></tr>
                 <tr><td><span class="gm-glyph pin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2a7.5 7.5 0 0 0-7.5 7.5c0 5.05 6.36 11.62 6.63 11.9a1.2 1.2 0 0 0 1.74 0c.27-.28 6.63-6.85 6.63-11.9A7.5 7.5 0 0 0 12 2Zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4Z"/></svg></span></td><td>A position: coordinates wherever they are printed, and the house addresses they belong to. Muted while nothing is placed there, green once something is</td></tr>
                 <tr><td><span class="gm-glyph">🔒</span></td><td>Privacy lock — mark a person, family, note or media item private (see <a href="#privacy">§18</a>)</td></tr>
                 <tr><td><span class="gm-glyph">↩</span></td><td>Undo a mark — e.g. unmark a “Remove references” group in Organize sources</td></tr>
@@ -3859,7 +3860,7 @@
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">←</span> · <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">→</span></td><td>Open the previous · next partner (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌫</span> / <span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">⌫</span></td><td>Back — always the same step as the browser's Back button: the person before in Edit (or the Tools list they were opened from), the match you opened a relative from in Merge, the Tools page before, or out of a chart page; the chord goes back from inside a field too (Edit)</td></tr>
                 <tr><td><span class="gm-key">N</span></td><td>Add a new person (linked to nobody)</td></tr>
-                <tr><td><span class="gm-key">B</span></td><td>Write a research note for later</td></tr>
+                <tr><td><span class="gm-key">B</span></td><td>Write a task for later</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">E</span></td><td>Open the <strong>+ Add Event</strong> menu (Edit)</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">1</span> … <span class="gm-key">9</span></td><td>Add a quick event to the open person (Edit) — the buttons under the event list, in their order</td></tr>
                 <tr><td><span class="gm-key">⌥</span><span class="gm-key">⇧</span><span class="gm-key">N</span> · <span class="gm-key">S</span></td><td>Add a note · a source — to the event the cursor is in, otherwise to the person (Edit)</td></tr>

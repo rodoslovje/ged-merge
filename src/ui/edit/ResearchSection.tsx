@@ -1,21 +1,24 @@
 import { useState } from "react";
 import type { FiledNote } from "../../gedcom/edit";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
-import type { ResearchNote } from "../../gedcom/research";
+import { researchText, type ResearchNote } from "../../gedcom/research";
 import type { GedNode } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { tipProps } from "../IconTip";
-import { RESEARCH_ICON, researchTitle, useResearch } from "./ResearchContext";
+import { NotebookIcon } from "../icons/NotebookIcon";
+import { RESEARCH_ICON, ResearchTitle, researchTitle, useResearch } from "./ResearchContext";
 
 /** What a note's chip says on hover: its whole text, then its links. */
 function noteTip(note: ResearchNote): string {
-  return [note.text, ...note.links].filter(Boolean).join("\n");
+  return [researchText(note), ...note.links].filter(Boolean).join("\n");
 }
 
 /**
  * The person's research notes: everything filed under them, their events and
- * their families, as one row of chips. An open note leads with a box that
- * settles it; the settled ones fold away behind a count.
+ * their families, as chips at the far end of the card's row of "+ Add" chips —
+ * the same place whether there are any or not, apart from the person's data.
+ * An open note leads with a box that settles it; the settled ones fold away
+ * behind a count.
  */
 export function ResearchSection({
   filed,
@@ -54,16 +57,14 @@ export function ResearchSection({
           onClick={() => onOpen(note.id)}
         >
           <span aria-hidden="true">{RESEARCH_ICON[note.kind]}</span>
-          <span className="research-chip-text">{researchTitle(note)}</span>
+          <span className="research-chip-text"><ResearchTitle note={note} /></span>
           {where.length > 0 && <span className="research-chip-where">{where.join(", ")}</span>}
         </button>
       </span>
     );
   };
   return (
-    <div className="edit-record-section research-section">
-      <div className="edit-record-label-row">
-        <span className="edit-record-label">{t("research.section")}</span>
+    <span className="research-section" role="group" aria-label={t("research.section")}>
         {open.map(chip)}
         {done.length > 0 && (
           <button
@@ -76,11 +77,10 @@ export function ResearchSection({
           </button>
         )}
         {showDone && done.map(chip)}
-        <button type="button" className="edit-name-chip edit-name-chip-add" title={t("research.addTooltip")} onClick={onAdd}>
-          + {t("research.add")}
+        <button type="button" className="edit-name-chip edit-name-chip-add edit-name-chip-task" title={t("research.addTooltip")} onClick={onAdd}>
+          <NotebookIcon size={13} /> {t("research.add")}
         </button>
-      </div>
-    </div>
+    </span>
   );
 }
 

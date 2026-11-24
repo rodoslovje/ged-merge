@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ResearchFields } from "../../gedcom/edit";
 import { ALL_EVENT_TAGS, eventDisplayLabel } from "../../gedcom/eventTags";
 import { childText } from "../../gedcom/node";
+import { noteToText } from "../../gedcom/noteHtml";
 import { RESEARCH_KINDS, type ResearchKind } from "../../gedcom/research";
 import type { Dataset, GedNode } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -11,6 +12,7 @@ import { Segmented } from "../Segmented";
 import { useNameOf } from "../SettingsContext";
 import { SourceDialogShell } from "../source/SourceDialogShell";
 import { RelativePickerCard } from "./RelativePickerCard";
+import { RichNoteInput } from "./RichNoteInput";
 import { RESEARCH_ICON } from "./ResearchContext";
 import type { NewResearchMedia, ResearchDraft, ResearchTarget } from "./researchEdit";
 import { AddMediaDialog } from "../AddMediaDialog";
@@ -72,7 +74,7 @@ export function ResearchDialog({
     const info = record ? objeInfoOf(record) : undefined;
     return info?.title || (info?.file ? basename(info.file) : m.xref ?? "");
   };
-  const textRef = useRef<HTMLTextAreaElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
   useEffect(() => { textRef.current?.focus(); }, []);
   // Escape in the person search puts the search away, not the whole dialog:
   // caught on the search's own element, ahead of the dialog's listener.
@@ -92,7 +94,7 @@ export function ResearchDialog({
   const stopPicking = useCallback(() => setPicking(false), []);
 
   const cleanLinks = links.map((l) => l.trim()).filter(Boolean);
-  const canSave = !!text.trim() || cleanLinks.length > 0 || media.length > 0;
+  const canSave = !!noteToText(text).trim() || cleanLinks.length > 0 || media.length > 0;
   const save = () => {
     const files = media.filter((m) => !m.xref && m.path).map((m) => m.path!);
     onSave(
@@ -152,16 +154,21 @@ export function ResearchDialog({
           {t("research.done")}
         </label>
       </div>
-      <label className="add-source-field">
+      <div className="add-source-field">
         <span>{t("research.field.text")}</span>
-        <textarea
+        <RichNoteInput
           ref={textRef}
-          className="edit-input research-dialog-text"
-          rows={5}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          text={text}
+          onInput={setText}
+          onBlur={() => {}}
+          onClear={() => setText("")}
+          wrapClassName="research-dialog-text"
+          className="edit-input"
+          placeholder=""
+          title={t("research.field.text")}
+          t={t}
         />
-      </label>
+      </div>
       <div className="add-source-field">
         <span>{t("research.field.links")}</span>
         {links.map((link, i) => (

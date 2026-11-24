@@ -22,8 +22,7 @@ export function OtherNamesEditor({
   onAddLink,
   showAddNote,
   onAddNote,
-  showAddResearch,
-  onAddResearch,
+  trailingControl,
   showAddMedia,
   onAddMedia,
   showAddFsId,
@@ -45,8 +44,9 @@ export function OtherNamesEditor({
   onAddNote: () => void;
   /** True when no research note is filed under the person yet (the section
    * hosts adding once there is one). */
-  showAddResearch: boolean;
-  onAddResearch: () => void;
+  /** What stands at the row's far end, apart from the chips that add the
+   *  person's data — their tasks. */
+  trailingControl?: ReactNode;
   /** True when the person has no media yet, so an empty-state "+ Add media"
    * chip belongs in this row (the tray hosts adding once photos exist). */
   showAddMedia: boolean;
@@ -239,16 +239,6 @@ export function OtherNamesEditor({
             + {t("edit.addNote")}
           </button>
         )}
-        {showAddResearch && (
-          <button
-            type="button"
-            className="edit-name-chip edit-name-chip-add"
-            title={t("research.addTooltip")}
-            onClick={onAddResearch}
-          >
-            + {t("research.add")}
-          </button>
-        )}
         {showAddFsId && (
           <button
             type="button"
@@ -260,6 +250,7 @@ export function OtherNamesEditor({
           </button>
         )}
         {!hasNamesContent && addNameBtn}
+        {trailingControl}
       </div>
     </div>
   );

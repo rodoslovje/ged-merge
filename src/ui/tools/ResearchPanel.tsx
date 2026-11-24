@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next";
 import { researchIndex, type ResearchFields } from "../../gedcom/edit";
 import { displayDateText } from "../../gedcom/dateDisplay";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
-import type { ResearchNote, ResearchRef } from "../../gedcom/research";
+import { researchText, type ResearchNote, type ResearchRef } from "../../gedcom/research";
 import type { Dataset } from "../../gedcom/types";
 import { ResearchDialog } from "../edit/ResearchDialog";
-import { RESEARCH_ICON, researchTitle } from "../edit/ResearchContext";
+import { RESEARCH_ICON, ResearchTitle } from "../edit/ResearchContext";
 import { applyResearchEdit, NEW_RESEARCH_FIELDS, removeResearchNotes, researchDraftOf, type NewResearchMedia, type ResearchDraft, type ResearchTarget } from "../edit/researchEdit";
 import { foldSearch, matchesTerms } from "../globalSearch";
 import type { RecordPatch } from "../historyTypes";
@@ -70,7 +70,7 @@ export function ResearchPanel({
       const indi = dataset.individuals.get(ref.recordId);
       return indi ? nameOf(indi) : whereLabel(ref);
     });
-    return matchesTerms(foldSearch([note.text, ...note.links, ...people].join(" ")), terms);
+    return matchesTerms(foldSearch([researchText(note), ...note.links, ...people].join(" ")), terms);
   });
   const unfiled = shown.filter((note) => !index.refs.get(note.id)?.length);
   const filed = shown.filter((note) => index.refs.get(note.id)?.length);
@@ -92,7 +92,7 @@ export function ResearchPanel({
         onClick={() => { const existing = researchDraftOf(dataset, note.id); if (existing) setDraft(existing); }}
       >
         <span aria-hidden="true">{RESEARCH_ICON[note.kind]}</span>
-        <span className="research-row-text">{researchTitle(note)}</span>
+        <span className="research-row-text"><ResearchTitle note={note} /></span>
       </button>
       <span className="research-row-where">
         {(index.refs.get(note.id) ?? []).map((ref, i) => (

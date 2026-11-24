@@ -2123,8 +2123,15 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
             onAddLink={() => setSourceDialogTarget({ kind: "individual" })}
             showAddNote={!notesAdded && !(person.noteRefs ?? []).some((r) => r.text.trim()) && !mergePreview.notes}
             onAddNote={() => setNotesAdded(true)}
-            showAddResearch={research.filed.length === 0}
-            onAddResearch={research.add}
+            trailingControl={
+              <ResearchSection
+                filed={research.filed}
+                t={t}
+                onOpen={research.open}
+                onToggleDone={research.toggleDone}
+                onAdd={research.add}
+              />
+            }
             showAddMedia={collectMediaRefs(person.raw, dataset.records).length === 0}
             onAddMedia={() => handleAddMedia({ kind: "individual" })}
             addNameNonce={addNameNonce}
@@ -2236,15 +2243,6 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
               </div>
             );
           })()}
-          {research.filed.length > 0 && (
-            <ResearchSection
-              filed={research.filed}
-              t={t}
-              onOpen={research.open}
-              onToggleDone={research.toggleDone}
-              onAdd={research.add}
-            />
-          )}
           {/* What the person never had leads their events. */}
           <NoEventsRow
             assertions={person.noEvents ?? []}

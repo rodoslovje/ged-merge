@@ -136,9 +136,9 @@ export const GEDMERGE_TAGS: readonly OwnTag[] = [
   {
     tag: "_RESEARCH",
     meaning: {
-      en: "a research note: the researcher's own idea, question, task or find waiting to be looked into; it is kept apart from the genealogical data, as neither GEDCOM version has a structure for it",
-      sl: "raziskovalna opomba: raziskovalčeva ideja, vprašanje, naloga ali najdba, ki čaka na poznejšo obdelavo; zapisana je ločeno od rodoslovnih podatkov, ker nobena različica GEDCOM zanjo nima svoje strukture",
-      hr: "istraživačka bilješka: istraživačeva ideja, pitanje, zadatak ili nalaz koji čeka kasniju obradu; zapisana je odvojeno od rodoslovnih podataka jer nijedna inačica GEDCOM-a za nju nema vlastitu strukturu",
+      en: "a research task: the researcher's own idea, question, to-do or find waiting to be looked into; it is kept apart from the genealogical data, as neither GEDCOM version has a structure for it",
+      sl: "naloga pri raziskovanju: raziskovalčeva ideja, vprašanje, opravilo ali najdba, ki čaka na poznejšo obdelavo; zapisana je ločeno od rodoslovnih podatkov, ker nobena različica GEDCOM zanjo nima svoje strukture",
+      hr: "istraživački zadatak: istraživačeva ideja, pitanje, obveza ili nalaz koji čeka kasniju obradu; zapisan je odvojeno od rodoslovnih podataka jer nijedna inačica GEDCOM-a za njega nema vlastitu strukturu",
     },
     context: "a record of its own (level 0) with TYPE (IDEA, QUESTION, TASK or FIND), STAT (OPEN or DONE), DATE (when it was written), NOTE (its text), WWW and OBJE beneath it; and a line on a person, a family or one of their events that points to that record (INDI._RESEARCH @RN1@, INDI.DEAT._RESEARCH @RN1@)",
   },
