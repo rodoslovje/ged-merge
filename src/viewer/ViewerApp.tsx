@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } 
 import { useTranslation } from "react-i18next";
 import type { Dataset, Family, Individual } from "../gedcom/types";
 import { DEFAULT_SITE_DISPLAY, type PubFamily, type PubPerson, type PubSource, type PublishedTree, type PubEvent } from "../publish/model";
+import { NoteText } from "../ui/NoteText";
 import { pubId, xrefOf } from "../publish/hydrate";
 import { photoSrc } from "../publish/photos";
 import { ChartsHub, PUBLISHED_HUB_KINDS } from "../ui/ChartsHub";
@@ -638,14 +639,14 @@ function SourceLine({ s }: { s: PubSource }) {
 }
 
 /** A record's own notes and sources, under its events. */
-function RecordExtras({ notes, sources }: { notes?: string[]; sources?: PubSource[] }) {
+function RecordExtras({ notes, notesRich, sources }: { notes?: string[]; notesRich?: (string | null)[]; sources?: PubSource[] }) {
   const { t } = useTranslation();
   return (
     <>
       {notes && (
         <div className="site-notes">
           <h4>{t("site.person.notes")}</h4>
-          {notes.map((n, i) => <p key={i} className="site-note-text">{n}</p>)}
+          {notes.map((n, i) => <p key={i} className="site-note-text"><NoteText text={n} rich={notesRich?.[i]} /></p>)}
         </div>
       )}
       {sources && (
@@ -729,7 +730,7 @@ function EventRows({ events, family, ages }: {
                   </Suspense>
                 </span>
               )}
-              {e.notes?.map((n, j) => <span key={j} className="site-event-note">{n}</span>)}
+              {e.notes?.map((n, j) => <span key={j} className="site-event-note"><NoteText text={n} rich={e.notesRich?.[j]} /></span>)}
               {e.sources?.map((s, j) => (
                 <span key={j} className="site-event-source">
                   {t("site.person.source")}: <SourceLine s={s} />
@@ -856,7 +857,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
           tagged on it. */}
       <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate, hideFile: true }} />
       <EventRows events={person?.events} ages={showAge ? personEventAges(ds, indi, t) : undefined} />
-      <RecordExtras notes={person?.notes} sources={person?.sources} />
+      <RecordExtras notes={person?.notes} notesRich={person?.notesRich} sources={person?.sources} />
 
       {/* The family as cards: parents and siblings side by side where there
           is room, each family of their own (its events, its children) across
@@ -917,7 +918,7 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
               <h3>{partner ? t("site.person.partner") : t("site.person.family")}</h3>
               {partner && <p className="site-partner">{link(partner)}</p>}
               <EventRows events={pub.families.get(f.id)?.events} family ages={showAge ? familyEventAges(ds, f, t) : undefined} />
-              <RecordExtras notes={pub.families.get(f.id)?.notes} sources={pub.families.get(f.id)?.sources} />
+              <RecordExtras notes={pub.families.get(f.id)?.notes} notesRich={pub.families.get(f.id)?.notesRich} sources={pub.families.get(f.id)?.sources} />
               {f.children.length > 0 && (
                 <>
                   <h4>{t("site.person.children", { count: f.children.length })}</h4>

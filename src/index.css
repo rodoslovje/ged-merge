@@ -12737,3 +12737,17 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 /* A scheme's paper colours, shown as they print: raw colours by design. */
 .cal-swatches { display: inline-flex; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
 .cal-swatches > span { width: 10px; height: 14px; }
+
+/* A note read rather than edited (see NoteText): its paragraphs and list items
+   are spans, laid out as lines here. The first paragraph stays in the line it
+   starts on, so a footnote's mark and its text read as one. */
+.note-text b { font-weight: 700; }
+/* Inside a note the view sets in italics, the note's own italics stand upright. */
+.report-note .note-text i { font-style: normal; }
+.note-text a { color: var(--accent); text-decoration: underline; }
+.note-block { display: inline; }
+.note-block + .note-block,
+.note-list + .note-block,
+.note-list { display: block; }
+.note-item { display: list-item; margin-left: 1.4em; list-style: disc; }
+.note-list--ordered > .note-item { list-style: decimal; }

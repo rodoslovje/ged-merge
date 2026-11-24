@@ -3,6 +3,7 @@ import { altShiftLabel, keyHint } from "../../keyboard/shortcuts";
 import type { NoteRef } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
 import { noteToText } from "../../gedcom/noteHtml";
+import { NoteText } from "../NoteText";
 import { RichNoteInput } from "./RichNoteInput";
 import { linkHref } from "../FieldValue";
 import { translationLine } from "../../gedcom/translation";
@@ -198,7 +199,7 @@ export function NotesEditor({
   if (incoming) {
     noteFields.push(...incoming.notes.map((note, i) => (
       <MergeChip key={`merge-${i}`} className="edit-note-merge" t={t} onTake={incoming.onTake} onSkip={incoming.onSkip}>
-        {noteToText(note.text)}
+        <NoteText text={noteToText(note.text)} rich={note.text} />
       </MergeChip>
     )));
   }

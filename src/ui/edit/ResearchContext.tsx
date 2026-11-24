@@ -1,5 +1,6 @@
-import { createContext, createElement, Fragment, useContext, type ReactNode } from "react";
-import { inlinesToText, isHtmlNote, parseNoteHtml, type NoteInline } from "../../gedcom/noteHtml";
+import { createContext, useContext } from "react";
+import { inlinesToText, isHtmlNote, parseNoteHtml } from "../../gedcom/noteHtml";
+import { noteInlineNodes } from "../NoteText";
 import type { GedNode } from "../../gedcom/types";
 import { researchText, type ResearchKind, type ResearchNote } from "../../gedcom/research";
 
@@ -39,16 +40,6 @@ export function researchTitle(note: ResearchNote): string {
   return researchText(note).split("\n").find((line) => line.trim())?.trim() ?? note.links[0] ?? "";
 }
 
-/** One line of a formatted text as elements: bold, italic and underline kept,
- *  a link as its words (the chip it sits in is itself a button). */
-function inlineNodes(kids: NoteInline[]): ReactNode[] {
-  return kids.map((kid, i) =>
-    kid.t === "text" ? kid.text
-      : kid.t === "br" ? " "
-      : kid.t === "a" ? <Fragment key={i}>{inlineNodes(kid.kids)}</Fragment>
-      : createElement(kid.t, { key: i }, inlineNodes(kid.kids)));
-}
-
 /** {@link researchTitle} with the formatting its first line was given. */
 export function ResearchTitle({ note }: { note: ResearchNote }) {
   if (isHtmlNote(note.text)) {
@@ -57,7 +48,8 @@ export function ResearchTitle({ note }: { note: ResearchNote }) {
       // The first line only: up to the block's first line break.
       const cut = kids.findIndex((kid) => kid.t === "br");
       const line = cut < 0 ? kids : kids.slice(0, cut);
-      if (inlinesToText(line).trim()) return <>{inlineNodes(line)}</>;
+      // A link as its words: the chip the line sits in is itself a button.
+      if (inlinesToText(line).trim()) return <>{noteInlineNodes(line, false)}</>;
     }
   }
   return <>{researchTitle(note)}</>;

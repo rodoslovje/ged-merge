@@ -390,6 +390,12 @@ export function noteDocToText(doc: NoteDoc): string {
   return lines.join("\n");
 }
 
+/** A note's HTML reduced to the clean minimal form (see {@link serializeNoteHtml}):
+ *  what may be placed in a page as markup. */
+export function cleanNoteHtml(html: string): string {
+  return serializeNoteHtml(parseNoteHtml(html));
+}
+
 /** Plain text of a note, whether it was written as HTML or not. */
 export function noteToText(text: string): string {
   return isHtmlNote(text) ? noteDocToText(parseNoteHtml(text)) : text;

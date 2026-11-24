@@ -13,6 +13,7 @@ import { ageWholeYears, parseAge } from "../gedcom/ageValue";
 import type { Translate } from "../locales/i18n";
 import { EVENT_GLYPHS, UNMARRIED_UNION_GLYPH } from "../gedcom/eventTags";
 import { unionMark, unionMarriage } from "../gedcom/union";
+import { richNoteFor } from "../gedcom/builder";
 
 /** Name formatter injected by the UI (honours the Name-display settings). */
 export type { NameOf } from "../chart/timeline";
@@ -84,6 +85,8 @@ export interface FactLine {
   ended?: FactLine;
   /** The event's note, shown under the fact line when notes are enabled. */
   note?: string;
+  /** That note's HTML, when it was written with formatting. */
+  noteRich?: string;
   /** The event's formatted source citations, when enabled. */
   sources?: SourceLine[];
   /** The subject's own whole-years age at this dated event (personal events
@@ -161,6 +164,9 @@ export interface ReportEntry {
   childIndex?: number;
   /** Record-level person notes, shown after the fact lines when enabled. */
   notes?: string[];
+  /** Each note's HTML where it was written with formatting, by its place in
+   *  `notes`; absent when none was. */
+  notesRich?: (string | undefined)[];
   /** Record-level source citations, when enabled. */
   sources?: SourceLine[];
   facts: FactLine[];
@@ -289,7 +295,11 @@ export function tocRows(
  *  Notes keep their URLs — the report shows them verbatim. */
 export function personExtras(entry: ReportEntry, indi: Individual, opts: ReportFactOptions): void {
   const notes = indi.notesWithLinks ?? indi.notes;
-  if (opts.notes && notes?.length) entry.notes = notes;
+  if (opts.notes && notes?.length) {
+    entry.notes = notes;
+    const rich = notes.map((note) => richNoteFor(note, indi.noteRefs));
+    if (rich.some(Boolean)) entry.notesRich = rich;
+  }
   if (opts.sources && indi.sources?.length) entry.sources = indi.sources.map(sourceLine);
 }
 
@@ -445,7 +455,11 @@ function firstChildBirth(fam: Family, ds: Dataset): GedDate | undefined {
 
 function withNote(fact: FactLine, e: GedEvent, opts: ReportFactOptions): FactLine {
   const note = e.noteWithLinks ?? e.note;
-  if (opts.notes && note) fact.note = note;
+  if (opts.notes && note) {
+    fact.note = note;
+    const rich = richNoteFor(note, e.noteRefs);
+    if (rich) fact.noteRich = rich;
+  }
   if (opts.sources && e.sources?.length) fact.sources = e.sources.map(sourceLine);
   return fact;
 }
