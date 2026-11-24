@@ -407,3 +407,98 @@ describe("privatizeDataset — shared records of a scrubbed person", () => {
     expect(out).toContain("jane_passport.jpg");
   });
 });
+
+describe("privatizeDataset — what is marked private on its own", () => {
+  // Two people long dead: nothing here is flagged as living.
+  const MARKED = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jože /Novak/
+1 NAME Pepi /Skrit/
+2 RESN privacy
+1 BIRT
+2 DATE 1850
+1 DEAT
+2 DATE 1920
+1 NOTE Public bio
+1 NOTE Secret affair
+2 _PRIV Y
+1 EVEN Secret event
+2 DATE 1890
+2 RESN privacy
+1 NOTE @N1@
+1 NOTE @N2@
+1 OBJE @M1@
+0 @I2@ INDI
+1 NAME Ana /Kovač/
+2 RESN confidential
+1 BIRT
+2 DATE 1855
+2 OBJE @M2@
+1 DEAT
+2 DATE 1925
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 RESN privacy
+1 MARR
+2 DATE 1880
+2 PLAC Secret Chapel
+1 NOTE Family note
+0 @N1@ NOTE Private shared note
+1 RESN privacy
+0 @N2@ NOTE Open shared note
+0 @M1@ OBJE
+1 FILE secret_letter.jpg
+1 _PRIV Y
+0 @M2@ OBJE
+1 FILE open_portrait.jpg
+0 TRLR`;
+
+  it("leaves out private lines and shared records, whoever they belong to", () => {
+    const { records, report } = privatizeDataset(dataset(MARKED), opts(), NOW);
+    const out = serializeGedcom(records);
+    for (const secret of ["Pepi", "Secret affair", "Secret event", "Private shared note", "secret_letter.jpg", "@N1@", "@M1@"]) {
+      expect(out, secret).not.toContain(secret);
+    }
+    for (const open of ["Jože /Novak/", "Public bio", "Open shared note", "1 NOTE @N2@", "open_portrait.jpg", "2 DATE 1850"]) {
+      expect(out, open).toContain(open);
+    }
+    // The alias, the note, the event, the two pointers, Ana's name, and the two records.
+    expect(report.privateEntriesRemoved).toBe(8);
+    expect(report.flagged).toEqual([]);
+  });
+
+  it("redacts a family marked private as one with a living spouse", () => {
+    const { records, report } = privatizeDataset(dataset(MARKED), opts(), NOW);
+    const fam = records.find((r) => r.xref === "@F1@")!;
+    expect(fam.children.map((c) => c.tag)).toEqual(["RESN", "HUSB", "WIFE"]);
+    expect(report.familiesPrivatized).toBe(1);
+    // Its strip toggles are the flagged people's.
+    const kept = privatizeDataset(dataset(MARKED), opts({ strip: { events: false, notes: true, sources: true, media: true, contact: true } }), NOW);
+    expect(serializeGedcom(kept.records)).toContain("Secret Chapel");
+  });
+
+  it("gives a person whose every name was private the redacted one", () => {
+    const { records } = privatizeDataset(dataset(MARKED), opts(), NOW);
+    const ana = records.find((r) => r.xref === "@I2@")!;
+    expect(ana.children.filter((c) => c.tag === "NAME").map((c) => c.value)).toEqual(["Living"]);
+    expect(serializeGedcom(records)).not.toContain("Kovač");
+  });
+
+  it("goes whatever the strip toggles say", () => {
+    const none = { events: false, notes: false, sources: false, media: false, contact: false };
+    const out = serializeGedcom(privatizeDataset(dataset(MARKED), opts({ strip: none }), NOW).records);
+    expect(out).not.toContain("Secret affair");
+    expect(out).not.toContain("Private shared note");
+  });
+
+  it("keeps everything when the copy is only marked", () => {
+    const { records, report } = privatizeDataset(dataset(MARKED), opts({ resn: "markOnly" }), NOW);
+    const out = serializeGedcom(records);
+    for (const kept of ["Pepi", "Secret affair", "Secret event", "Private shared note", "secret_letter.jpg", "Secret Chapel"]) {
+      expect(out, kept).toContain(kept);
+    }
+    expect(report.privateEntriesRemoved).toBe(0);
+  });
+});
