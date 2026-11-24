@@ -21,7 +21,7 @@ function download(text: string, version?: "5.5.1" | "7.0") {
   const records: GedNode[] = ds.records;
   const prepared = prepareDownload(records, ds, version, when);
   const out = serializeGedcom(records, outputOptions(ds, version ?? (ds.version === "7.0" ? "7.0" : "5.5.1")));
-  return { ...prepared, out, lines: out.trimEnd().split("\n") };
+  return { ...prepared, records, out, lines: out.trimEnd().split("\n") };
 }
 
 describe("convertVersion — saving in the other GEDCOM version", () => {
@@ -109,6 +109,45 @@ describe("convertVersion — saving in the other GEDCOM version", () => {
     expect(lines).toContain("0 @F_1_2@ FAM");
     expect(lines).toContain("1 WIFE @F1_I1@");
     expect(lines).toContain("0 @VOID_2@ INDI");
+  });
+
+  it("7.0 → 5.5.1: record ids 5.5.1 does not accept get ones it does, pointers with them", () => {
+    const { lines, conversion, records } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0",
+      "0 @_PERSON@ INDI", "1 NAME Ana /Novak/", "1 FAMS @A_FAMILY_ID_OF_THIRTY_CHARACTERS@",
+      "0 @A_FAMILY_ID_OF_THIRTY_CHARACTERS@ FAM", "1 WIFE @_PERSON@",
+      "0 @I2@ INDI", "1 NAME Jan /Novak/",
+      "0 TRLR", "",
+    ].join("\n"), "5.5.1");
+    expect(lines).toContain("0 @X_PERSON@ INDI");
+    expect(lines).toContain("1 WIFE @X_PERSON@");
+    expect(lines).toContain("0 @A_FAMILY_ID_OF_THIRT@ FAM");
+    expect(lines).toContain("1 FAMS @A_FAMILY_ID_OF_THIRT@");
+    expect(lines).toContain("0 @I2@ INDI");
+    expect(conversion).toEqual(expect.arrayContaining(["INDI @_PERSON@ → INDI @X_PERSON@"]));
+    expect(validateConformance({ records }).filter((f) => f.category === "xrefShape")).toEqual([]);
+  });
+
+  it("7.0 → 5.5.1: a phrase beside a qualified date becomes a note, and the output is strict 5.5.1", () => {
+    const { lines, records } = download([
+      "0 HEAD", "1 GEDC", "2 VERS 7.0",
+      "0 @I1@ INDI", "1 NAME Ana /Novak/",
+      "1 BIRT", "2 DATE ABT 1900", "3 PHRASE around the war",
+      "1 RESI", "2 DATE FROM 1920 TO 1925", "3 PHRASE between the moves",
+      "1 DEAT", "2 DATE 1950", "3 PHRASE as the stone says",
+      "1 SNOTE @MISSING@",
+      "0 TRLR", "",
+    ].join("\n"), "5.5.1");
+    expect(lines).toContain("2 DATE ABT 1900");
+    expect(lines).toContain("2 NOTE around the war");
+    expect(lines).toContain("2 DATE FROM 1920 TO 1925");
+    expect(lines).toContain("2 NOTE between the moves");
+    expect(lines).toContain("2 DATE INT 1950 (as the stone says)");
+    expect(lines.some((l) => l.includes("PHRASE"))).toBe(false);
+    // A pointer to a note that is not there is still a 5.5.1 NOTE line.
+    expect(lines).toContain("1 NOTE @MISSING@");
+    expect(lines.some((l) => l.includes("SNOTE"))).toBe(false);
+    expect(validateConformance({ records })).toEqual([]);
   });
 
   it("converts nothing when saved in the file's own version", () => {
