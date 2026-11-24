@@ -4892,15 +4892,15 @@ button:focus-visible {
 .note-fold:hover,
 .note-fold:focus-visible { color: var(--text); }
 .edit-note-item--long .edit-input:not(:hover):not(:focus) { border-color: var(--border); }
-/* Folded, the first line reads as the note's heading. `:focus` is left out so
- * a note being typed in is never cut short under the caret. */
+/* Folded, only the first line shows — in the note's own weight: bold already
+ * says "changed", and is the note's own formatting besides. `:focus` is left
+ * out so a note being typed in is never cut short under the caret. */
 .edit-note-item--collapsed .note-rich:not(:focus) {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
   line-clamp: 1;
   overflow: hidden;
-  font-weight: 600;
 }
 
 /* The private lock sits inside the box at the LEFT edge — the mirror of the
