@@ -149,7 +149,7 @@ test("a note written for later waits in the notebook, is filed from there, and s
   await expect(page.locator(".research-section")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Tools", exact: true }).click();
-  await page.locator(".tools-tab", { hasText: "Notebook" }).click();
+  await page.locator(".tools-tab", { hasText: "Tasks" }).click();
   const unfiled = page.locator(".tools-research-group", { hasText: "Not filed" });
   await expect(unfiled.locator(".research-row")).toHaveCount(1);
   await expect(unfiled.locator(".research-row")).toContainText("Newspaper clipping about the Novak farm");
@@ -222,7 +222,7 @@ test("the save preview words the notes, and the notebook clears the done ones", 
 
   // Both settled, the notebook's Done list offers to clear them in one go.
   await page.getByRole("button", { name: "Tools", exact: true }).click();
-  await page.locator(".tools-tab", { hasText: "Notebook" }).click();
+  await page.locator(".tools-tab", { hasText: "Tasks" }).click();
   const rows = page.locator(".tools-research .research-row");
   await expect(rows).toHaveCount(2);
   await rows.first().locator(".research-chip-check").click();
