@@ -381,16 +381,19 @@ function dropOrphanedPersonalRecords(records: GedNode[], referencedBefore: Set<s
 }
 
 /** Collect an individual and all their descendants (children, grandchildren…). */
-function collectDescendants(id: string, ds: Dataset, into: Set<string>): void {
-  const indi = ds.individuals.get(id);
-  if (!indi) return;
-  for (const famId of indi.spouseOf) {
-    const fam = ds.families.get(famId);
-    if (!fam) continue;
-    for (const childId of fam.children) {
-      if (into.has(childId)) continue;
-      into.add(childId);
-      collectDescendants(childId, ds, into);
+function collectDescendants(startId: string, ds: Dataset, into: Set<string>): void {
+  const queue = [startId];
+  for (let i = 0; i < queue.length; i++) {
+    const indi = ds.individuals.get(queue[i]);
+    if (!indi) continue;
+    for (const famId of indi.spouseOf) {
+      const fam = ds.families.get(famId);
+      if (!fam) continue;
+      for (const childId of fam.children) {
+        if (into.has(childId)) continue;
+        into.add(childId);
+        queue.push(childId);
+      }
     }
   }
 }

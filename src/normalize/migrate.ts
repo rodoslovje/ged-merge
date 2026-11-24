@@ -1280,9 +1280,6 @@ function downgradeAssoPlacement(records: GedNode[], ctx: MigrateCtx): void {
 function downgrade(records: GedNode[], ctx: MigrateCtx): void {
   downgradeVoidPointers(records, ctx);
   for (const rec of records) if (rec.tag === "INDI") downgradeMarriedNames(rec, ctx);
-  const snoteXrefs = new Set(
-    records.filter((r) => r.tag === "SNOTE" && r.xref).map((r) => r.xref!),
-  );
   for (const rec of records) {
     if (rec.tag === "SNOTE" && rec.xref) {
       report(ctx, retag(rec, "NOTE"), `SNOTE ${rec.xref}`);
@@ -1324,7 +1321,7 @@ function downgrade(records: GedNode[], ctx: MigrateCtx): void {
         if (c.tag in NOTE_DOWNGRADES) report(ctx, retag(c, NOTE_DOWNGRADES[c.tag]), `NOTE.${describe(c)}`);
       }
     }
-    if (node.tag === "SNOTE" && isPointer(node.value) && snoteXrefs.has(node.value)) {
+    if (node.tag === "SNOTE" && isPointer(node.value)) {
       report(ctx, retag(node, "NOTE"), `SNOTE ${node.value}`);
     } else if (node.tag === "DATE") {
       downgradeDate(node, ctx);
@@ -1388,8 +1385,13 @@ function downgradeDate(node: GedNode, ctx: MigrateCtx): void {
   value = value.replace(/\bBCE\b/gi, "B.C.");
 
   if (phraseNode?.value) {
-    value = value ? `INT ${value} (${phraseNode.value})` : `(${phraseNode.value})`;
-    node.children = node.children.filter((c) => c !== phraseNode);
+    // 5.5.1 `INT <date> (<phrase>)` only accepts a plain date (not a qualified
+    // `ABT`/`BET`/`FROM`… date); qualified dates leave PHRASE for downgradeLeftovers.
+    const isQualified = /^(?:ABT|CAL|EST|BEF|AFT|FROM|TO|BET|INT)\b/i.test(value);
+    if (!isQualified) {
+      value = value ? `INT ${value} (${phraseNode.value})` : `(${phraseNode.value})`;
+      node.children = node.children.filter((c) => c !== phraseNode);
+    }
   }
 
   if (value === (original ?? "")) return;

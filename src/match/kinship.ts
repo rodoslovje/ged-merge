@@ -60,6 +60,7 @@ export function createKinshipResolver(ds: Dataset, startId: string, t: Translate
 interface StartContext {
   id: string;
   ancs: Map<string, number>;
+  ancsOf: (id: string) => Map<string, number>;
   spouseAncs: () => [string, Map<string, number>][];
   descs: () => Set<string>;
 }
@@ -67,10 +68,20 @@ interface StartContext {
 function startContext(ds: Dataset, startId: string): StartContext {
   let spouses: [string, Map<string, number>][] | undefined;
   let descs: Set<string> | undefined;
+  const ancCache = new Map<string, Map<string, number>>();
+  const ancsOf = (id: string): Map<string, number> => {
+    let hit = ancCache.get(id);
+    if (!hit) {
+      hit = ancestorGens(ds, id);
+      ancCache.set(id, hit);
+    }
+    return hit;
+  };
   return {
     id: startId,
-    ancs: ancestorGens(ds, startId),
-    spouseAncs: () => (spouses ??= spouseIds(ds, startId).map((id) => [id, ancestorGens(ds, id)])),
+    ancs: ancsOf(startId),
+    ancsOf,
+    spouseAncs: () => (spouses ??= spouseIds(ds, startId).map((id) => [id, ancsOf(id)])),
     descs: () => (descs ??= descendantIds(ds, startId)),
   };
 }
@@ -101,7 +112,7 @@ function kinshipLabelFrom(
   }
 
   // The target-side ancestor-generation map (the start side is precomputed).
-  const targetAncs = ancestorGens(ds, targetId);
+  const targetAncs = start.ancsOf(targetId);
   const pos = closestCommon(start.ancs, targetAncs);
 
   // No blood line at all — the relationship may still be a step one (a parent's
@@ -162,7 +173,7 @@ function inLawLabel(
   };
 
   for (const s of spouseIds(ds, targetId)) {
-    const pos = closestCommon(start.ancs, ancestorGens(ds, s));
+    const pos = closestCommon(start.ancs, start.ancsOf(s));
     const relSex = ds.individuals.get(s)?.sex ?? "U";
     if (pos) offer(pos.up + pos.down, () => spouseOfRelative(pos.up, pos.down, sex, relSex, () => lineageOf(s), married(ds, s, targetId), t));
   }

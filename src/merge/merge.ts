@@ -606,7 +606,7 @@ export function mergeDecisions(
   // Every family is placed too, so an imported sealing to parents can name its
   // main-side family — or, where that family did not come across, lose the
   // pointer, which is said here.
-  for (const recordId of remapSealingFamilies(records, records, compare, (incomingId) => ctx.resolved(incomingId), main.version)) {
+  for (const recordId of remapSealingFamilies(records, records, compare, (incomingId) => ctx.resolved(incomingId), mergeTargetVersion(main, overrides))) {
     report.deferred.push({ recordId, field: t("event.SLGC"), reason: t("merge.reason.sealingFamilyMissing") });
   }
 

@@ -31,11 +31,15 @@ export function normalizePrivacyStyle(
   walkNodes(records, (node) => {
     const markers = node.children.filter(isPrivacyMarker);
     if (!markers.length) return;
-    if (markers.length === 1 && markers[0].tag === style) return; // already house style
+    const alreadyHouse =
+      markers.length === 1 &&
+      markers[0].tag === style &&
+      (style !== "RESN" || version !== "7.0" || markers[0].value === markers[0].value?.toUpperCase());
+    if (alreadyHouse) return; // already house style
     const before = markers.map(label).join(" + ");
     setPrivateFlag(node, true, style, version);
     const after = node.children.filter(isPrivacyMarker).map(label).join(" + ");
-    changes.push({ before, after });
+    if (after !== before) changes.push({ before, after });
   });
   return changes;
 }

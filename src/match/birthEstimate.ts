@@ -11,11 +11,17 @@ const eraYearCache = new WeakMap<Individual, number | undefined>();
  *  pair, and the estimate behind it walks the person's families each time. */
 export function eraYear(indi: Individual, ds: Dataset): number | undefined {
   if (eraYearCache.has(indi)) return eraYearCache.get(indi);
+  let marrYear: number | undefined;
+  for (const famId of indi.spouseOf) {
+    const y = ds.families.get(famId)?.events.find((e) => e.tag === "MARR")?.date?.year;
+    if (y !== undefined && (marrYear === undefined || y < marrYear)) marrYear = y;
+  }
   const year =
     birthYear(indi) ??
     estimatedBirthYear(indi, ds) ??
     deathYear(indi) ??
-    indi.events.find((e) => e.tag === "MARR" || e.tag === "RESI")?.date?.year;
+    marrYear ??
+    indi.events.find((e) => e.tag === "RESI")?.date?.year;
   eraYearCache.set(indi, year);
   return year;
 }

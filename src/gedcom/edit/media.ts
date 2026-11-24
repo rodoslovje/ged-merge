@@ -137,6 +137,7 @@ export function removeMediaAt(dataset: Dataset, raw: GedNode, addr: MediaAddress
   // Highest index first, so removing one link in a container does not shift
   // the address of another link in the same container.
   const addrs = [addr, ...(addr.alsoAt ?? [])].sort((a, b) => b.objeIndex - a.objeIndex);
+  const removed = new Set<string>();
   for (const a of addrs) {
     const container = mediaContainerOf(raw, a);
     const node = container && childrenByTag(container, "OBJE")[a.objeIndex];
@@ -144,8 +145,9 @@ export function removeMediaAt(dataset: Dataset, raw: GedNode, addr: MediaAddress
     const i = container.children.indexOf(node);
     if (i !== -1) container.children.splice(i, 1);
     const ptr = node.value?.trim();
-    if (ptr && isPointer(ptr)) pruneUnreferencedMedia(dataset, ptr);
+    if (ptr && isPointer(ptr)) removed.add(ptr);
   }
+  pruneUnreferencedMediaBatch(dataset, removed);
 }
 
 /**
@@ -165,11 +167,13 @@ export function removeMediaLinkByUrl(dataset: Dataset, container: GedNode, url: 
     const inlineUrl = objeInfoOf(c).url;
     return !!inlineUrl && linkKey(inlineUrl) === key;
   };
-  const removedPtrs = container.children
-    .filter((c) => !!c.value && isPointer(c.value.trim()) && matches(c))
-    .map((c) => c.value!.trim());
+  const removedPtrs = new Set(
+    container.children
+      .filter((c) => !!c.value && isPointer(c.value.trim()) && matches(c))
+      .map((c) => c.value!.trim()),
+  );
   container.children = container.children.filter((c) => !matches(c));
-  for (const ptr of new Set(removedPtrs)) pruneUnreferencedMedia(dataset, ptr);
+  pruneUnreferencedMediaBatch(dataset, removedPtrs);
 }
 
 /**
@@ -351,9 +355,21 @@ export function setCropRegion(linkNode: GedNode, crop: CropRegion | null, versio
  * or still attached to another person, is left intact.
  */
 export function pruneUnreferencedMedia(dataset: Dataset, objeXref: string): void {
-  if (referencedObjeXrefs(dataset.records, new Set([objeXref])).size > 0) return; // still referenced
-  const i = dataset.records.findIndex((r) => r.tag === "OBJE" && r.xref === objeXref);
-  if (i !== -1) dataset.records.splice(i, 1);
+  pruneUnreferencedMediaBatch(dataset, new Set([objeXref]));
+}
+
+/** Batch variant of {@link pruneUnreferencedMedia}: scans the dataset once
+ *  for all candidate `OBJE` xrefs and removes unreferenced records together. */
+function pruneUnreferencedMediaBatch(dataset: Dataset, candidates: ReadonlySet<string>): void {
+  if (candidates.size === 0) return;
+  const stillUsed = referencedObjeXrefs(dataset.records, candidates);
+  const toDrop = new Set<string>();
+  for (const xref of candidates) if (!stillUsed.has(xref)) toDrop.add(xref);
+  if (toDrop.size === 0) return;
+  for (let i = dataset.records.length - 1; i >= 0; i--) {
+    const r = dataset.records[i];
+    if (r.tag === "OBJE" && r.xref && toDrop.has(r.xref)) dataset.records.splice(i, 1);
+  }
   bumpSourceCacheVersion(dataset.records);
   clearObjeNodeCache(dataset.records);
 }

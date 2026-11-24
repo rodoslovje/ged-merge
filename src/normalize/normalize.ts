@@ -118,7 +118,8 @@ export function normalizeDataset(
   if (options.vendorTags) {
     walkNodes(editable, (node) => {
       const canonical = VENDOR_TAG_ALIASES[node.tag];
-      if (canonical && !options.preserveVendorTags?.has(node.tag)) {
+      // In a strict target never rewrite a `_` extension to a bare vendor tag (e.g. `_SEPR` → `SEPA`).
+      if (canonical && !options.preserveVendorTags?.has(node.tag) && !(profile.standard && !canonical.startsWith("_"))) {
         record(report.vendorTagExamples, seenVendor, node.tag, canonical);
         report.vendorTagsRenamed++;
         node.tag = canonical;

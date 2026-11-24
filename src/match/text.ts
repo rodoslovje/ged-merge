@@ -111,6 +111,7 @@ export function isPlaceholderName(value: string): boolean {
       .filter(Boolean);
     // No letters at all ("?", "___", "...") is a placeholder too.
     verdict = tokens.every((t) => t.length <= 1 || PLACEHOLDER_NAME_TOKENS.has(t));
+    if (placeholderCache.size >= 10_000) placeholderCache.clear();
     placeholderCache.set(value, verdict);
   }
   return verdict;

@@ -131,5 +131,18 @@ export function setPrivateFlag(
     }
   }
   node.children = kept;
-  if (on) node.children.push(markerNode(node, style, version));
+  if (on) {
+    const marker = markerNode(node, style, version);
+    if (marker.tag === "RESN") {
+      const existing = node.children.find((c) => c.tag === "RESN");
+      if (existing) {
+        const parts = (existing.value ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        const token = marker.value ?? (version === "7.0" ? "PRIVACY" : "privacy");
+        if (!parts.some((p) => p.toLowerCase() === token.toLowerCase())) parts.push(token);
+        existing.value = version === "7.0" ? parts.map((p) => p.toUpperCase()).join(", ") : parts.join(", ");
+        return;
+      }
+    }
+    node.children.push(marker);
+  }
 }

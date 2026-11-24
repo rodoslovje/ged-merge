@@ -46,10 +46,14 @@ export function onThisWeek(ds: Dataset, today: Date, perDay = WEEK_DAY_LIMIT, di
     days.set(`${d.getMonth() + 1}-${d.getDate()}`, i);
     week.push({ month: d.getMonth() + 1, day: d.getDate(), all: [] });
   }
+  const year = today.getFullYear();
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   const consider = (id: string, family: boolean, e: GedEvent) => {
     const d = e.date;
     if (!d || d.qualifier !== "exact" || !d.day || !d.month || d.year === undefined) return;
-    const inDays = days.get(`${d.month}-${d.day}`);
+    if (d.calendar && d.calendar !== "GREGORIAN" && d.calendar !== "JULIAN") return;
+    const day = d.month === 2 && d.day === 29 && !isLeap ? 28 : d.day;
+    const inDays = days.get(`${d.month}-${day}`);
     if (inDays !== undefined) week[inDays].all.push({ id, family, event: e, inDays });
   };
   for (const indi of ds.individuals.values()) for (const e of indi.events) if (PERSON_TAGS.has(e.tag)) consider(indi.id, false, e);

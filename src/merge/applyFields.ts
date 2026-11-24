@@ -1465,9 +1465,12 @@ export function buildSourXrefMap(
 /** Deep-clone `n`, substituting any SOUR/REPO/NOTE/SNOTE/OBJE pointer values —
  *  and vendor-tag pointers to a record `sourMap` knows — via `sourMap`. */
 export function cloneNodeRemapped(n: GedNode, sourMap: SourXrefMap): GedNode {
-  const c: GedNode = { level: n.level, tag: n.tag, children: n.children.map((ch) => cloneNodeRemapped(ch, sourMap)) };
+  const c: GedNode = {
+    level: n.level,
+    tag: n.tag,
+    children: n.children.filter((ch) => ch.verbatim === undefined).map((ch) => cloneNodeRemapped(ch, sourMap)),
+  };
   if (n.xref !== undefined) c.xref = n.xref;
-  if (n.verbatim !== undefined) c.verbatim = n.verbatim;
   if (n.value !== undefined) {
     // A vendor tag (`_PHOTO @O1@`) naming one of the incoming file's shared
     // records points at it as surely as the standard tag does.

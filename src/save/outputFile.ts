@@ -190,13 +190,13 @@ function ensureSubmitter(records: GedNode[], head: GedNode, apply: boolean, auth
  * taken — and point every line at the new id. A download does this for every
  * record; the health check offers it record by record (`fixConformance`).
  */
-function renameXrefsFor70(records: GedNode[], note: (before: string, after: string) => void): void {
+function renameXrefsForVersion(records: GedNode[], to70: boolean, note: (before: string, after: string) => void): void {
   const taken = new Set(records.map((r) => r.xref).filter((x): x is string => !!x));
   const renamed = new Map<string, string>();
   for (const rec of records) {
     const xref = rec.xref;
-    if (!xref || xrefConforms(xref, true)) continue;
-    const next = conformingXref(xref, true, taken);
+    if (!xref || xrefConforms(xref, to70)) continue;
+    const next = conformingXref(xref, to70, taken);
     taken.add(next);
     renamed.set(xref, next);
     rec.xref = next;
@@ -214,7 +214,7 @@ export function convertVersion(records: GedNode[], from: OutputVersion, to: Outp
   if (from === to) return changes;
   const note = (before: string, after: string) => changes.push(`${before} → ${after}`);
   migrateVersion(records, from, to, note);
-  if (to === "7.0") renameXrefsFor70(records, note);
+  renameXrefsForVersion(records, to === "7.0", note);
   // A converted file is written by its new version's at-sign rule throughout.
   walkNodes(records, (node) => { delete node.atBare; });
 
