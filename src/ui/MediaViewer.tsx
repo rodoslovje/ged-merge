@@ -914,9 +914,6 @@ function MediaViewerOverlay({
   // saved this viewing so the button label/remove option stay current (the
   // items themselves are built once, when the viewer opens).
   const [cropEditing, setCropEditing] = useState(false);
-  // Marking someone else: the drawn rectangle goes to the name panel, as a
-  // found face does — for the faces the detector missed.
-  const [cropOther, setCropOther] = useState(false);
   const [cropDraft, setCropDraft] = useState<CropRegion | null>(null);
   const [cropSaved, setCropSaved] = useState<Record<number, CropRegion | null>>({});
   // Bumped on every crop save/remove: re-runs the live `getAllCrops` read and
@@ -927,6 +924,9 @@ function MediaViewerOverlay({
   // How many faces were found on each photo (by index), for the panel's hint.
   const [facesFound, setFacesFound] = useState<Record<number, number>>({});
   useEffect(() => { setHoverMark(null); setCropEditing(false); setCropDraft(null); setNamingFace(null); }, [index]);
+  // Where faces can be named, a drawn rectangle goes to the name panel as a
+  // found face does (for the faces the detector missed) — nothing to save.
+  const cropOther = !!current.naming;
   const effectiveCrop = current.edit ? (index in cropSaved ? cropSaved[index] : current.edit.crop) : undefined;
   // Memoized so hover-driven re-renders don't rescan the records; the deps are
   // the photo itself and the crop-edit counter.
@@ -1067,23 +1067,27 @@ function MediaViewerOverlay({
                         <button
                           type="button"
                           className="tree-open-btn"
-                          onClick={() => { setNamingFace(null); setCropOther(false); setCropDraft(effectiveCrop ?? null); setCropEditing(true); }}
+                          onClick={() => { setNamingFace(null); setCropDraft(cropOther ? null : effectiveCrop ?? null); setCropEditing(true); }}
                         >
-                          ⛶ {t(effectiveCrop ? "media.crop.change" : "media.crop.add")}
+                          ⛶ {t(cropOther ? "media.crop.mark" : effectiveCrop ? "media.crop.change" : "media.crop.add")}
                         </button>
-                        {current.naming?.others && (
+                        {cropOther && effectiveCrop && (
                           <button
                             type="button"
                             className="tree-open-btn"
-                            onClick={() => { setNamingFace(null); setCropOther(true); setCropDraft(null); setCropEditing(true); }}
+                            onClick={() => {
+                              current.edit!.onSaveCrop!(null);
+                              setCropSaved((p) => ({ ...p, [index]: null }));
+                              setCropRefresh((v) => v + 1);
+                            }}
                           >
-                            ⛶ {t("media.crop.addOther")}
+                            {t("media.crop.remove")}
                           </button>
                         )}
                       </div>
                     ) : (
                       <>
-                        <div className="media-crop-hint">{t(cropOther ? "media.crop.hintOther" : "media.crop.hint")}</div>
+                        <div className="media-crop-hint">{t(cropOther ? "media.crop.hintMark" : "media.crop.hint")}</div>
                         <div className="media-crop-buttons">
                           {!cropOther && (
                             <button
