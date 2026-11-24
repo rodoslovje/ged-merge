@@ -1,6 +1,5 @@
 import type { Family } from "./types";
-import { EVENT_GLYPHS, UNMARRIED_UNION_GLYPH } from "./eventTags";
-import { hasChild } from "./node";
+import { EVENT_GLYPHS, SEPARATION_TAGS, UNMARRIED_UNION_GLYPH } from "./eventTags";
 
 /**
  * How married a union looks, judged only on what the file itself records:
@@ -48,13 +47,13 @@ export function unionMarriage(fam: Family): UnionMarriage {
 /**
  * The genealogy mark for a couple, saying only what the file records: ⚮ for a
  * marriage it records as dissolved (`DIV`, `DIVF`, `ANUL`), ⚬⚬ for a couple it
- * records as separated (`SEPA`), ⚯ for a union it records as unmarried,
+ * records as separated (`SEPA`, `_SEPR`), ⚯ for a union it records as unmarried,
  * otherwise ⚭ — a union with no record either way is read as the marriage it
  * usually is. How the union ended is also reported, as `ended`.
  */
 export function unionMark(fam: Family | undefined): { glyph: string; ended?: "divorced" | "separated" } {
   if (!fam) return { glyph: EVENT_GLYPHS.MARR };
   if (fam.raw.children.some((c) => DISSOLUTION_TAGS.has(c.tag))) return { glyph: EVENT_GLYPHS.DIV, ended: "divorced" };
-  if (hasChild(fam.raw, "SEPA")) return { glyph: EVENT_GLYPHS.SEPA, ended: "separated" };
+  if (fam.raw.children.some((c) => SEPARATION_TAGS.has(c.tag))) return { glyph: EVENT_GLYPHS.SEPA, ended: "separated" };
   return { glyph: unionMarriage(fam) === "unmarried" ? UNMARRIED_UNION_GLYPH : EVENT_GLYPHS.MARR };
 }

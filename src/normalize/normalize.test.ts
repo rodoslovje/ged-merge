@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { EVENT_GLYPHS } from "../gedcom/eventTags";
+import { unionMark } from "../gedcom/union";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import {
@@ -275,6 +277,28 @@ describe("normalizeDataset", () => {
     const fam = out.families.get("@F1@")!;
     expect(fam.events.some((e) => e.tag === "SEPA")).toBe(true);
     expect(fam.raw.children.some((c) => c.tag === "_SEPR")).toBe(false);
+  });
+
+  it("keeps _SEPR in a strict target, where it still reads as a separation", () => {
+    const profile = { ...inferMainProfile(dataset(MAIN)), standard: "5.5.1" as const };
+    const compare = `0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Jan /Novak/
+1 _MILI Landsturm
+0 @F1@ FAM
+1 HUSB @I1@
+1 _SEPR
+2 DATE 5 JAN 1930
+0 TRLR
+`;
+    const { dataset: out } = normalizeDataset(dataset(compare), profile);
+    const fam = out.families.get("@F1@")!;
+    expect(fam.raw.children.map((c) => c.tag)).toEqual(["HUSB", "_SEPR"]);
+    expect(fam.events.map((e) => [e.tag, e.date?.year])).toEqual([["_SEPR", 1930]]);
+    expect(unionMark(fam)).toEqual({ glyph: EVENT_GLYPHS.SEPA, ended: "separated" });
+    // An alias that keeps its underscore is still applied.
+    expect(out.individuals.get("@I1@")!.raw.children.some((c) => c.tag === "_MILT")).toBe(true);
   });
 
   it("consolidates partnership-status encodings into _MSTAT", () => {

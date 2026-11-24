@@ -13,6 +13,7 @@
 
 import type { Translate } from "../locales/i18n";
 import { isBinarySex } from "../gedcom/sex";
+import { SEPARATION_TAGS } from "../gedcom/eventTags";
 import type { Sex } from "../gedcom/types";
 import type { FactLine, ReportEntry, SourceLine } from "./model";
 import type { Statement } from "./narrative";
@@ -171,7 +172,7 @@ function keyOf(stmt: Statement): string {
       return tensed(stmt.again ? "marriedAgain" : "married");
     }
     case "divorced":
-      return stmt.fact?.tag === "ANUL" ? "annulled" : stmt.fact?.tag === "SEPA" ? "separated" : "divorced";
+      return stmt.fact?.tag === "ANUL" ? "annulled" : stmt.fact && SEPARATION_TAGS.has(stmt.fact.tag) ? "separated" : "divorced";
     case "spouseOrigin":
       // Which parents are named picks the sentence; `living` is the named
       // parents' tense here (the planner set it), not the couple's.
