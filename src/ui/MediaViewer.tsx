@@ -697,7 +697,13 @@ function MediaStage({
   allCrops: CropMark[];
   /** Crop-marking mode: dragging on the image draws the record's region (in
    *  natural pixels) into `draft`; the overlay's controls save or discard it. */
-  cropEdit?: { draft: CropRegion | null; onDraft: (crop: CropRegion | null) => void };
+  cropEdit?: {
+    draft: CropRegion | null;
+    onDraft: (crop: CropRegion | null) => void;
+    /** A finished rectangle is handed here at once (to be named) instead of
+     *  staying as a draft to save. */
+    onDrawn?: (crop: CropRegion) => void;
+  };
   /** Face finding: the faces nobody is marked on are revealed on hover with a
    *  »?«, and clicking one hands its region to `onFace`. While one is being
    *  named, `naming` keeps its box drawn with the name panel under it. */
@@ -796,7 +802,9 @@ function MediaStage({
         const draft = draftFrom(dragAnchor.current, toNatural(e));
         dragAnchor.current = null;
         // A click without a real drag clears instead of leaving a sliver.
-        cropEdit.onDraft(draft.width >= 4 && draft.height >= 4 ? draft : null);
+        const drawn = draft.width >= 4 && draft.height >= 4 ? draft : null;
+        if (drawn && cropEdit.onDrawn) cropEdit.onDrawn(roundCrop(drawn));
+        else cropEdit.onDraft(drawn);
       } : undefined}
     >
       <img
@@ -906,6 +914,9 @@ function MediaViewerOverlay({
   // saved this viewing so the button label/remove option stay current (the
   // items themselves are built once, when the viewer opens).
   const [cropEditing, setCropEditing] = useState(false);
+  // Marking someone else: the drawn rectangle goes to the name panel, as a
+  // found face does — for the faces the detector missed.
+  const [cropOther, setCropOther] = useState(false);
   const [cropDraft, setCropDraft] = useState<CropRegion | null>(null);
   const [cropSaved, setCropSaved] = useState<Record<number, CropRegion | null>>({});
   // Bumped on every crop save/remove: re-runs the live `getAllCrops` read and
@@ -989,7 +1000,17 @@ function MediaViewerOverlay({
             title={current.title}
             hoverMark={hoverMark}
             allCrops={allCrops}
-            cropEdit={cropEditing ? { draft: cropDraft, onDraft: setCropDraft } : undefined}
+            cropEdit={
+              cropEditing
+                ? {
+                    draft: cropDraft,
+                    onDraft: setCropDraft,
+                    onDrawn: cropOther
+                      ? (crop) => { setNamingFace(crop); setCropEditing(false); setCropDraft(null); }
+                      : undefined,
+                  }
+                : undefined
+            }
             faces={
               current.naming
                 ? {
@@ -1042,31 +1063,44 @@ function MediaViewerOverlay({
                       <div className="media-crop-hint">{t("media.face.hint")}</div>
                     )}
                     {!cropEditing ? (
-                      <button
-                        type="button"
-                        className="tree-open-btn"
-                        onClick={() => { setCropDraft(effectiveCrop ?? null); setCropEditing(true); }}
-                      >
-                        ⛶ {t(effectiveCrop ? "media.crop.change" : "media.crop.add")}
-                      </button>
-                    ) : (
-                      <>
-                        <div className="media-crop-hint">{t("media.crop.hint")}</div>
-                        <div className="media-crop-buttons">
+                      <div className="media-crop-buttons">
+                        <button
+                          type="button"
+                          className="tree-open-btn"
+                          onClick={() => { setNamingFace(null); setCropOther(false); setCropDraft(effectiveCrop ?? null); setCropEditing(true); }}
+                        >
+                          ⛶ {t(effectiveCrop ? "media.crop.change" : "media.crop.add")}
+                        </button>
+                        {current.naming?.others && (
                           <button
                             type="button"
                             className="tree-open-btn"
-                            disabled={!cropDraft}
-                            onClick={() => {
-                              current.edit!.onSaveCrop!(cropDraft);
-                              setCropSaved((p) => ({ ...p, [index]: cropDraft }));
-                              setCropRefresh((v) => v + 1);
-                              setCropEditing(false);
-                            }}
+                            onClick={() => { setNamingFace(null); setCropOther(true); setCropDraft(null); setCropEditing(true); }}
                           >
-                            {t("media.crop.save")}
+                            ⛶ {t("media.crop.addOther")}
                           </button>
-                          {effectiveCrop && (
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="media-crop-hint">{t(cropOther ? "media.crop.hintOther" : "media.crop.hint")}</div>
+                        <div className="media-crop-buttons">
+                          {!cropOther && (
+                            <button
+                              type="button"
+                              className="tree-open-btn"
+                              disabled={!cropDraft}
+                              onClick={() => {
+                                current.edit!.onSaveCrop!(cropDraft);
+                                setCropSaved((p) => ({ ...p, [index]: cropDraft }));
+                                setCropRefresh((v) => v + 1);
+                                setCropEditing(false);
+                              }}
+                            >
+                              {t("media.crop.save")}
+                            </button>
+                          )}
+                          {!cropOther && effectiveCrop && (
                             <button
                               type="button"
                               className="tree-open-btn"

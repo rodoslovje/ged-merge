@@ -4031,6 +4031,8 @@ export const hr = {
   "media.face.none": "Nitko s tim imenom.",
   "media.face.hint": "Kad mišem prijeđete preko fotografije, pronađena lica označena su s „?“. Kliknite lice i recite tko je to.",
   "media.crop.hint": "Povucite po fotografiji kako biste označili ovu osobu.",
+  "media.crop.addOther": "Označi drugu osobu",
+  "media.crop.hintOther": "Povucite po fotografiji kako biste označili drugu osobu.",
   "media.field.event": "Događaj",
   "media.field.title": "Naslov",
   "media.field.date": "Datum",
