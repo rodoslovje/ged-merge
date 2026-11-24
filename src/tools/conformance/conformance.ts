@@ -372,7 +372,7 @@ function checkXref(xref: string, ctx: Ctx, base: { recordId?: string; recordTag?
       messageVars: { xref, version: ctx.spec.version }, sample: xref, tooltip: xref,
     });
   if (ctx.spec.is70) {
-    if (!/^@[A-Z0-9_]+@$/.test(xref)) flag("xrefChars");
+    if (xref === VOID_XREF || !/^@[A-Z0-9_]+@$/.test(xref)) flag("xrefChars");
   } else if (xref.length > 22) {
     flag("xrefLong");
   } else if (!/^@[A-Za-z0-9]/.test(xref)) {

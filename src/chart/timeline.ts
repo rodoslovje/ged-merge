@@ -15,7 +15,7 @@ import {
   isPresumedLiving,
 } from "../gedcom/lifespan";
 import { familiesByMarriage } from "../gedcom/familySort";
-import { EVENT_GLYPHS, LDS_ORDINANCE_TAGS, eventDisplayLabel } from "../gedcom/eventTags";
+import { LDS_ORDINANCE_TAGS, eventDisplayLabel, eventGlyph } from "../gedcom/eventTags";
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
 import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
@@ -338,7 +338,7 @@ function residencePeriods(t: Translate, indi: Individual, barEnd: number | undef
       from,
       to: Math.max(from, to),
       place,
-      label: `${t("event.RESI")}: ${e.date!.raw}${place ? `, ${place}` : ""}`,
+      label: `${t("event.RESI")}: ${displayDate(e.date!)}${place ? `, ${place}` : ""}`,
     };
   });
 }
@@ -359,7 +359,7 @@ function eventMarks(t: Translate, indi: Individual): TimelineMark[] {
       // The compact lane label leads with the most specific detail recorded:
       // the event's own value ("Farmer"), else its locality, else its name.
       short: `${e.value || place || label} ${e.date.year}`,
-      glyph: EVENT_GLYPHS[e.tag],
+      glyph: eventGlyph(e.tag),
     });
   }
   return out;

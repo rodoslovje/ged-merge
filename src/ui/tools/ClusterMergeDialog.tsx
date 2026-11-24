@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../../gedcom/types";
 import { xrefLabel } from "../../gedcom/nameDisplay";
@@ -95,6 +95,7 @@ export function ClusterMergeDialog({
     );
   }
 
+  const titleId = useId();
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div
@@ -103,9 +104,10 @@ export function ClusterMergeDialog({
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="confirm-dialog-title">
+        <p id={titleId} className="confirm-dialog-title">
           {t("tools.duplicates.cluster.mergeAllTitle", { count: cluster.memberIds.length })}
         </p>
         <p className="confirm-dialog-body">{t("tools.duplicates.cluster.mergeAllBody")}</p>

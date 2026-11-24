@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useModalKeyboard } from "../keyboard/useModalKeyboard";
 import { withBusyCursor } from "./busyCursor";
@@ -51,10 +51,11 @@ export function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel, canc
   // batch lists several fixes, one paragraph each).
   const [title, ...rest] = message.split("\n\n");
   const body = rest.join("\n\n");
+  const titleId = useId();
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="confirm-dialog" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-        <p className="confirm-dialog-title">{title}</p>
+      <div className="confirm-dialog" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(e) => e.stopPropagation()}>
+        <p id={titleId} className="confirm-dialog-title">{title}</p>
         {body && <p className="confirm-dialog-body">{body}</p>}
         {checkboxLabel && (
           <label className="confirm-dialog-check">

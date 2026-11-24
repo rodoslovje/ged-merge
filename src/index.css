@@ -1671,7 +1671,7 @@ button:focus-visible {
 }
 
 .loader-warnings.alert {
-  color: #d9822b;
+  color: var(--state-minor);
   font-weight: 600;
   cursor: help;
 }
@@ -1684,7 +1684,7 @@ button:focus-visible {
 }
 
 .error {
-  color: #ff6b6b;
+  color: var(--danger);
 }
 
 .muted {
@@ -3044,7 +3044,7 @@ button:focus-visible {
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: var(--danger, #c0392b);
+  background: var(--danger);
   color: #fff;
   font-size: 11px;
   line-height: 18px;
@@ -3461,7 +3461,7 @@ button:focus-visible {
    * the row and pushing the photo off-centre. */
   max-height: 92dvh;
   overflow-y: auto;
-  background: var(--panel, #1e1e1e);
+  background: var(--panel);
   color: var(--text);
   border-radius: var(--radius-sm);
   padding: 14px 16px;
@@ -5339,7 +5339,7 @@ a.source-ref.source-ref--fallback { opacity: 0.6; }
 }
 .person-link:hover {
   text-decoration: underline;
-  color: var(--accent, currentColor);
+  color: var(--accent);
 }
 .choice {
   background: var(--bg);

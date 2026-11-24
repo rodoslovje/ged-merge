@@ -91,8 +91,8 @@ function valuePhrase(d: GedDate): string {
       return `po ${core(LOCATIVE, d.day, d.month, d.year)}`;
     case "between": {
       if (d.year2 === undefined && d.month2 === undefined) return `okoli ${core(GENITIVE, d.day, d.month, d.year)}`;
-      // Two bare years take the elegant dual: "med letoma 1848 in 1850".
-      if (!d.month && !d.month2 && d.year !== undefined && d.year2 !== undefined) {
+      // Two bare CE years take the elegant dual: "med letoma 1848 in 1850".
+      if (!d.month && !d.month2 && d.year !== undefined && d.year2 !== undefined && d.year > 0 && d.year2 > 0) {
         return `med letoma ${d.year} in ${d.year2}`;
       }
       return `med ${core(INSTRUMENTAL, d.day, d.month, d.year)} in ${core(INSTRUMENTAL, d.day2, d.month2, d.year2)}`;

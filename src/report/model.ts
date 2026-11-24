@@ -11,7 +11,7 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { ageAtDate } from "../gedcom/age";
 import { ageWholeYears, parseAge } from "../gedcom/ageValue";
 import type { Translate } from "../locales/i18n";
-import { EVENT_GLYPHS, UNMARRIED_UNION_GLYPH } from "../gedcom/eventTags";
+import { eventGlyph, UNMARRIED_UNION_GLYPH } from "../gedcom/eventTags";
 import { unionMark, unionMarriage } from "../gedcom/union";
 
 /** Name formatter injected by the UI (honours the Name-display settings). */
@@ -338,19 +338,19 @@ export function extraFacts(indi: Individual, opts: ReportFactOptions): FactLine[
   if (opts.occupation) {
     for (const e of indi.events) {
       if (e.tag !== "OCCU" || (!e.value && !dated(e))) continue;
-      out.push(withAge(withNote({ tag: "OCCU", glyph: EVENT_GLYPHS.OCCU, value: e.value, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts, e.age));
+      out.push(withAge(withNote({ tag: "OCCU", glyph: eventGlyph("OCCU"), value: e.value, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts, e.age));
     }
   }
   if (opts.education) {
     for (const e of indi.events) {
       if (e.tag !== "EDUC" || (!e.value && !dated(e))) continue;
-      out.push(withAge(withNote({ tag: "EDUC", glyph: EVENT_GLYPHS.EDUC, value: e.value, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts, e.age));
+      out.push(withAge(withNote({ tag: "EDUC", glyph: eventGlyph("EDUC"), value: e.value, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts, e.age));
     }
   }
   if (opts.residence) {
     for (const e of indi.events) {
       if (e.tag !== "RESI" || !dated(e)) continue;
-      out.push(withAge(withNote({ tag: "RESI", glyph: EVENT_GLYPHS.RESI, date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts, e.age));
+      out.push(withAge(withNote({ tag: "RESI", glyph: eventGlyph("RESI"), date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts), indi, e.date, undefined, opts, e.age));
     }
   }
   return out;
@@ -362,7 +362,7 @@ export function factFor(indi: Individual, tags: string[], opts: ReportFactOption
   for (const tag of tags) {
     const e = indi.events.find((ev) => ev.tag === tag);
     if (e && dated(e)) {
-      const fact = withNote({ tag, glyph: EVENT_GLYPHS[tag], date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts);
+      const fact = withNote({ tag, glyph: eventGlyph(tag), date: e.date && dateText(e.date), parsed: e.date, place: factPlace(e), ...factWhere(e) }, e, opts);
       return withAge(fact, indi, e.date, ds, opts, e.age);
     }
   }
@@ -408,7 +408,7 @@ export function marriageFact(
   if (end) {
     fact.ended = {
       tag: end.tag,
-      glyph: EVENT_GLYPHS[end.tag],
+      glyph: eventGlyph(end.tag),
       date: end.date && dateText(end.date),
       parsed: end.date,
       place: factPlace(end),
