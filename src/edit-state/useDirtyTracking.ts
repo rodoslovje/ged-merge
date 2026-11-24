@@ -108,17 +108,26 @@ export function useDirtyTracking() {
         snapshotsFor(op.kind).current.delete(op.id);
       }
     }
+    // One state update per kind, however many ops: an update per op copies the
+    // whole set each time, which a bulk tool touching every record of a large
+    // file pays for in seconds.
+    const byKind = new Map<SnapshotKind, DirtyOp[]>();
     for (const op of dirtyOps) {
-      const setChanged = setChangedFor(op.kind);
-      if (op.action === "add") {
-        setChanged((prev) => (prev.has(op.id) ? prev : new Set(prev).add(op.id)));
-      } else {
-        setChanged((prev) => {
-          const next = new Set(prev);
-          next.delete(op.id);
-          return next;
-        });
-      }
+      const ops = byKind.get(op.kind);
+      if (ops) ops.push(op);
+      else byKind.set(op.kind, [op]);
+    }
+    for (const [kind, ops] of byKind) {
+      setChangedFor(kind)((prev) => {
+        let next: Set<string> | undefined;
+        for (const op of ops) {
+          if ((next ?? prev).has(op.id) === (op.action === "add")) continue;
+          next ??= new Set(prev);
+          if (op.action === "add") next.add(op.id);
+          else next.delete(op.id);
+        }
+        return next ?? prev;
+      });
     }
   }
 
@@ -207,15 +216,27 @@ export function useDirtyTracking() {
    *  patch path. Session-created records stay snapshot-less (see
    *  {@link shouldCaptureFallbackSnapshot}). */
   function markDirty(kind: RecordKind, id: string, dataset: Dataset) {
-    const snaps = snapshotsFor(kind);
-    if (shouldCaptureFallbackSnapshot(snaps.current.has(id), wasLoaded(kind, id))) {
-      const raw =
-        kind === "individual"
-          ? dataset.individuals.get(id)?.raw
-          : dataset.families.get(id)?.raw;
-      if (raw) snaps.current.set(id, cloneNode(raw));
+    markDirtyMany([{ type: kind, id }], dataset);
+  }
+
+  /** {@link markDirty} for every person and family in `items` at once — a
+   *  shared record (`type: "record"`) is skipped, its owner's entry carries
+   *  the flag. */
+  function markDirtyMany(items: readonly { type: SnapshotKind; id: string }[], dataset: Dataset) {
+    const ops: DirtyOp[] = [];
+    for (const { type: kind, id } of items) {
+      if (kind === "record") continue;
+      const snaps = snapshotsFor(kind);
+      if (shouldCaptureFallbackSnapshot(snaps.current.has(id), wasLoaded(kind, id))) {
+        const raw =
+          kind === "individual"
+            ? dataset.individuals.get(id)?.raw
+            : dataset.families.get(id)?.raw;
+        if (raw) snaps.current.set(id, cloneNode(raw));
+      }
+      ops.push({ kind, id, action: "add" });
     }
-    setChangedFor(kind)((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    applyOps(ops, []);
   }
 
   /** Capture first-dirty snapshots when an edit patch is pushed to the undo
@@ -441,6 +462,7 @@ export function useDirtyTracking() {
     recordSnapshots,
     // actions
     markDirty,
+    markDirtyMany,
     captureSnapshotsForPush,
     onPatchApplied,
     isSubstantive,

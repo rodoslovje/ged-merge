@@ -61,7 +61,7 @@ function addPerson(ds: Dataset, id: string): RecordPatch {
  *  families the edit touched marked dirty (shared records flag themselves). */
 function push(h: ReturnType<typeof mount>, patches: RecordPatch[], ds?: Dataset) {
   h.result.current.captureSnapshotsForPush(patches);
-  if (ds) for (const p of patches) if (p.type !== "record") h.result.current.markDirty(p.type, p.id, ds);
+  if (ds) h.result.current.markDirtyMany(patches, ds);
 }
 function undo(h: ReturnType<typeof mount>, ds: Dataset, patches: RecordPatch[]) {
   applyRecordPatches(ds, patches, "undo");
@@ -134,6 +134,29 @@ describe("useDirtyTracking", () => {
     push(h, p, ds);
     expect(changed(h).people).toEqual(["@I2@"]);
     expect(h.result.current.isSubstantive("@I2@")).toBe(false);
+  });
+
+  it("markDirtyMany flags a whole batch in one update, leaving shared records out", () => {
+    const ds = load();
+    const h = mount(ds);
+    h.result.current.ensureBaseline();
+    const before = h.result.current.changedPersonIds;
+    h.result.current.markDirtyMany([], ds);
+    expect(h.result.current.changedPersonIds).toBe(before);
+    addPerson(ds, "@I9@");
+    h.result.current.markDirtyMany(
+      [{ type: "individual", id: "@I1@" }, { type: "record", id: "@S1@" }, { type: "individual", id: "@I9@" }, { type: "individual", id: "@I1@" }],
+      ds,
+    );
+    expect(changed(h).people.sort()).toEqual(["@I1@", "@I9@"]);
+    expect(h.result.current.changedRecordIds.size).toBe(0);
+    // A loaded record is snapshotted, one made this session is not.
+    expect(h.result.current.personSnapshots.current.has("@I1@")).toBe(true);
+    expect(h.result.current.personSnapshots.current.has("@I9@")).toBe(false);
+    // Nothing new to flag: the set is left as it is, so nothing re-renders.
+    const flagged = h.result.current.changedPersonIds;
+    h.result.current.markDirtyMany([{ type: "individual", id: "@I1@" }], ds);
+    expect(h.result.current.changedPersonIds).toBe(flagged);
   });
 
   it("markDirty snapshots a loaded record once, and never one made this session", () => {

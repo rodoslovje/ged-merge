@@ -1782,9 +1782,7 @@ function AppContent() {
     // captureSnapshotsForPush): a record with no owner card behind it — e.g.
     // the date repair rewriting a SOUR's DATE — is its own dirty subject; with
     // an owner, the owner's patch in the same batch carries the flag.
-    for (const p of patches) {
-      if (p.type !== "record") dirty.markDirty(p.type, p.id, mainDataset);
-    }
+    dirty.markDirtyMany(patches, mainDataset);
     return patches.length;
   }
 
