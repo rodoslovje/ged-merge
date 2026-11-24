@@ -767,12 +767,19 @@ function AppContent() {
     return true;
   }
 
+  // Counts a slot's loads, so a file still being read when the next one is
+  // picked for the same slot does not post after it and win.
+  const slotLoadGenRef = useRef({ main: 0, compare: 0 });
+
   async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
     // Also guards a reload triggered by the external-change check below: if
     // there's unsaved work, this asks before discarding it exactly as it would
     // for any other replace.
     if (role === "main" && (changedCount > 0 || confirmedCount > 0 || importCount > 0)) {
       if (!(await confirmDialog(t("load.mainReplaceConfirm"), t("confirm.continue")))) return;
+    }
+    if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
+      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
     }
     // A user-initiated load supersedes any in-flight startup restore, so enable
     // session persistence (and stop expecting the cached compare to arrive).
@@ -783,9 +790,7 @@ function AppContent() {
     persistence.expectCompareRef.current = false;
     persistence.pendingSessionRef.current = null;
     persistence.pendingEditStateRef.current = null;
-    if (role === "compare" && (confirmedCount > 0 || importCount > 0)) {
-      if (!(await confirmDialog(t("load.incomingReplaceConfirm"), t("confirm.continue")))) return;
-    }
+    const loadGen = ++slotLoadGenRef.current[role];
 
     // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
     // c + combining caron. Our subset fonts don't carry the combining marks, so
@@ -809,10 +814,12 @@ function AppContent() {
       originalHash = await hashFile(file);
       buffer = await file.arrayBuffer();
     } catch {
+      if (loadGen !== slotLoadGenRef.current[role]) return;
       if (role === "main" && keepOpenMain(t("load.unreadable"), false)) return;
       dispatch({ type: "slotError", role, fileName, message: t("load.unreadable") });
       return;
     }
+    if (loadGen !== slotLoadGenRef.current[role]) return;
     // Cache the compare's raw bytes so a reload restores it (only when opted in).
     // The main is NOT written here — the debounced effect owns the main key
     // (it serializes the live, possibly-edited dataset), so a stale original
@@ -1531,7 +1538,7 @@ function AppContent() {
   // falls back to leaving Merge's selection untouched when that person isn't
   // itself a match candidate.
   function switchToMerge() {
-    const c = editPersonId ? allSorted.find((c) => c.mainId === editPersonId) : undefined;
+    const c = editPersonId ? indexByMain.get(editPersonId) : undefined;
     if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
     goToPage({ mode: "merge" });
   }
@@ -1559,7 +1566,7 @@ function AppContent() {
     const personId = chartsRootId ?? treeView?.mainId;
     if (target === "edit" && personId) return navigateFromOverlay(personId);
     if (target === "merge" && personId) {
-      const c = allSorted.find((c) => c.mainId === personId);
+      const c = indexByMain.get(personId);
       if (c) setSelectedId({ mainId: c.mainId, compareId: c.compareId });
     }
     goToPageFromOverlay({ mode: target });

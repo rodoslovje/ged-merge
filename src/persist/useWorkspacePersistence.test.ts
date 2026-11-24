@@ -337,6 +337,24 @@ describe("useWorkspacePersistence: the debounced writer", () => {
     expect(ws.session!.editState).toBeUndefined();
   });
 
+  it("a write that lands after the main was replaced does not mark the new main cached", async () => {
+    const ds = load();
+    const rig = await mount();
+    await vi.waitFor(() => expect(rig.api.hydratedRef.current).toBe(true));
+    rig.update({ workspace: loadedWorkspace(ds), mainDataset: ds });
+    // The write starts, and another main loads before it lands.
+    const writing = [...timers.values()].map((fn) => fn());
+    timers.clear();
+    const next = load(TEXT.replace("Janez /Novak/", "Ana /Kos/"));
+    rig.api.mainCachedRef.current = false;
+    rig.update({ workspace: loadedWorkspace(next, { mainLoadGen: 2 }), mainDataset: next });
+    await Promise.all(writing);
+    expect(rig.api.mainCachedRef.current).toBe(false);
+    await tick();
+    expect(await (await idb.loadWorkspace()).main!.blob.text()).toContain("Ana /Kos/");
+    expect(rig.api.mainCachedRef.current).toBe(true);
+  });
+
   it("a save's text is written once, with the session and the file's disk hash", async () => {
     const ds = load();
     const rig = await mount();
