@@ -164,6 +164,24 @@ jobs:
         with:
           path: dist
 
+      # deploy-pages looks the artifact up by name the moment it starts, and
+      # on 24. 11. 2026 the list was still empty a second after the upload had
+      # finished ("Found 0 artifact(s)"), four runs in a row. Wait until the
+      # artifact is listed — a minute at most, then let the deploy say what
+      # is wrong.
+      - name: Wait for the uploaded site to be listed
+        if: steps.latest.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 20); do
+            n=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+              --jq '[.artifacts[] | select(.name == "github-pages")] | length' 2>/dev/null || echo 0)
+            if [ "$n" -ge 1 ]; then exit 0; fi
+            sleep 3
+          done
+          echo "::warning::the github-pages artifact is still not listed after a minute"
+
       - id: deployment
         if: steps.latest.outputs.ok == 'true'
         uses: actions/deploy-pages@v5
