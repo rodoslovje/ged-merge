@@ -187,6 +187,8 @@ let pointerDown = false;
 if (typeof window !== "undefined") {
   window.addEventListener("pointerdown", () => { pointerDown = true; }, true);
   window.addEventListener("pointerup", () => { pointerDown = false; }, true);
+  // A press the browser takes over (a scroll, a system gesture) ends without a pointerup.
+  window.addEventListener("pointercancel", () => { pointerDown = false; }, true);
 }
 
 /** Keeps a blurred note's toolbar up until the press that blurred it has

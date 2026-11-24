@@ -24,10 +24,14 @@ const STORAGE_KEY = "gedmerge.lang";
 
 /** Initial language: a saved choice, else the browser's, else English. */
 function detectLanguage(): Language {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved && (SUPPORTED_LANGUAGES as readonly string[]).includes(saved)) {
-    return saved as Language;
-  }
+  // A browser that blocks site data throws on the read itself; the app then
+  // starts in the browser's language instead of not starting at all.
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && (SUPPORTED_LANGUAGES as readonly string[]).includes(saved)) {
+      return saved as Language;
+    }
+  } catch { /* no stored choice to read */ }
   const nav = navigator.language.slice(0, 2).toLowerCase();
   return (SUPPORTED_LANGUAGES as readonly string[]).includes(nav) ? (nav as Language) : "en";
 }
@@ -44,7 +48,11 @@ i18n.use(initReactI18next).init({
 });
 
 // Remember the user's language choice across sessions.
-i18n.on("languageChanged", (lng) => localStorage.setItem(STORAGE_KEY, lng));
+i18n.on("languageChanged", (lng) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, lng);
+  } catch { /* the choice lasts for this visit only */ }
+});
 
 // Dev only: the bundles above are handed to i18next once, at init. A hot update
 // to a locale file therefore replaces the module while i18next keeps the old
