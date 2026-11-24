@@ -46,10 +46,14 @@ export function onThisWeek(ds: Dataset, today: Date, perDay = WEEK_DAY_LIMIT, di
     days.set(`${d.getMonth() + 1}-${d.getDate()}`, i);
     week.push({ month: d.getMonth() + 1, day: d.getDate(), all: [] });
   }
+  // A 29 February is kept on the 28th in a year without one, as the calendar
+  // does (`clampDay`).
+  const leapDay = new Date(today.getFullYear(), 1, 29).getMonth() === 1;
   const consider = (id: string, family: boolean, e: GedEvent) => {
     const d = e.date;
     if (!d || d.qualifier !== "exact" || !d.day || !d.month || d.year === undefined) return;
-    const inDays = days.get(`${d.month}-${d.day}`);
+    const day = d.month === 2 && d.day === 29 && !leapDay ? 28 : d.day;
+    const inDays = days.get(`${d.month}-${day}`);
     if (inDays !== undefined) week[inDays].all.push({ id, family, event: e, inDays });
   };
   for (const indi of ds.individuals.values()) for (const e of indi.events) if (PERSON_TAGS.has(e.tag)) consider(indi.id, false, e);

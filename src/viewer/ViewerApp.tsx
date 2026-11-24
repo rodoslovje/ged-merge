@@ -26,7 +26,7 @@ import { lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge } from "../gedcom/age";
 import { lifespanLine } from "../chart/nodeDisplay";
 import { displayDateText } from "../gedcom/dateDisplay";
-import { customEventLabel, EVENT_GLYPHS, eventDisplayLabel, familyEventLabel } from "../gedcom/eventTags";
+import { customEventLabel, eventDisplayLabel, eventGlyph, familyEventLabel } from "../gedcom/eventTags";
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type Language } from "../locales/i18n";
 import { StartPersonChip } from "../ui/edit/StartPersonChip";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
@@ -532,7 +532,9 @@ function SiteFooter({ created, home }: { created: string; home?: { label: string
           <LogoMark size={16} /> GED Merge
         </a>
         <span aria-hidden="true">·</span>
-        <time dateTime={created}>{new Date(created).toLocaleDateString(i18n.language)}</time>
+        {/* A date with no time is midnight UTC: shown in local time, it would
+            be the day before anywhere west of Greenwich. */}
+        <time dateTime={created}>{new Date(created).toLocaleDateString(i18n.language, { timeZone: "UTC" })}</time>
       </span>
     </footer>
   );
@@ -696,7 +698,7 @@ function EventRows({ events, family, ages }: {
           <div key={i} className="site-event">
             {/* The event's mark, then its name. */}
             <dt>
-              <span className="site-event-glyph" aria-hidden="true">{EVENT_GLYPHS[e.tag] ?? "•"}</span>
+              <span className="site-event-glyph" aria-hidden="true">{eventGlyph(e.tag)}</span>
               {label}
             </dt>
             <dd>
@@ -856,7 +858,8 @@ function PersonPage({ ds, pub, id, kin, startId, onStartChange, onNavigate }: {
       {/* Their photos: a strip that opens each in the viewer, with the people
           tagged on it. */}
       <PersonMedia raw={indi.raw} records={ds.records} refCtx={{ dataset: ds, onNavigate, hideFile: true }} />
-      <EventRows events={person?.events} ages={showAge ? personEventAges(ds, indi, t) : undefined} />
+      {/* Keyed by the person, so an event's open map does not stay open on the next one. */}
+      <EventRows key={id} events={person?.events} ages={showAge ? personEventAges(ds, indi, t) : undefined} />
       <RecordExtras notes={person?.notes} notesRich={person?.notesRich} sources={person?.sources} />
 
       {/* The family as cards: parents and siblings side by side where there

@@ -186,7 +186,7 @@ function richNoteRtf(html: string): string {
 function sourcePara(t: Translate, src: SourceLine, indent: number, mark?: string): string {
   const label = esc(`${mark ? `${mark} ` : ""}${sourceLabel(t, src)}`);
   const text = src.url
-    ? `{\\field{\\*\\fldinst{HYPERLINK "${esc(src.url)}"}}{\\fldrslt{\\cf${CF_LINK}\\ul ${label}}}}`
+    ? `{\\field{\\*\\fldinst{HYPERLINK "${esc(src.url.replace(/"/g, "%22"))}"}}{\\fldrslt{\\cf${CF_LINK}\\ul ${label}}}}`
     : label;
   return para(`\\li${indent}\\fs20\\cf${CF_SOURCE}`, text);
 }
