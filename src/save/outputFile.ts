@@ -292,17 +292,22 @@ export function writeSchema(records: GedNode[], headSour?: string): string[] {
   const head = records.find((r) => r.tag === "HEAD");
   if (!head) return [];
   const used = new Map<string, string>();
-  const visit = (nodes: GedNode[], ancestors: string[]) => {
+  const ancestors: string[] = [];
+  const visit = (nodes: GedNode[]) => {
     for (const node of nodes) {
       if (node.tag.startsWith("_")) {
         // As the 7.0 download writes it: uppercase (`upperTags`).
         const tag = node.tag;
         if (!used.has(tag)) used.set(tag, schemaUri(tag, ancestors, headSour));
       }
-      if (node.children.length) visit(node.children, [...ancestors, node.tag]);
+      if (node.children.length) {
+        ancestors.push(node.tag);
+        visit(node.children);
+        ancestors.pop();
+      }
     }
   };
-  visit(records, []);
+  visit(records);
   let schma = firstChild(head, "SCHMA");
   // Tags compare uppercase, as the parser reads them and the download writes
   // them: an entry `_mytag` already declares `_MYTAG`, and is written as such.
