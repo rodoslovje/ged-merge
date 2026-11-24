@@ -10,6 +10,7 @@ import { translationLine } from "../../gedcom/translation";
 import { MergeChip, type MergeChipActions } from "./MergeChip";
 import { useTargetFormat } from "../TargetFormatContext";
 import { privateFlagWritable } from "../../gedcom/private";
+import { isCollapsibleNote, setNotesCollapsed, useNotesCollapsed } from "../notesCollapse";
 
 /**
  * How wide a note may be before it stops riding beside the fields it belongs to.
@@ -87,6 +88,14 @@ export function NotesEditor({
   const prevTrigger = useRef(addTrigger ?? 0);
   const focusNewRef = useRef<number | null>(addOnMount && focusOnMount ? initialNotes.length : null);
   const boxRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Long notes fold to their first line: one choice for every note on screen,
+  // over which a note folded or unfolded by hand keeps its own state until the
+  // next "fold all / unfold all" (a new `gen`).
+  const fold = useNotesCollapsed();
+  const [folded, setFolded] = useState<{ gen: number; byIndex: Record<number, boolean> }>({ gen: fold.gen, byIndex: {} });
+  const isFolded = (i: number) => (folded.gen === fold.gen ? folded.byIndex[i] : undefined) ?? fold.collapsed;
+  const setFoldedAt = (i: number, value: boolean) =>
+    setFolded((prev) => ({ gen: fold.gen, byIndex: { ...(prev.gen === fold.gen ? prev.byIndex : {}), [i]: value } }));
 
   useEffect(() => {
     if ((addTrigger ?? 0) > prevTrigger.current) {
@@ -147,8 +156,29 @@ export function NotesEditor({
       level: note.xref ? 0 : 1,
       tag: note.xref && target.version === "7.0" ? "SNOTE" : "NOTE",
     });
+    const collapsible = isCollapsibleNote(note.text);
+    const collapsed = collapsible && isFolded(i);
     return (
-      <span key={i} className="edit-note-item">
+      <span
+        key={i}
+        className={`edit-note-item${collapsible ? " edit-note-item--long" : ""}${collapsed ? " edit-note-item--collapsed" : ""}`}
+        // A folded note opens when it is clicked or tabbed into: it is typed
+        // in whole, and stays open so it does not fold under the caret.
+        onFocus={(e) => {
+          if (isFolded(i) && e.target === boxRefs.current[i]) setFoldedAt(i, false);
+        }}
+      >
+        {collapsible && (
+          <button
+            type="button"
+            className="note-fold"
+            title={t(collapsed ? "edit.noteExpand" : "edit.noteCollapse")}
+            aria-expanded={!collapsed}
+            onClick={() => setFoldedAt(i, !collapsed)}
+          >
+            {collapsed ? "▸" : "▾"}
+          </button>
+        )}
         <RichNoteInput
           ref={(el) => { boxRefs.current[i] = el; }}
           wrapClassName="edit-note-chip"
@@ -186,7 +216,11 @@ export function NotesEditor({
           t={t}
           onInput={(text) => setNotes((prev) => prev.map((n, idx) => (idx === i ? { ...n, text } : n)))}
           onBlur={() => commitNotes(notes)}
-          onClear={() => commitNotes(notes.filter((_, idx) => idx !== i))}
+          onClear={() => {
+            // The notes after this one move up a place; their by-hand folds would follow the wrong note.
+            setFolded({ gen: fold.gen, byIndex: {} });
+            commitNotes(notes.filter((_, idx) => idx !== i));
+          }}
         />
         {url && (
           <a className="source-ref-open" href={linkHref(url)} target="_blank" rel="noreferrer noopener" title={url}>
@@ -204,6 +238,11 @@ export function NotesEditor({
     )));
   }
 
+  // "Fold all" while any long note here is open, "unfold all" otherwise — so
+  // the button always does something to the notes it sits beside.
+  const longNotes = notes.flatMap((n, i) => (!isHidden(n) && isCollapsibleNote(n.text) ? [i] : []));
+  const anyOpen = longNotes.length ? longNotes.some((i) => !isFolded(i)) : !fold.collapsed;
+
   return (
     <div className={`edit-notes${className ? ` ${className}` : ""}`}>
       {sectionLabel ? (
@@ -218,6 +257,16 @@ export function NotesEditor({
           >
             + {t("edit.addNote")}
           </button>
+          {(longNotes.length > 0 || fold.collapsed) && (
+            <button
+              type="button"
+              className="edit-name-chip note-fold-all"
+              title={t(anyOpen ? "edit.notesCollapseAllTooltip" : "edit.notesExpandAllTooltip")}
+              onClick={() => setNotesCollapsed(anyOpen)}
+            >
+              {anyOpen ? "▸" : "▾"} {t(anyOpen ? "edit.notesCollapseAll" : "edit.notesExpandAll")}
+            </button>
+          )}
         </div>
       ) : (
         noteFields
