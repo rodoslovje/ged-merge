@@ -527,7 +527,7 @@ export function EventCoordPicker({
   // offers — alone, the head of the panel already says all of it.
   const currentLine = !!coord && optionNumbers.size > 0 && numberOf(coord) === undefined;
   if (currentLine) numberFor(coord);
-  const currentName = atPlaceOnly ? t("tools.geocode.addr.placePin") : currentLabel || t("event.coord.current");
+  const currentName = currentLabel || t("event.coord.current");
   /** A list line's number takes the option, as the label beside it does — on
    *  the geocoding lists the number is part of the option's radio label. Kept
    *  out of the tab order: the label is the line's one stop. */
@@ -596,7 +596,15 @@ export function EventCoordPicker({
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
     pins.push({ coord: draftCoord, label: t("event.coord.typed"), kind: "chosen" });
   } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
-    pins.push({ coord, label: currentName, kind: "chosen", ...(currentLine ? { badge: numberOf(coord) } : {}) });
+    pins.push({
+      coord,
+      label: currentName,
+      kind: "chosen",
+      ...(currentLine ? { badge: numberOf(coord) } : {}),
+      // The settlement's position is drawn as on the geocoding lists: a wide
+      // neutral ring around its houses, not another house-sized dot.
+      ...(atPlaceOnly ? { lines: [t("tools.geocode.addr.placePin")], colorVar: "--map-other", area: true } : {}),
+    });
   }
 
   // Nothing to place and nothing to show: no pin at all, so an event that names
@@ -847,9 +855,19 @@ export function EventCoordPicker({
                       <span className="tools-geo-cand-num">{numberOf(coord)}</span>
                       <span>{currentName}</span>
                     </span>
-                    <span className="gm-data gm-coord gm-coord--set">
-                      {at(coord)}{" "}
-                      <span className="tools-reshape-badge">{t("event.coord.currentTag")}</span>
+                    {/* Read as the Addresses list reads the same position: its
+                        own is green, the settlement's is plain and tagged
+                        "(from the place)". */}
+                    <span>
+                      <span className={"gm-data gm-coord" + (atPlaceOnly ? "" : " gm-coord--set")}>{at(coord)}</span>
+                      {atPlaceOnly && (
+                        <>
+                          {" "}
+                          <span className="tools-geo-addr-tag" title={t("tools.geocode.addr.inheritedHint")}>
+                            {t("tools.geocode.addr.inherited")}
+                          </span>
+                        </>
+                      )}
                     </span>
                   </li>
                 </ul>

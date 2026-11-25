@@ -3199,7 +3199,6 @@ export const en = {
   "event.coord": "Has coordinates: {{coords}}",
   "event.coord.placeOnly": "The place's coordinates, not the address's: {{coords}} — click to look this address up",
   "event.coord.streetMiddle": "{{street}} — middle of the street (houses: {{n}})",
-  "event.coord.currentTag": "current",
   "event.coord.none": "No coordinates yet — click to look this address up or enter them",
   "event.coord.open": "Coordinates for {{event}}",
   "event.coord.clear": "Remove",

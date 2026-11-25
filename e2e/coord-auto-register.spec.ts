@@ -58,10 +58,12 @@ test("a stored register answers as the panel opens, beside the position held now
 
   // And the position held now, named for what it is and numbered after it.
   const current = page.locator(".edit-coord-current-line");
-  await expect(current).toContainText("The place's own position");
+  await expect(current).toContainText("Current coordinate");
+  // Tagged the way the Addresses list tags the same position.
+  await expect(current.locator(".tools-geo-addr-tag")).toHaveText("(from the place)");
+  await expect(current.locator(".gm-coord--set")).toHaveCount(0);
   await expect(current.locator(".tools-geo-cand-num")).toHaveText("2");
 
-  await expect(current.locator(".tools-reshape-badge")).toHaveText("current");
   await house.click();
   await expect(pin).not.toHaveClass(/edit-event-coord--place|edit-event-coord--empty/);
 });
