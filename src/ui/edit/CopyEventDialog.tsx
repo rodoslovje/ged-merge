@@ -8,7 +8,7 @@ import { datesTooltipOf, lifespanApproxOf, lifespanOf, type YearsApprox } from "
 import { YearsText } from "../YearsText";
 import { individualCopyBlock, familyCopyBlock, type CopyEventBlock } from "../../gedcom/edit";
 import { useNameOf } from "../SettingsContext";
-import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
+import { foldSearch, matchesTerms, personSearchText, queryTerms } from "../globalSearch";
 import { homePlaceOf } from "../../chart/nodeDisplay";
 import { personOptionTitle } from "./RelativePickerCard";
 
@@ -122,7 +122,7 @@ export function CopyEventDialog({
           detailTitle: datesTooltipOf(indi) || undefined,
           detailApprox: lifespanApproxOf(indi),
           blocked: individualCopyBlock(indi, node),
-          search: foldSearch(`${name} ${detail} ${indi.id}`),
+          search: personSearchText(indi, name, detail),
         });
       }
       for (const key of ["relatives", "others"] as GroupKey[]) {

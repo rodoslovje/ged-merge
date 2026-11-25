@@ -2,10 +2,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { KEY, keyHint } from "../keyboard/shortcuts";
 import { useTranslation } from "react-i18next";
 import type { Individual } from "../gedcom/types";
-import { nameSearchText } from "../match/relatives";
 import { lifespanTooltipOf, lifespanWithAge } from "../gedcom/age";
 import { xrefLabel } from "../gedcom/nameDisplay";
-import { foldSearch, matchesTerms, nameCollator, queryTerms } from "./globalSearch";
+import { matchesTerms, nameCollator, personSearchText, queryTerms } from "./globalSearch";
 import { useNameOf, useSettingsSlice } from "./SettingsContext";
 import { sexClass } from "./sex";
 import { YearsText } from "./YearsText";
@@ -104,7 +103,7 @@ export function StartPersonSelector({
             .map((i) => {
               const span = lifespanWithAge(i, settings.showAge);
               const name = nameOf(i);
-              const search = foldSearch(`${nameSearchText(i)} ${span} ${i.id}`);
+              const search = personSearchText(i, name, span);
               return {
                 id: i.id,
                 name,

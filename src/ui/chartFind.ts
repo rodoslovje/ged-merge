@@ -1,7 +1,9 @@
 import type { Individual } from "../gedcom/types";
-import { lifespanOf, birthSortKey } from "../gedcom/lifespan";
-import { nameSearchText } from "../match/relatives";
-import { foldSearch, matchesTerms, queryTerms } from "./globalSearch";
+import { birthSortKey } from "../gedcom/lifespan";
+import { foldSearch, matchesTerms, personSearchText, queryTerms } from "./globalSearch";
+
+/** The name a person is shown by — part of what they are searched by. */
+type NameOf = (indi: Individual) => string;
 
 /**
  * Find-in-chart: locate a person *already drawn* on the current diagram and move
@@ -35,19 +37,13 @@ export interface FindSource {
   text?: string;
 }
 
-/** Folded name + lifespan text for one person, matching the global search's
- *  haystack so the two searches find a person on the same spellings. */
-function personText(indi: Individual): string {
-  const span = lifespanOf(indi);
-  return foldSearch(span ? `${nameSearchText(indi)} ${span}` : nameSearchText(indi));
-}
 
 /**
  * Build the find index from the chart's nodes, keeping the caller's order — the
  * layout order — so cycling walks the diagram predictably instead of jumping
  * about. Nodes drawing nobody (spacers, unresolved links) are skipped.
  */
-export function buildFindEntries(sources: Iterable<FindSource>): FindEntry[] {
+export function buildFindEntries(sources: Iterable<FindSource>, nameOf: NameOf): FindEntry[] {
   const entries: FindEntry[] = [];
   for (const src of sources) {
     const people = src.people.filter((p): p is Individual => !!p);
@@ -55,7 +51,7 @@ export function buildFindEntries(sources: Iterable<FindSource>): FindEntry[] {
     entries.push({
       key: src.key,
       id: people[0]?.id ?? "",
-      text: [...people.map(personText), src.text ? foldSearch(src.text) : ""].join(" ").trim(),
+      text: [...people.map((p) => personSearchText(p, nameOf(p))), src.text ? foldSearch(src.text) : ""].join(" ").trim(),
     });
   }
   return entries;
@@ -83,6 +79,7 @@ export function findOffChart(
   individuals: Map<string, Individual>,
   query: string,
   onChart: Set<string>,
+  nameOf: NameOf,
 ): Individual | undefined {
   const terms = queryTerms(query);
   if (!terms.length) return undefined;
@@ -90,7 +87,7 @@ export function findOffChart(
   let bestKey = Infinity;
   for (const indi of individuals.values()) {
     if (onChart.has(indi.id)) continue;
-    if (!matchesTerms(personText(indi), terms)) continue;
+    if (!matchesTerms(personSearchText(indi, nameOf(indi)), terms)) continue;
     const key = birthSortKey(indi);
     if (!best || key < bestKey) {
       best = indi;
