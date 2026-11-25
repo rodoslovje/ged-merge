@@ -62,6 +62,7 @@ import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixMarriageDates } from "./tools/fixMarriageDate";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
+import { fixMarriageGodparents } from "./tools/fixMarriageGodparents";
 import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
@@ -3231,6 +3232,7 @@ function AppContent() {
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only), true)}
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
+              onFixMarriageGodparents={(only) => applyToolPatches(fixMarriageGodparents(mainDataset, only), true)}
               onFixMarriageDates={(fixes) => applyToolPatches(fixMarriageDates(mainDataset, fixes), true)}
               onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }, writeVersionOf(formatOverrides)).patches, true)}
               onEstimateBirths={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "estimateBirth" }, writeVersionOf(formatOverrides)).patches, true)}

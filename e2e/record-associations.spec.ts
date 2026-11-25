@@ -337,6 +337,8 @@ test("a 7.0 family record takes its own witnesses", async ({ page }) => {
 
   await expect(panel.locator(".edit-event-assoc")).toHaveCount(1);
   await expect(panel.locator(".edit-event-assoc")).toContainText("Jozefa");
+  // A wedding has witnesses: a family's associate does not start as a godparent.
+  await expect(panel.locator(".edit-assoc-role-field").first()).toHaveValue("witness");
 
   // The other side of it: the witness's own record says where she is named, and
   // a family reads as its couple rather than as an @F1@ nobody recognises.

@@ -56,8 +56,8 @@ const FIX_DONE_MS = 8000;
 
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
-type FixKind = "links" | "sex" | "roles" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
+type FixKind = "links" | "sex" | "roles" | "godparents" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
 /** Fixes that settle only the rows that ask: picking every row of the kind
  *  still runs them one by one, never as a whole-file pass. */
 const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs"]);
@@ -174,6 +174,7 @@ export function ValidatePanel({
   onFixBrokenLinks,
   onFixSexFromRole,
   onFixSwappedRoles,
+  onFixMarriageGodparents,
   onMarkDeceased,
   onEstimateBirths,
   onFixMarriageDates,
@@ -198,6 +199,7 @@ export function ValidatePanel({
   onFixBrokenLinks: (only?: BrokenLinkRef) => number;
   onFixSexFromRole: (only?: string) => number;
   onFixSwappedRoles: (only?: string) => number;
+  onFixMarriageGodparents: (only?: string) => number;
   /** Add an undated death (`1 DEAT Y`) to these people — the "living over 99"
    *  findings, which are almost always a missing death record. */
   onMarkDeceased: (ids: string[]) => number;
@@ -379,6 +381,7 @@ export function ValidatePanel({
     return kind === "links" ? onFixBrokenLinks()
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
+      : kind === "godparents" ? onFixMarriageGodparents()
       : kind === "deceased" ? onMarkDeceased(livingTooOldIds())
       : kind === "births" ? onEstimateBirths(birthEstimateIds())
       : kind === "marriageDates" ? onFixMarriageDates(marriageFixes())
@@ -822,6 +825,14 @@ export function ValidatePanel({
         run: () => onFixSwappedRoles(issue.id),
         };
       }
+      case "association":
+        if (!issue.marriageGodparent) return null;
+        return {
+          label: t("tools.validate.fixOneValue", { value: t("assoc.role.WITN") }),
+          hint: t("tools.validate.fixOneGodparentHint"),
+          kind: "godparents",
+          run: () => onFixMarriageGodparents(issue.id),
+        };
       case "missingVitals": {
         const value = issue.birthEstimate;
         if (!value) return null;
@@ -1179,6 +1190,8 @@ export function ValidatePanel({
   if (report.counts.duplicateFamily > 0) fixActions.push({ kind: "families", count: report.counts.duplicateFamily });
   if (fixableDangling > 0) fixActions.push({ kind: "dangling", count: fixableDangling });
   if (swappedRoleFams > 0) fixActions.push({ kind: "roles", count: swappedRoleFams });
+  const marriageGodparents = report.issues.filter((i) => i.marriageGodparent).length;
+  if (marriageGodparents > 0) fixActions.push({ kind: "godparents", count: marriageGodparents });
   if (inferableSex.size > 0) fixActions.push({ kind: "sex", count: inferableSex.size });
   if (report.counts.livingTooOld > 0) fixActions.push({ kind: "deceased", count: report.counts.livingTooOld });
   if (fixableDates > 0) fixActions.push({ kind: "dates", count: fixableDates });

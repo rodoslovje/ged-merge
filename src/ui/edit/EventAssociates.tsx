@@ -355,12 +355,13 @@ export function EventAssociates({
   /**
    * Picking somebody writes the association there and then, the way adding an
    * event or another name does — no form to fill and confirm. The role it
-   * starts with is the one a register names most, and the row it lands in is
-   * where it is changed: the caret is already in the role.
+   * starts with is the one a register names most — a witness on a family's
+   * events (a wedding has no godparents), a godparent on a person's — and the
+   * row it lands in is where it is changed: the caret is already in the role.
    */
   const name = (who: { targetId?: string; name?: string }) => {
     if (!api || !container) return;
-    api.add(ownerId, container, { ...who, role: "GODP" });
+    api.add(ownerId, container, { ...who, role: api.dataset.families.has(ownerId) ? "WITN" : "GODP" });
     setFresh(associations.length);
     onDonePicking();
   };
