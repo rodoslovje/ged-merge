@@ -43,6 +43,7 @@ import { PrivateToggle } from "./PrivateToggle";
 import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
 import { FamilyEventRow } from "./FamilyEventRow";
 import { NotesEditor } from "./NotesEditor";
+import { FamilyResearch } from "./ResearchSection";
 import { assocMoveTargets, RecordAssociates } from "./AssociatesPanel";
 import { useAssoc } from "./AssocContext";
 import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
@@ -785,6 +786,7 @@ export const FamilySection = memo(function FamilySection({
               + {t("edit.addNote")}
             </button>
           )}
+          {fam && <FamilyResearch node={fam.raw} t={t} />}
           {fam && !(fam.links ?? []).length && !(fam.sources ?? []).length && (
             <button
               type="button"

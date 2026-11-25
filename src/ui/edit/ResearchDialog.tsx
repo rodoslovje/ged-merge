@@ -121,6 +121,17 @@ export function ResearchDialog({
     return date ? `${eventDisplayLabel(node.tag, t)} · ${date}` : eventDisplayLabel(node.tag, t);
   }
 
+  // The families of the people the note is filed under — theirs by marriage
+  // and by birth — that it is not yet filed under as a whole.
+  const familyChoices: string[] = [];
+  for (const target of targets) {
+    const indi = dataset.individuals.get(target.recordId);
+    for (const famId of indi ? [...indi.spouseOf, ...indi.childOf] : []) {
+      if (familyChoices.includes(famId) || !dataset.families.has(famId)) continue;
+      if (!targets.some((p) => p.recordId === famId && p.eventIndex === undefined)) familyChoices.push(famId);
+    }
+  }
+
   function setTargetEvent(at: number, value: string) {
     setTargets((prev) => prev.map((target, i) =>
       i === at ? { recordId: target.recordId, ...(value === WHOLE ? {} : { eventIndex: Number(value) }) } : target));
@@ -277,9 +288,20 @@ export function ResearchDialog({
             />
           </div>
         ) : (
-          <button type="button" className="edit-name-chip edit-name-chip-add research-target-add" onClick={() => setPicking(true)}>
-            + {t("research.addPerson")}
-          </button>
+          <span className="research-target-adds">
+            <button type="button" className="edit-name-chip edit-name-chip-add research-target-add" onClick={() => setPicking(true)}>
+              + {t("research.addPerson")}
+            </button>
+            {familyChoices.length > 0 && (
+              <DropdownMenu
+                className="edit-name-chip edit-name-chip-add research-target-add"
+                title={t("research.addFamilyHint")}
+                groups={[{ items: familyChoices.map((famId) => ({ value: famId, label: recordLabel(famId) })) }]}
+                onSelect={(famId) => setTargets((prev) => [...prev, { recordId: famId }])}
+                trigger={<>+ {t("research.addFamily")} ▾</>}
+              />
+            )}
+          </span>
         )}
       </div>
       <AddMediaDialog

@@ -8648,6 +8648,7 @@ button.research-target-name:focus-visible { color: var(--accent); text-decoratio
 .research-target-remove:hover,
 .research-target-remove:focus-visible { color: var(--danger); }
 .research-target-add { align-self: flex-start; opacity: 1; }
+.research-target-adds { display: flex; flex-wrap: wrap; gap: 6px; }
 /* The person search lists its matches in the dialog's own flow: floating, the
    list was cut off by the dialog's scrolling body. */
 .research-dialog .relative-picker-list { position: static; max-width: 100%; box-shadow: none; }

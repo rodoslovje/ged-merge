@@ -105,3 +105,20 @@ export function ResearchRefs({ node, t }: { node: GedNode | undefined; t: Transl
     </span>
   );
 }
+
+/**
+ * A family's own tasks, among the "+ Add" chips beside the partner: the open
+ * ones filed under the family as a whole as marks, then the chip that adds one.
+ */
+export function FamilyResearch({ node, t }: { node: GedNode; t: Translate }) {
+  const api = useResearch();
+  if (!api) return null;
+  return (
+    <>
+      <ResearchRefs node={node} t={t} />
+      <button type="button" className="edit-name-chip edit-name-chip-add edit-name-chip-task" title={t("research.addFamilyTooltip")} onClick={() => api.addTo(node)}>
+        <NotebookIcon size={13} /> {t("research.add")}
+      </button>
+    </>
+  );
+}
