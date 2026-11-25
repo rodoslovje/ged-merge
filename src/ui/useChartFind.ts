@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Individual } from "../gedcom/types";
 import { buildFindEntries, findHits, findOffChart, type FindEntry, type FindSource } from "./chartFind";
+import { useNameOf } from "./SettingsContext";
 
 /** How long a found node keeps its flash highlight. */
 const FLASH_MS = 1600;
@@ -62,7 +63,8 @@ export function useChartFind(
   const [miss, setMiss] = useState<"none" | "offChart" | null>(null);
   const [offChart, setOffChart] = useState<Individual | undefined>(undefined);
 
-  const entries = useMemo(() => buildFindEntries(sources), [sources]);
+  const nameOf = useNameOf();
+  const entries = useMemo(() => buildFindEntries(sources, nameOf), [sources, nameOf]);
   const hits = useMemo(() => findHits(entries, query), [entries, query]);
 
   // Drop the highlight once it has had its moment. Re-armed on every jump.
@@ -81,7 +83,7 @@ export function useChartFind(
     (dir: 1 | -1, from: number) => {
       if (!hits.length) {
         // Nothing here — is there anybody by that name elsewhere in the file?
-        const elsewhere = onSetRoot ? findOffChart(individuals, query, new Set(entries.map((e) => e.id))) : undefined;
+        const elsewhere = onSetRoot ? findOffChart(individuals, query, new Set(entries.map((e) => e.id)), nameOf) : undefined;
         setOffChart(elsewhere);
         setMiss(query.trim() ? (elsewhere ? "offChart" : "none") : null);
         return;
@@ -92,7 +94,7 @@ export function useChartFind(
       onReveal(hits[next].key);
       flash(hits[next].key);
     },
-    [hits, entries, individuals, query, onReveal, onSetRoot, flash],
+    [hits, entries, individuals, query, onReveal, onSetRoot, flash, nameOf],
   );
   const step = useCallback((dir: 1 | -1) => move(dir, cursor), [move, cursor]);
 

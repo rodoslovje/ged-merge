@@ -12,9 +12,8 @@ import { collectFirstImage } from "./PersonMedia";
 /**
  * One searchable projection of an individual, precomputed once per dataset so a
  * whole-file search doesn't re-derive name/place text on every keystroke.
- * `searchText` is already lower-cased and covers every name form (married, aka,
- * maiden, nickname…) plus the lifespan, mirroring the person picker's behaviour
- * so a person is found however they're written. The remaining fields back the
+ * `searchText` is the shared {@link personSearchText}, so a person is found
+ * here as in every other person box. The remaining fields back the
  * attribute facets (sex, birth year, place, attachments).
  */
 export interface SearchRow {
@@ -23,7 +22,7 @@ export interface SearchRow {
   name: string;
   /** Lifespan suffix (e.g. "1841–1902"), or "" when no dates are known. */
   span: string;
-  /** Lower-cased haystack: all name forms + lifespan. */
+  /** Folded haystack — see {@link personSearchText}. */
   searchText: string;
   sex: Sex;
   birthYear?: number;
@@ -86,6 +85,18 @@ export function matchesTerms(text: string, terms: readonly string[]): boolean {
  */
 export function matchesQuery(text: string, terms: readonly string[]): boolean {
   return matchesTerms(foldSearch(text), terms);
+}
+
+/**
+ * The text a person is searched by, in every person search box of the app —
+ * so a person found in one is found in all, on the same typing. It holds every
+ * name form the record carries (maiden, married, aka, nickname, other scripts),
+ * the name as it is shown (`shownName`: the display settings may add a married
+ * surname the record itself does not spell out), the years, and the record id.
+ * Folded, for {@link matchesTerms}.
+ */
+export function personSearchText(indi: Individual, shownName: string, span: string = lifespanOf(indi)): string {
+  return foldSearch(`${nameSearchText(indi)} ${shownName} ${span} ${indi.id}`);
 }
 
 /** True when the individual carries a URL on the record or any of its events. */
@@ -194,12 +205,12 @@ export const nameCollator = new Intl.Collator();
 /** One projected row; the sort happens afterwards in {@link startSearchIndex}. */
 function rowOf(indi: Individual, nameOf: (indi: Individual) => string, records?: GedNode[]): SearchRow {
   const span = lifespanOf(indi);
-  const searchText = foldSearch(span ? `${nameSearchText(indi)} ${span}` : nameSearchText(indi));
+  const name = nameOf(indi);
   return {
     id: indi.id,
-    name: nameOf(indi),
+    name,
     span,
-    searchText,
+    searchText: personSearchText(indi, name, span),
     sex: indi.sex,
     birthYear: birthYear(indi),
     birthKey: birthSortKey(indi),

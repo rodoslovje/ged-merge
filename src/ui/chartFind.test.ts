@@ -16,6 +16,9 @@ const named = (full: string, extra: Partial<PersonName> = {}) => indi([{ full, .
 const birth = (year: number): GedEvent => ({ tag: "BIRT", date: { raw: String(year), qualifier: "exact", year } });
 const toMap = (list: Individual[]) => new Map(list.map((i) => [i.id, i]));
 
+// The name on show, as the display settings would write it.
+const shown = (i: Individual) => i.names[0]?.full ?? "";
+
 describe("buildFindEntries", () => {
   it("indexes every name form of everyone a node draws, in layout order", () => {
     const main = indi([{ full: "Marija Kovačič", given: "Marija", surname: "Kovačič", married: "Novak" } as PersonName]);
@@ -23,7 +26,7 @@ describe("buildFindEntries", () => {
     const entries = buildFindEntries([
       { key: "a", people: [main, incoming] },
       { key: "b", people: [named("Janez Kovačič")] },
-    ]);
+    ], shown);
     expect(entries.map((e) => e.key)).toEqual(["a", "b"]);
     expect(entries[0].id).toBe(main.id);
     // Married name and the compare-side spelling both land in the haystack,
@@ -33,7 +36,7 @@ describe("buildFindEntries", () => {
   });
 
   it("skips nodes that draw nobody", () => {
-    expect(buildFindEntries([{ key: "gap", people: [undefined] }])).toEqual([]);
+    expect(buildFindEntries([{ key: "gap", people: [undefined] }], shown)).toEqual([]);
   });
 });
 
@@ -43,7 +46,7 @@ describe("findHits", () => {
     { key: "n2", people: [named("Janez Kovačič")] },
     // The same person drawn twice — pedigree collapse.
     { key: "n3", people: [named("Marija Kovačič")] },
-  ]);
+  ], shown);
 
   it("returns every position matching all terms, in layout order", () => {
     expect(findHits(entries, "marija").map((e) => e.key)).toEqual(["n1", "n3"]);
@@ -64,15 +67,15 @@ describe("findOffChart", () => {
     const younger = indi([{ full: "Ana Novak" } as PersonName], [birth(1902)]);
     const older = indi([{ full: "Ana Novak" } as PersonName], [birth(1841)]);
     const people = toMap([drawn, younger, older]);
-    expect(findOffChart(people, "ana novak", new Set([drawn.id]))?.id).toBe(older.id);
+    expect(findOffChart(people, "ana novak", new Set([drawn.id]), shown)?.id).toBe(older.id);
   });
 
   it("is undefined when every match is already on the chart", () => {
     const drawn = named("Ana Novak");
-    expect(findOffChart(toMap([drawn]), "ana", new Set([drawn.id]))).toBeUndefined();
+    expect(findOffChart(toMap([drawn]), "ana", new Set([drawn.id]), shown)).toBeUndefined();
   });
 
   it("is undefined for a blank query", () => {
-    expect(findOffChart(toMap([named("Ana Novak")]), "  ", new Set())).toBeUndefined();
+    expect(findOffChart(toMap([named("Ana Novak")]), "  ", new Set(), shown)).toBeUndefined();
   });
 });

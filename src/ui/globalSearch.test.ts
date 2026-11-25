@@ -59,6 +59,14 @@ describe("buildSearchRows", () => {
     expect(row.hasSources).toBe(false);
   });
 
+  it("is searched by the name on show too — a married surname only the display adds", () => {
+    const p = indi([{ full: "Cvetka Jekovec", given: "Cvetka", surname: "Jekovec" }], [birth(1950)]);
+    const withMarried = (i: Individual) => `${i.names[0].full} (Renko)`;
+    const rows = buildSearchRows(toMap([p]), withMarried);
+    expect(searchPeople(rows, "cvetka renko", filters(), noCtx).map((r) => r.id)).toEqual([p.id]);
+    expect(searchPeople(rows, "jekov 1950", filters(), noCtx).map((r) => r.id)).toEqual([p.id]);
+  });
+
   it("sorts rows by display name", () => {
     const rows = buildSearchRows(
       toMap([indi([{ full: "Zora" }]), indi([{ full: "Ana" }]), indi([{ full: "Marko" }])]),

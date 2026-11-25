@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Individual } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
-import { nameSearchText } from "../../match/relatives";
 import { lifespanTooltipOf, lifespanWithAge } from "../../gedcom/age";
 import { xrefLabel } from "../../gedcom/nameDisplay";
 import { useNameOf, useSettingsSlice } from "../SettingsContext";
 import { sexClass } from "../sex";
 import { YearsText } from "../YearsText";
 import { lifespanApproxOf } from "../../gedcom/lifespan";
-import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
+import { matchesTerms, personSearchText, queryTerms } from "../globalSearch";
 import { handleListKey } from "../../keyboard/useListKeyboard";
 import { homePlaceOf, type HomePlace } from "../../chart/nodeDisplay";
 
@@ -61,10 +60,7 @@ export function usePersonOptions(
                 span,
                 sex: i.sex,
                 xref: xrefLabel(i.id),
-                // Searchable on every name the person carries, not just the one
-                // on show: a maiden name still finds them while married names
-                // are displayed, and the record id finds them outright.
-                search: foldSearch(`${nameSearchText(i)} ${name} ${span} ${i.id}`),
+                search: personSearchText(i, name, span),
               };
             })
             .sort((a, b) => a.name.localeCompare(b.name) || a.span.localeCompare(b.span))
