@@ -2812,31 +2812,40 @@
               ispisati na jednoj stranici: kad ga se smjesti na A4, imena se smanje do nečitljivosti. Zato <strong>PDF</strong> uvijek najprije pita
               za papir — <strong>A4, A3, A2, A1, A0</strong>, <strong>Letter</strong> ili <strong>Prilagođeno</strong>
               — i dijagram prilagođava njemu; zatražite li od pisača stranicu veličine dijagrama, dobit ćete samo ono na što
-              upravljački program prijeđe kad to ne može, a većina dijagrama nedostaje. Na vrsti <strong>Stablo</strong> (u oba izgleda, ali ne
-              kao leptir-dijagram) isti dijalog dodaje postavku <strong>Veličina ispisa</strong>, jer se dijagram jednog smjera može
+              upravljački program prijeđe kad to ne može, a većina dijagrama nedostaje. Na vrsti <strong>Stablo</strong> (u oba izgleda, uključujući leptir-dijagram predaka i potomaka)
+              isti dijalog dodaje postavku <strong>Veličina ispisa</strong>, jer se takav dijagram može
               izrezati na više listova, i kaže vam na koliko
               će listova dijagram stati; gumb <strong>Ispiši</strong> zatim cijeli komplet šalje u dijalog za ispis, jedan
-              list po stranici. Veliki formati namijenjeni su ploteru ili kopirnici, a širok dijagram kojem bi trebalo desetak listova A4
-              često stane na jedan A1. <strong>Prilagođeno</strong> prima bilo koju veličinu u milimetrima, pa se rola za ploter —
-              recimo 1100 × 2000 mm — ispisuje kao jedan golem list; prilagođena veličina koristi se točno onako kako je upišete
-              (širina × visina), pa se prekidač usmjerenja na nju ne odnosi. Kakav god bio papir, komplet se uvećava ili smanjuje tako da
-              ga ispuni, a dijalog kaže koliko to iznosi — <em>Ispisuje se na 3 lista · u 62 % veličine</em>. Ispisuje se samo onaj dio
+              list po stranici. U prozoru preglednika za ispis koji se zatim otvori odaberite „Spremi kao PDF“: veličina
+              papira tada se postavlja sama, a uz svaki drugi pisač ondje odaberite isti papir. Veliki formati namijenjeni su ploteru ili kopirnici, a širok dijagram kojem bi trebalo desetak listova A4
+              često stane na jedan A1. <strong>Prilagođeno</strong> prima bilo koju veličinu u milimetrima i koristi je točno onako kako je upišete
+              (širina × visina), pa se prekidač usmjerenja na nju ne odnosi. <strong>Rola</strong>, ponuđena za
+              dijagrame koji se mogu rezati, namijenjena je papiru za ploter: upisujete samo širinu role, dijagram se
+              ispisuje u mjerilu koje odaberete, a stranica završava ondje gdje završava dijagram. Dijalog kaže koliko
+              metara role ispis troši; stranica je duga najviše 5 m, a dulji dijagram nastavlja se na sljedećim
+              stranicama. Uz usmjerenje <em>Uspravno</em> rola teče niz stranicu, a uz <em>Položeno</em> poprijeko;
+              dijagram koji raste prema dolje obično troši manje role položeno, jer grane stoje jedna uz drugu. Na
+              listu se komplet uvećava ili smanjuje tako da ga ispuni, a dijalog kaže koliko to iznosi i koliko će
+              velika biti imena — <em>Ispisuje se na 3 lista · u 62 % veličine, imena 5,6 pt</em>. Ispisuje se samo onaj dio
               platna na kojem je dijagram nacrtan, pa <strong>Krug</strong> s nekoliko prstenova potomaka
               više ne ostavlja praznu traku papira ispod njih. Spremljeni PDF nazvan je po dijagramu, kao i SVG.
               Veličina ispisa
               postavka je koja najviše znači: dijagram predaka udvostručuje se u širinu sa svakom
               generacijom, pa <em>Velika</em> (čitljivo s udaljenosti) može zahtijevati nekoliko puta više listova nego
               <em>Mala</em> (dijagram na zidu sitnim slovima), a <em>Jedan list</em> uopće odbija rezati — cijeli se
-              dijagram smanjuje na jedan odabrani list, ma koliko imena na kraju bila sitna (pratite postotak).
+              dijagram smanjuje na jedan odabrani list, ma koliko imena na kraju bila sitna (pratite postotak). <em>Velika</em>, <em>Srednja</em> i <em>Mala</em> znače 75, 50 i 30 %, a u polje
+              <strong>Mjerilo</strong> upisujete bilo koji drugi postotak od 10 do 200; ispod polovice veličine
+              dijalog upozorava da se ispis teško čita.
               Promijenite je i pratite broj listova — i imajte na umu da
               <strong>Generacije</strong> u postavkama dijagrama te isključivanje redaka s mjestom, fotografijom ili srodstvom smanjuju
               dijagram još prije nego što se uopće podijeli. Dijagram
-              se reže na granama, nikad usred okvira: grana koja ne stane nastavlja se na vlastitom listu, a
-              osoba od koje je odrezana zadržava zeleni kružić s brojem — <span class="gm-badge rep round">3</span> — koji pokazuje
-              na kojem se listu loza nastavlja. Zaglavlje svakog lista to navodi (<em>List 3 od 7 · Ana Novak — nastavak s
-              lista 1</em>), a svi se listovi ispisuju u istom mjerilu, pa su okviri posvuda iste veličine i
-              ispisani se komplet može slijepiti u jedan dijagram. Duga, uska loza umjesto toga se reže poprijeko kroz generaciju, pa
-              duboke loze ne troše svaka po jedan list.
+              se reže na granama, nikad usred okvira: grana koja ne stane nastavlja se kao zaseban dio s vlastitim
+              brojem, a osoba od koje je odrezana zadržava zeleni kružić s brojem — <span class="gm-badge rep round">3</span> — koji pokazuje
+              u kojem se dijelu loza nastavlja. Naslov dijela kaže kojom osobom dio počinje i koji dio nastavlja
+              (<em>Ana Novak — nastavak dijela 1</em>). Dijelovi se slažu na što manje listova i počinju na vrhu lista,
+              pa dugačak dijagram izrezan na tri dijela ispuni jedan širok list umjesto da na svakom od triju listova
+              zauzme samo usku traku. Svi se dijelovi ispisuju u istom mjerilu, pa su okviri posvuda iste veličine.
+              Duga, uska loza umjesto toga se reže poprijeko kroz generaciju.
             </p>
             <p>
               <strong>Cjelovito</strong> stablo ispisuje svoja numerirana stabla umjesto da reže jedno: stablo koje stane na
@@ -3803,7 +3812,7 @@
                 <tr><td><span class="gm-badge mod round">I</span></td><td>Izmijenjeno — zapis koji ste promijenili u Uređivanju (prikazuje se na dijagramima i uz srodnika na ploči usporedbe)</td></tr>
                 <tr><td><span class="gm-badge rep">+7</span></td><td>Neprikazani srodnici — ograničenje <em>Generacije</em> (<a href="#charts">§11</a>) zaustavlja dijagram na ovoj osobi; broj kazuje koliko je njezinih potomaka (ili predaka) izostavljeno. Kliknite ga kako biste dijagramu postavili korijen u toj osobi.</td></tr>
                 <tr><td><span class="gm-badge rep round">→</span></td><td>Ponovljena osoba — već je prikazana drugdje na dijagramu, gdje je nacrtana njezina grana; ovo je mjesto namjerno ostavljeno prazno, a oznaka je poveznica koja vas vodi onamo (vidi <a href="#charts">§11</a>)</td></tr>
-                <tr><td><span class="gm-badge rep round">3</span></td><td>Nastavlja se na listu 3 — samo na ispisanim listovima (<em>PDF</em>, <a href="#printing">§11</a>): linija ove osobe nije stala na trenutačni list i nastavlja se na listu s tim brojem</td></tr>
+                <tr><td><span class="gm-badge rep round">3</span></td><td>Nastavlja se u dijelu 3 — samo na ispisanim listovima (<em>PDF</em>, <a href="#printing">§11</a>): linija ove osobe nije stala na list i nastavlja se u dijelu s tim brojem</td></tr>
               </tbody>
             </table>
             <p><strong>Oznake izbora polja</strong> — pravokutne, na ploči usporedbe:</p>

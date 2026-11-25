@@ -2928,29 +2928,40 @@
               vedno najprej vpraša za papir — <strong>A4, A3, A2, A1, A0</strong>, <strong>Letter</strong> ali
               <strong>Po meri</strong> — in diagram prilagodi nanj; če od tiskalnika zahtevamo stran v velikosti
               diagrama, gonilnik za silo izbere najbližji papir, večina diagrama pa je odrezana. Pri vrsti
-              <strong>Drevo</strong> (v obeh izvedbah, ne pa pri prednikih in potomcih hkrati) isto okno doda še
-              <strong>velikost tiska</strong>, saj se diagram ene smeri lahko prereže na več listov, okno pa pove, na koliko listov se bo diagram
-              natisnil; <strong>Natisni</strong> nato pošlje ves komplet v tiskanje, po en list na stran. Veliki formati
+              <strong>Drevo</strong> (v obeh izvedbah, tudi pri prednikih in potomcih hkrati) isto okno doda še
+              <strong>velikost tiska</strong>, saj se tak diagram lahko prereže na več listov, okno pa pove, na koliko listov se bo diagram
+              natisnil; <strong>Natisni</strong> nato pošlje ves komplet v tiskanje, po en list na stran. V oknu brskalnika
+              za tiskanje, ki se odpre zatem, izberite »Shrani kot PDF«: velikost papirja se takrat nastavi sama, pri
+              vsakem drugem tiskalniku pa tam izberite isti papir. Veliki formati
               so za risalnik ali kopirnico: širok diagram, ki zahteva ducat listov A4, se pogosto natisne na en sam A1.
-              <strong>Po meri</strong> sprejme poljubno velikost v milimetrih, tako da se zvitek za risalnik — denimo
-              1100 × 2000 mm — natisne kot en sam ogromen list; velikost po meri se uporabi točno tako, kot jo vnesete
-              (širina × višina), zato zanjo usmerjenost ne velja. Ne glede na papir se komplet pomanjša ali poveča tako,
-              da list zapolni, okno pa pove, koliko to nanese — <em>Natisne se na 3 liste · v 62 % velikosti</em>.
+              <strong>Po meri</strong> sprejme poljubno velikost v milimetrih in jo uporabi točno tako, kot jo vnesete
+              (širina × višina), zato zanjo usmerjenost ne velja. <strong>Zvitek</strong>, ki je na voljo pri
+              diagramih, ki se lahko prerežejo, je namenjen papirju za risalnik: vnesete samo širino zvitka, diagram
+              se natisne v merilu, ki ga izberete, stran pa se konča tam, kjer se konča diagram. Okno pove, koliko
+              metrov zvitka gre za tisk; stran je dolga največ 5 m, daljši diagram pa se nadaljuje na naslednjih
+              straneh. Pri usmerjenosti <em>Pokončno</em> teče zvitek po strani navzdol, pri usmerjenosti
+              <em>Ležeče</em> pa počez; diagram, ki raste navzdol, običajno porabi manj zvitka ležeče, ker veje
+              stojijo druga ob drugi. Na listu se komplet pomanjša ali poveča tako, da list zapolni, okno pa pove,
+              koliko to nanese in kako velika bodo imena — <em>Natisne se na 3 liste · v 62 % velikosti, imena
+              5,6 pt</em>.
               Natisne se samo narisani del diagrama, zato pod diagramom <strong>Krog</strong> z le nekaj krogi potomcev
               ne ostane več prazen pas papirja. Shranjena datoteka PDF dobi ime po diagramu, tako kot datoteka SVG. Najbolj šteje
               velikost tiska: diagram prednikov se z vsakim rodom podvoji v širino, zato <em>Velika</em> (berljivo z
               razdalje) lahko zahteva večkrat toliko listov kot <em>Majhna</em> (droben tisk za diagram na steni),
               <em>En list</em> pa sploh ne reže — cel diagram se pomanjša na en sam izbrani list, pa naj imena postanejo
-              še tako drobna (poglejte odstotek).
+              še tako drobna (poglejte odstotek). Izbire <em>Velika</em>, <em>Srednja</em> in <em>Majhna</em> pomenijo 75, 50 in 30 %, v polje
+              <strong>Merilo</strong> pa vnesete kateri koli drug odstotek med 10 in 200; pod polovično velikostjo
+              okno opozori, da se tisk težko bere.
               Spreminjajte jo in opazujte število listov — pomnite pa tudi, da <strong>Rodovi</strong> v nastavitvah
               diagrama in izklop vrstic s krajem, sliko ali sorodstvom diagram zmanjšajo, še preden se sploh prereže.
               Diagram se prereže na vejah in nikoli sredi
-              okvirja: veja, ki ne gre na list, se nadaljuje na svojem listu, oseba, pri kateri je bil rez, pa obdrži
-              zeleni krogec s številko — <span class="gm-badge rep round">3</span> — ki pove, na katerem listu se veja
-              nadaljuje. Glava vsakega lista ga poimenuje (<em>List 3 od 7 · Ana Novak — nadaljevanje z lista 1</em>),
-              vsi listi pa se natisnejo v enakem merilu, tako da so okvirji povsod enako veliki in natisnjen komplet
-              sestavite v en sam diagram. Dolgo in ozko rodbinsko linijo prereže po rodovih, da ne bi vsak rod porabil
-              svojega lista.
+              okvirja: veja, ki ne gre na list, se nadaljuje kot samostojen del z lastno številko, oseba, pri kateri
+              je bil rez, pa obdrži zeleni krogec s številko — <span class="gm-badge rep round">3</span> — ki pove, v katerem delu se veja
+              nadaljuje. Naslov dela pove, s katero osebo se del začne in kateri del nadaljuje (<em>Ana Novak —
+              nadaljevanje dela 1</em>). Deli se zložijo na čim manj listov in se začnejo na vrhu lista, zato dolg
+              diagram, prerezan na tri dele, zapolni en širok list, namesto da bi na vsakem od treh listov zasedel le
+              ozek pas. Vsi deli se natisnejo v enakem merilu, tako da so okvirji povsod enako veliki. Dolga in ozka
+              rodbinska linija se prereže po rodovih.
             </p>
             <p>
               <strong>Celotno</strong> drevo se natisne po svojih oštevilčenih drevesih, ne da bi se rezalo eno samo.
@@ -3944,7 +3955,7 @@
                 <tr><td><span class="gm-badge mod round">S</span></td><td>Spremenjeno — zapis, ki ste ga uredili (prikazano na diagramih in ob sorodniku na plošči s primerjavo)</td></tr>
                 <tr><td><span class="gm-badge rep">+7</span></td><td>Neprikazani sorodniki — omejitev <em>Rodovi</em> (<a href="#charts">§11</a>) ustavi diagram pri tej osebi; število pove, koliko njenih potomcev (ali prednikov) ni izrisanih. Kliknite jo, da diagram prestavite nanjo.</td></tr>
                 <tr><td><span class="gm-badge rep round">→</span></td><td>Ponovljena oseba — v diagramu je že prikazana drugje, kjer je izrisana tudi njena veja; to mesto je namenoma prazno, značka pa je povezava, ki vas popelje tja (glejte <a href="#charts">§11</a>)</td></tr>
-                <tr><td><span class="gm-badge rep round">3</span></td><td>Nadaljuje se na listu 3 — samo pri natisnjenih listih (<em>PDF</em>, <a href="#printing">§11</a>): rodbinska črta te osebe ni šla na trenutni list in se nadaljuje na oštevilčenem</td></tr>
+                <tr><td><span class="gm-badge rep round">3</span></td><td>Nadaljuje se v delu 3 — samo pri natisnjenih listih (<em>PDF</em>, <a href="#printing">§11</a>): rodbinska črta te osebe ni šla na list in se nadaljuje v delu s to številko</td></tr>
               </tbody>
             </table>
             <p><strong>Oznake izbire polja</strong> — pravokotne, na plošči s primerjavo:</p>
