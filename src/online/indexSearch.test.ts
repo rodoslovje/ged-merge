@@ -77,13 +77,13 @@ const BENKO: IndexHit = {
 describe("personQuery", () => {
   const ds = parse(MAIN);
   it("takes the name, a two-year birth window and the birth village", () => {
-    expect(personQuery(ds.individuals.get("@I1@")!, ds)).toEqual({
+    expect(personQuery(ds.individuals.get("@I1@")!)).toEqual({
       given: "Janez", surname: "Penko", birthFrom: 1860, birthTo: 1864, birthPlace: "Petelinje",
     });
   });
   it("takes both windows when birth and death are both dated", () => {
     const both = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NAME Marija /Simončič/\n1 BIRT\n2 DATE 1883\n1 BURI\n2 DATE 20 OCT 1953\n0 TRLR\n");
-    const q = personQuery(both.individuals.get("@I1@")!, both)!;
+    const q = personQuery(both.individuals.get("@I1@")!)!;
     expect(q).toMatchObject({ birthFrom: 1881, birthTo: 1885, deathFrom: 1951, deathTo: 1955 });
     // The API keeps records without a year in either field…
     const api = new URL(indexApiUrl(q)).searchParams;
@@ -97,12 +97,13 @@ describe("personQuery", () => {
     expect(new URL(indexApiUrl({ given: "Marija", surname: "Simončič" })).searchParams.has("include_undated")).toBe(false);
   });
   it("falls back to a wider death window for an approximate death", () => {
-    expect(personQuery(ds.individuals.get("@I2@")!, ds)).toMatchObject({ deathFrom: 1895, deathTo: 1905 });
+    expect(personQuery(ds.individuals.get("@I2@")!)).toMatchObject({ deathFrom: 1895, deathTo: 1905 });
   });
-  it("estimates a birth window from relatives when nothing is dated", () => {
-    const q = personQuery(ds.individuals.get("@I3@")!, ds)!;
-    expect(q.birthFrom).toBeLessThan(1801);
-    expect(q.birthTo).toBeGreaterThan(1760);
+  it("sends no year for a person with no dated birth or death, whatever their relatives suggest", () => {
+    const q = personQuery(ds.individuals.get("@I3@")!)!;
+    expect(q.birthFrom).toBeUndefined();
+    expect(q.deathFrom).toBeUndefined();
+    expect(new URL(searchUrl("index", q)).searchParams.has("dob")).toBe(false);
   });
 });
 
@@ -131,6 +132,27 @@ describe("search addresses", () => {
     expect(searchUrl("familysearchRecords", q)).toContain("/search/record/results?");
     expect(searchUrl("geni", q)).toBe("https://www.geni.com/search?search_type=people&names=Janez+Penko");
     expect(searchUrl("wikitree", q)).toBe("https://www.wikitree.com/index.php?title=Special%3ASearchPerson&wpFirst=Janez&wpLast=Penko");
+    expect(searchUrl("myheritage", q)).toBe(
+      "https://www.myheritage.com/research?action=query&formId=master&formMode=1&qname=Name+fn.Janez+ln.Penko&qevents-event1=Event+et.birth+ey.1862+ep.Petelinje&qevents=List",
+    );
+    expect(searchUrl("geneanet", q)).toBe("https://en.geneanet.org/fonds/individus/?go=1&nom=Penko&prenom=Janez&type_periode=between&from=1860&to=1864");
+    expect(searchUrl("ancestry", { ...q, given: "Ana Marija", deathFrom: 1900, deathTo: 1904 })).toBe(
+      "https://www.ancestry.com/search/?name=Ana_Marija_Penko&birth=1862&death=1902",
+    );
+    expect(searchUrl("findagrave", { ...q, deathFrom: 1915, deathTo: 1925 })).toBe(
+      "https://www.findagrave.com/memorial/search?firstname=Janez&lastname=Penko&birthyear=1862&birthyearfilter=3&deathyear=1920&deathyearfilter=5",
+    );
+    expect(searchUrl("findagrave", { given: "", surname: "Penko" })).toBe("https://www.findagrave.com/memorial/search?lastname=Penko");
+    expect(searchUrl("dlib", q)).toBe("https://www.dlib.si/results/?query=%27keywords%3DJanez+Penko%27");
+    expect(searchUrl("biografija", { ...q, deathFrom: 1915, deathTo: 1925 })).toBe(
+      "https://www.slovenska-biografija.si/iskanje/?mode=complex&forename=Janez&surname=Penko&birthFrom=1860&birthTo=1864&deathFrom=1915&deathTo=1925",
+    );
+    expect(searchUrl("wikipediaSl", q)).toBe("https://sl.wikipedia.org/w/index.php?search=Janez+Penko");
+    expect(searchUrl("wikipediaEn", q)).toBe("https://en.wikipedia.org/w/index.php?search=Janez+Penko");
+    expect(searchUrl("wikipediaHr", q)).toBe("https://hr.wikipedia.org/w/index.php?search=Janez+Penko");
+    expect(searchUrl("myheritage", { given: "Ana Marija", surname: "Novak", deathFrom: 1900, deathTo: 1904, birthPlace: "Stara Loka" })).toBe(
+      "https://www.myheritage.com/research?action=query&formId=master&formMode=1&qname=Name+fn.Ana%2F3Marija+ln.Novak&qevents-any%2F1event_1=Event+et.death+ey.1902&qevents=List",
+    );
     expect(searchUrl("index", q)).toBe("https://indeks.rodoslovje.si/?t=person&n=Janez&sn=Penko&dob=1860&dobt=1864&ex=0");
   });
   it("links a hit to its own index page", () => {

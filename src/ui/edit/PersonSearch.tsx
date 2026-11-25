@@ -715,7 +715,7 @@ function IndexResults({
 /**
  * The Edit view's search rail, in the Relatives rail's place: prefilled
  * search pages of the sites switched on in Settings (the Slovenian and
- * Croatian indexes, FamilySearch, Geni, WikiTree) for the person open in
+ * Croatian indexes, FamilySearch, MyHeritage and the other sites) for the person open in
  * Edit, and — behind the "Look up details online" switch — each switched-on
  * index's own hits ({@link IndexResults}).
  *
@@ -737,9 +737,9 @@ export function PersonSearch({
   const { t } = useTranslation();
   const { indexExact, searchSites } = useSettingsSlice(SETTINGS_KEYS);
   const query = useMemo(() => {
-    const q = personQuery(person, dataset);
+    const q = personQuery(person);
     return q && indexExact ? { ...q, exact: true } : q;
-  }, [person, dataset, indexExact]);
+  }, [person, indexExact]);
   const living = useMemo(
     () => !!livingReason(person, dataset, defaultPrivacyOptions(), new Date().getFullYear()),
     [person, dataset],

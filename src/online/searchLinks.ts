@@ -6,15 +6,15 @@
  * Pure: no network. The addresses only open in a new tab when the reader
  * clicks one; nothing is sent until then.
  */
-import type { Dataset, GedEvent, Individual } from "../gedcom/types";
-import { BIRTH_TAGS, DEATH_TAGS, estimateBirthYear, isApproximate } from "../gedcom/lifespan";
+import type { GedEvent, Individual } from "../gedcom/types";
+import { BIRTH_TAGS, DEATH_TAGS, isApproximate } from "../gedcom/lifespan";
 import { primaryName } from "../match/relatives";
 import { GEN_INDEX, type GenIndex } from "./genIndexes";
 
 export interface PersonQuery {
   given: string;
   surname: string;
-  /** Birth-year window, when the person has a dated birth or one can be estimated. */
+  /** Birth-year window, when the person has a dated birth. */
   birthFrom?: number;
   birthTo?: number;
   /** Death-year window, when the person has a dated death or burial. */
@@ -32,8 +32,6 @@ export interface PersonQuery {
 const EXACT_SLACK = 2;
 /** …and either side of an "about"/range date. */
 const APPROX_SLACK = 5;
-/** …and either side of a year estimated from relatives. */
-const ESTIMATE_SLACK = 15;
 
 function firstDated(indi: Individual, tags: readonly string[]): GedEvent | undefined {
   for (const tag of tags) {
@@ -50,8 +48,10 @@ function yearWindow(e: GedEvent): [number, number] {
 }
 
 /** The search for one person, or undefined when they have no surname and no
- *  given name — nothing a search could go on. */
-export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undefined {
+ *  given name — nothing a search could go on. Only stated years go in: a year
+ *  estimated from relatives is easily a year outside its window, and a site
+ *  asked for a window drops the very person. */
+export function personQuery(indi: Individual): PersonQuery | undefined {
   const name = primaryName(indi);
   const given = (name?.given ?? "").trim();
   const surname = (name?.surname ?? "").trim();
@@ -63,10 +63,6 @@ export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undef
   const death = firstDated(indi, DEATH_TAGS);
   if (birth) [q.birthFrom, q.birthTo] = yearWindow(birth);
   if (death) [q.deathFrom, q.deathTo] = yearWindow(death);
-  if (!birth && !death && ds) {
-    const est = estimateBirthYear(indi, ds);
-    if (est) [q.birthFrom, q.birthTo] = [est.estimatedYear - ESTIMATE_SLACK, est.estimatedYear + ESTIMATE_SLACK];
-  }
   const place = BIRTH_TAGS.map((tag) => indi.events.find((e) => e.tag === tag)?.place).find(Boolean);
   const locality = place?.parts[0]?.trim();
   if (locality) q.birthPlace = locality;
@@ -74,14 +70,14 @@ export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undef
 }
 
 /** The search sites; `index` is the Slovenian genealogical index, `indexHr` the Croatian one. */
-export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree";
+export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree" | "myheritage" | "geneanet" | "ancestry" | "findagrave" | "dlib" | "biografija" | "wikipediaSl" | "wikipediaEn" | "wikipediaHr";
 
-export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree"];
+export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree", "myheritage", "geneanet", "ancestry", "findagrave", "dlib", "biografija", "wikipediaSl", "wikipediaEn", "wikipediaHr"];
 
 /** The site of each genealogical index. */
 export const INDEX_SEARCH_SITE: Record<GenIndex, SearchSite> = { si: "index", hr: "indexHr" };
 
-/** Which sites are on unless the reader says otherwise: all but the Croatian index. */
+/** Which sites are on unless the reader says otherwise: all but the Croatian index and the Croatian Wikipedia. */
 export const DEFAULT_SEARCH_SITES: Record<SearchSite, boolean> = {
   index: true,
   indexHr: false,
@@ -89,6 +85,15 @@ export const DEFAULT_SEARCH_SITES: Record<SearchSite, boolean> = {
   familysearchRecords: true,
   geni: true,
   wikitree: true,
+  myheritage: true,
+  geneanet: true,
+  ancestry: true,
+  findagrave: true,
+  dlib: true,
+  biografija: true,
+  wikipediaSl: true,
+  wikipediaEn: true,
+  wikipediaHr: false,
 };
 
 function withParams(base: string, params: Record<string, string | number | undefined>): string {
@@ -109,8 +114,36 @@ function familySearch(kind: "tree" | "record", q: PersonQuery): string {
   });
 }
 
-/** The prefilled search page of one site. Geni and WikiTree take only the name
- *  in the address; the reader narrows by year on their page. */
+/** Wikipedia's own search in one language: it opens the article outright when
+ *  one carries exactly that name. */
+function wikipedia(lang: string, q: PersonQuery): string {
+  return withParams(`https://${lang}.wikipedia.org/w/index.php`, { search: [q.given, q.surname].filter(Boolean).join(" ") });
+}
+
+/** One term of a MyHeritage query field: its values join with "+" (a space in
+ *  the address), so a space inside a value is written as "/3". */
+function mhTerm(key: string, value: string | number): string {
+  return `${key}.${String(value).trim().replace(/\s+/g, "/3")}`;
+}
+
+/** MyHeritage takes one year per event, not a window: the middle of ours. */
+function mhEvent(type: "birth" | "death", from: number | undefined, to: number | undefined, place?: string): string | undefined {
+  if (from === undefined || to === undefined) return undefined;
+  return ["Event", mhTerm("et", type), mhTerm("ey", mid(from, to)), place && mhTerm("ep", place)].filter(Boolean).join(" ");
+}
+
+const mid = (from: number, to: number): number => Math.round((from + to) / 2);
+
+/** Find a Grave takes a year and one of its own widths either side of it:
+ *  the narrowest that covers our window. */
+function graveYear(kind: "birth" | "death", from: number | undefined, to: number | undefined): Record<string, number | undefined> {
+  if (from === undefined || to === undefined) return {};
+  const half = (to - from) / 2;
+  return { [`${kind}year`]: mid(from, to), [`${kind}yearfilter`]: [1, 3, 5, 10, 25].find((w) => w >= half) ?? 25 };
+}
+
+/** The prefilled search page of one site. Geni, WikiTree, dLib and Wikipedia take
+ *  only the name in the address; the reader narrows by year on their page. */
 export function searchUrl(site: SearchSite, q: PersonQuery): string {
   switch (site) {
     case "index":
@@ -143,5 +176,62 @@ export function searchUrl(site: SearchSite, q: PersonQuery): string {
         wpFirst: q.given,
         wpLast: q.surname,
       });
+    case "myheritage":
+      // SuperSearch's own query fields; it searches records and trees alike.
+      return withParams("https://www.myheritage.com/research", {
+        action: "query",
+        formId: "master",
+        formMode: 1,
+        qname: ["Name", q.given && mhTerm("fn", q.given), q.surname && mhTerm("ln", q.surname)].filter(Boolean).join(" "),
+        "qevents-event1": mhEvent("birth", q.birthFrom, q.birthTo, q.birthPlace),
+        "qevents-any/1event_1": mhEvent("death", q.deathFrom, q.deathTo),
+        qevents: "List",
+      });
+    case "geneanet":
+      // One period only, the birth's when known: its search has no field per event.
+      return withParams("https://en.geneanet.org/fonds/individus/", {
+        go: 1,
+        nom: q.surname,
+        prenom: q.given,
+        ...(q.birthFrom !== undefined || q.deathFrom !== undefined
+          ? { type_periode: "between", from: q.birthFrom ?? q.deathFrom, to: q.birthTo ?? q.deathTo }
+          : {}),
+      });
+    case "ancestry":
+      return withParams("https://www.ancestry.com/search/", {
+        name: [q.given, q.surname].filter(Boolean).join(" ").replace(/\s+/g, "_"),
+        birth: q.birthFrom !== undefined && q.birthTo !== undefined ? mid(q.birthFrom, q.birthTo) : undefined,
+        death: q.deathFrom !== undefined && q.deathTo !== undefined ? mid(q.deathFrom, q.deathTo) : undefined,
+      });
+    case "findagrave":
+      return withParams("https://www.findagrave.com/memorial/search", {
+        firstname: q.given,
+        lastname: q.surname,
+        ...graveYear("birth", q.birthFrom, q.birthTo),
+        ...graveYear("death", q.deathFrom, q.deathTo),
+      });
+    case "dlib":
+      // The Digital Library of Slovenia searches the text of its newspapers
+      // and books, so only the name goes in.
+      return withParams("https://www.dlib.si/results/", {
+        query: `'keywords=${[q.given, q.surname].filter(Boolean).join(" ")}'`,
+      });
+    case "biografija":
+      // Slovenska biografija's advanced search.
+      return withParams("https://www.slovenska-biografija.si/iskanje/", {
+        mode: "complex",
+        forename: q.given,
+        surname: q.surname,
+        birthFrom: q.birthFrom,
+        birthTo: q.birthTo,
+        deathFrom: q.deathFrom,
+        deathTo: q.deathTo,
+      });
+    case "wikipediaSl":
+      return wikipedia("sl", q);
+    case "wikipediaEn":
+      return wikipedia("en", q);
+    case "wikipediaHr":
+      return wikipedia("hr", q);
   }
 }
