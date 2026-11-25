@@ -846,9 +846,11 @@ export function EventCoordPicker({
                     <span className="edit-coord-cand-line">
                       <span className="tools-geo-cand-num">{numberOf(coord)}</span>
                       <span>{currentName}</span>
-                      {atPlaceOnly && <span className="tools-geo-addr-tag">({t("event.coord.current")})</span>}
                     </span>
-                    <span className="gm-data gm-coord gm-coord--set">{at(coord)}</span>
+                    <span className="gm-data gm-coord gm-coord--set">
+                      {at(coord)}{" "}
+                      <span className="tools-reshape-badge">{t("event.coord.currentTag")}</span>
+                    </span>
                   </li>
                 </ul>
               )}

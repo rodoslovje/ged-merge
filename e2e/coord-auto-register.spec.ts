@@ -61,6 +61,7 @@ test("a stored register answers as the panel opens, beside the position held now
   await expect(current).toContainText("The place's own position");
   await expect(current.locator(".tools-geo-cand-num")).toHaveText("2");
 
+  await expect(current.locator(".tools-reshape-badge")).toHaveText("current");
   await house.click();
   await expect(pin).not.toHaveClass(/edit-event-coord--place|edit-event-coord--empty/);
 });
