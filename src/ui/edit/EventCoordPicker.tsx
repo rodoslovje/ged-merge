@@ -353,6 +353,17 @@ export function EventCoordPicker({
     );
   };
 
+  // A register this browser holds answers at once and asks nobody, so opening
+  // the panel is the question: the houses are on offer without a button to
+  // press first. Not where the caller keeps its own list of register answers —
+  // that list has already asked, and shows what it was told.
+  const autoRegister =
+    open && registerLocal && rn.state === "idle" && candidates === undefined && !onRegisterSearch;
+  useEffect(() => {
+    if (autoRegister) runRegister();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRegister, place, address]);
+
   const runOnline = () => {
     // Address first, then the place, which is how Nominatim reads best. A house
     // under both its old and new street name ("Labore 4 / Škofjeloška 4") is
@@ -505,11 +516,34 @@ export function EventCoordPicker({
   for (const r of shownOsm) numberFor(r.coord);
   /** What a list line and its pin both print. */
   const numberOf = (c: GeoCoord) => optionNumbers.get(`${c.lat},${c.lon}`);
+  // An event that names an address but stands on the position the file keeps
+  // for the settlement itself: placed, but not as exactly as it could be. The
+  // pin says so in its colour, or it reads as "done" and the house is never
+  // looked up.
+  const atPlaceOnly = !!coord && !!address.trim() && sameCoord(coord, fileCoord);
+  // The position held now takes a line of its own beside the offers, numbered
+  // like them: the map draws it among their pins, and a dot no line accounts
+  // for cannot be weighed against the house that was found. Only beside
+  // offers — alone, the head of the panel already says all of it.
+  /** Whether an offer is the position held now. Read at the precision a
+   *  coordinate is shown in: the file's five decimals and a register's six name
+   *  one house, and the same numbers printed on two lines are one option. */
+  const isCurrent = (c: GeoCoord) => !!coord && formatCoord(c) === formatCoord(coord);
+  const offered = [...(candidates ?? []), ...fromFile, ...shownRn, ...shownOsm];
+  const currentLine = !!coord && offered.length > 0 && !offered.some((o) => isCurrent(o.coord));
+  if (currentLine) numberFor(coord);
+  const currentName = currentLabel || t("event.coord.current");
   /** A list line's number takes the option, as the label beside it does — on
    *  the geocoding lists the number is part of the option's radio label. Kept
    *  out of the tab order: the label is the line's one stop. */
   const pickNumber = (c: GeoCoord, label: string) => (
-    <button type="button" className="tools-geo-cand-num" tabIndex={-1} aria-hidden="true" onClick={() => take(c, label)}>
+    <button
+      type="button"
+      className={"tools-geo-cand-num" + (isCurrent(c) ? " is-current" : "")}
+      tabIndex={-1}
+      aria-hidden="true"
+      onClick={() => take(c, label)}
+    >
       {numberOf(c)}
     </button>
   );
@@ -529,7 +563,7 @@ export function EventCoordPicker({
       coord: c.coord,
       label: c.label,
       lines: [c.detail, c.source, t("event.coord.pinPick")].filter((s): s is string => !!s),
-      kind: sameCoord(c.coord, coord) ? "chosen" : "candidate",
+      kind: isCurrent(c.coord) ? "chosen" : "candidate",
       badge: numberOf(c.coord),
       onPick: () => take(c.coord, c.label),
     });
@@ -553,7 +587,7 @@ export function EventCoordPicker({
       coord: r.coord,
       label: r.address,
       lines: [r.label === r.address ? "" : r.label, t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(Boolean),
-      kind: "candidate",
+      kind: isCurrent(r.coord) ? "chosen" : "candidate",
       badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.label),
     });
@@ -565,15 +599,23 @@ export function EventCoordPicker({
       coord: r.coord,
       label: r.name,
       lines: [short === r.name ? "" : short, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
-      kind: "candidate",
+      kind: isCurrent(r.coord) ? "chosen" : "candidate",
       badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.name),
     });
   }
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
     pins.push({ coord: draftCoord, label: t("event.coord.typed"), kind: "chosen" });
-  } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
-    pins.push({ coord, label: currentLabel || t("event.coord.current"), kind: "chosen" });
+  } else if (coord && !pins.some((p) => isCurrent(p.coord))) {
+    pins.push({
+      coord,
+      label: currentName,
+      kind: "chosen",
+      ...(currentLine ? { badge: numberOf(coord) } : {}),
+      // The settlement's position is drawn as on the geocoding lists: a wide
+      // neutral ring around its houses, not another house-sized dot.
+      ...(atPlaceOnly ? { lines: [t("tools.geocode.addr.placePin")], colorVar: "--map-other", area: true } : {}),
+    });
   }
 
   // Nothing to place and nothing to show: no pin at all, so an event that names
@@ -581,11 +623,6 @@ export function EventCoordPicker({
   if (!coord && !place) return null;
 
   const busy = rn.state === "loading" || osm.state === "loading";
-  // An event that names an address but stands on the position the file keeps
-  // for the settlement itself: placed, but not as exactly as it could be. The
-  // pin says so in its colour, or it reads as "done" and the house is never
-  // looked up.
-  const atPlaceOnly = !!coord && !!address.trim() && sameCoord(coord, fileCoord);
 
 
   return (
@@ -819,6 +856,31 @@ export function EventCoordPicker({
                       </span>
                     </li>
                   ))}
+                </ul>
+              )}
+
+              {currentLine && coord && (
+                <ul className="edit-coord-results">
+                  <li className="edit-coord-current-line">
+                    <span className="edit-coord-cand-line">
+                      <span className="tools-geo-cand-num">{numberOf(coord)}</span>
+                      <span>{currentName}</span>
+                    </span>
+                    {/* Read as the Addresses list reads the same position: its
+                        own is green, the settlement's is plain and tagged
+                        "(from the place)". */}
+                    <span>
+                      <span className={"gm-data gm-coord" + (atPlaceOnly ? "" : " gm-coord--set")}>{at(coord)}</span>
+                      {atPlaceOnly && (
+                        <>
+                          {" "}
+                          <span className="tools-geo-addr-tag" title={t("tools.geocode.addr.inheritedHint")}>
+                            {t("tools.geocode.addr.inherited")}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </li>
                 </ul>
               )}
              </div>
