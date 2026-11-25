@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FiledNote } from "../../gedcom/edit";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
+import { isHtmlNote } from "../../gedcom/noteHtml";
 import { researchText, type ResearchNote } from "../../gedcom/research";
 import type { GedNode } from "../../gedcom/types";
 import type { Translate } from "../../locales/i18n";
@@ -8,9 +9,12 @@ import { tipProps } from "../IconTip";
 import { NotebookIcon } from "../icons/NotebookIcon";
 import { RESEARCH_ICON, ResearchTitle, researchTitle, useResearch } from "./ResearchContext";
 
-/** What a note's chip says on hover: its whole text, then its links. */
-function noteTip(note: ResearchNote): string {
-  return [researchText(note), ...note.links].filter(Boolean).join("\n");
+/** What a note's chip says on hover: its whole text — with the formatting it
+ *  was given, when the file keeps it as HTML — then its links. */
+function noteTip(note: ResearchNote, opts: { heading?: string; kind: string }) {
+  const rich = isHtmlNote(note.text);
+  const plain = [rich ? "" : researchText(note), ...note.links].filter(Boolean).join("\n");
+  return tipProps(plain, { edit: true, ...opts, ...(rich ? { rich: note.text } : {}) });
 }
 
 /**
@@ -53,7 +57,7 @@ export function ResearchSection({
         <button
           type="button"
           className="research-chip-open"
-          {...tipProps(noteTip(note), { edit: true, kind: t(`research.kind.${note.kind}`) })}
+          {...noteTip(note, { kind: t(`research.kind.${note.kind}`) })}
           onClick={() => onOpen(note.id)}
         >
           <span aria-hidden="true">{RESEARCH_ICON[note.kind]}</span>
@@ -96,7 +100,7 @@ export function ResearchRefs({ node, t }: { node: GedNode | undefined; t: Transl
           key={note.id}
           type="button"
           className="link-icon edit-link-icon research-ref"
-          {...tipProps(noteTip(note), { edit: true, heading: researchTitle(note), kind: t(`research.kind.${note.kind}`) })}
+          {...noteTip(note, { heading: researchTitle(note), kind: t(`research.kind.${note.kind}`) })}
           onClick={() => api.open(note.id)}
         >
           {RESEARCH_ICON[note.kind]}

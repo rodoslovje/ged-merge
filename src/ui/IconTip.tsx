@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { noteToText } from "../gedcom/noteHtml";
+import { NoteText } from "./NoteText";
 
 /**
  * Tooltips for the small source/link icon chips (📖 ⛪ 🔗 ↗).
@@ -15,11 +17,14 @@ import { useTranslation } from "react-i18next";
  * lists its people) opts out with `acts`: the tap acts at once, and the tip
  * shows beside it without actions.
  */
-export function tipProps(text: string, opts?: { href?: string; edit?: boolean; heading?: string; kind?: string; acts?: boolean }) {
+export function tipProps(text: string, opts?: { href?: string; edit?: boolean; heading?: string; kind?: string; acts?: boolean; rich?: string }) {
   const head = [opts?.heading, opts?.kind].filter(Boolean).join(" — ");
   return {
     "data-tip": text,
-    "aria-label": [head, text].filter(Boolean).join("\n"),
+    "aria-label": [head, opts?.rich && noteToText(opts.rich), text].filter(Boolean).join("\n"),
+    // A note kept as HTML, shown above the text with its formatting (bold,
+    // italic, lists) — as elements built from the parsed note, never as markup.
+    ...(opts?.rich ? { "data-tip-rich": opts.rich } : {}),
     // What the chip is — a source's or a media link's title — set in bold on
     // the first line, with the kind of record it is after it, so it reads
     // apart from the lines describing it.
@@ -176,6 +181,7 @@ export function IconTipLayer() {
   if (!shown) return null;
   const { el, touch } = shown;
   const text = el.dataset.tip ?? "";
+  const rich = el.dataset.tipRich;
   const heading = el.dataset.tipHeading;
   const kind = el.dataset.tipKind;
   const href = el instanceof HTMLAnchorElement ? el.href : el.dataset.tipHref;
@@ -195,6 +201,7 @@ export function IconTipLayer() {
           {kind && ` — ${kind}`}
         </div>
       )}
+      {rich && <div className="icon-tip-text"><NoteText text={noteToText(rich)} rich={rich} /></div>}
       {text && <div className="icon-tip-text">{text}</div>}
       {showActions && (
         <div className="icon-tip-actions">
