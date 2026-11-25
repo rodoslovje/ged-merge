@@ -74,9 +74,9 @@ export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undef
 }
 
 /** The search sites; `index` is the Slovenian genealogical index, `indexHr` the Croatian one. */
-export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree";
+export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree" | "myheritage";
 
-export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree"];
+export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree", "myheritage"];
 
 /** The site of each genealogical index. */
 export const INDEX_SEARCH_SITE: Record<GenIndex, SearchSite> = { si: "index", hr: "indexHr" };
@@ -89,6 +89,7 @@ export const DEFAULT_SEARCH_SITES: Record<SearchSite, boolean> = {
   familysearchRecords: true,
   geni: true,
   wikitree: true,
+  myheritage: true,
 };
 
 function withParams(base: string, params: Record<string, string | number | undefined>): string {
@@ -107,6 +108,18 @@ function familySearch(kind: "tree" | "record", q: PersonQuery): string {
     "q.deathLikeDate.to": q.deathTo,
     "q.birthLikePlace": q.birthPlace,
   });
+}
+
+/** One term of a MyHeritage query field: its values join with "+" (a space in
+ *  the address), so a space inside a value is written as "/3". */
+function mhTerm(key: string, value: string | number): string {
+  return `${key}.${String(value).trim().replace(/\s+/g, "/3")}`;
+}
+
+/** MyHeritage takes one year per event, not a window: the middle of ours. */
+function mhEvent(type: "birth" | "death", from: number | undefined, to: number | undefined, place?: string): string | undefined {
+  if (from === undefined || to === undefined) return undefined;
+  return ["Event", mhTerm("et", type), mhTerm("ey", Math.round((from + to) / 2)), place && mhTerm("ep", place)].filter(Boolean).join(" ");
 }
 
 /** The prefilled search page of one site. Geni and WikiTree take only the name
@@ -142,6 +155,17 @@ export function searchUrl(site: SearchSite, q: PersonQuery): string {
         title: "Special:SearchPerson",
         wpFirst: q.given,
         wpLast: q.surname,
+      });
+    case "myheritage":
+      // SuperSearch's own query fields; it searches records and trees alike.
+      return withParams("https://www.myheritage.com/research", {
+        action: "query",
+        formId: "master",
+        formMode: 1,
+        qname: ["Name", q.given && mhTerm("fn", q.given), q.surname && mhTerm("ln", q.surname)].filter(Boolean).join(" "),
+        "qevents-event1": mhEvent("birth", q.birthFrom, q.birthTo, q.birthPlace),
+        "qevents-any/1event_1": mhEvent("death", q.deathFrom, q.deathTo),
+        qevents: "List",
       });
   }
 }

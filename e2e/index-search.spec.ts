@@ -95,6 +95,7 @@ test("the search rail prefills the other sites and stays offline with lookups of
   );
   await expect(panel.getByRole("link", { name: "WikiTree" })).toHaveAttribute("href", /wpFirst=Janez&wpLast=Penko/);
   await expect(panel.getByRole("link", { name: "Geni" })).toHaveAttribute("href", /names=Janez\+Penko/);
+  await expect(panel.getByRole("link", { name: "MyHeritage" })).toHaveAttribute("href", /qname=Name\+fn\.Janez\+ln\.Penko/);
   await expect(panel).toContainText("Look up details online");
   expect(asked).toEqual([]);
 

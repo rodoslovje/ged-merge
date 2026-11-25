@@ -131,6 +131,12 @@ describe("search addresses", () => {
     expect(searchUrl("familysearchRecords", q)).toContain("/search/record/results?");
     expect(searchUrl("geni", q)).toBe("https://www.geni.com/search?search_type=people&names=Janez+Penko");
     expect(searchUrl("wikitree", q)).toBe("https://www.wikitree.com/index.php?title=Special%3ASearchPerson&wpFirst=Janez&wpLast=Penko");
+    expect(searchUrl("myheritage", q)).toBe(
+      "https://www.myheritage.com/research?action=query&formId=master&formMode=1&qname=Name+fn.Janez+ln.Penko&qevents-event1=Event+et.birth+ey.1862+ep.Petelinje&qevents=List",
+    );
+    expect(searchUrl("myheritage", { given: "Ana Marija", surname: "Novak", deathFrom: 1900, deathTo: 1904, birthPlace: "Stara Loka" })).toBe(
+      "https://www.myheritage.com/research?action=query&formId=master&formMode=1&qname=Name+fn.Ana%2F3Marija+ln.Novak&qevents-any%2F1event_1=Event+et.death+ey.1902&qevents=List",
+    );
     expect(searchUrl("index", q)).toBe("https://indeks.rodoslovje.si/?t=person&n=Janez&sn=Penko&dob=1860&dobt=1864&ex=0");
   });
   it("links a hit to its own index page", () => {
