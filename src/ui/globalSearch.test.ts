@@ -59,7 +59,7 @@ describe("buildSearchRows", () => {
     expect(row.hasSources).toBe(false);
   });
 
-  it("is searched by the name on show too — a married surname only the display adds", () => {
+  it("is searched by the name on show as well as the names recorded", () => {
     const p = indi([{ full: "Cvetka Jekovec", given: "Cvetka", surname: "Jekovec" }], [birth(1950)]);
     const withMarried = (i: Individual) => `${i.names[0].full} (Renko)`;
     const rows = buildSearchRows(toMap([p]), withMarried);

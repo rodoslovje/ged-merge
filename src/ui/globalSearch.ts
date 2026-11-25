@@ -91,8 +91,8 @@ export function matchesQuery(text: string, terms: readonly string[]): boolean {
  * The text a person is searched by, in every person search box of the app —
  * so a person found in one is found in all, on the same typing. It holds every
  * name form the record carries (maiden, married, aka, nickname, other scripts),
- * the name as it is shown (`shownName`: the display settings may add a married
- * surname the record itself does not spell out), the years, and the record id.
+ * the name as it is shown (`shownName` — what the reader sees can always be
+ * typed), the years, and the record id.
  * Folded, for {@link matchesTerms}.
  */
 export function personSearchText(indi: Individual, shownName: string, span: string = lifespanOf(indi)): string {
