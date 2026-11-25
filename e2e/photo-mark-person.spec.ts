@@ -5,7 +5,7 @@ import { crc32, deflateSync } from "zlib";
 import { tmpdir } from "./tmpdir";
 
 // A group photo in Edit, where no face is found: a rectangle drawn on it is
-// named as anyone in the file, shows at once, and its bin removes it again.
+// named as anyone in the file, shows at once, and its ✕ removes it again.
 const DIR = path.join(tmpdir(), "photo-mark-person");
 const MEDIA = path.join(DIR, "media");
 const FILE = path.join(DIR, "group.ged");
@@ -46,7 +46,7 @@ writeFileSync(FILE, [
   "0 TRLR", "",
 ].join("\n"), "utf-8");
 
-test("a rectangle drawn on a group photo is named as another person, and its bin removes it", async ({ page }) => {
+test("a rectangle drawn on a group photo is named as another person, and its ✕ removes it", async ({ page }) => {
   // The folder picker the test can drive: the <input webkitdirectory> one.
   await page.addInitScript(() => {
     delete (window as unknown as { showDirectoryPicker?: unknown }).showDirectoryPicker;

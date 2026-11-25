@@ -31,7 +31,6 @@ import { DateInput } from "./edit/DateInput";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import { detectHeads, overlap } from "./faceDetect";
 import { nameCandidates } from "./faceNaming";
-import { TrashIcon } from "./icons/TrashIcon";
 
 /**
  * One full-screen photo viewer shared by every part of the app (Edit, Merge,
@@ -715,7 +714,7 @@ function MediaStage({
     naming: { crop: CropRegion; panel: ReactNode } | null;
     /** A marked person's region resized by its corner handles. */
     onAdjust: (mark: CropMark, crop: CropRegion) => void;
-    /** A marked person's region removed by its bin button. */
+    /** A marked person's region removed by its ✕ button. */
     onRemove: (mark: CropMark) => void;
   };
 }) {
@@ -868,7 +867,7 @@ function MediaStage({
               onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); faces!.onRemove(m); }}
             >
-              <TrashIcon />
+              ✕
             </button>
           )}
         </div>
