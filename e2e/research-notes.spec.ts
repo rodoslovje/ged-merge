@@ -270,6 +270,64 @@ test("a task's text takes the formatting a note's does", async ({ page }) => {
   expect(content).toMatch(/1 NOTE <p><b>Check the land register<\/b><\/p>/);
 });
 
+test("a task is filed under a family as a whole, from the family's row and from the dialog", async ({ page }) => {
+  const filePath = path.join(tmpdir(), `research-family-${Date.now()}.ged`);
+  writeFileSync(filePath, [
+    "0 HEAD",
+    "1 SOUR TEST",
+    "1 SUBM @U1@",
+    "1 GEDC",
+    "2 VERS 5.5.1",
+    "2 FORM LINEAGE-LINKED",
+    "1 CHAR UTF-8",
+    "0 @U1@ SUBM",
+    "1 NAME Tester",
+    "0 @I1@ INDI",
+    "1 NAME Franc /Novak/",
+    "1 SEX M",
+    "1 FAMS @F1@",
+    "0 @I2@ INDI",
+    "1 NAME Ana /Kos/",
+    "1 SEX F",
+    "1 FAMS @F1@",
+    "0 @F1@ FAM",
+    "1 HUSB @I1@",
+    "1 WIFE @I2@",
+    "0 TRLR",
+    "",
+  ].join("\n"), "utf-8");
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(filePath);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+
+  // The family's own chip: a family with no event takes a task all the same.
+  await page.locator(".edit-families .edit-name-chip-task").click();
+  const dialog = page.getByRole("dialog", { name: "New task" });
+  await expect(dialog.locator(".research-target-name")).toContainText("Ana Kos");
+  await expect(dialog.locator(".research-target-event")).toContainText("The family as a whole");
+  await dialog.locator(".note-rich").fill("Where did they marry?");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  // Shown with the family, not among the person's own.
+  await expect(page.locator(".edit-families .research-chip")).toHaveCount(1);
+  await expect(page.locator(".research-section").first().locator(".research-chip")).toHaveCount(0);
+
+  // A person's task, filed under their family too from the dialog.
+  await page.locator(".edit-name-chip-task").first().click();
+  await dialog.locator(".note-rich").fill("Look for the household in the census");
+  await dialog.getByRole("button", { name: /Add family/ }).click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Ana Kos" }).click();
+  await expect(dialog.locator(".research-target")).toHaveCount(2);
+  // The family is filed once: nothing is left to offer.
+  await expect(dialog.getByRole("button", { name: /Add family/ })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(page.locator(".edit-families .research-chip")).toHaveCount(2);
+
+  const content = await saveFile(page);
+  expect(content).toMatch(/0 @F1@ FAM\r?\n1 HUSB @I1@\r?\n1 WIFE @I2@\r?\n1 _RESEARCH @RN1@\r?\n1 _RESEARCH @RN2@/);
+  expect(content).toMatch(/1 NAME Franc \/Novak\/\r?\n1 SEX M\r?\n1 FAMS @F1@\r?\n1 _RESEARCH @RN2@/);
+});
+
 test("B opens a research note for later", async ({ page }) => {
   const fixture = writeFixture();
   await page.goto("/");

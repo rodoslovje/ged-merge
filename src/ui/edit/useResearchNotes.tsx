@@ -37,7 +37,7 @@ export function useResearchNotes({
   t: Translate;
 }): {
   api: ResearchApi;
-  /** The notes filed under the person, their events and their families. */
+  /** The notes filed under the person and their events. */
   filed: FiledNote[];
   /** Start a new note about the person. */
   add: () => void;
@@ -98,29 +98,19 @@ export function useResearchNotes({
   const api = useMemo<ResearchApi>(
     () => ({
       openNotesOn: (node) => researchNotesOn(records, node).filter((note) => !note.done),
+      filedUnder: (record) => researchNotesUnder(records, record),
       open,
+      toggleDone,
       addTo,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [records, open, addTo, ownGen, gen],
+    [records, open, toggleDone, addTo, ownGen, gen],
   );
 
   // Read on every render, from the person's own lines: the records are edited
   // in place, and a person with no note costs one look at them.
-  const filed: FiledNote[] = [];
-  if (person) {
-    const byId = new Map<string, FiledNote>();
-    const owners = [person.raw, ...person.spouseOf.map((id) => dataset.families.get(id)?.raw)];
-    for (const raw of owners) {
-      if (!raw) continue;
-      for (const item of researchNotesUnder(records, raw)) {
-        const seen = byId.get(item.note.id);
-        if (seen) seen.events.push(...item.events);
-        else byId.set(item.note.id, item);
-      }
-    }
-    filed.push(...byId.values());
-  }
+  // A family's notes are shown with the family, not here.
+  const filed: FiledNote[] = person ? researchNotesUnder(records, person.raw) : [];
 
   const dialog = draft && (
     <ResearchDialog

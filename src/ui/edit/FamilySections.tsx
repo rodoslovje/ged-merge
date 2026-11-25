@@ -43,6 +43,7 @@ import { PrivateToggle } from "./PrivateToggle";
 import { detectPrivacyStyle, setPrivateFlag } from "../../gedcom/private";
 import { FamilyEventRow } from "./FamilyEventRow";
 import { NotesEditor } from "./NotesEditor";
+import { FamilyResearch } from "./ResearchSection";
 import { assocMoveTargets, RecordAssociates } from "./AssociatesPanel";
 import { useAssoc } from "./AssocContext";
 import { harvestedLinksOf, LinksEditor } from "./LinksEditor";
@@ -808,6 +809,8 @@ export const FamilySection = memo(function FamilySection({
                   setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), writeVersionOf(formatOverrides)))}
             />
           )}
+          {/* The family's tasks at the row's far end, as the person's are. */}
+          {fam && <FamilyResearch node={fam.raw} t={t} />}
         </div>
       </div>
       {/* What the couple never had leads their events. */}
