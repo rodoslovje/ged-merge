@@ -2676,7 +2676,6 @@ export const sl = {
   "sheets.roll": "Širina",
   "sheets.roll.range": "Vnesite širino med {{min}} in {{max}} mm.",
   "sheets.roll.length": "dolžina zvitka {{m}} m",
-  "sheets.orientation.rollTip": "Diagram se na zvitek postavi tako, da ga porabi manj",
   "sheets.size": "Velikost tiska",
   "sheets.size.large": "Velika",
   "sheets.size.medium": "Srednja",

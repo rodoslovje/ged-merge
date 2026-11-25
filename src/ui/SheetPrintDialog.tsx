@@ -25,7 +25,6 @@ import {
   type PrintSize,
 } from "../chart/sheets";
 import {
-  bestPlan,
   planPrint,
   printCompleteSheets,
   printChartSheets,
@@ -88,17 +87,20 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const custom = choice.name === "custom";
   const roll = choice.name === "roll";
 
-  // The papers the print may go on: the one chosen — or, for a roll, the two
-  // ways round it can run, of which the plan below takes the thriftier. Empty
-  // while the typed paper or scale is unusable: there is then nothing to plan,
-  // and the count line explains itself instead of showing a stale number.
+  // The paper the print goes on. A roll runs down the page in portrait and
+  // across it in landscape. None while the typed paper or scale is unusable:
+  // there is then nothing to plan, and the count line explains itself instead
+  // of showing a stale number.
   const typedOk = roll ? chosenRoll(choice) !== null : chosenPaper(choice) !== null;
-  const papers = useMemo((): SheetPaper[] => {
-    if (size === null) return [];
+  const paper = useMemo((): SheetPaper | undefined => {
+    if (size === null) return undefined;
     const width = chosenRoll(choice);
-    if (width !== null) return rollPapers(width).map((paper) => ({ paper, orientation: "portrait", size, roll: true }));
-    const paper = chosenPaper(choice);
-    return paper ? [{ paper, orientation, size }] : [];
+    if (width !== null) {
+      const [down, across] = rollPapers(width);
+      return { paper: orientation === "portrait" ? down : across, orientation: "portrait", size, roll: true };
+    }
+    const sheet = chosenPaper(choice);
+    return sheet ? { paper: sheet, orientation, size } : undefined;
   }, [choice, orientation, size]);
 
   // The full plan, redone per change: planning a chart of any ordinary size is
@@ -107,8 +109,8 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   // number that tells a wall chart from an unreadable one. An uncuttable chart
   // is measured off the canvas instead.
   const plan = useMemo(
-    () => bestPlan(papers.map((paper) => planPrint(source, paper, opts.legend, source ? undefined : canvasDiagramSize(canvasRef.current)))),
-    [papers, source, opts.legend, canvasRef],
+    () => paper && planPrint(source, paper, opts.legend, source ? undefined : canvasDiagramSize(canvasRef.current)),
+    [paper, source, opts.legend, canvasRef],
   );
   const complete = source?.complete;
 
@@ -170,9 +172,9 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
                 key={o}
                 className={orientation === o ? "active" : ""}
                 // A typed size is width × height as typed — there is no portrait
-                // of it to switch to; a roll goes whichever way is thriftier.
-                disabled={custom || roll}
-                title={custom ? t("sheets.orientation.customTip") : roll ? t("sheets.orientation.rollTip") : undefined}
+                // of it to switch to.
+                disabled={custom}
+                title={custom ? t("sheets.orientation.customTip") : undefined}
                 onClick={() => setOrientation(o)}
               >
                 {t(`sheets.orientation.${o}`)}

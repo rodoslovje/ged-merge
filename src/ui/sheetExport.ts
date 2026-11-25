@@ -190,19 +190,6 @@ export function planPrint(
   return done(extents, printedScale(extents, paper));
 }
 
-/**
- * Of the ways a roll can take the diagram (see `rollPapers`), the one to print:
- * the fewest pages first, then the least roll. "One sheet" has no scale to hold
- * to, so there the larger print wins instead — the roll's width filled.
- */
-export function bestPlan(plans: PrintPlan[]): PrintPlan | undefined {
-  return [...plans].sort(
-    (a, b) =>
-      a.count - b.count ||
-      (a.paper.size === "fit" ? b.scale - a.scale : (a.length ?? 0) - (b.length ?? 0)),
-  )[0];
-}
-
 /** A planned sheet, laid out and flattened ready to draw. */
 interface LaidSheet {
   sheet: Sheet;

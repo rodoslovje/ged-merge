@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TreeNode } from "../chart/personTree";
 import { NODE_H } from "../chart/treeLayout";
 import { rollPapers } from "../chart/sheets";
-import { bestPlan, planPrint, planPrintScale, planSheets, type SheetChartSource } from "./sheetExport";
+import { planPrint, planPrintScale, planSheets, type SheetChartSource } from "./sheetExport";
 
 // The planning half of the sheet print is pure geometry — no DOM — so the two
 // numbers the dialog shows before anything is printed can be checked here: how
@@ -75,14 +75,12 @@ describe("planPrint on a roll", () => {
     expect(across.packed).toBeDefined();
     expect(across.scale).toBeLessThanOrEqual(0.5);
     expect(across.length!).toBeLessThan(down.length!);
-    expect(bestPlan([down, across])).toBe(across);
   });
 
   it("fills the roll's width when the chart is to stay in one piece", () => {
-    const best = bestPlan(plans("fit"))!;
-    expect(best.packed).toBeUndefined();
+    const [down] = plans("fit");
+    expect(down.packed).toBeUndefined();
     // Enlarged to the 600 mm the roll is wide, not shrunk to its height.
-    expect(best.scale).toBeGreaterThan(1);
-    expect(best.paper.paper).toEqual(rollPapers(600)[0]);
+    expect(down.scale).toBeGreaterThan(1);
   });
 });

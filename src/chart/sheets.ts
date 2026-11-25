@@ -163,8 +163,8 @@ export const ROLL_MM_MAX = 5000;
 
 /**
  * A roll `widthMm` wide, as the two papers it can be: run down the page or
- * across it. Which one a diagram takes is whichever uses less of the roll —
- * a chart that grows downwards wants the roll across, its branches side by side.
+ * across it (the print's portrait and landscape). A chart that grows downwards
+ * uses less of the roll across it, its branches side by side.
  */
 export function rollPapers(widthMm: number): CustomPaper[] {
   return [

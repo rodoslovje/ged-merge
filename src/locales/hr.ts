@@ -2512,7 +2512,6 @@ export const hr = {
   "sheets.roll": "Širina",
   "sheets.roll.range": "Unesite širinu između {{min}} i {{max}} mm.",
   "sheets.roll.length": "duljina role {{m}} m",
-  "sheets.orientation.rollTip": "Dijagram se na rolu postavlja tako da je potroši manje",
   "sheets.size": "Veličina ispisa",
   "sheets.size.large": "Velika",
   "sheets.size.medium": "Srednja",

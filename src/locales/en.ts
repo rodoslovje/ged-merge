@@ -2406,7 +2406,6 @@ export const en = {
   "sheets.roll": "Width",
   "sheets.roll.range": "Enter a width between {{min}} and {{max}} mm.",
   "sheets.roll.length": "{{m}} m of the roll",
-  "sheets.orientation.rollTip": "The diagram is set on the roll whichever way uses less of it",
   "sheets.size": "Print size",
   "sheets.size.large": "Large",
   "sheets.size.medium": "Medium",
