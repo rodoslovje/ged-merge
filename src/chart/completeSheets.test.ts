@@ -3,6 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildCompleteTree } from "./completeTree";
 import { planCompletePages, splitFamily } from "./completeSheets";
+import { splitIntoSheets } from "./sheets";
 import { NODE_H } from "./treeLayout";
 import type { TreeNode } from "./personTree";
 
@@ -81,6 +82,34 @@ describe("planCompletePages", () => {
     // Every child is on exactly one piece, in order.
     const kids = pieces.flatMap((p) => p.root.partners.flatMap((q) => q.children.map((c) => c.name)));
     expect(kids).toEqual(Array.from({ length: 15 }, (_, i) => `Kid${i} Kos`));
+  });
+});
+
+describe("planCompletePages for a single tree", () => {
+  const node = (key: string, children: TreeNode[] = []): TreeNode =>
+    ({ key, status: "main-only", name: key, years: "", living: false, sex: "U", detail: "", children, partners: [] });
+  // Three generations, 64 grandchildren: left→right a strip some 800 px wide
+  // and several thousand tall — the shape a descendants chart takes.
+  const strip = { panels: [{ number: 1, tree: node("r", Array.from({ length: 8 }, (_, i) =>
+    node(`c${i}`, Array.from({ length: 8 }, (_, j) => node(`c${i}g${j}`))))) }] };
+  const page = opts(3000, 1500);
+
+  it("sets the cut branches side by side, on fewer sheets than one each", () => {
+    const pages = planCompletePages(strip, page, true);
+    const pieces = pages.flatMap((p) => p.pieces);
+    expect(pieces.length).toBeGreaterThan(1);
+    expect(pages.length).toBeLessThan(splitIntoSheets(strip.panels[0].tree, page).length);
+    // The strip no longer runs down the left edge of a wide sheet.
+    expect(pages[0].pieces.some((p) => p.x > 0)).toBe(true);
+    expect(pages[0].width).toBeGreaterThan(1500);
+    expect(pages.some((p) => p.oversized)).toBe(false);
+  });
+
+  it("numbers the parts plainly", () => {
+    const pieces = planCompletePages(strip, page, true).flatMap((p) => p.pieces);
+    expect(pieces.map((p) => p.label)).toEqual(pieces.map((_, i) => String(i + 1)));
+    expect(pieces[1].from).toBe("1");
+    expect(pieces[0].markerLabel(2)).toBe("2");
   });
 });
 
