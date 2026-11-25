@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { emptyDataset } from "../gedcom/builder";
-import { buildPersonTree, countTreePeople, pruneTree, treeDepth, type TreeMode, type TreeNode } from "../chart/personTree";
+import { buildPersonTree, countTreePeople, pruneTree, someTreeNode, treeDepth, type TreeMode, type TreeNode } from "../chart/personTree";
 import { buildCompleteTree, connectedCount, flattenComplete, layoutComplete, type CompleteLaid } from "../chart/completeTree";
 import { buildFamilyGraph, graphBranches } from "../chart/familyGraph";
 import {
@@ -150,16 +150,6 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const mode: TreeMode = complete ? "descendants" : direction === "both" ? "ancestors" : direction;
   // The radial bowtie is a full circle whatever the shape setting says.
   const variant = bowtie && radial ? "circle" : pedigreeVariant(settings);
-  // Kinship can only show when there's a start person to measure against; gate it so
-  // the box height doesn't reserve an always-empty kinship row.
-  const display = useMemo(
-    () => ({ ...settings, showKinship: settings.showKinship && appSettings.showKinship && !!startId }),
-    [settings, appSettings.showKinship, startId],
-  );
-  // Box height grows per enabled detail row (lifespan / place / kinship); thread it
-  // through the layout, connectors, canvas centring, minimap, and the node boxes.
-  const nodeH = nodeHeight(display);
-
   const rootPerson = mainDs.individuals.get(currentRootId);
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
@@ -219,6 +209,22 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     () => (complete && rootPerson ? buildCompleteTree(t, rootPerson, mainDs, nameOf, completeAll ? Infinity : undefined) : undefined),
     [complete, completeAll, t, rootPerson, mainDs, nameOf],
   );
+  // Kinship can only show when there's a start person to measure against, and
+  // only for a chart with someone related to them on it; gate it so the box
+  // height doesn't reserve an always-empty kinship row.
+  const kinshipOn = settings.showKinship && appSettings.showKinship && !!kinship;
+  const kinshipDrawn = useMemo(() => {
+    if (!kinshipOn || !kinship) return false;
+    const related = (n: TreeNode) => !!n.main && !!kinship.label(n.main.id);
+    const roots = complete
+      ? completeTree?.panels.map((p) => p.tree) ?? []
+      : bowtie ? [shown.ancestors, shown.descendants] : [tree];
+    return roots.some((root) => someTreeNode(root, related));
+  }, [kinshipOn, kinship, complete, completeTree, bowtie, shown, tree]);
+  const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn }), [settings, kinshipDrawn]);
+  // Box height grows per enabled detail row (lifespan / place / kinship); thread it
+  // through the layout, connectors, canvas centring, minimap, and the node boxes.
+  const nodeH = nodeHeight(display);
   // What the "+N" marker says: the half decides who is missing, and the
   // tooltip names the limit that hid them.
   const hiddenTitleFor = useCallback(

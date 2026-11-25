@@ -22,6 +22,7 @@ import {
 } from "../chart/sheets";
 import {
   completePrintScales,
+  packedTrees,
   planCompleteSheets,
   planPrintScale,
   planSheets,
@@ -43,9 +44,9 @@ import {
 // thing the app can't guess — asking a printer for a page the size of the
 // diagram gets you whatever the driver falls back to, with the chart cropped.
 //
-// Layered charts (tidy tree, grid) can also be *cut*: too wide for one page,
-// they split at their branches, each cut branch carrying on over its own sheet
-// under a numbered marker. That is what the print-size row offers; a chart with
+// Layered charts (tidy tree, grid) can also be *cut*: too big for one page,
+// they split at their branches, each cut branch carrying on in a frame of its
+// own under a numbered marker, the frames packed onto as few sheets as hold them. That is what the print-size row offers; a chart with
 // no `source` to split simply prints whole on the one sheet.
 
 interface Props {
@@ -98,13 +99,15 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
     () => (source && !complete && paper ? planSheets(source, { paper, orientation, size }, bandsH) : []),
     [source, complete, paper, orientation, size, bandsH],
   );
-  // The Complete Tree prints as its trees packed onto pages instead.
+  // The Complete Tree, and any chart cut into more than one sheet, prints as
+  // its pieces packed onto pages instead: several branches share a sheet.
+  const packed = useMemo(() => (source ? packedTrees(source, sheets) : undefined), [source, sheets]);
   const pages = useMemo(
-    () => (source && complete && paper ? planCompleteSheets(complete, source, { paper, orientation, size }, bandsH) : []),
-    [source, complete, paper, orientation, size, bandsH],
+    () => (source && packed && paper ? planCompleteSheets(packed, source, { paper, orientation, size }, bandsH) : []),
+    [source, packed, paper, orientation, size, bandsH],
   );
-  const count = !source ? 1 : complete ? pages.length : sheets.length;
-  // Complete Tree pages that print smaller than the rest (see completePrintScales).
+  const count = !source ? 1 : packed ? pages.length : sheets.length;
+  // Packed pages that print smaller than the rest (see completePrintScales).
   const smaller = pages.filter((p) => p.oversized).length;
 
   // How much the print will be reduced (or enlarged) to sit on the paper — the
@@ -129,26 +132,24 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
       printCanvasPdf(canvasRef.current, opts, { paper, orientation });
       return;
     }
-    if (complete) {
-      void printCompleteSheets(canvasRef.current, complete, source, { paper, orientation, size }, {
+    if (packed) {
+      void printCompleteSheets(canvasRef.current, packed, source, { paper, orientation, size }, {
         ...opts,
-        subtitle: (page, total) =>
-          `${t("sheets.sheetOf", { n: page.number, total })} · ${t("sheets.trees", { list: page.pieces.map((p) => p.label).join(", ") })}`,
+        subtitle: (page, total) => {
+          const of = t("sheets.sheetOf", { n: page.number, total });
+          return complete ? `${of} · ${t("sheets.trees", { list: page.pieces.map((p) => p.label).join(", ") })}` : of;
+        },
         pieceTitle: (piece) => {
           const who = hidden(piece.top) ?? (piece.top.years ? `${piece.top.name} (${piece.top.years})` : piece.top.name);
-          return piece.from ? `${who} — ${t("sheets.treeFrom", { label: piece.from })}` : who;
+          return piece.from ? `${who} — ${t(complete ? "sheets.treeFrom" : "sheets.partFrom", { label: piece.from })}` : who;
         },
       });
       return;
     }
+    // A chart that fits one sheet: the set is that sheet alone.
     void printChartSheets(canvasRef.current, source, { paper, orientation, size }, {
       ...opts,
-      subtitle: (sheet, total) => {
-        const of = t("sheets.sheetOf", { n: sheet.number, total });
-        return sheet.from
-          ? `${of} · ${t("sheets.continues", { name: hidden(sheet.root) ?? sheet.from.name, sheet: sheet.from.sheet })}`
-          : of;
-      },
+      subtitle: (sheet, total) => t("sheets.sheetOf", { n: sheet.number, total }),
     });
   };
   // Opens on Print, so Enter prints; ⌘/Ctrl+Enter does the same from the
@@ -217,6 +218,9 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
               })}` + (smaller ? ` · ${t("sheets.smaller", { count: smaller })}` : "")
             : t("sheets.custom.range", { min: CUSTOM_MM_MIN, max: CUSTOM_MM_MAX })}
         </p>
+
+        {/* The browser's own print window asks for the paper once more. */}
+        <p className="sheet-dialog-hint">{t("sheets.pdfHint")}</p>
 
         <div className="confirm-dialog-actions">
           <button type="button" className="btn-secondary" onClick={onClose}>

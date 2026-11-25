@@ -173,21 +173,35 @@ export async function printChartSheets(
   printSheetSet(built, paperPx(paper.paper, paper.orientation), scale, docTitle);
 }
 
-// ─── The Complete Tree ────────────────────────────────────────────────────────
+// ─── Pieces packed onto pages ─────────────────────────────────────────────────
 
-/** Plan the Complete Tree's printed pages (see `completeSheets.ts`). */
+/** What prints as framed pieces packed onto pages: the Complete Tree, or a
+ *  single tree that needs more than one sheet (see {@link packedTrees}). */
+export type PackedTrees = Pick<CompleteTree, "panels">;
+
+/**
+ * The trees `src` prints as packed pieces, when it does: the Complete Tree
+ * always, any other chart once it is cut — a set of `sheets` — so its branches
+ * share the paper. A chart that fits one sheet prints plain, with no frame.
+ */
+export function packedTrees(src: SheetChartSource, sheets: Sheet[]): PackedTrees | undefined {
+  return src.complete ?? (sheets.length > 1 ? { panels: [{ number: 1, tree: src.tree }] } : undefined);
+}
+
+/** Plan the packed pages (see `completeSheets.ts`). The parts of a single
+ *  tree are numbered plainly; the Complete Tree's by tree and part. */
 export function planCompleteSheets(
-  complete: CompleteTree,
+  trees: PackedTrees,
   src: SheetChartSource,
   { paper, orientation, size }: SheetPaper,
   bandsH = HEADER_H + FOOTER_H,
 ): CompletePage[] {
-  return planCompletePages(complete, {
+  return planCompletePages(trees, {
     grid: src.grid,
     alignment: src.alignment,
     nodeH: src.nodeH,
     budget: sheetBudget(paper, orientation, bandsH, size),
-  });
+  }, !src.complete);
 }
 
 /**
@@ -209,11 +223,11 @@ export function completePrintScales(
   };
 }
 
-/** Print the Complete Tree: its trees packed onto pages, each in its frame,
- *  titled by `pieceTitle` (the caller words and translates it). */
+/** Print the packed pages: the pieces each in its frame, titled by
+ *  `pieceTitle` (the caller words and translates it). */
 export async function printCompleteSheets(
   canvas: HTMLElement | null,
-  complete: CompleteTree,
+  complete: PackedTrees,
   src: SheetChartSource,
   paper: SheetPaper,
   opts: Omit<SvgExportOptions, "subtitle"> & {
@@ -284,7 +298,7 @@ function drawPage(
     svg.appendChild(title);
 
     const laid = src.grid ? layoutGrid(piece.root, src.alignment, src.nodeH) : layout(piece.root, src.alignment, src.nodeH);
-    const flat = flatten(laid.root, src.alignment, src.grid ? "elbow" : "curve", src.nodeH, src.marriageLabel);
+    const flat = flatten(laid.root, src.alignment, src.grid ? "elbow" : "curve", src.nodeH, src.marriageLabel, src.ancestors);
     const g = document.createElementNS(SVG_NS, "g");
     g.setAttribute("transform", `translate(${piece.x + PAD},${piece.y + PANEL_TITLE_H + PAD})`);
     drawTree(g, parts, flat, src, piece.markerLabel);

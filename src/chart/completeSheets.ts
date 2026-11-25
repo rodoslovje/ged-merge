@@ -8,6 +8,11 @@
 // for it, so the small trees fill the paper beside the big ones rather than
 // each taking a sheet of its own.
 //
+// A single tree too big for one page (a Descendants or Ancestors chart) prints
+// the same way, as a Complete Tree of one: its cut branches are the pieces,
+// numbered plainly 1, 2, 3 … A long, narrow chart then fills the paper with
+// its branches side by side instead of running down a strip of each sheet.
+//
 // Pure: no React, no DOM.
 
 import type { CompleteTree } from "./completeTree";
@@ -49,8 +54,11 @@ export interface CompletePage {
   oversized: boolean;
 }
 
+/** The trees to print: the Complete Tree's panels, or one tree as panel 1. */
+type Trees = Pick<CompleteTree, "panels">;
+
 /** Pieces of the trees, each at the size it lays out at plus its title band. */
-function pieces(tree: CompleteTree, opts: SheetSplitOptions): Omit<PagePiece, "x" | "y">[] {
+function pieces(tree: Trees, opts: SheetSplitOptions, plain: boolean): Omit<PagePiece, "x" | "y">[] {
   const lay = opts.grid ? layoutGrid : layout;
   const size = (root: TreeNode) => {
     const l = lay(root, opts.alignment, opts.nodeH);
@@ -61,7 +69,7 @@ function pieces(tree: CompleteTree, opts: SheetSplitOptions): Omit<PagePiece, "x
   const out: Omit<PagePiece, "x" | "y">[] = [];
   for (const panel of tree.panels) {
     const n = panel.number;
-    const markerLabel = (part: number) => `${n}.${part}`;
+    const markerLabel = plain ? String : (part: number) => `${n}.${part}`;
     const whole = size(panel.tree);
     if (whole.w <= opts.budget.w && whole.h <= opts.budget.h) {
       out.push({ label: String(n), top: panel.tree, root: panel.tree, markerLabel, ...whole });
@@ -133,9 +141,12 @@ export function splitFamily(root: TreeNode, fits: (root: TreeNode) => boolean): 
  * skyline packing the screen uses); a page full, the next one starts. With no
  * budget ("fit" — the whole chart on one sheet) everything lands on one page
  * packed as the screen packs it.
+ *
+ * `plain` is for a single tree: its parts are then numbered 2, 3 … rather than
+ * 1.2, 1.3 …, there being no other tree to tell them from.
  */
-export function planCompletePages(tree: CompleteTree, opts: SheetSplitOptions): CompletePage[] {
-  const list = pieces(tree, opts);
+export function planCompletePages(tree: Trees, opts: SheetSplitOptions, plain = false): CompletePage[] {
+  const list = pieces(tree, opts, plain);
   if (list.length === 0) return [];
   const { w: pageW, h: pageH } = opts.budget;
   if (!Number.isFinite(pageW) || !Number.isFinite(pageH)) {
