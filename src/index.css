@@ -3035,23 +3035,20 @@ button:focus-visible {
   line-height: 0;
 }
 .person-media-item[draggable="true"] { cursor: grab; }
-.person-media-delete {
-  position: absolute;
+/* The detach "−" of a person card, on a thumbnail's corner: the photo leaves
+   the person, the file stays. Shown on hover, on a white fill. */
+.person-card-detach.person-media-delete {
   top: -6px;
+  bottom: auto;
   right: -6px;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--danger, #c0392b);
-  color: #fff;
-  font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-  cursor: pointer;
+  background: #fff; /* white in both themes: it sits on a photo */
   opacity: 0;
   transition: opacity 0.1s;
+}
+/* On a photo the hover tint lies over the white fill, not over the picture. */
+.person-card-detach.person-media-delete:hover,
+.person-card-detach.photo-crop-remove:hover {
+  background: linear-gradient(var(--danger-soft), var(--danger-soft)), #fff;
 }
 .person-media-item:hover .person-media-delete,
 .person-media-item:focus-within .person-media-delete,
@@ -3327,14 +3324,14 @@ button:focus-visible {
 .photo-crop-handle-ne { right: -7px; top: -7px; cursor: nesw-resize; }
 .photo-crop-handle-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
 /* The detach "−" of a person card, on a marked person's region: astride its
-   top edge, on a panel fill so it reads against any photo. */
+   top edge, on a white fill so it reads against any photo. */
 .person-card-detach.photo-crop-remove {
   top: -9px;
   bottom: auto;
   left: 50%;
   right: auto;
   transform: translateX(-50%);
-  background: var(--panel);
+  background: #fff; /* white in both themes: it sits on a photo */
   pointer-events: auto;
 }
 /* The region being resized tracks the pointer exactly, in the accent colour. */
