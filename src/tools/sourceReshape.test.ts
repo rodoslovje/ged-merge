@@ -2279,6 +2279,20 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("2 CALN URN:NBN:SI:DOC-2CEAMMVU");
   });
 
+  it("recognizes every dLib.si address of a document", () => {
+    // The page's own citation gives `?URN=`; the image and the metadata
+    // links use `streamdb/` and the bare URN.
+    for (const url of [
+      "http://www.dlib.si/?URN=URN:NBN:SI:IMG-0UXKDHLC",
+      "http://www.dlib.si/streamdb/URN:NBN:SI:IMG-0UXKDHLC",
+      "https://www.dlib.si/URN:NBN:SI:IMG-0UXKDHLC",
+      "https://dlib.si/details/URN:NBN:SI:IMG-0UXKDHLC/?query=x",
+    ]) {
+      expect(recognizeSourceUrl(url)?.bookUrl).toBe("https://dlib.si/details/URN:NBN:SI:IMG-0UXKDHLC");
+    }
+    expect(recognizeSourceUrl("https://www.dlib.si/results/?query=x")).toBeUndefined();
+  });
+
   it("keeps an inline media block's own title, note and form on the record made from it", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
@@ -2742,6 +2756,101 @@ Memorial ID 273320916 273320916`;
       publisher: "Dolenjski list",
       agency: "Knjižnica Mirana Jarca Novo mesto",
       dateRange: "08.06.1978",
+    });
+  });
+
+  it("reads a dLib.si photograph's authors, remarks, subjects and shelf mark", async () => {
+    // Trimmed from the real details page for URN:NBN:SI:IMG-51GQKHUS
+    // (captured 2026-11-25), with the remarks row of IMG-0UXKDHLC.
+    const DLIB_HTML = `<html><head><title>	dLib.si - Pozdrav iz Vrhnike</title></head><body>
+<div class="col-xs-12 col-sm-8 col-md-9 col-lg-8 metadata">
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Avtor(ji)</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/?query='contributor=Gorjanc%2c+M.'">Gorjanc, M.</a><br /><a href="/results/?query='contributor=Vidmar%2c+Z.'">Vidmar, Z.</a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Vir</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/x"><a href="/results/y">Zbirka upodobitev znanih Slovencev NUK</a></a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Leto</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">1983</div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Vsebina</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/?query='keywords=Ivan (1876-1918)'">Ivan (1876-1918)</a>&nbsp; &nbsp;<a href="/results/?query='keywords=Rojstni kraj'">Rojstni kraj</a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Založnik</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value"><a href="/results/p">Fotolik</a></div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Izvor</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">Narodna in univerzitetna knjižnica (Digitalizirano v okviru projekta)</div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Opombe</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">Ivan Cankar</div></div>
+<div class="row"><div class="col-xs-12 col-sm-3 col-md-2 col-lg-2 key">Signatura</div>
+<div class="col-xs-12 col-sm-9 col-md-10 col-lg-10 value">G Po 2 Cankar, I.</div></div>
+</div></body></html>`;
+    const meta = await fetchBookMeta("dlib", "https://dlib.si/details/URN:NBN:SI:IMG-51GQKHUS", async () => DLIB_HTML);
+    expect(meta).toEqual({
+      title: "Pozdrav iz Vrhnike, 1983 - dLib.si",
+      author: "Gorjanc, M.; Vidmar, Z.",
+      periodical: "Zbirka upodobitev znanih Slovencev NUK",
+      publisher: "Fotolik",
+      agency: "Narodna in univerzitetna knjižnica",
+      dateRange: "1983",
+      note: "Ivan Cankar; Vsebina: Ivan (1876-1918), Rojstni kraj; Signatura: G Po 2 Cankar, I.",
+    });
+  });
+
+  it("reads the same dLib.si rows from the rendering relay's markdown", async () => {
+    // The plain relays are often down, and the rendering relay answers in
+    // markdown: label, blank line, value (captured 2026-11-25).
+    const DLIB_MD = `Title: Pozdrav iz Vrhnike
+
+URL Source: https://dlib.si/details/URN:NBN:SI:IMG-51GQKHUS
+
+Markdown Content:
+[![Image 5](https://dlib.si/images/logos/endnote.jpg)Izvoz v EndNote (RIS format)](https://dlib.si/stream/URN:NBN:SI:IMG-51GQKHUS/21213232/RIS)
+
+Avtor(ji)
+
+[Gorjanc, M.](https://dlib.si/results/?query=%27contributor=Gorjanc%2c+M.%27)  
+[Vidmar, Z.](https://dlib.si/results/?query=%27contributor=Vidmar%2c+Z.%27)
+
+Vir
+
+[](https://dlib.si/results/?&query=%27rele%253d%253ca%27)[Zbirka upodobitev znanih Slovencev NUK](https://dlib.si/results/?&query=%27rele%253dZbirka%27)
+
+Leto
+
+1983
+
+Vsebina
+
+[Ivan (1876-1918)](https://dlib.si/results/?query=%27keywords=Ivan%20(1876-1918)%27)[Rojstni kraj](https://dlib.si/results/?query=%27keywords=Rojstni%20kraj%27)
+
+Založnik
+
+[Fotolik](https://dlib.si/results/?query=%27keywords=Fotolik%27&fpublisher=Fotolik)
+
+Izvor
+
+Narodna in univerzitetna knjižnica
+
+Opombe
+
+Ivan Cankar
+
+Pravice
+
+[![Image 6: javna domena](https://www.dlib.si/images/icons/rights/pdm_button.png)](https://www.dlib.si/Rights.aspx?q=PDM)
+
+Signatura
+
+G Po 2 Cankar, I.
+
+Metapodatki
+`;
+    const meta = await fetchBookMeta("dlib", "https://dlib.si/details/URN:NBN:SI:IMG-51GQKHUS?md", async () => DLIB_MD);
+    expect(meta).toEqual({
+      title: "Pozdrav iz Vrhnike, 1983 - dLib.si",
+      author: "Gorjanc, M.; Vidmar, Z.",
+      periodical: "Zbirka upodobitev znanih Slovencev NUK",
+      publisher: "Fotolik",
+      agency: "Narodna in univerzitetna knjižnica",
+      dateRange: "1983",
+      note: "Ivan Cankar; Vsebina: Ivan (1876-1918), Rojstni kraj; Signatura: G Po 2 Cankar, I.",
     });
   });
 

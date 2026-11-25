@@ -548,23 +548,50 @@ function parseBookMeta(site: ReshapeSite, bookUrl: string, html: string): Reshap
     }
   } else if (site === "dlib") {
     // The dLib.si details page is server-rendered: a key/value metadata table
-    // (Vir, Leto, Številčenje, Založnik, Izvor) plus a `dLib.si - {title}`
-    // page title. `{publication}, {date}, {issue} - dLib.si` names the source;
-    // the holding library is the agency.
-    const row = (label: string): string | undefined => {
-      const m = new RegExp(`class="[^"]*key">\\s*${label}\\s*</div>\\s*<div[^>]*class="[^"]*value">(.*?)</div>`, "is").exec(html);
-      return m ? decodeHtmlEntities(m[1].replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim() || undefined : undefined;
+    // (Avtor(ji), Vir, Leto, Številčenje, Vsebina, Založnik, Izvor, Opombe,
+    // Signatura) plus a `dLib.si - {title}` page title. The rendering relay
+    // returns the same table as markdown — each label on a line of its own,
+    // a blank line, then the value lines. `{publication}, {date}, {issue} -
+    // dLib.si` names the source; the holding library is the agency.
+    const MD_LINK = /\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g;
+    const plain = (s: string) => decodeHtmlEntities(s.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
+    /** A row's values: each link's text where the value is a list of links
+     *  (authors, keywords), else the whole value as one. */
+    const rowValues = (label: string): string[] => {
+      const l = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const h = new RegExp(`class="[^"]*key">\\s*${l}\\s*</div>\\s*<div[^>]*class="[^"]*value">(.*?)</div>`, "is").exec(html)?.[1];
+      const md = h === undefined ? new RegExp(`(?:^|\\n)${l}[ \\t]*\\n\\s*\\n((?:[^\\n]+\\n?)+)`).exec(html)?.[1] : undefined;
+      const links =
+        h !== undefined
+          ? [...h.matchAll(/<a\b[^>]*>([^<]*)<\/a>/gi)].map((m) => plain(m[1]))
+          : [...(md ?? "").matchAll(MD_LINK)].map((m) => plain(m[1]));
+      const whole = plain(h ?? (md ?? "").replace(MD_LINK, "$1"));
+      const listed = links.filter(Boolean);
+      // "letnik 29, [številka 23]" is text with a link in it, not a list.
+      const allLinks = listed.join("").replace(/\s/g, "") === whole.replace(/\s/g, "");
+      return listed.length && allLinks ? listed : whole ? [whole] : [];
     };
+    const row = (label: string): string | undefined => rowValues(label).join(" ") || undefined;
     const publication = pageTitleOf(html)?.replace(/^\s*dLib\.si\s*[-–]\s*/i, "").trim() || row("Vir");
     const date = row("Leto");
     const numbering = row("Številčenje");
     if (publication) {
+      const keywords = rowValues("Vsebina").join(", ");
+      const shelfmark = row("Signatura");
       meta = {
         title: siteTitle([publication, date, numbering].filter(Boolean).join(", "), undefined, "dLib.si"),
+        author: rowValues("Avtor(ji)").join("; ") || undefined,
         periodical: row("Vir"),
         publisher: row("Založnik"),
-        agency: row("Izvor"),
+        // "… (Obvezni izvod spletne publikacije)" — the remark is not the library.
+        agency: row("Izvor")?.replace(/\s*\([^)]*\)?\s*$/, "") || undefined,
         dateRange: date,
+        // The page's own labels: what the item shows, its subject headings and
+        // the library's shelf mark (the URN is the filing number).
+        note:
+          [row("Opombe"), keywords && `Vsebina: ${keywords}`, shelfmark && `Signatura: ${shelfmark}`]
+            .filter(Boolean)
+            .join("; ") || undefined,
       };
     }
   } else if (site === "sistory") {

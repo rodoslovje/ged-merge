@@ -147,6 +147,9 @@ export interface ReshapeMeta {
    *  plot ("P06"). A page id the link itself carries wins over this. */
   page?: string;
   dateRange?: string;
+  /** What the page says beyond the fields above (dLib.si: its remarks,
+   *  subject headings and shelf mark) — the Add Source dialog's note. */
+  note?: string;
   bookType?: BookType;
   /** Set by the panel's manual field editor, or — for a FamilySearch image —
    *  the film (DGS) number its ark resolves to; page parsers never override

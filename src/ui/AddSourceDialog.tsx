@@ -155,6 +155,7 @@ function upgradeFromLookup(
     place: upgrade(f.place, resolvePlace(proposal?.place), resolvePlace(meta.place)),
     filingNumber: idOnCaln ? f.filingNumber : upgrade(f.filingNumber, proposal?.filingNumber, id),
     page: upgrade(f.page, recognized?.page, meta.page),
+    note: upgrade(f.note, undefined, meta.note),
   };
 }
 
@@ -523,6 +524,7 @@ export function AddSourceDialog({ isOpen, onClose, onAdd, dataset, t, editing, s
         place: keep(f.place, resolvePlace(meta.place)),
         filingNumber,
         page: keep(f.page, meta.page ?? site?.page),
+        note: keep(f.note, meta.note),
       };
     });
     if (callNumbers) setRepoCaln((caln) => caln.trim() || id || fields.filingNumber);
