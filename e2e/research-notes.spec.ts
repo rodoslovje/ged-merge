@@ -308,7 +308,7 @@ test("a task is filed under a family as a whole, from the family's row and from 
   await expect(page.locator(".edit-families .research-ref")).toHaveCount(1);
 
   // A person's task, filed under their family too from the dialog.
-  await page.locator(".research-section .edit-name-chip-task").click();
+  await page.locator(".edit-name-chip-task").first().click();
   await dialog.locator(".note-rich").fill("Look for the household in the census");
   await dialog.getByRole("button", { name: /Add family/ }).click();
   await page.locator(".dd-menu [role=option]", { hasText: "Ana Kos" }).click();

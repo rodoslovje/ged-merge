@@ -786,7 +786,6 @@ export const FamilySection = memo(function FamilySection({
               + {t("edit.addNote")}
             </button>
           )}
-          {fam && <FamilyResearch node={fam.raw} t={t} />}
           {fam && !(fam.links ?? []).length && !(fam.sources ?? []).length && (
             <button
               type="button"
@@ -810,6 +809,8 @@ export const FamilySection = memo(function FamilySection({
                   setPrivateFlag(f.raw, !f.private, formatOverrides.privacy ?? detectPrivacyStyle(dataset.records), writeVersionOf(formatOverrides)))}
             />
           )}
+          {/* The family's tasks at the row's far end, as the person's are. */}
+          {fam && <FamilyResearch node={fam.raw} t={t} />}
         </div>
       </div>
       {/* What the couple never had leads their events. */}
