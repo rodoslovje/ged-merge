@@ -682,6 +682,7 @@ export function SaveDialog({
                     label={t("preview.dest.label")}
                   />
                 </div>
+                {destination !== "file" && <p className="preview-note">{t("preview.untouched")}</p>}
                 {destination === "folder" && (
                   <p className="preview-note">
                     {folderName ? t("preview.dest.folderChosen", { folder: folderName }) : t("preview.dest.folderHint")}
@@ -724,7 +725,7 @@ export function SaveDialog({
                 <span>{t(destination === "folder" ? "preview.saveReport.folder" : "preview.saveReport")}</span>
               </label>
             )}
-            {destination !== "file" && <p className="preview-note">{t("preview.untouched")}</p>}
+            {!supportsSaveToDisk && <p className="preview-note">{t("preview.untouched")}</p>}
           </section>
         </div>
 
