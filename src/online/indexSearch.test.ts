@@ -144,6 +144,10 @@ describe("search addresses", () => {
     );
     expect(searchUrl("findagrave", { given: "", surname: "Penko" })).toBe("https://www.findagrave.com/memorial/search?lastname=Penko");
     expect(searchUrl("dlib", q)).toBe("https://www.dlib.si/results/?query=%27keywords%3DJanez+Penko%27");
+    expect(searchUrl("dlibText", q)).toBe(
+      "https://www.dlib.si/results/?query=%27fts%3D%22Janez+Penko%22%40OR%40fts%3D%22Penko+Janez%22%27",
+    );
+    expect(searchUrl("dlibText", { given: "", surname: "Penko" })).toBe("https://www.dlib.si/results/?query=%27fts%3DPenko%27");
     expect(searchUrl("biografija", { ...q, deathFrom: 1915, deathTo: 1925 })).toBe(
       "https://www.slovenska-biografija.si/iskanje/?mode=complex&forename=Janez&surname=Penko&birthFrom=1860&birthTo=1864&deathFrom=1915&deathTo=1925",
     );
