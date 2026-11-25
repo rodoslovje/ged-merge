@@ -11,6 +11,8 @@ import {
   resultsForQuery,
   rnFeaturesToResults,
   rnQueriesFrom,
+  searchStreet,
+  streetQueryFrom,
 } from "./rn";
 
 describe("rnQueriesFrom", () => {
@@ -699,5 +701,63 @@ describe("resultsForQuery", () => {
     ]);
     expect(resultsForQuery([{ settlement: "Vrtača", street: "Sadinja Vas", number: 5 }], mixed)).toEqual([]);
     expect(resultsForQuery([{ settlement: "Vrtača", number: 5 }], mixed).map((r) => r.address)).toEqual(["Vrtača 5"]);
+  });
+});
+
+describe("a street without a house number", () => {
+  it("reads the street, its settlement and the parents from PLAC and ADDR", () => {
+    expect(streetQueryFrom("Kranj, Kranj, Slovenia", "Hafnarjeva pot")).toEqual({
+      settlement: "Kranj",
+      street: "Hafnarjeva pot",
+      parents: ["Kranj"],
+    });
+  });
+
+  it("leaves a numbered address, an empty one and the settlement itself alone", () => {
+    expect(streetQueryFrom("Ljubljana", "Reber 7, Ljubljana")).toBeUndefined();
+    expect(streetQueryFrom("Ljubljana", "")).toBeUndefined();
+    expect(streetQueryFrom("Kranj, Slovenia", "Kranj")).toBeUndefined();
+    // Not a country either register covers.
+    expect(streetQueryFrom("Wien, Austria", "Ringstraße")).toBeUndefined();
+  });
+
+  describe("searchStreet", () => {
+    const house = (street: string, number: number, E: number, N: number) => ({
+      properties: { NASELJE_NAZIV: "Kranj", OBCINA_NAZIV: "Kranj", ULICA_NAZIV: street, HS_STEVILKA: number, E, N },
+    });
+    const fetchMock = vi.fn(async (url: string | URL) => {
+      const filter = decodeURIComponent(String(url));
+      const features = filter.includes("ULICA_NAZIV LIKE 'Straž%'")
+        ? [house("Stražiška ulica", 1, 449700, 121900)]
+        : filter.includes("ULICA_NAZIV LIKE 'Hafnarjeva pot%'")
+          ? [
+              house("Hafnarjeva pot", 2, 449300, 121200),
+              // A second flat at the same building counts once.
+              house("Hafnarjeva pot", 2, 449300, 121200),
+              house("Hafnarjeva pot", 20, 449500, 121400),
+            ]
+          : [];
+      return { ok: true, json: async () => ({ features }) } as unknown as Response;
+    });
+    beforeEach(() => {
+      fetchMock.mockClear();
+      vi.stubGlobal("fetch", fetchMock);
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("answers with the mean of the street's distinct houses", async () => {
+      const [street, ...rest] = await searchStreet({ settlement: "Kranj", street: "Hafnarjeva pot", parents: ["Kranj"] });
+      expect(rest).toEqual([]);
+      expect(street).toMatchObject({ street: "Hafnarjeva pot", settlement: "Kranj", houses: 2 });
+      const a = rnFeaturesToResults({ features: [house("x", 1, 449300, 121200)] })[0].coord;
+      const b = rnFeaturesToResults({ features: [house("x", 1, 449500, 121400)] })[0].coord;
+      expect(street.coord.lat).toBeCloseTo((a.lat + b.lat) / 2, 5);
+      expect(street.coord.lon).toBeCloseTo((a.lon + b.lon) / 2, 5);
+    });
+
+    it("does not answer a name with a street that merely starts like it", async () => {
+      expect(await searchStreet({ settlement: "Kranj", street: "Straž" })).toEqual([]);
+      expect(await searchStreet({ settlement: "Kranj", street: "Neznana ulica" })).toEqual([]);
+    });
   });
 });

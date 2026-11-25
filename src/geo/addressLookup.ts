@@ -5,6 +5,7 @@ import {
   readStoredIndex,
   scopeToParents,
   searchBucket,
+  streetHouses,
   tryAlternates,
   type AddressBucket,
   type AddressHit,
@@ -231,6 +232,29 @@ export async function searchLocalAddress(country: RegisterCountry, query: LocalQ
   if (query.street) {
     const hits = await searchNamed(country, loaded, query.street, { ...query, street: undefined });
     if (hits.length) return hits.slice(0, MAX_RESULTS);
+  }
+  return [];
+}
+
+/**
+ * Every house a stored register files under one street of a settlement — the
+ * settlement the file names first, then the wider names it sits in, since a
+ * street is very often filed under the town that absorbed the village.
+ */
+export async function searchLocalStreet(
+  country: RegisterCountry,
+  query: { settlement: string; street: string; altSettlements?: string[]; parents?: string[] },
+): Promise<AddressHit[]> {
+  const loaded = await loadIndex(country);
+  if (!loaded) return [];
+  for (const name of [query.settlement, ...(query.altSettlements ?? [])]) {
+    const hits: AddressHit[] = [];
+    for (const id of loaded.byName.get(foldToken(name)) ?? []) {
+      const bucket = await bucketFor(country, id);
+      if (bucket) hits.push(...streetHouses(bucket, query.street));
+    }
+    const scoped = scopeToParents(hits, query.parents, loaded);
+    if (scoped.length) return scoped;
   }
   return [];
 }

@@ -468,6 +468,20 @@ export function searchBucket(bucket: AddressBucket, query: BucketQuery): Address
 }
 
 /**
+ * Every house one bucket files under a street — what a value naming a street
+ * and no number is answered with, as the street's middle (see
+ * {@link import("./rn").searchStreet}). Held to {@link sameStreet} like the
+ * numbered lookup, so "Stražišče" does not become "Stražiška ulica".
+ */
+export function streetHouses(bucket: AddressBucket, street: string): AddressHit[] {
+  const wanted = foldToken(street);
+  const matches = bucket.streets.map((name) => sameStreet(street, name, wanted));
+  const out: AddressHit[] = [];
+  for (let i = 0; i < bucket.st.length; i++) if (matches[bucket.st[i]]) out.push(hitAt(bucket, i));
+  return out;
+}
+
+/**
  * Narrow hits to the place's own parent level, to nothing if need be.
  *
  * Both countries reuse settlement names freely — 313 of Croatia's 6358 names
