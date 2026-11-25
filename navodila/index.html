@@ -1453,8 +1453,8 @@
               celotni glavni datoteki. Vsako orodje pokaže, kaj je našlo oziroma kaj bi spremenilo, preden to sprejmete.
               Popravki <strong>Pregleda</strong> z enim klikom, združitev v <strong>Dvojnikih</strong>, preimenovanje v
               <strong>Krajih</strong> in <strong>Geokodiranje krajev</strong> pišejo v glavno datoteko sproti in jih shranite kot vsako drugo urejanje, prav tako <a href="#normalize">paketna opravila</a> in <strong>Poenoti datoteko</strong>. <strong>Zasebnost</strong> in <strong>Uredi vire</strong> pa
-              pripravijo ločeno datoteko za prenos. Tako ali tako se datoteka <em>.ged</em> na vašem disku nikoli ne
-              prepiše: vsako shranjevanje je nova datoteka v mapi s prenosi (<a href="#saving">§14</a>).
+              pripravijo ločeno datoteko za prenos. Tako ali tako se datoteka <em>.ged</em> na vašem disku prepiše samo,
+              če to izberete ob shranjevanju: sicer je vsako shranjevanje nova datoteka (<a href="#saving">§14</a>).
               V izbirniku na vrhu je deset orodij —
               <strong>Statistika</strong>, <strong>Kraji</strong>, <strong>Viri</strong>, <strong>Naloge</strong>,
               <strong>Pregled</strong>,
@@ -3779,7 +3779,7 @@
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Namig</span>
-              <p>Vaš izvirnik na disku se nikoli ne prepiše — prenos je vedno nova kopija. Kljub temu pred velikimi
+              <p>Vaš izvirnik na disku se prepiše samo, če za cilj shranjevanja izberete možnost »Odprta datoteka« — sicer je vsako shranjevanje nova kopija. Kljub temu pred velikimi
               združevanji obdržite varnostno kopijo drevesa — glejte <a href="#versioning">Varnostne kopije in
               različice</a> spodaj.</p>
             </div>
@@ -3799,6 +3799,9 @@
               drugi po datumu in se nikoli ne prepišejo; najnovejša je vaša delovna kopija, starejši datumi pa vaša
               zgodovina. Ponovno nalaganje označene datoteke ni težava — naslednje shranjevanje preprosto nosi današnji
               datum.
+            </p>
+            <p>
+              <strong>Shranjevanje naravnost v mapo.</strong> V brskalnikih Chrome, Edge in Opera na računalniku v predogledu shranjevanja izberete tudi <em>Cilj shranjevanja</em>. Pri možnosti <strong>Mapa</strong> se z datumom označena <em>.ged</em> — in poročilo o spremembah, če ste ga označili s kljukico — zapiše v mapo, ki jo izberete, zato iz mape Prenosi ni treba ničesar prestavljati. Pri možnosti <strong>Odprta datoteka</strong> se prepiše datoteka, ki ste jo naložili; to je primerno za drevo, ki ga hranite v Gitu (glejte spodaj). Firefox, Safari in telefoni spletni strani ne dovolijo pisanja v mapo, zato je tam vsako shranjevanje prenos.
             </p>
 
             <p>
@@ -3870,7 +3873,7 @@
               <li><strong>Shrani na varno.</strong> Prestavite jo v mapo repozitorija in preimenujte nazaj v
                 <code>drevo.ged</code>, tako da zamenja staro. GED Merge prenos označi z datumom, a Git datum in opis vsake
                 različice beleži sam — zato stalno ime omogoči čist prikaz razlik po vrsticah, namesto da bi vsakič videl
-                povsem novo datoteko.</li>
+                povsem novo datoteko. V brskalnikih Chrome, Edge in Opera ta korak odpade, če za <em>Cilj shranjevanja</em> izberete možnost <strong>Odprta datoteka</strong>: shranjevanje prepiše <code>drevo.ged</code> v mapi repozitorija.</li>
               <li><strong>Commit.</strong> V GitHub Desktop se pokažejo spremenjene vrstice (katere osebe in dogodki so se
                 spremenili); vpišite kratek povzetek (»Združena veja Novak«, »Popravljeni datumi rojstva«), kliknite
                 <strong>Commit</strong> in nato <strong>Push</strong> za varnostno kopijo na GitHubu.</li>
