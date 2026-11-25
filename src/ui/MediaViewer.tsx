@@ -31,6 +31,7 @@ import { DateInput } from "./edit/DateInput";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import { detectHeads, overlap } from "./faceDetect";
 import { nameCandidates } from "./faceNaming";
+import { usePersonOptions } from "./edit/RelativePickerCard";
 
 /**
  * One full-screen photo viewer shared by every part of the app (Edit, Merge,
@@ -631,8 +632,11 @@ function FaceNamer({
     node?.addEventListener("keydown", onKey);
     return () => node?.removeEventListener("keydown", onKey);
   }, []);
+  // The file's people as every person box searches them, prepared on the first
+  // letter typed: close family needs no search.
+  const options = usePersonOptions(naming.dataset.individuals, "", naming.others && query.trim() !== "");
   const people = naming.others
-    ? nameCandidates(naming.dataset, naming.openerId, query, 8, naming.named())
+    ? nameCandidates(naming.dataset, naming.openerId, query, 8, naming.named(), options)
     : [naming.dataset.individuals.get(naming.openerId)].filter((i) => i !== undefined);
   return (
     <div className="photo-face-namer" ref={ref} onClick={(e) => e.stopPropagation()}>
@@ -714,7 +718,7 @@ function MediaStage({
     naming: { crop: CropRegion; panel: ReactNode } | null;
     /** A marked person's region resized by its corner handles. */
     onAdjust: (mark: CropMark, crop: CropRegion) => void;
-    /** A marked person's region removed by its ✕ button. */
+    /** A marked person's region removed by its − button. */
     onRemove: (mark: CropMark) => void;
   };
 }) {
@@ -860,14 +864,14 @@ function MediaStage({
           {resizable(m) && !resizing && (
             <button
               type="button"
-              className="photo-crop-remove"
+              className="person-card-detach photo-crop-remove"
               title={t("media.crop.remove")}
               aria-label={t("media.crop.remove")}
               // A touch must not also toggle the boxes away before the click lands.
               onTouchStart={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); faces!.onRemove(m); }}
             >
-              ✕
+              &minus;
             </button>
           )}
         </div>

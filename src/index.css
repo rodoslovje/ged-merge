@@ -3326,24 +3326,15 @@ button:focus-visible {
 .photo-crop-handle-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
 .photo-crop-handle-ne { right: -7px; top: -7px; cursor: nesw-resize; }
 .photo-crop-handle-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
-/* The ✕ on a marked person's region, astride its top edge: removes the region.
-   The same red disc as the photo tray's ✕ — the photo itself stays. */
-.photo-crop-remove {
-  position: absolute;
+/* The detach "−" of a person card, on a marked person's region: astride its
+   top edge, on a panel fill so it reads against any photo. */
+.person-card-detach.photo-crop-remove {
   top: -9px;
+  bottom: auto;
   left: 50%;
+  right: auto;
   transform: translateX(-50%);
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--danger);
-  color: #fff; /* as the tray's ✕ */
-  font-size: 11px;
-  line-height: 18px;
-  text-align: center;
-  cursor: pointer;
+  background: var(--panel);
   pointer-events: auto;
 }
 /* The region being resized tracks the pointer exactly, in the accent colour. */
