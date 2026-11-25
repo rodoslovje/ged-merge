@@ -827,6 +827,13 @@ export function countTreePeople(root: TreeNode | undefined): number {
   return seen.size;
 }
 
+/** Whether anyone drawn in the tree — spouses included — passes `test`. */
+export function someTreeNode(root: TreeNode | undefined, test: (n: TreeNode) => boolean): boolean {
+  if (!root) return false;
+  const visit = (n: TreeNode): boolean => test(n) || n.children.some(visit) || n.partners.some(visit);
+  return visit(root);
+}
+
 /**
  * How many generations the tree spans away from its root: 0 when the root has
  * nobody in this direction, 1 when only their parents/children are known, and so

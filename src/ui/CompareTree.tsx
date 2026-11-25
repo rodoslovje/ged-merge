@@ -20,6 +20,7 @@ import {
   countImportable,
   countTreePeople,
   pruneTree,
+  someTreeNode,
   treeDepth,
   type MatchMaps,
   type NodeStatus,
@@ -296,12 +297,15 @@ export function CompareTree({
 
   const appSettings = useSettingsSlice(SETTINGS_KEYS);
   const { alignment } = settings;
-  // Kinship can only show when there's a start person to measure against; gate it so
-  // the box height doesn't reserve an always-empty kinship row.
-  const display = useMemo(
-    () => ({ ...settings, showKinship: settings.showKinship && appSettings.showKinship && !!startId }),
-    [settings, appSettings.showKinship, startId],
+  // Kinship can only show when there's a start person to measure against, and
+  // only for a chart with someone related to them on it; gate it so the box
+  // height doesn't reserve an always-empty kinship row.
+  const kinshipOn = settings.showKinship && appSettings.showKinship && !!kinship;
+  const kinshipDrawn = useMemo(
+    () => kinshipOn && someTreeNode(tree, (n) => !!kinshipOf(n)),
+    [kinshipOn, tree, kinshipOf],
   );
+  const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn }), [settings, kinshipDrawn]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);

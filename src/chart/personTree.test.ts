@@ -10,6 +10,7 @@ import {
   countTreePeople,
   importableMemo,
   pruneTree,
+  someTreeNode,
   treeDepth,
   type TreeMode,
   type TreeNode,
@@ -568,6 +569,15 @@ describe("treeDepth / pruneTree", () => {
     expect(treeDepth(tree("@I8@", "ancestors"))).toBe(3);
     expect(treeDepth(tree("@I8@", "descendants"))).toBe(0);
     expect(treeDepth(undefined)).toBe(0);
+  });
+
+  it("finds a person anywhere in the tree, spouses included", () => {
+    const full = tree("@I1@", "descendants");
+    const is = (id: string) => (n: TreeNode) => n.main?.id === id;
+    expect(someTreeNode(full, is("@I8@"))).toBe(true);
+    expect(someTreeNode(full, is("@I7@"))).toBe(true);
+    expect(someTreeNode(full, is("@X@"))).toBe(false);
+    expect(someTreeNode(undefined, () => true)).toBe(false);
   });
 
   it("keeps the last drawn generation's couples and counts what it cut", () => {
