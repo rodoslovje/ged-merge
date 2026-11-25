@@ -42,7 +42,7 @@ Key state:
 
 ### Save flow
 
-`handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. After confirming, the live `mainDataset` is rebuilt in-place from the saved records so the app reflects the new baseline without a reload.
+`handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. Where the browser has the File System Access API the dialog also offers to write the save to disk — into a picked folder or over the opened file (`ui/saveTarget.ts`: access is acquired inside the confirming click, a failed write falls back to a download). After confirming, the live `mainDataset` is rebuilt in-place from the saved records so the app reflects the new baseline without a reload.
 
 ### Styling
 

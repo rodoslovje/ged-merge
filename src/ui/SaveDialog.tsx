@@ -27,10 +27,11 @@ import { AUTHOR_KEYS, submitterOf, useNameOf, useSetSettings, useSettingsSlice, 
 import { submitterName } from "../gedcom/newFile";
 import { recordLabeller } from "./recordLabel";
 import { LinkedTags } from "./TagLinks";
+import { acquireSaveFolder, allowWrite, saveFolderName, supportsSaveToDisk, type SaveDestination, type SaveTarget } from "./saveTarget";
 
 /** The preferences this dialog reads (and writes): whether the save also
  *  downloads the change report, and which reading of the changes it opens on. */
-const SAVE_REPORT_KEYS = ["saveReport", "saveDiffView", ...AUTHOR_KEYS] as const satisfies readonly (keyof AppSettings)[];
+const SAVE_REPORT_KEYS = ["saveReport", "saveDestination", "saveDiffView", ...AUTHOR_KEYS] as const satisfies readonly (keyof AppSettings)[];
 
 /** A change with no text value — it carries only source/link icons to render inline. */
 function isIconChange(c: FieldChange): boolean {
@@ -70,8 +71,12 @@ interface Props {
   downloadLabel: string;
   /** Confirm the download. Takes the vendor tags this dialog just stripped from
    *  the tree, so the change report can say the file lost them, and the GEDCOM
-   *  version the reader chose to write it in. */
-  onConfirm: (excludedTags: string[], version: OutputVersion) => void;
+   *  version the reader chose to write it in, and where the save goes — with
+   *  write access to a folder or file already granted. */
+  onConfirm: (excludedTags: string[], version: OutputVersion, target: SaveTarget) => void;
+  /** A live handle to the opened main file, where the browser gave one: the
+   *  file a save may overwrite, and the folder its picker opens in. */
+  openFile?: FileSystemFileHandle | null;
   /** The version the dialog opens on, when not the file's own. */
   initialVersion?: OutputVersion;
   onClose: () => void;
@@ -125,16 +130,17 @@ export function SaveDialog({
   dataset,
   integrityWarnings,
   initialVersion,
+  openFile,
 }: Props) {
   const { t, i18n } = useTranslation();
   // Opens on Download: the preview above it can run to hundreds of rows, each
   // with its own buttons, and the answer to the dialog is the last of them.
   const downloadBtn = useRef<HTMLButtonElement>(null);
   const modalRef = useModalKeyboard(true, onClose, {
-    onConfirm: () => { if (canDownload) handleConfirm(); },
+    onConfirm: () => { if (canDownload) void handleConfirm(); },
     initialFocus: downloadBtn,
   });
-  const { saveReport, saveDiffView, authorName, authorEmail, authorWww } = useSettingsSlice(SAVE_REPORT_KEYS);
+  const { saveReport, saveDestination, saveDiffView, authorName, authorEmail, authorWww } = useSettingsSlice(SAVE_REPORT_KEYS);
   const author = useMemo(() => submitterOf({ authorName, authorEmail, authorWww }), [authorName, authorEmail, authorWww]);
   const setSettings = useSetSettings();
   // The two readings of the same pending save: the field rows, which say what
@@ -177,7 +183,21 @@ export function SaveDialog({
   // `files` is [GEDCOM, change report]; the report leaves with the file only
   // when the reader has asked for it.
   const reportFile = files[1];
-  const downloadedFiles = saveReport ? files : files.filter((f) => f !== reportFile);
+  // Where the save goes. The remembered choice holds only where it can be
+  // honoured: a browser without disk access downloads, and so does a file
+  // that arrived without a handle to write back to.
+  const destination: SaveDestination =
+    !supportsSaveToDisk || (saveDestination === "file" && !openFile) ? "download" : saveDestination;
+  const [folderName, setFolderName] = useState(saveFolderName);
+  // Overwriting, the GEDCOM keeps the name of the file it replaces.
+  const downloadedFiles = [
+    destination === "file" && openFile ? openFile.name : files[0],
+    ...(saveReport ? [reportFile] : []),
+  ];
+
+  async function pickFolder() {
+    if (await acquireSaveFolder(openFile, true)) setFolderName(saveFolderName());
+  }
 
   const groups = useMemo(() => groupByRecord(report), [report]);
 
@@ -235,7 +255,20 @@ export function SaveDialog({
     });
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
+    // Access to the destination is asked for first, inside this click: a
+    // reader who cancels the folder picker, or refuses the write, is back in
+    // the dialog with nothing changed.
+    let target: SaveTarget = { kind: "download" };
+    if (destination === "folder") {
+      const dir = await acquireSaveFolder(openFile);
+      if (!dir) return;
+      setFolderName(dir.name);
+      target = { kind: "folder", dir };
+    } else if (destination === "file" && openFile) {
+      if (!(await allowWrite(openFile))) return;
+      target = { kind: "file", handle: openFile };
+    }
     const stripped: string[] = [];
     for (const [tag, nodes] of customTagEntries) {
       if (!excludedTags.has(tag)) continue;
@@ -244,7 +277,7 @@ export function SaveDialog({
         parent.children = parent.children.filter((c) => c !== node);
       }
     }
-    onConfirm(stripped, version);
+    onConfirm(stripped, version, target);
   }
 
   return (
@@ -634,7 +667,31 @@ export function SaveDialog({
           )}
 
           <section className="preview-files">
-            <p>{t("preview.files")}</p>
+            {supportsSaveToDisk && (
+              <>
+                <div className="preview-destination">
+                  <span>{t("preview.dest.label")}</span>
+                  <Segmented
+                    items={[
+                      { key: "download" as const, label: t("preview.dest.download") },
+                      { key: "folder" as const, label: t("preview.dest.folder") },
+                      ...(openFile ? [{ key: "file" as const, label: t("preview.dest.file") }] : []),
+                    ]}
+                    value={destination}
+                    onChange={(d) => setSettings({ saveDestination: d })}
+                    label={t("preview.dest.label")}
+                  />
+                </div>
+                {destination === "folder" && (
+                  <p className="preview-note">
+                    {folderName ? t("preview.dest.folderChosen", { folder: folderName }) : t("preview.dest.folderHint")}
+                    {folderName && <> <button className="link-button" onClick={() => void pickFolder()}>{t("preview.dest.folderChange")}</button></>}
+                  </p>
+                )}
+                {destination === "file" && <p className="preview-note">{t("preview.dest.fileHint")}</p>}
+              </>
+            )}
+            <p>{t(destination === "download" ? "preview.files" : "preview.files.saved")}</p>
             <ul>
               {downloadedFiles.map((f) => (
                 <li key={f}><code>{f}</code></li>
@@ -664,10 +721,10 @@ export function SaveDialog({
                   checked={saveReport}
                   onChange={(e) => setSettings({ saveReport: e.target.checked })}
                 />
-                <span>{t("preview.saveReport")}</span>
+                <span>{t(destination === "folder" ? "preview.saveReport.folder" : "preview.saveReport")}</span>
               </label>
             )}
-            <p className="preview-note">{t("preview.untouched")}</p>
+            {destination !== "file" && <p className="preview-note">{t("preview.untouched")}</p>}
           </section>
         </div>
 
@@ -686,8 +743,8 @@ export function SaveDialog({
             </div>
           )}
           <button className="btn-secondary" onClick={onClose}>{t("preview.cancel")}</button>
-          <button ref={downloadBtn} className="export-btn" onClick={handleConfirm} disabled={!canDownload}>
-            {downloadLabel}
+          <button ref={downloadBtn} className="export-btn" onClick={() => void handleConfirm()} disabled={!canDownload}>
+            {destination === "download" ? downloadLabel : t("preview.save")}
           </button>
         </div>
       </div>

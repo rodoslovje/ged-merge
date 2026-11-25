@@ -8896,6 +8896,10 @@ button.research-target-name:focus-visible { color: var(--accent); text-decoratio
   display: flex; align-items: center; gap: 6px;
   margin: 6px 0; font-size: 0.9rem; cursor: pointer;
 }
+.preview-destination {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 6px; font-size: 0.9rem;
+}
 .preview-version {
   display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
   margin-right: auto; font-size: 0.9rem;

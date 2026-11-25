@@ -11,7 +11,7 @@ export function dateStamp(d = new Date()): string {
 export function baseStem(fileName: string): string {
   return fileName
     .replace(/\.ged$/i, "")
-    .replace(/\.\d{4}-\d{2}-\d{2}\.gedmerge$/i, "") // a prior dated save
+    .replace(/\.\d{4}-\d{2}-\d{2}(-\d{4})?\.gedmerge$/i, "") // a prior dated save
     .replace(/\.gedmerge$/i, ""); // a prior undated save
 }
 
@@ -21,6 +21,15 @@ export function baseStem(fileName: string): string {
  *  they carry the same stamp and sort together. */
 export function savedName(base: string, ext: string, d = new Date()): string {
   return `${baseStem(base)}.${dateStamp(d)}.gedmerge.${ext}`;
+}
+
+/** A {@link savedName} with the time of day added to its stamp
+ *  (`{base}.{date}-{hhmm}.gedmerge.{ext}`) — for a second save of the day into
+ *  a folder that already holds the first: a download would have been numbered
+ *  by the browser, a file written straight to disk replaces its namesake. */
+export function timedName(name: string, d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return name.replace(/(\.\d{4}-\d{2}-\d{2})(\.gedmerge\.)/i, `$1-${p(d.getHours())}${p(d.getMinutes())}$2`);
 }
 
 /** How long a downloaded blob stays reachable before its URL is released. The

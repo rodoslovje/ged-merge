@@ -42,7 +42,8 @@ import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
 import { confirmedPeople, decisionKey, importKey, parseDecisionKey, parseImportKey, pinnedAdds, toggleDecisionStatus, withFreshDecision, type CandidateDecision, type ImportDirection, type MatchDecisionStatus } from "./review/types";
 import { nowGedcomTime, nowUpdStamp, stampChanCrea, stampUsageFor, todayGedcom } from "./gedcom/chanCrea";
-import { baseStem, downloadText } from "./ui/download";
+import { baseStem } from "./ui/download";
+import { targetNames, writeSave, type SaveTarget } from "./ui/saveTarget";
 import { AutoMediaOffer, GedcomLoader } from "./ui/GedcomLoader";
 import { CompareTree } from "./ui/CompareTree";
 import { ShortcutsModal } from "./ui/ShortcutsModal";
@@ -2264,8 +2265,11 @@ function AppContent() {
 
   /** @param excludedTags vendor tags the reader unticked in the preview — the
    *  dialog has already stripped them from the tree, and the report says so. */
-  function handleConfirmSave(excludedTags: string[], version: OutputVersion) {
+  async function handleConfirmSave(excludedTags: string[], version: OutputVersion, dest: SaveTarget) {
     if (!preview || !mainDataset) return;
+    // The names the files get where they are going, settled before anything
+    // is changed — the report quotes the GEDCOM's.
+    const [gedName, reportName] = await targetNames(dest, preview.files);
 
     // What this save does to the file as a whole rather than to one record —
     // the report says each of them out loud, since none of them shows up as a
@@ -2326,22 +2330,31 @@ function AppContent() {
     }
 
     const text = serializeGedcom(preview.records, outputOptions(mainDataset, version));
-    // Reuse the exact names shown in the preview dialog (already date-stamped).
-    downloadText(preview.files[0], text);
+    // Written before the session is reset below: a file that could not reach
+    // the disk has by then been downloaded instead (see writeSave).
+    let written = await writeSave(dest, gedName, text, true);
+    if (written && dest.kind === "file") {
+      // The opened file now holds this save — which is what a later check of
+      // it against the disk has to compare with, or it would report the save
+      // itself as a change made elsewhere.
+      try {
+        persistence.mainOriginalHashRef.current = await hashFile(await dest.handle.getFile());
+      } catch { /* unreadable right after the write — the next check says so */ }
+    }
     // The change report is a second download, which some browsers decline to
     // take — and it says what the preview has just shown. So it is written only
     // for a reader who asked for it in the dialog.
     if (settings.saveReport) {
-      downloadText(preview.files[1], formatReport(preview.report, {
+      written = await writeSave(dest, reportName, formatReport(preview.report, {
         t,
         mainFileName: lastMainFile?.fileName,
-        savedFileName: preview.files[0],
+        savedFileName: gedName,
         compareFileName: preview.isMerge && compare.status === "loaded" ? compare.file.fileName : undefined,
         savedAt: new Date(),
         fileNotes,
         // Headed like the preview's cards the reader has just been through.
         labelOf: recordLabeller(preview.report, mainDataset, nameOf),
-      }));
+      }), false) && written;
     }
 
     // A save can name the file better than it was created with — a tree started
@@ -2378,7 +2391,12 @@ function AppContent() {
     dispatch({ type: "confirmedDecisionsCleared" });
     // Imported branches are now baked into the live dataset — clear the requests.
     dispatch({ type: "importBranchesCleared" });
-    setSaveToast(t("save.toast", { count: settings.saveReport ? preview.files.length : 1 }));
+    setSaveToast(
+      !written ? t("save.toast.fallback")
+        : dest.kind === "folder" ? t("save.toast.folder", { folder: dest.dir.name })
+          : dest.kind === "file" ? t("save.toast.file", { name: gedName })
+            : t("save.toast", { count: settings.saveReport ? preview.files.length : 1 }),
+    );
     setPreview(null);
     // The saved file is the new baseline — undo/redo entries refer to a state
     // that no longer exists, so there's nothing left to meaningfully undo into.
@@ -2516,7 +2534,8 @@ function AppContent() {
           integrityWarnings={preview.integrityWarnings}
           dataset={mainDataset}
           initialVersion={previewVersion}
-          onConfirm={(excludedTags, version) => void withBusyCursor(() => handleConfirmSave(excludedTags, version))}
+          openFile={mainHandle}
+          onConfirm={(excludedTags, version, dest) => void withBusyCursor(() => handleConfirmSave(excludedTags, version, dest))}
           onClose={() => setPreview(null)}
           onNavigate={(id) => {
             setPreview(null);
