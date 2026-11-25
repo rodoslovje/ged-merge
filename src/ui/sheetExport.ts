@@ -33,7 +33,9 @@ import { yearsSegments } from "../gedcom/lifespan";
 import {
   fillScale,
   pageBox,
-  paperPx,
+  printedPage,
+  printedScale,
+  scaleCap,
   sheetBudget,
   splitIntoSheets,
   type PrintPaper,
@@ -113,7 +115,78 @@ export function planPrintScale(src: SheetChartSource, paper: SheetPaper, sheets:
     const { width, height } = laySheet(src, s);
     return { width, height: height + bandsH };
   });
-  return fillScale(laid, pageBox(paper.paper, paper.orientation));
+  return printedScale(laid, paper);
+}
+
+// ─── The plan the dialog shows ────────────────────────────────────────────────
+
+/** What a print on one paper comes to — everything the dialog says about it
+ *  before anything is drawn. */
+export interface PrintPlan {
+  paper: SheetPaper;
+  /** The chart prints as pieces packed onto pages (see {@link packedTrees}). */
+  packed?: PackedTrees;
+  count: number;
+  /** The scale the set prints at. */
+  scale: number;
+  /** Packed pages that print smaller than the rest. */
+  smaller: number;
+  /** On a roll: how much of it the print takes, in px, margins included. */
+  length?: number;
+}
+
+/**
+ * Plan a print of `src` on `paper`. A chart that cannot be cut (`src` absent)
+ * is one sheet of the diagram's own size, `whole`, as measured off the canvas.
+ */
+export function planPrint(
+  src: SheetChartSource | undefined,
+  paper: SheetPaper,
+  legend: SvgExportOptions["legend"],
+  whole?: { w: number; h: number } | null,
+): PrintPlan {
+  const bandsH = sheetBandsHeight(legend, paper);
+  const done = (extents: { width: number; height: number }[], scale: number, rest: Partial<PrintPlan> = {}): PrintPlan => {
+    const page = extents.length ? printedPage(extents, scale, paper) : undefined;
+    return {
+      paper,
+      count: extents.length || 1,
+      scale,
+      smaller: 0,
+      length: paper.roll && page ? Math.max(page.w, page.h) : undefined,
+      ...rest,
+    };
+  };
+  if (!src) {
+    const extents = whole ? [{ width: whole.w, height: whole.h + bandsH }] : [];
+    return done(extents, extents.length ? printedScale(extents, paper) : 1);
+  }
+  const sheets = src.complete ? [] : planSheets(src, paper, bandsH);
+  const packed = packedTrees(src, sheets);
+  if (packed) {
+    const pages = planCompleteSheets(packed, src, paper, bandsH);
+    const extents = pages.map((p) => ({ width: p.width, height: p.height + bandsH }));
+    const { common } = completePrintScales(pages.map((p, i) => ({ ...extents[i], oversized: p.oversized })), paper);
+    return done(extents, common, { packed, smaller: pages.filter((p) => p.oversized).length });
+  }
+  const extents = sheets.map((s) => {
+    const { width, height } = laySheet(src, s);
+    return { width, height: height + bandsH };
+  });
+  return done(extents, printedScale(extents, paper));
+}
+
+/**
+ * Of the ways a roll can take the diagram (see `rollPapers`), the one to print:
+ * the fewest pages first, then the least roll. "One sheet" has no scale to hold
+ * to, so there the larger print wins instead — the roll's width filled.
+ */
+export function bestPlan(plans: PrintPlan[]): PrintPlan | undefined {
+  return [...plans].sort(
+    (a, b) =>
+      a.count - b.count ||
+      (a.paper.size === "fit" ? b.scale - a.scale : (a.length ?? 0) - (b.length ?? 0)),
+  )[0];
 }
 
 /** A planned sheet, laid out and flattened ready to draw. */
@@ -168,9 +241,9 @@ export async function printChartSheets(
     ),
   );
 
-  const scale = fillScale(built, pageBox(paper.paper, paper.orientation));
+  const scale = printedScale(built, paper);
   const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
-  printSheetSet(built, paperPx(paper.paper, paper.orientation), scale, docTitle);
+  printSheetSet(built, printedPage(built, scale, paper), scale, docTitle);
 }
 
 // ─── Pieces packed onto pages ─────────────────────────────────────────────────
@@ -212,11 +285,11 @@ export function planCompleteSheets(
  */
 export function completePrintScales(
   pages: (Pick<CompletePage, "oversized"> & { width: number; height: number })[],
-  paper: Pick<SheetPaper, "paper" | "orientation">,
+  paper: PrintPaper & { size?: PrintSize },
 ): { common: number; scales: number[] } {
   const box = pageBox(paper.paper, paper.orientation);
   const regular = pages.filter((p) => !p.oversized);
-  const common = fillScale(regular.length ? regular : pages, box);
+  const common = Math.min(fillScale(regular.length ? regular : pages, box), scaleCap(paper));
   return {
     common,
     scales: pages.map((p) => (p.oversized ? Math.min(common, fillScale([p], box)) : common)),
@@ -253,7 +326,7 @@ export async function printCompleteSheets(
     built.map((b, i) => ({ ...b, oversized: pages[i].oversized })),
     paper,
   );
-  printSheetSet(built, paperPx(paper.paper, paper.orientation), scales, opts.fileName ? `${opts.fileName}.gedmerge` : opts.title);
+  printSheetSet(built, printedPage(built, scales, paper), scales, opts.fileName ? `${opts.fileName}.gedmerge` : opts.title);
 }
 
 /** One page: each piece's frame and title, its tree inside. Colours are

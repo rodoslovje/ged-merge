@@ -13,7 +13,7 @@
 // viewer, a coloured slide, a document theme — and losing it means an invisible
 // chart. White is what the paper it is headed for looks like anyway.
 
-import { PAGE_MARGIN, fillScale, pageBox, paperPx, type PrintPaper } from "../chart/sheets";
+import { PAGE_MARGIN, printedPage, printedScale, type PrintPaper, type PrintSize } from "../chart/sheets";
 import { downloadBlob } from "./download";
 
 // The presentation properties worth baking in. Deliberately omits `transform`
@@ -812,17 +812,13 @@ export async function downloadBuiltPng(built: BuiltSvg, fileName: string, scale 
  * paper is the user's choice and the diagram is fitted to it, exactly as the
  * sheet print does — this is the same call with a set of one.
  */
-export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions, paper: PrintPaper): Promise<void> {
+export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions, paper: PrintPaper & { size?: PrintSize }): Promise<void> {
   const built = await buildExportSvg(live, opts);
   // Browsers seed the "Save as PDF" filename from the document <title>, so use
   // the export base name there (extension auto-appended) rather than the heading.
   const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
-  printSheetSet(
-    [built],
-    paperPx(paper.paper, paper.orientation),
-    fillScale([built], pageBox(paper.paper, paper.orientation)),
-    docTitle,
-  );
+  const scale = printedScale([built], paper);
+  printSheetSet([built], printedPage([built], scale, paper), scale, docTitle);
 }
 
 /**
@@ -953,7 +949,7 @@ export function exportCanvasSvg(
  * Find the diagram SVG inside a `.tree-canvas` element and print the whole of it
  * on one sheet of the chosen paper. No-op if absent.
  */
-export function printCanvasPdf(canvas: HTMLElement | null, opts: SvgExportOptions, paper: PrintPaper): void {
+export function printCanvasPdf(canvas: HTMLElement | null, opts: SvgExportOptions, paper: PrintPaper & { size?: PrintSize }): void {
   const svg = canvas?.querySelector("svg.tree-svg") as SVGSVGElement | null;
   if (!svg) return;
   void printSvg(svg, opts, paper);

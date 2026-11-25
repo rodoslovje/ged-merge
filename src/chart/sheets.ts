@@ -153,6 +153,58 @@ export function isPrintSize(v: unknown): v is PrintSize {
 export interface PrintPaper {
   paper: PaperSize;
   orientation: Orientation;
+  /** The paper is a roll (see {@link rollPapers}): its long side is only how
+   *  far the print may run, and the page ends where the diagram does. */
+  roll?: boolean;
+}
+
+/** How far a print may run along a roll, in mm: a PDF page ends at 200 in. */
+export const ROLL_MM_MAX = 5000;
+
+/**
+ * A roll `widthMm` wide, as the two papers it can be: run down the page or
+ * across it. Which one a diagram takes is whichever uses less of the roll —
+ * a chart that grows downwards wants the roll across, its branches side by side.
+ */
+export function rollPapers(widthMm: number): CustomPaper[] {
+  return [
+    { wMm: widthMm, hMm: ROLL_MM_MAX },
+    { wMm: ROLL_MM_MAX, hMm: widthMm },
+  ];
+}
+
+/**
+ * How far a print may be enlarged. Sheets have no limit — a bigger print on the
+ * same paper costs nothing. A roll is paid for by length, so there the scale
+ * asked for is the scale printed; only "fit" still fills the roll's width.
+ */
+export function scaleCap(paper: PrintPaper & { size?: PrintSize }): number {
+  return paper.roll && paper.size !== undefined ? printScale(paper.size) ?? Infinity : Infinity;
+}
+
+/** The scale `pages` print at on `paper`: {@link fillScale}, under {@link scaleCap}. */
+export function printedScale(
+  pages: { width: number; height: number }[],
+  paper: PrintPaper & { size?: PrintSize },
+): number {
+  return Math.min(fillScale(pages, pageBox(paper.paper, paper.orientation)), scaleCap(paper));
+}
+
+/**
+ * The page a print is made on, in px: the paper — or, on a roll, as much of it
+ * as the longest page uses at its scale, margins included.
+ */
+export function printedPage(
+  pages: { width: number; height: number }[],
+  scale: number | number[],
+  paper: PrintPaper,
+): { w: number; h: number } {
+  const page = paperPx(paper.paper, paper.orientation);
+  if (!paper.roll) return page;
+  const across = page.w > page.h; // the roll runs across the page
+  const used = Math.max(...pages.map((p, i) => (across ? p.width : p.height) * (typeof scale === "number" ? scale : scale[i])));
+  const length = Math.ceil(used) + 2 * PAGE_MARGIN;
+  return across ? { w: Math.min(page.w, length), h: page.h } : { w: page.w, h: Math.min(page.h, length) };
 }
 
 /**
