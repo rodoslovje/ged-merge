@@ -319,6 +319,35 @@ CSV, SVG and PNG export of every card and of the whole page.
   hierarchy against GeoNames / GOV, beyond the current reshape.
 
 ### Reports & charts
+- **Chart boxes and print: what is left of a user's review (2026-11-25)** — an
+  experienced genealogist, who prints from an Excel program of his own, tried
+  the printing of large diagrams. Packing cut branches onto shared sheets, the
+  scale in percent, roll paper and the cut bowtie shipped in #318 and #319;
+  still open, in rough order of payoff:
+  - **Which place a box shows.** Today the place row is the birth place
+    (`PLAC`). He wants to choose the event it comes from — birth, or the last
+    residence — and to have the address (`ADDR`) shown with it, since a house
+    number is what tells two families of one village apart. His own rule:
+    the residence when there is one, the birth place otherwise. A chart
+    setting, next to the place row's toggle.
+  - **More rows in a box.** Counts of siblings and of children (so a cut or
+    generation-limited chart still says how large the family was), and a free
+    extra row. Each row is a toggle like place, photo and kinship, and each
+    shrinks the print, so they stay off by default.
+  - **A cut point chosen by hand.** The planner cuts where the page forces it;
+    he would mark a person and say "this branch on its own part", to keep a
+    family line together on paper. Fits the numbered marker that exists — the
+    planner would take marked people as cuts before it looks for its own.
+  - **A roll filled across its width.** Branches are cut by generation, so on
+    a roll the parts can leave a third of the width unused (seen on a 914 mm
+    roll at 70 %). Cutting by the height that fits the roll, then packing,
+    would shorten the print.
+  - **Order of the parts of one family.** A family split over several pieces
+    can print `2/2` ahead of `2` on a sheet (the Complete Tree does the same):
+    the packer places by size, not by number.
+  - **The empty kinship row, on his file.** #318 drops the row when nobody
+    drawn is related to the start person — the likeliest cause, read from the
+    code, not confirmed on the file he printed.
 - **Research to-do / log** — per-person open questions, flags, research notes.
   *(The register-browsing capture half of this is now specced — see
   [Research finds from register browsing](#research-finds-from-register-browsing-candidate-persons).)*
