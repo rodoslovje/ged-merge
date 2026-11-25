@@ -1,15 +1,18 @@
 // Capture of the landing-page screenshot strip from the live dev server.
 // Six shots per theme: Edit view + Tree + Fan from the Tudor sample, the
-// Merge view matching Europe Royal Families against the Tudor file, and two
-// Map shots from scripts/capture-map-fixture.ged (a family moving across
-// Austria-Hungary, coordinates embedded): one on the plain base map, one with
-// life paths on the self-hosted Spezialkarte overlay (needs network access
-// to tiles.gedmerge.com and the CARTO tile CDN).
+// Merge view matching Europe Royal Families against the Tudor file, the Map
+// from scripts/capture-map-fixture.ged (a family moving across Austria-Hungary,
+// coordinates embedded) with life paths on the self-hosted Spezialkarte overlay
+// (needs network access to tiles.gedmerge.com and the CARTO tile CDN), and the
+// front page of the family website Tools makes from the Tudor sample.
+// The strip serves them 1600 px on the long side, the map as JPEG:
+//   magick shot.png -resize 1600x1600 -strip public/landing/<name>.png|.jpg
 // Usage: node scripts/capture-landing-shots.mjs <baseURL> <outDir>
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "fs";
+import { tmpdir } from "os";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, "capture-map-fixture.ged");
@@ -71,6 +74,18 @@ async function chartShot(page, file) {
   await page.screenshot({ path: file });
 }
 
+/** The zoom readout is a field: read it, or type the zoom wanted into it. */
+async function readZoom(page) {
+  return parseInt(await page.locator(".tree-zoom-pct").first().inputValue(), 10);
+}
+
+async function setZoom(page, pct) {
+  const field = page.locator(".tree-zoom-pct").first();
+  await field.fill(String(pct));
+  await field.press("Enter");
+  await page.waitForTimeout(300);
+}
+
 /** The hub's digit keys, in its tab order (ChartsHub's HUB_KINDS). */
 const KIND_KEY = { Tree: "1", Fan: "2", Map: "6" };
 
@@ -121,13 +136,7 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     if (phone) {
       // Zoom out to ~50% and pin the root at the left: root, parents and the
       // grandparents' half-cut column — 2½ readable generations.
-      // Step from whatever the chart opened at, by the zoom readout.
-      for (let i = 0; i < 12; i++) {
-        const pct = parseInt(await page.locator(".tree-zoom-pct").first().textContent(), 10);
-        if (Math.abs(Math.log(pct / 51)) < Math.log(1.25) / 2) break;
-        await page.locator(pct > 51 ? ".tree-zoom-btn:has-text('−')" : ".tree-zoom-btn:has-text('+')").first().click();
-        await page.waitForTimeout(150);
-      }
+      await setZoom(page, 51);
       await page.evaluate(() => { document.querySelector(".tree-canvas").scrollLeft = 0; });
       await page.waitForTimeout(500);
       await page.screenshot({ path: `${outDir}/tree-${theme}${m}.png` });
@@ -156,26 +165,7 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
       const byHeight = (ph ? 0.7 : 0.9) * canvas.clientHeight / r.height;
       return ph ? byHeight : Math.min(0.94 * canvas.clientWidth / r.width, byHeight);
     }, phone);
-    // Step by the zoom readout, not by an assumed step size: stop at the last
-    // step that stays under the target.
-    const readPct = async () => parseInt(await page.locator(".tree-zoom-pct").first().textContent(), 10);
-    const target = (await readPct()) * factor;
-    for (let i = 0; i < 12; i++) {
-      const pct = await readPct();
-      if (pct > target) {
-        await page.locator(".tree-zoom-btn:has-text('−')").first().click();
-        await page.waitForTimeout(120);
-        if ((await readPct()) <= target) break;
-        continue;
-      }
-      await page.locator(".tree-zoom-btn:has-text('+')").first().click();
-      await page.waitForTimeout(120);
-      if ((await readPct()) > target) {
-        await page.locator(".tree-zoom-btn:has-text('−')").first().click();
-        await page.waitForTimeout(120);
-        break;
-      }
-    }
+    await setZoom(page, Math.floor((await readZoom(page)) * factor));
     await page.waitForTimeout(400);
     await page.evaluate(() => {
       const canvas = document.querySelector(".tree-canvas");
@@ -212,26 +202,29 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     await ctx.close();
   }
 
-  // Plain base-map shot: the Slovenian/Austrian core of the family's travels,
-  // with the Ljubljana cluster's place panel open (birth + death listed).
+  // Family website: the Tudor sample published from Tools, then the page it
+  // downloads opened from disk the way a relative would — its front page.
   {
     const { ctx, page } = await makePage(theme, false, phone);
-    await openMap(page, phone);
-    await page.evaluate(() => {
-      document.querySelector(".map-canvas")._leafletMap.setView([46.55, 15.2], 8, { animate: false });
-    });
-    await page.waitForFunction(() => document.querySelectorAll('.map-canvas .leaflet-tile-loaded').length >= (window.innerWidth < 721 ? 4 : 8), null, { timeout: 30000 });
-    await page.waitForTimeout(1000);
-    const pt = await page.evaluate(() => {
-      const map = document.querySelector(".map-canvas")._leafletMap;
-      const p = map.latLngToContainerPoint([46.0459, 14.5038]);
-      const r = document.querySelector(".map-canvas").getBoundingClientRect();
-      return { x: r.left + p.x, y: r.top + p.y };
-    });
-    await page.mouse.click(pt.x, pt.y);
-    await page.mouse.move(200, 700); // park the pointer so no hover tooltip shows
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${outDir}/map-${theme}${m}.png` });
+    // The page is the same whatever window built it, so build it in a desktop
+    // one (the Tools tabs) and give the phone its own size back for the shot.
+    const size = page.viewportSize();
+    await page.setViewportSize({ width: 1240, height: 820 });
+    await page.goto(base);
+    await page.locator(".lp-sample-tile").nth(1).click();
+    await page.locator(".landing-b").waitFor({ state: "detached" });
+    await page.getByRole("button", { name: "Tools", exact: true }).click();
+    await page.locator(".tools-tab", { hasText: "Family website" }).click();
+    await page.locator(".tools-publish-field input").first().fill("The Tudors");
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download website (.html)" }).click();
+    const site = path.join(tmpdir(), "landing-shot-website.html");
+    await (await download).saveAs(site);
+    await page.setViewportSize(size);
+    await page.goto(pathToFileURL(site).href);
+    await page.locator(".site-hero h1").waitFor();
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${outDir}/website-${theme}${m}.png` });
     await ctx.close();
   }
 
