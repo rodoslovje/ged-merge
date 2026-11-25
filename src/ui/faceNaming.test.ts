@@ -3,6 +3,8 @@ import { parseGedcom } from "../gedcom/parser";
 import { buildDataset } from "../gedcom/builder";
 import { headRegion, mergeFinds, overlap, tiles } from "./faceDetect";
 import { closeFamily, nameCandidates } from "./faceNaming";
+import { foldSearch } from "./globalSearch";
+import { nameSearchText } from "../match/relatives";
 
 // Edvard ⚭ Cvetka with a son Luka; Edvard's parents Franc and Alojzija and
 // brother Jože; Cvetka's brother Peter; and an unrelated Jožef.
@@ -49,6 +51,13 @@ const GED = `0 HEAD
 0 TRLR
 `;
 const ds = buildDataset(parseGedcom(new TextEncoder().encode(GED).buffer));
+// The people as the person boxes prepare them: every name carried, plus the
+// name on show — Cvetka's with her married surname.
+const options = [...ds.individuals.values()].map((indi) => ({
+  id: indi.id,
+  indi,
+  search: foldSearch(`${nameSearchText(indi)} ${indi.id === "@C@" ? "Cvetka Renko" : ""}`),
+}));
 
 describe("closeFamily", () => {
   it("lists the person, spouse, children, parents, siblings, then the spouse's family", () => {
@@ -60,10 +69,14 @@ describe("nameCandidates", () => {
   it("offers close family when nothing is typed, minus those already marked", () => {
     expect(nameCandidates(ds, "@E@", "", 8, ["@E@"]).map((i) => i.id)).toEqual(["@C@", "@L@", "@FR@", "@A@", "@J@", "@P@"]);
   });
-  it("matches word starts, accents optional, close family first", () => {
-    expect(nameCandidates(ds, "@E@", "joz").map((i) => i.id)).toEqual(["@J@", "@X@"]);
-    expect(nameCandidates(ds, "@E@", "peter jek").map((i) => i.id)).toEqual(["@P@"]);
-    expect(nameCandidates(ds, "@E@", "zzz")).toEqual([]);
+  it("matches each typed word, accents optional, close family first", () => {
+    expect(nameCandidates(ds, "@E@", "joz", 8, [], options).map((i) => i.id)).toEqual(["@J@", "@X@"]);
+    expect(nameCandidates(ds, "@E@", "jek peter", 8, [], options).map((i) => i.id)).toEqual(["@P@"]);
+    expect(nameCandidates(ds, "@E@", "zzz", 8, [], options)).toEqual([]);
+  });
+  it("finds a person by the married surname they are shown with", () => {
+    expect(nameCandidates(ds, "@E@", "Cvetka Renko", 8, [], options).map((i) => i.id)).toEqual(["@C@"]);
+    expect(nameCandidates(ds, "@E@", "Cvetka Renko", 8, ["@C@"], options)).toEqual([]);
   });
 });
 

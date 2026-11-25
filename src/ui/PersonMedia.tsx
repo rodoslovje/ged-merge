@@ -185,11 +185,11 @@ export function PersonMedia({ raw, records, refCtx, editable }: Props) {
           {editable && (
             <button
               type="button"
-              className="person-media-delete"
+              className="person-card-detach person-media-delete"
               title={t("media.delete")}
               onClick={() => editable.onDelete(ref)}
             >
-              ✕
+              &minus;
             </button>
           )}
         </span>

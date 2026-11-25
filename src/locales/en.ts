@@ -3833,6 +3833,8 @@ export const en = {
   "media.face.none": "No one by that name.",
   "media.face.hint": "Faces found on the photo are marked with a “?” when you move the mouse over it. Click one to say who it is.",
   "media.crop.hint": "Drag on the photo to mark this person.",
+  "media.crop.mark": "Mark a person",
+  "media.crop.hintMark": "Drag on the photo to mark a person, then choose who it is.",
   "media.field.event": "Event",
   "media.field.title": "Title",
   "media.field.date": "Date",
