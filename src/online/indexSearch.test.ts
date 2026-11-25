@@ -77,13 +77,13 @@ const BENKO: IndexHit = {
 describe("personQuery", () => {
   const ds = parse(MAIN);
   it("takes the name, a two-year birth window and the birth village", () => {
-    expect(personQuery(ds.individuals.get("@I1@")!, ds)).toEqual({
+    expect(personQuery(ds.individuals.get("@I1@")!)).toEqual({
       given: "Janez", surname: "Penko", birthFrom: 1860, birthTo: 1864, birthPlace: "Petelinje",
     });
   });
   it("takes both windows when birth and death are both dated", () => {
     const both = parse("0 HEAD\n1 GEDC\n2 VERS 5.5.1\n0 @I1@ INDI\n1 NAME Marija /Simončič/\n1 BIRT\n2 DATE 1883\n1 BURI\n2 DATE 20 OCT 1953\n0 TRLR\n");
-    const q = personQuery(both.individuals.get("@I1@")!, both)!;
+    const q = personQuery(both.individuals.get("@I1@")!)!;
     expect(q).toMatchObject({ birthFrom: 1881, birthTo: 1885, deathFrom: 1951, deathTo: 1955 });
     // The API keeps records without a year in either field…
     const api = new URL(indexApiUrl(q)).searchParams;
@@ -97,12 +97,13 @@ describe("personQuery", () => {
     expect(new URL(indexApiUrl({ given: "Marija", surname: "Simončič" })).searchParams.has("include_undated")).toBe(false);
   });
   it("falls back to a wider death window for an approximate death", () => {
-    expect(personQuery(ds.individuals.get("@I2@")!, ds)).toMatchObject({ deathFrom: 1895, deathTo: 1905 });
+    expect(personQuery(ds.individuals.get("@I2@")!)).toMatchObject({ deathFrom: 1895, deathTo: 1905 });
   });
-  it("estimates a birth window from relatives when nothing is dated", () => {
-    const q = personQuery(ds.individuals.get("@I3@")!, ds)!;
-    expect(q.birthFrom).toBeLessThan(1801);
-    expect(q.birthTo).toBeGreaterThan(1760);
+  it("sends no year for a person with no dated birth or death, whatever their relatives suggest", () => {
+    const q = personQuery(ds.individuals.get("@I3@")!)!;
+    expect(q.birthFrom).toBeUndefined();
+    expect(q.deathFrom).toBeUndefined();
+    expect(new URL(searchUrl("index", q)).searchParams.has("dob")).toBe(false);
   });
 });
 

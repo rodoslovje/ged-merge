@@ -6,15 +6,15 @@
  * Pure: no network. The addresses only open in a new tab when the reader
  * clicks one; nothing is sent until then.
  */
-import type { Dataset, GedEvent, Individual } from "../gedcom/types";
-import { BIRTH_TAGS, DEATH_TAGS, estimateBirthYear, isApproximate } from "../gedcom/lifespan";
+import type { GedEvent, Individual } from "../gedcom/types";
+import { BIRTH_TAGS, DEATH_TAGS, isApproximate } from "../gedcom/lifespan";
 import { primaryName } from "../match/relatives";
 import { GEN_INDEX, type GenIndex } from "./genIndexes";
 
 export interface PersonQuery {
   given: string;
   surname: string;
-  /** Birth-year window, when the person has a dated birth or one can be estimated. */
+  /** Birth-year window, when the person has a dated birth. */
   birthFrom?: number;
   birthTo?: number;
   /** Death-year window, when the person has a dated death or burial. */
@@ -32,8 +32,6 @@ export interface PersonQuery {
 const EXACT_SLACK = 2;
 /** …and either side of an "about"/range date. */
 const APPROX_SLACK = 5;
-/** …and either side of a year estimated from relatives. */
-const ESTIMATE_SLACK = 15;
 
 function firstDated(indi: Individual, tags: readonly string[]): GedEvent | undefined {
   for (const tag of tags) {
@@ -50,8 +48,10 @@ function yearWindow(e: GedEvent): [number, number] {
 }
 
 /** The search for one person, or undefined when they have no surname and no
- *  given name — nothing a search could go on. */
-export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undefined {
+ *  given name — nothing a search could go on. Only stated years go in: a year
+ *  estimated from relatives is easily a year outside its window, and a site
+ *  asked for a window drops the very person. */
+export function personQuery(indi: Individual): PersonQuery | undefined {
   const name = primaryName(indi);
   const given = (name?.given ?? "").trim();
   const surname = (name?.surname ?? "").trim();
@@ -63,10 +63,6 @@ export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undef
   const death = firstDated(indi, DEATH_TAGS);
   if (birth) [q.birthFrom, q.birthTo] = yearWindow(birth);
   if (death) [q.deathFrom, q.deathTo] = yearWindow(death);
-  if (!birth && !death && ds) {
-    const est = estimateBirthYear(indi, ds);
-    if (est) [q.birthFrom, q.birthTo] = [est.estimatedYear - ESTIMATE_SLACK, est.estimatedYear + ESTIMATE_SLACK];
-  }
   const place = BIRTH_TAGS.map((tag) => indi.events.find((e) => e.tag === tag)?.place).find(Boolean);
   const locality = place?.parts[0]?.trim();
   if (locality) q.birthPlace = locality;

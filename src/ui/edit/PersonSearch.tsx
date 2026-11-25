@@ -737,9 +737,9 @@ export function PersonSearch({
   const { t } = useTranslation();
   const { indexExact, searchSites } = useSettingsSlice(SETTINGS_KEYS);
   const query = useMemo(() => {
-    const q = personQuery(person, dataset);
+    const q = personQuery(person);
     return q && indexExact ? { ...q, exact: true } : q;
-  }, [person, dataset, indexExact]);
+  }, [person, indexExact]);
   const living = useMemo(
     () => !!livingReason(person, dataset, defaultPrivacyOptions(), new Date().getFullYear()),
     [person, dataset],
