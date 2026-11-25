@@ -5,7 +5,7 @@ import { countryCodeOfName } from "../../geo/placeCountry";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
 import { addressRegisterId } from "../../geo/addressRegister";
-import { isOfflineQuery, rnQueriesFrom, searchAddresses, splitAddressVariants, type RnResult } from "../../geo/rn";
+import { isOfflineQuery, rnQueriesFrom, searchAddresses, searchStreet, splitAddressVariants, streetQueryFrom, type RnResult } from "../../geo/rn";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
 import { osmKindLabel, osmShortLabel, searchNominatim, type NominatimResult } from "../../geo/nominatim";
@@ -164,7 +164,7 @@ export function EventCoordPicker({
     if (controlled === undefined) setOpenState(value);
     notify?.(value);
   }, []);
-  const [rn, setRn] = useState<LookupState<RnResult>>(IDLE_LOOKUP);
+  const [rn, setRn] = useState<LookupState<Pick<RnResult, "coord" | "address" | "label">>>(IDLE_LOOKUP);
   const [osm, setOsm] = useState<LookupState<NominatimResult>>(IDLE_LOOKUP);
   // A lookup's answers are about the place and address they were asked for, and
   // both can change under an open panel — the bulk pin's prefix filter is typed
@@ -217,11 +217,16 @@ export function EventCoordPicker({
   const popRef = useRef<HTMLDivElement | null>(null);
 
   const queries = useMemo(() => rnQueriesFrom(place || undefined, address || undefined), [place, address]);
+  // An address naming a street and no house on it: the register cannot place
+  // the house, but it can still say where the street is.
+  const streetQuery = useMemo(() => streetQueryFrom(place || undefined, address || undefined), [place, address]);
+  /** What the register button would ask — the houses, else the street. */
+  const registerAsks = queries.length ? queries : streetQuery ? [streetQuery] : [];
   // Subscribed, not read — see GeocodePlaceRow: the panel has to re-render when
   // a register lands, or it keeps whichever answer it first rendered with.
   useLocalRegisters();
   /** Whether the register can answer these without the network. */
-  const registerLocal = isOfflineQuery(queries);
+  const registerLocal = isOfflineQuery(registerAsks);
   /** Whether a register could ever apply here — one of the two countries with a
    *  house-level register, or no country named at all. */
   const inRegisterCountry = useMemo(() => {
@@ -306,7 +311,31 @@ export function EventCoordPicker({
   }, [open, setOpen]);
 
   const runRegister = () => {
-    if (!queries.length) return;
+    if (!queries.length) {
+      if (!streetQuery) return;
+      // Kept to this panel: a caller's own list of register answers is a list
+      // of houses, and the middle of a street is not one of them.
+      const gen = lookupGen.current;
+      setRn({ state: "loading", results: [] });
+      searchStreet(streetQuery, lookupSignal()).then(
+        (streets) => {
+          if (gen !== lookupGen.current) return;
+          setRn({
+            state: "done",
+            results: streets.map((s) => ({
+              coord: s.coord,
+              address: s.street,
+              label: t("event.coord.streetMiddle", { street: `${s.street}, ${s.settlement}`, n: s.houses }),
+            })),
+          });
+        },
+        () => {
+          if (gen !== lookupGen.current) return;
+          setRn({ state: "error", results: [] });
+        },
+      );
+      return;
+    }
     const gen = lookupGen.current;
     setRn({ state: "loading", results: [] });
     onRegisterSearch?.({ state: "loading", results: [] });
@@ -552,6 +581,11 @@ export function EventCoordPicker({
   if (!coord && !place) return null;
 
   const busy = rn.state === "loading" || osm.state === "loading";
+  // An event that names an address but stands on the position the file keeps
+  // for the settlement itself: placed, but not as exactly as it could be. The
+  // pin says so in its colour, or it reads as "done" and the house is never
+  // looked up.
+  const atPlaceOnly = !!coord && !!address.trim() && sameCoord(coord, fileCoord);
 
 
   return (
@@ -559,10 +593,12 @@ export function EventCoordPicker({
       {!hideTrigger && (
         <button
           type="button"
-          className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
+          className={
+            "edit-event-coord" + (coord ? (atPlaceOnly ? " edit-event-coord--place" : "") : " edit-event-coord--empty")
+          }
           title={
             coord
-              ? t("event.coord", { coords: formatCoord(coord) })
+              ? t(atPlaceOnly ? "event.coord.placeOnly" : "event.coord", { coords: formatCoord(coord) })
               : t("event.coord.none", { event: title })
           }
           aria-label={t("event.coord.open", { event: title })}
@@ -647,7 +683,7 @@ export function EventCoordPicker({
                       button: that is a service unreachable, not an answer.
                       Both searches share one queue here, so either one running
                       greys them both. */}
-                  {queries.length > 0 && (
+                  {registerAsks.length > 0 && (
                     <LookupAction kind="rn" state={rn} onRun={runRegister} disabled={busy} noteClass="edit-coord-note" />
                   )}
                   {settings.allowLinkFetch && (
@@ -661,7 +697,7 @@ export function EventCoordPicker({
                   a Slovenian or Croatian place just needs a house number.
                   Anywhere else the register was never a candidate, so saying so
                   is noise. */}
-              {settings.allowLinkFetch && !queries.length && inRegisterCountry && (
+              {settings.allowLinkFetch && !registerAsks.length && inRegisterCountry && (
                 <p className="edit-coord-note">{t("event.coord.noHouseNumber")}</p>
               )}
             </div>
@@ -760,7 +796,7 @@ export function EventCoordPicker({
                       </span>
                       <span className="gm-data gm-coord">
                         {formatCoord(r.coord)}{" "}
-                        <span className="tools-reshape-badge official">{addressRegisterId(queries[0]?.country ?? "SI")}</span>
+                        <span className="tools-reshape-badge official">{addressRegisterId(registerAsks[0]?.country ?? "SI")}</span>
                       </span>
                     </li>
                   ))}

@@ -5,7 +5,7 @@ import { addressStreetName, decomposePlace, looksLikeStreet } from "../gedcom/pl
 import { sameStreet, tryAlternates } from "./addressRegister";
 import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
-import { hasLocalRegister, localRegisters, searchLocalAddress } from "./addressLookup";
+import { hasLocalRegister, localRegisters, searchLocalAddress, searchLocalStreet } from "./addressLookup";
 
 // RN — the GURS register of addresses (Register naslovov) — is the official
 // Slovenian address gazetteer: every house number in the country with its exact
@@ -318,7 +318,7 @@ export function rnQueriesFrom(place: string | undefined, address: string | undef
  * `stored` is the set to ask against; a memo passes the one `useLocalRegisters`
  * gave it, so a register landing mid-session recomputes it.
  */
-export function isOfflineQuery(queries: readonly RnQuery[], stored: ReadonlySet<string> = localRegisters()): boolean {
+export function isOfflineQuery(queries: readonly (RnQuery | StreetQuery)[], stored: ReadonlySet<string> = localRegisters()): boolean {
   return queries.length > 0 && queries.every((q) => stored.has(q.country ?? "SI"));
 }
 
@@ -553,6 +553,91 @@ export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promi
   const asSettlement = hostAsSettlement(query);
   if (asSettlement) return searchInSettlement(asSettlement, signal);
   return [];
+}
+
+/** A street asked for without a house number: {@link RnQuery} less the number. */
+export type StreetQuery = Omit<RnQuery, "number" | "suffix" | "street"> & { street: string };
+
+/** A street's middle: the mean position of the houses the register files on it. */
+export interface StreetResult {
+  coord: GeoCoord;
+  /** The street as the register spells it. */
+  street: string;
+  settlement: string;
+  /** How many distinct houses the position is the mean of. */
+  houses: number;
+}
+
+/** Rows asked for when a whole street is fetched. A long city street is a few
+ *  thousand rows with its apartments; whatever lies beyond this is left out of
+ *  the mean, which moves a point meant as "this street" by very little. */
+const STREET_FETCH_LIMIT = 5000;
+
+/**
+ * The street an address names when it carries no house number — "Hafnarjeva
+ * pot" under Kranj. Read by the very rules {@link rnQueriesFrom} reads a
+ * numbered address with (which settlement, which country, which parents), so a
+ * number is lent to the value for the reading and dropped again. Undefined when
+ * the value does name a number (that is {@link rnQueriesFrom}'s to answer), or
+ * when what it names is the settlement itself rather than a street of it.
+ */
+export function streetQueryFrom(place: string | undefined, address: string | undefined): StreetQuery | undefined {
+  if (!address?.trim() || rnQueriesFrom(place, address).length) return undefined;
+  const [head, ...rest] = address.split(",");
+  if (!head.trim() || /\d/.test(head)) return undefined;
+  const [query] = rnQueriesFrom(place, [`${head.trim()} 1`, ...rest].join(","));
+  if (!query?.street) return undefined;
+  return {
+    ...(query.country ? { country: query.country } : {}),
+    settlement: query.settlement,
+    street: query.street,
+    ...(query.altSettlements ? { altSettlements: query.altSettlements } : {}),
+    ...(query.parents ? { parents: query.parents } : {}),
+  };
+}
+
+/**
+ * Where a street is, for an address that names no house on it: the mean of the
+ * houses the register files there — as exact as a street without a number can
+ * be placed. One result per street the name matches, so two streets of one name
+ * in the settlements asked stay two answers rather than a point between them.
+ */
+export async function searchStreet(query: StreetQuery, signal?: AbortSignal): Promise<StreetResult[]> {
+  let houses: RnResult[] = [];
+  if (query.country === "HR" || (await hasLocalRegister("SI"))) {
+    houses = await searchLocalStreet(query.country ?? "SI", query);
+  } else {
+    for (const settlement of [query.settlement, ...(query.altSettlements ?? [])]) {
+      const filter = `NASELJE_NAZIV=${cqlString(settlement)} AND ULICA_NAZIV LIKE ${cqlString(`${query.street}%`)}`;
+      const found = rnFeaturesToResults(await rnFetch(filter, signal, STREET_FETCH_LIMIT), Infinity).filter(
+        (r) => !!r.street && sameStreet(query.street, r.street),
+      );
+      houses = await requireParentMunicipality(found, query.parents, signal);
+      if (houses.length) break;
+    }
+  }
+  const streets = new Map<string, { street: string; settlement: string; lat: number; lon: number; seen: Set<string> }>();
+  for (const h of houses) {
+    const key = `${h.settlement}\0${h.street ?? ""}`;
+    let sum = streets.get(key);
+    if (!sum) {
+      sum = { street: h.street ?? "", settlement: h.settlement, lat: 0, lon: 0, seen: new Set() };
+      streets.set(key, sum);
+    }
+    // One building, however many entrances and flats the register lists at it.
+    const at = `${h.coord.lat},${h.coord.lon}`;
+    if (sum.seen.has(at)) continue;
+    sum.seen.add(at);
+    sum.lat += h.coord.lat;
+    sum.lon += h.coord.lon;
+  }
+  return [...streets.values()].slice(0, MAX_RESULTS).map((s) => ({
+    // To the register's own precision — a mean carries a dozen digits no house has.
+    coord: { lat: Number((s.lat / s.seen.size).toFixed(6)), lon: Number((s.lon / s.seen.size).toFixed(6)) },
+    street: s.street,
+    settlement: s.settlement,
+    houses: s.seen.size,
+  }));
 }
 
 /**

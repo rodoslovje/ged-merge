@@ -3439,6 +3439,8 @@ export const hr = {
   "event.colDate": "Datum",
   "event.colPlace": "Mjesto",
   "event.coord": "Ima koordinate: {{coords}}",
+  "event.coord.placeOnly": "Koordinate mjesta, ne adrese: {{coords}} — kliknite da potražite adresu",
+  "event.coord.streetMiddle": "{{street}} — sredina ulice (kuća: {{n}})",
   "event.coord.none": "Još bez koordinata — kliknite da potražite adresu ili sami unesete koordinate",
   "event.coord.open": "Koordinate za {{event}}",
   "event.coord.clear": "Ukloni",

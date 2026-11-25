@@ -46,6 +46,12 @@ test("a position is pinned, an address is not, in both themes", async ({ page })
   await expect(page.locator(".edit-event .edit-event-coord").first()).toBeVisible();
   await expect(page.locator(".edit-event-extra[data-detail='addr'] .gm-addr")).toHaveCount(0);
 
+  // That event names a house but stands on the settlement's position: its pin
+  // is the amber one, so the house still reads as owed. Her death, with no
+  // position at all, keeps the empty pin.
+  await expect(page.locator(".edit-event .edit-event-coord").first()).toHaveClass(/edit-event-coord--place/);
+  await expect(page.locator(".edit-event .edit-event-coord--place")).toHaveCount(1);
+
   // And a coordinate carries the same pin, so the numbers read as a position —
   // green for the one the event actually holds.
   await page.locator(".edit-event .edit-event-coord").first().click();
