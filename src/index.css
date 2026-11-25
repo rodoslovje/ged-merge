@@ -11618,6 +11618,9 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
    than greyscale-filtered — the glyph now takes a real colour. */
 .edit-event-coord--empty { color: var(--muted); opacity: 0.4; }
 .edit-event-coord--empty:hover { color: var(--muted); opacity: 0.75; }
+/* Placed, but only on the settlement while the event names an address: amber,
+   between "no coordinate" and "placed", so the house still reads as owed. */
+.edit-event-coord--place { color: var(--status-pending); }
 /* What a position is — (placed), (from the place) — inside the control that
    prints it: muted and small, so the numbers stay the thing being read. */
 .tools-geo-addr-tag { color: var(--muted); font-size: 0.8rem; }

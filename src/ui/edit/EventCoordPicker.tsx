@@ -552,6 +552,11 @@ export function EventCoordPicker({
   if (!coord && !place) return null;
 
   const busy = rn.state === "loading" || osm.state === "loading";
+  // An event that names an address but stands on the position the file keeps
+  // for the settlement itself: placed, but not as exactly as it could be. The
+  // pin says so in its colour, or it reads as "done" and the house is never
+  // looked up.
+  const atPlaceOnly = !!coord && !!address.trim() && sameCoord(coord, fileCoord);
 
 
   return (
@@ -559,10 +564,12 @@ export function EventCoordPicker({
       {!hideTrigger && (
         <button
           type="button"
-          className={"edit-event-coord" + (coord ? "" : " edit-event-coord--empty")}
+          className={
+            "edit-event-coord" + (coord ? (atPlaceOnly ? " edit-event-coord--place" : "") : " edit-event-coord--empty")
+          }
           title={
             coord
-              ? t("event.coord", { coords: formatCoord(coord) })
+              ? t(atPlaceOnly ? "event.coord.placeOnly" : "event.coord", { coords: formatCoord(coord) })
               : t("event.coord.none", { event: title })
           }
           aria-label={t("event.coord.open", { event: title })}
