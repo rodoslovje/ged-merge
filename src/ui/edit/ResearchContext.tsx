@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import { inlinesToText, isHtmlNote, parseNoteHtml } from "../../gedcom/noteHtml";
 import { noteInlineNodes } from "../NoteText";
+import type { FiledNote } from "../../gedcom/edit";
 import type { GedNode } from "../../gedcom/types";
 import { researchText, type ResearchKind, type ResearchNote } from "../../gedcom/research";
 
@@ -12,8 +13,12 @@ import { researchText, type ResearchKind, type ResearchNote } from "../../gedcom
 export interface ResearchApi {
   /** The notes filed on `node` (an event) that are still open. */
   openNotesOn: (node: GedNode) => ResearchNote[];
+  /** The notes filed under `record` (a family) and under its events. */
+  filedUnder: (record: GedNode) => FiledNote[];
   /** Open a note for editing. */
   open: (noteId: string) => void;
+  /** Settle an open note, or open a settled one again. */
+  toggleDone: (noteId: string) => void;
   /** Start a new note about `node`. */
   addTo: (node: GedNode) => void;
 }

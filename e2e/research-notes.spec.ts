@@ -305,7 +305,9 @@ test("a task is filed under a family as a whole, from the family's row and from 
   await expect(dialog.locator(".research-target-event")).toContainText("The family as a whole");
   await dialog.locator(".note-rich").fill("Where did they marry?");
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(page.locator(".edit-families .research-ref")).toHaveCount(1);
+  // Shown with the family, not among the person's own.
+  await expect(page.locator(".edit-families .research-chip")).toHaveCount(1);
+  await expect(page.locator(".research-section").first().locator(".research-chip")).toHaveCount(0);
 
   // A person's task, filed under their family too from the dialog.
   await page.locator(".edit-name-chip-task").first().click();
@@ -316,7 +318,7 @@ test("a task is filed under a family as a whole, from the family's row and from 
   // The family is filed once: nothing is left to offer.
   await expect(dialog.getByRole("button", { name: /Add family/ })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(page.locator(".edit-families .research-ref")).toHaveCount(2);
+  await expect(page.locator(".edit-families .research-chip")).toHaveCount(2);
 
   const content = await saveFile(page);
   expect(content).toMatch(/0 @F1@ FAM\r?\n1 HUSB @I1@\r?\n1 WIFE @I2@\r?\n1 _RESEARCH @RN1@\r?\n1 _RESEARCH @RN2@/);

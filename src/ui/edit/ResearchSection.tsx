@@ -14,8 +14,8 @@ function noteTip(note: ResearchNote): string {
 }
 
 /**
- * The person's research notes: everything filed under them, their events and
- * their families, as chips at the far end of the card's row of "+ Add" chips —
+ * A person's or a family's research notes: everything filed under the record
+ * and its events, as chips at the far end of the card's row of "+ Add" chips —
  * the same place whether there are any or not, apart from the person's data.
  * An open note leads with a box that settles it; the settled ones fold away
  * behind a count.
@@ -26,12 +26,15 @@ export function ResearchSection({
   onOpen,
   onToggleDone,
   onAdd,
+  addTooltip,
 }: {
   filed: FiledNote[];
   t: Translate;
   onOpen: (noteId: string) => void;
   onToggleDone: (noteId: string) => void;
   onAdd: () => void;
+  /** What the "Task" chip says on hover, where it is not the person's. */
+  addTooltip?: string;
 }) {
   const [showDone, setShowDone] = useState(false);
   const open = filed.filter((f) => !f.note.done);
@@ -77,7 +80,7 @@ export function ResearchSection({
           </button>
         )}
         {showDone && done.map(chip)}
-        <button type="button" className="edit-name-chip edit-name-chip-add edit-name-chip-task" title={t("research.addTooltip")} onClick={onAdd}>
+        <button type="button" className="edit-name-chip edit-name-chip-add edit-name-chip-task" title={addTooltip ?? t("research.addTooltip")} onClick={onAdd}>
           <NotebookIcon size={13} /> {t("research.add")}
         </button>
     </span>
@@ -108,18 +111,20 @@ export function ResearchRefs({ node, t }: { node: GedNode | undefined; t: Transl
 
 /**
  * A family's own tasks, at the far end of the row of "+ Add" chips beside the
- * partner: the open ones filed under the family as a whole as marks, then the
- * chip that adds one.
+ * partner — the notes filed under the family and its events, as the person's
+ * card shows the person's.
  */
 export function FamilyResearch({ node, t }: { node: GedNode; t: Translate }) {
   const api = useResearch();
   if (!api) return null;
   return (
-    <span className="research-section">
-      <ResearchRefs node={node} t={t} />
-      <button type="button" className="edit-name-chip edit-name-chip-add edit-name-chip-task" title={t("research.addFamilyTooltip")} onClick={() => api.addTo(node)}>
-        <NotebookIcon size={13} /> {t("research.add")}
-      </button>
-    </span>
+    <ResearchSection
+      filed={api.filedUnder(node)}
+      t={t}
+      onOpen={api.open}
+      onToggleDone={api.toggleDone}
+      onAdd={() => api.addTo(node)}
+      addTooltip={t("research.addFamilyTooltip")}
+    />
   );
 }
