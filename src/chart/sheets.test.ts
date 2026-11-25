@@ -5,6 +5,12 @@ import {
   CUSTOM_MM_MAX,
   CUSTOM_MM_MIN,
   PRINT_SCALE,
+  PAGE_MARGIN,
+  isPrintSize,
+  printScale,
+  printedPage,
+  printedScale,
+  rollPapers,
   pageBox,
   paperPx,
   sheetBudget,
@@ -78,6 +84,31 @@ describe("paper geometry", () => {
     // Smaller print fits more diagram on the same page.
     expect(sheetBudget("a4", "landscape", 0, "small").w)
       .toBeGreaterThan(sheetBudget("a4", "landscape", 0, "large").w);
+  });
+
+  it("ends a roll's page where the diagram does", () => {
+    const [down, across] = rollPapers(600);
+    const page = [{ width: 1000, height: 3000 }];
+    // 600 mm is 2268 px: the page keeps the roll's width and takes its length
+    // from the diagram, margins added.
+    expect(printedPage(page, 0.5, { paper: down, orientation: "portrait", roll: true }))
+      .toEqual({ w: 2268, h: 1500 + 2 * PAGE_MARGIN });
+    expect(printedPage(page, 0.5, { paper: across, orientation: "portrait", roll: true }))
+      .toEqual({ w: 500 + 2 * PAGE_MARGIN, h: 2268 });
+    // A sheet stays the sheet.
+    expect(printedPage(page, 0.5, { paper: "a4", orientation: "portrait" })).toEqual(paperPx("a4", "portrait"));
+    // On a roll the scale asked for is the scale printed; a sheet is filled.
+    expect(printedScale(page, { paper: down, orientation: "portrait", roll: true, size: 0.5 })).toBe(0.5);
+    expect(printedScale(page, { paper: down, orientation: "portrait", size: 0.5 })).toBeGreaterThan(0.5);
+  });
+
+  it("takes a typed scale as it takes a preset's", () => {
+    expect(sheetBudget("a4", "landscape", 0, 0.5)).toEqual(sheetBudget("a4", "landscape", 0, "medium"));
+    expect(sheetBudget("a4", "landscape", 0, 0.7).w).toBeCloseTo(pageBox("a4", "landscape").w / 0.7);
+    expect(printScale("fit")).toBeUndefined();
+    expect(isPrintSize(0.7)).toBe(true);
+    expect(isPrintSize(0.01)).toBe(false);
+    expect(isPrintSize("huge")).toBe(false);
   });
 
   it("sizes the named papers off their millimetres", () => {

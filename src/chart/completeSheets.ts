@@ -13,13 +13,17 @@
 // numbered plainly 1, 2, 3 … A long, narrow chart then fills the paper with
 // its branches side by side instead of running down a strip of each sheet.
 //
+// So does a bowtie (ancestors and descendants of one person) too big for a
+// page: piece 1 keeps the person with as much of both halves as fits, and the
+// branches cut off either half follow as pieces of their own.
+//
 // Pure: no React, no DOM.
 
 import type { CompleteTree } from "./completeTree";
 import { PANEL_GAP, PANEL_TITLE_H, packSkyline } from "./completeTree";
 import type { TreeNode } from "./personTree";
-import { splitIntoSheets, type SheetSplitOptions } from "./sheets";
-import { layout, layoutGrid } from "./treeLayout";
+import { splitIntoSheets, type Sheet, type SheetSplitOptions } from "./sheets";
+import { ANCESTOR_KEY_PREFIX, NODE_W, PAD, layout, layoutBowtie, layoutGrid } from "./treeLayout";
 
 /** One tree, or one part of a tree, framed on a page. */
 export interface PagePiece {
@@ -36,6 +40,15 @@ export interface PagePiece {
   from?: string;
   /** Turns a cut-off stub's part number into its marker label. */
   markerLabel: (part: number) => string;
+  /** The piece is a bowtie: `root` is its ancestor half and this the
+   *  descendant half, joined at the person both start from. */
+  other?: TreeNode;
+  /** The piece is a branch of ancestors (its "children" are parents) —
+   *  when the chart itself does not say, as a bowtie's pieces do not. */
+  ancestors?: boolean;
+  /** What the live chart's keys carry before this piece's own: a bowtie
+   *  prefixes its ancestor half. */
+  keyPrefix?: string;
   /** The frame on its page (diagram px), the title band included. */
   x: number;
   y: number;
@@ -76,32 +89,116 @@ function pieces(tree: Trees, opts: SheetSplitOptions, plain: boolean): Omit<Page
       continue;
     }
     for (const sheet of splitIntoSheets(panel.tree, { ...opts, budget })) {
-      const label = sheet.number === 1 ? String(n) : markerLabel(sheet.number);
-      const piece = {
-        label,
+      out.push(...partPieces(sheet.root, {
+        label: sheet.number === 1 ? String(n) : markerLabel(sheet.number),
         top: sheet.number === 1 ? panel.tree : sheet.root,
-        root: sheet.root,
         from: sheet.from ? (sheet.from.sheet === 1 ? String(n) : markerLabel(sheet.from.sheet)) : undefined,
         markerLabel,
-        ...size(sheet.root),
-      };
-      if (piece.w <= opts.budget.w && piece.h <= opts.budget.h) {
-        out.push(piece);
-        continue;
-      }
-      // Still too big: a family whose children alone outgrow the page, which
-      // the split never parts. Its children go over several pieces instead,
-      // the couple repeated on each: 15.3, then 15.3/2, 15.3/3 …
-      const fits = (root: TreeNode) => {
-        const s = size(root);
-        return s.w <= opts.budget.w && s.h <= opts.budget.h;
-      };
-      splitFamily(sheet.root, fits).forEach((root, i) => {
-        out.push(i === 0 ? { ...piece, root, ...size(root) } : { ...piece, label: `${label}/${i + 1}`, top: root, root, from: label, ...size(root) });
-      });
+      }, size, opts.budget));
     }
   }
   return out;
+}
+
+type Loose = Omit<PagePiece, "x" | "y">;
+
+/** One cut part as the piece — or, a family too big for the page, the pieces —
+ *  it prints as. */
+function partPieces(
+  root: TreeNode,
+  base: Omit<Loose, "root" | "w" | "h">,
+  size: (root: TreeNode) => { w: number; h: number },
+  page: { w: number; h: number },
+): Loose[] {
+  const piece = { ...base, root, ...size(root) };
+  if (piece.w <= page.w && piece.h <= page.h) return [piece];
+  // Still too big: a family whose children alone outgrow the page, which
+  // the split never parts. Its children go over several pieces instead,
+  // the couple repeated on each: 15.3, then 15.3/2, 15.3/3 …
+  const fits = (r: TreeNode) => {
+    const s = size(r);
+    return s.w <= page.w && s.h <= page.h;
+  };
+  return splitFamily(root, fits).map((r, i) =>
+    i === 0 ? { ...piece, root: r, ...size(r) } : { ...piece, label: `${base.label}/${i + 1}`, top: r, root: r, from: base.label, ...size(r) });
+}
+
+/**
+ * The pieces of a bowtie too big for the page; `undefined` when it fits whole
+ * (and so prints as the chart on screen, with no frame).
+ *
+ * Each half is cut as a chart of its own would be, to the share of the page
+ * left to it: along the depth the two halves stand end to end, so the page is
+ * divided between them — a half shallower than its share leaving the rest to
+ * the other. Piece 1 is the two trunks joined; the branches cut off the
+ * descendants follow, then those cut off the ancestors, numbered through.
+ */
+function bowtiePieces(ancestors: TreeNode, descendants: TreeNode, opts: SheetSplitOptions): Loose[] | undefined {
+  const { alignment, nodeH, grid } = opts;
+  const whole = layoutBowtie(ancestors, descendants, alignment, nodeH, grid);
+  if (whole.width <= opts.budget.w && whole.height <= opts.budget.h) return undefined;
+
+  const lay = grid ? layoutGrid : layout;
+  const lr = alignment === "lr";
+  const page = { w: opts.budget.w, h: opts.budget.h - PANEL_TITLE_H };
+  const [depth, breadth] = lr ? [page.w, page.h] : [page.h, page.w];
+  const depthOf = (tree: TreeNode) => {
+    const l = lay(tree, alignment, nodeH);
+    return lr ? l.width : l.height;
+  };
+  // Joined, the halves share the person's box and one pair of margins.
+  const avail = depth + (lr ? NODE_W : nodeH) + 2 * PAD;
+  let [da, dd] = [depthOf(ancestors), depthOf(descendants)];
+  if (da + dd > avail) {
+    if (da <= avail / 2) dd = avail - da;
+    else if (dd <= avail / 2) da = avail - dd;
+    else da = dd = avail / 2;
+  }
+  const split = (tree: TreeNode, depthBudget: number, share: number, next: number): Sheet[] =>
+    splitIntoSheets(tree, {
+      ...opts,
+      budget: lr ? { w: depthBudget, h: breadth * share } : { w: breadth * share, h: depthBudget },
+    }, next);
+  // Across the breadth the halves overlap, each centred on the person, so both
+  // may usually take all of it. When the joined trunk still overflows — one
+  // half reaching far to one side, the other to the other — they take less.
+  let down: Sheet[] = [];
+  let up: Sheet[] = [];
+  let trunk = whole;
+  for (const share of [1, 0.75, 0.5]) {
+    down = split(descendants, dd, share, 2);
+    up = split(ancestors, da, share, down.length + 1);
+    trunk = layoutBowtie(up[0].root, down[0].root, alignment, nodeH, grid);
+    if (trunk.width <= page.w && trunk.height <= page.h) break;
+  }
+
+  const size = (root: TreeNode) => {
+    const l = lay(root, alignment, nodeH);
+    return { w: l.width, h: l.height + PANEL_TITLE_H };
+  };
+  const out: Loose[] = [{
+    label: "1", top: descendants, root: up[0].root, other: down[0].root, markerLabel: String,
+    w: trunk.width, h: trunk.height + PANEL_TITLE_H,
+  }];
+  for (const [sheets, isUp] of [[down, false], [up, true]] as const) {
+    for (const sheet of sheets.slice(1)) {
+      out.push(...partPieces(sheet.root, {
+        label: String(sheet.number),
+        top: sheet.root,
+        from: String(sheet.from!.sheet),
+        markerLabel: String,
+        ancestors: isUp,
+        keyPrefix: isUp ? ANCESTOR_KEY_PREFIX : undefined,
+      }, size, opts.budget));
+    }
+  }
+  return out;
+}
+
+/** Plan a bowtie's printed pages; `undefined` when it fits one page whole. */
+export function planBowtiePages(ancestors: TreeNode, descendants: TreeNode, opts: SheetSplitOptions): CompletePage[] | undefined {
+  const list = bowtiePieces(ancestors, descendants, opts);
+  return list && packPieces(list, opts);
 }
 
 /**
@@ -146,7 +243,11 @@ export function splitFamily(root: TreeNode, fits: (root: TreeNode) => boolean): 
  * 1.2, 1.3 …, there being no other tree to tell them from.
  */
 export function planCompletePages(tree: Trees, opts: SheetSplitOptions, plain = false): CompletePage[] {
-  const list = pieces(tree, opts, plain);
+  return packPieces(pieces(tree, opts, plain), opts);
+}
+
+/** Pack pieces onto pages, in their order (see {@link planCompletePages}). */
+function packPieces(list: Loose[], opts: SheetSplitOptions): CompletePage[] {
   if (list.length === 0) return [];
   const { w: pageW, h: pageH } = opts.budget;
   if (!Number.isFinite(pageW) || !Number.isFinite(pageH)) {

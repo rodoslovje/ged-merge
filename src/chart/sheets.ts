@@ -110,21 +110,101 @@ export const PAGE_MARGIN = 24;
  * and let the print shrink the whole diagram onto the one sheet, however small
  * that turns out. It is what a plotter-sized sheet is for.
  */
-export type PrintSize = "large" | "medium" | "small" | "fit";
+export type PrintPreset = "large" | "medium" | "small" | "fit";
 
-export const PRINT_SIZES: PrintSize[] = ["large", "medium", "small", "fit"];
+/** A preset, or the reduction itself as a typed scale (0.7 for 70 %) — for
+ *  whoever knows from their own printing how small they can still read. */
+export type PrintSize = PrintPreset | number;
 
-export const PRINT_SCALE: Record<Exclude<PrintSize, "fit">, number> = {
+export const PRINT_SIZES: PrintPreset[] = ["large", "medium", "small", "fit"];
+
+export const PRINT_SCALE: Record<Exclude<PrintPreset, "fit">, number> = {
   large: 0.75,
   medium: 0.5,
   small: 0.3,
 };
+
+/** What a typed scale may be, in percent. */
+export const PRINT_PCT_MIN = 10;
+export const PRINT_PCT_MAX = 200;
+
+/** The node name's type size at full scale, in points (12px at 96 dpi). */
+export const NAME_PT = 9;
+
+/** Below this the names are under 4.5 pt: print most people cannot read. */
+export const TINY_SCALE = 0.5;
+
+/** The reduction a print size stands for; none for "fit", which takes whatever
+ *  scale lands the whole diagram on the sheet. */
+export function printScale(size: PrintSize): number | undefined {
+  if (size === "fit") return undefined;
+  return typeof size === "number" ? size : PRINT_SCALE[size];
+}
+
+/** Whether a stored value is a print size this version knows. */
+export function isPrintSize(v: unknown): v is PrintSize {
+  return typeof v === "number"
+    ? v >= PRINT_PCT_MIN / 100 && v <= PRINT_PCT_MAX / 100
+    : PRINT_SIZES.includes(v as PrintPreset);
+}
 
 /** A chosen page: the paper, and which way round it goes. Every print starts
  *  here — the ones that split into sheets add a {@link PrintSize} on top. */
 export interface PrintPaper {
   paper: PaperSize;
   orientation: Orientation;
+  /** The paper is a roll (see {@link rollPapers}): its long side is only how
+   *  far the print may run, and the page ends where the diagram does. */
+  roll?: boolean;
+}
+
+/** How far a print may run along a roll, in mm: a PDF page ends at 200 in. */
+export const ROLL_MM_MAX = 5000;
+
+/**
+ * A roll `widthMm` wide, as the two papers it can be: run down the page or
+ * across it (the print's portrait and landscape). A chart that grows downwards
+ * uses less of the roll across it, its branches side by side.
+ */
+export function rollPapers(widthMm: number): CustomPaper[] {
+  return [
+    { wMm: widthMm, hMm: ROLL_MM_MAX },
+    { wMm: ROLL_MM_MAX, hMm: widthMm },
+  ];
+}
+
+/**
+ * How far a print may be enlarged. Sheets have no limit — a bigger print on the
+ * same paper costs nothing. A roll is paid for by length, so there the scale
+ * asked for is the scale printed; only "fit" still fills the roll's width.
+ */
+export function scaleCap(paper: PrintPaper & { size?: PrintSize }): number {
+  return paper.roll && paper.size !== undefined ? printScale(paper.size) ?? Infinity : Infinity;
+}
+
+/** The scale `pages` print at on `paper`: {@link fillScale}, under {@link scaleCap}. */
+export function printedScale(
+  pages: { width: number; height: number }[],
+  paper: PrintPaper & { size?: PrintSize },
+): number {
+  return Math.min(fillScale(pages, pageBox(paper.paper, paper.orientation)), scaleCap(paper));
+}
+
+/**
+ * The page a print is made on, in px: the paper — or, on a roll, as much of it
+ * as the longest page uses at its scale, margins included.
+ */
+export function printedPage(
+  pages: { width: number; height: number }[],
+  scale: number | number[],
+  paper: PrintPaper,
+): { w: number; h: number } {
+  const page = paperPx(paper.paper, paper.orientation);
+  if (!paper.roll) return page;
+  const across = page.w > page.h; // the roll runs across the page
+  const used = Math.max(...pages.map((p, i) => (across ? p.width : p.height) * (typeof scale === "number" ? scale : scale[i])));
+  const length = Math.ceil(used) + 2 * PAGE_MARGIN;
+  return across ? { w: Math.min(page.w, length), h: page.h } : { w: page.w, h: Math.min(page.h, length) };
 }
 
 /**
@@ -170,9 +250,9 @@ export function sheetBudget(
   bandsH: number,
   size: PrintSize = "medium",
 ): { w: number; h: number } {
-  if (size === "fit") return { w: Infinity, h: Infinity };
+  const scale = printScale(size);
+  if (scale === undefined) return { w: Infinity, h: Infinity };
   const box = pageBox(paper, orientation);
-  const scale = PRINT_SCALE[size];
   return { w: box.w / scale, h: box.h / scale - bandsH };
 }
 
@@ -214,8 +294,12 @@ export interface Sheet {
  * The result is never empty: a tree too big to fit even after everything
  * cuttable has been cut still comes back as one (oversized) sheet rather than
  * disappearing.
+ *
+ * `next` is the number the first cut branch takes (the root's sheet is always
+ * 1): two trees that share a sheet 1 — the halves of a bowtie — are split one
+ * after the other, the second numbering on from where the first stopped.
  */
-export function splitIntoSheets(root: TreeNode, opts: SheetSplitOptions): Sheet[] {
+export function splitIntoSheets(root: TreeNode, opts: SheetSplitOptions, next = 2): Sheet[] {
   // A private copy: the same tree is the live chart's, and planning must not
   // mark it up. `continuesOn` is then set on the derived sheets only.
   const work = cloneTree(root);
@@ -223,9 +307,9 @@ export function splitIntoSheets(root: TreeNode, opts: SheetSplitOptions): Sheet[
   const numbers = new Map<TreeNode, number>();
 
   const sheets: Sheet[] = [];
-  let counter = 1;
+  let counter = next;
   const queue: { root: TreeNode; number: number; from?: Sheet["from"] }[] = [
-    { root: work, number: counter++ },
+    { root: work, number: 1 },
   ];
   while (queue.length) {
     const item = queue.shift()!;

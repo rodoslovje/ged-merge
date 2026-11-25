@@ -17,23 +17,28 @@
 
 import {
   LABEL_LINE_H,
+  ANCESTOR_KEY_PREFIX,
   PAD,
   NODE_W,
   flatten,
+  flattenBowtie,
   layout,
+  layoutBowtie,
   layoutGrid,
   type ChartAlignment,
   type Flat,
 } from "../chart/treeLayout";
 import type { TreeNode } from "../chart/personTree";
 import { PANEL_TITLE_H, type CompleteTree } from "../chart/completeTree";
-import { planCompletePages, type CompletePage, type PagePiece } from "../chart/completeSheets";
+import { planBowtiePages, planCompletePages, type CompletePage, type PagePiece } from "../chart/completeSheets";
 import { APPROX_YEAR } from "../chart/nodeDisplay";
 import { yearsSegments } from "../gedcom/lifespan";
 import {
   fillScale,
   pageBox,
-  paperPx,
+  printedPage,
+  printedScale,
+  scaleCap,
   sheetBudget,
   splitIntoSheets,
   type PrintPaper,
@@ -73,6 +78,9 @@ export interface SheetChartSource {
   /** The Complete Tree, when that is the chart: it prints as its numbered
    *  trees packed onto pages instead of one tree cut up. */
   complete?: CompleteTree;
+  /** The descendant half, when the chart is a bowtie; `tree` is then the
+   *  ancestor half, both starting from the same person. */
+  bowtie?: TreeNode;
 }
 
 export interface SheetPaper extends PrintPaper {
@@ -113,7 +121,73 @@ export function planPrintScale(src: SheetChartSource, paper: SheetPaper, sheets:
     const { width, height } = laySheet(src, s);
     return { width, height: height + bandsH };
   });
-  return fillScale(laid, pageBox(paper.paper, paper.orientation));
+  return printedScale(laid, paper);
+}
+
+// ─── The plan the dialog shows ────────────────────────────────────────────────
+
+/** What a print on one paper comes to — everything the dialog says about it
+ *  before anything is drawn. */
+export interface PrintPlan {
+  paper: SheetPaper;
+  /** The chart prints as pieces packed onto pages (see {@link packedTrees}). */
+  packed?: PackedTrees;
+  /** The chart prints as it stands on screen, whole on one sheet. */
+  whole?: boolean;
+  count: number;
+  /** The scale the set prints at. */
+  scale: number;
+  /** Packed pages that print smaller than the rest. */
+  smaller: number;
+  /** On a roll: how much of it the print takes, in px, margins included. */
+  length?: number;
+}
+
+/**
+ * Plan a print of `src` on `paper`. A chart that cannot be cut (`src` absent)
+ * is one sheet of the diagram's own size, `whole`, as measured off the canvas.
+ */
+export function planPrint(
+  src: SheetChartSource | undefined,
+  paper: SheetPaper,
+  legend: SvgExportOptions["legend"],
+  whole?: { w: number; h: number } | null,
+): PrintPlan {
+  const bandsH = sheetBandsHeight(legend, paper);
+  const done = (extents: { width: number; height: number }[], scale: number, rest: Partial<PrintPlan> = {}): PrintPlan => {
+    const page = extents.length ? printedPage(extents, scale, paper) : undefined;
+    return {
+      paper,
+      count: extents.length || 1,
+      scale,
+      smaller: 0,
+      length: paper.roll && page ? Math.max(page.w, page.h) : undefined,
+      ...rest,
+    };
+  };
+  if (!src) {
+    const extents = whole ? [{ width: whole.w, height: whole.h + bandsH }] : [];
+    return done(extents, extents.length ? printedScale(extents, paper) : 1, { whole: true });
+  }
+  if (src.bowtie && !planBowtiePages(src.tree, src.bowtie, splitOptions(src, paper, bandsH))) {
+    // A bowtie that fits the sheet: the chart as it stands.
+    const laid = layoutBowtie(src.tree, src.bowtie, src.alignment, src.nodeH, src.grid);
+    const extents = [{ width: laid.width, height: laid.height + bandsH }];
+    return done(extents, printedScale(extents, paper), { whole: true });
+  }
+  const sheets = src.complete || src.bowtie ? [] : planSheets(src, paper, bandsH);
+  const packed = src.bowtie ? BOWTIE_PIECES : packedTrees(src, sheets);
+  if (packed) {
+    const pages = planCompleteSheets(packed, src, paper, bandsH);
+    const extents = pages.map((p) => ({ width: p.width, height: p.height + bandsH }));
+    const { common } = completePrintScales(pages.map((p, i) => ({ ...extents[i], oversized: p.oversized })), paper);
+    return done(extents, common, { packed, smaller: pages.filter((p) => p.oversized).length });
+  }
+  const extents = sheets.map((s) => {
+    const { width, height } = laySheet(src, s);
+    return { width, height: height + bandsH };
+  });
+  return done(extents, printedScale(extents, paper));
 }
 
 /** A planned sheet, laid out and flattened ready to draw. */
@@ -168,9 +242,9 @@ export async function printChartSheets(
     ),
   );
 
-  const scale = fillScale(built, pageBox(paper.paper, paper.orientation));
+  const scale = printedScale(built, paper);
   const docTitle = opts.fileName ? `${opts.fileName}.gedmerge` : opts.title;
-  printSheetSet(built, paperPx(paper.paper, paper.orientation), scale, docTitle);
+  printSheetSet(built, printedPage(built, scale, paper), scale, docTitle);
 }
 
 // ─── Pieces packed onto pages ─────────────────────────────────────────────────
@@ -188,20 +262,30 @@ export function packedTrees(src: SheetChartSource, sheets: Sheet[]): PackedTrees
   return src.complete ?? (sheets.length > 1 ? { panels: [{ number: 1, tree: src.tree }] } : undefined);
 }
 
-/** Plan the packed pages (see `completeSheets.ts`). The parts of a single
- *  tree are numbered plainly; the Complete Tree's by tree and part. */
-export function planCompleteSheets(
-  trees: PackedTrees,
-  src: SheetChartSource,
-  { paper, orientation, size }: SheetPaper,
-  bandsH = HEADER_H + FOOTER_H,
-): CompletePage[] {
-  return planCompletePages(trees, {
+/** A bowtie's pieces come from its two halves, not from a list of trees: this
+ *  stands in for them where a plan says "packed". */
+const BOWTIE_PIECES: PackedTrees = { panels: [] };
+
+function splitOptions(src: SheetChartSource, { paper, orientation, size }: SheetPaper, bandsH: number) {
+  return {
     grid: src.grid,
     alignment: src.alignment,
     nodeH: src.nodeH,
     budget: sheetBudget(paper, orientation, bandsH, size),
-  }, !src.complete);
+  };
+}
+
+/** Plan the packed pages (see `completeSheets.ts`). The parts of a single
+ *  tree or a bowtie are numbered plainly; the Complete Tree's by tree and part. */
+export function planCompleteSheets(
+  trees: PackedTrees,
+  src: SheetChartSource,
+  paper: SheetPaper,
+  bandsH = HEADER_H + FOOTER_H,
+): CompletePage[] {
+  const opts = splitOptions(src, paper, bandsH);
+  if (src.bowtie) return planBowtiePages(src.tree, src.bowtie, opts) ?? [];
+  return planCompletePages(trees, opts, !src.complete);
 }
 
 /**
@@ -212,11 +296,11 @@ export function planCompleteSheets(
  */
 export function completePrintScales(
   pages: (Pick<CompletePage, "oversized"> & { width: number; height: number })[],
-  paper: Pick<SheetPaper, "paper" | "orientation">,
+  paper: PrintPaper & { size?: PrintSize },
 ): { common: number; scales: number[] } {
   const box = pageBox(paper.paper, paper.orientation);
   const regular = pages.filter((p) => !p.oversized);
-  const common = fillScale(regular.length ? regular : pages, box);
+  const common = Math.min(fillScale(regular.length ? regular : pages, box), scaleCap(paper));
   return {
     common,
     scales: pages.map((p) => (p.oversized ? Math.min(common, fillScale([p], box)) : common)),
@@ -253,7 +337,7 @@ export async function printCompleteSheets(
     built.map((b, i) => ({ ...b, oversized: pages[i].oversized })),
     paper,
   );
-  printSheetSet(built, paperPx(paper.paper, paper.orientation), scales, opts.fileName ? `${opts.fileName}.gedmerge` : opts.title);
+  printSheetSet(built, printedPage(built, scales, paper), scales, opts.fileName ? `${opts.fileName}.gedmerge` : opts.title);
 }
 
 /** One page: each piece's frame and title, its tree inside. Colours are
@@ -297,11 +381,18 @@ function drawPage(
     title.append(num, name);
     svg.appendChild(title);
 
-    const laid = src.grid ? layoutGrid(piece.root, src.alignment, src.nodeH) : layout(piece.root, src.alignment, src.nodeH);
-    const flat = flatten(laid.root, src.alignment, src.grid ? "elbow" : "curve", src.nodeH, src.marriageLabel, src.ancestors);
+    const connector = src.grid ? "elbow" : "curve";
+    let flat: Flat;
+    if (piece.other) {
+      // The bowtie's own piece: both halves, as the screen joins them.
+      flat = flattenBowtie(layoutBowtie(piece.root, piece.other, src.alignment, src.nodeH, src.grid), src.alignment, connector, src.nodeH, src.marriageLabel);
+    } else {
+      const laid = src.grid ? layoutGrid(piece.root, src.alignment, src.nodeH) : layout(piece.root, src.alignment, src.nodeH);
+      flat = flatten(laid.root, src.alignment, connector, src.nodeH, src.marriageLabel, piece.ancestors ?? src.ancestors);
+    }
     const g = document.createElementNS(SVG_NS, "g");
     g.setAttribute("transform", `translate(${piece.x + PAD},${piece.y + PANEL_TITLE_H + PAD})`);
-    drawTree(g, parts, flat, src, piece.markerLabel);
+    drawTree(g, parts, flat, src, piece.markerLabel, piece.keyPrefix, !!piece.other);
     svg.appendChild(g);
   }
   return svg;
@@ -343,6 +434,12 @@ function drawTree(
   flat: Flat,
   src: SheetChartSource,
   markerLabel: (part: number) => string,
+  /** What the live chart's keys carry before this tree's own (a bowtie's
+   *  ancestor half, drawn here as a tree by itself). */
+  keyPrefix = "",
+  /** The tree is a bowtie: its ancestor half grows the other way, and a
+   *  marker there sits on the box's leading side. */
+  bowtie = false,
 ): void {
   for (const e of flat.edges) {
     const path = (e.partner ? templates.partner : templates.edge).cloneNode(true) as SVGPathElement;
@@ -372,11 +469,13 @@ function drawTree(
     g.appendChild(text);
   }
   for (const n of flat.nodes) {
-    const box = boxes.get(n.key);
+    const box = boxes.get(keyPrefix + n.key);
     if (!box) continue; // a position the live chart isn't drawing — nothing to lift
     const node = box.cloneNode(true) as SVGGElement;
     node.setAttribute("transform", `translate(${n.x},${n.y})`);
-    if (n.continuesOn !== undefined) node.appendChild(continuationMarker(markerLabel(n.continuesOn), src));
+    if (n.continuesOn !== undefined) {
+      node.appendChild(continuationMarker(markerLabel(n.continuesOn), src, bowtie && n.key.startsWith(ANCESTOR_KEY_PREFIX)));
+    }
     g.appendChild(node);
   }
 }
@@ -436,22 +535,26 @@ function edgeTemplates(clone: SVGSVGElement, foreground: string) {
  * with explicit brand colours (like the export's footer badge) rather than a
  * themed class, so it survives into the standalone print document.
  */
-function continuationMarker(label: string, src: SheetChartSource): SVGGElement {
+function continuationMarker(label: string, src: SheetChartSource, mirrored = false): SVGGElement {
   // Stub + disc together span exactly PAD, so a marker on the last generation
   // still lands inside the sheet's own margin instead of being clipped.
   const r = 9;
   const gap = PAD - 2 * r;
   const lr = src.alignment === "lr";
-  // Just past the box's trailing edge — right in left→right, below in top→down.
-  const cx = lr ? NODE_W + gap + r : NODE_W / 2;
-  const cy = lr ? src.nodeH / 2 : src.nodeH + gap + r;
+  // Just past the box's trailing edge — right in left→right, below in top→down
+  // — or, mirrored, just before its leading one.
+  const depth = lr ? NODE_W : src.nodeH;
+  const edge = mirrored ? 0 : depth;
+  const centre = mirrored ? -(gap + r) : depth + gap + r;
+  const cx = lr ? centre : NODE_W / 2;
+  const cy = lr ? src.nodeH / 2 : centre;
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("class", "gm-sheet-marker");
 
   const stub = document.createElementNS(SVG_NS, "path");
   stub.setAttribute(
     "d",
-    lr ? `M${NODE_W},${cy} H${cx - r}` : `M${cx},${src.nodeH} V${cy - r}`,
+    lr ? `M${edge},${cy} H${mirrored ? cx + r : cx - r}` : `M${cx},${edge} V${mirrored ? cy + r : cy - r}`,
   );
   stub.setAttribute("fill", "none");
   stub.setAttribute("stroke", BADGE_BG);

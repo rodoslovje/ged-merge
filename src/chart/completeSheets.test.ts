@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildCompleteTree } from "./completeTree";
-import { planCompletePages, splitFamily } from "./completeSheets";
+import { planBowtiePages, planCompletePages, splitFamily } from "./completeSheets";
 import { splitIntoSheets } from "./sheets";
 import { NODE_H } from "./treeLayout";
 import type { TreeNode } from "./personTree";
@@ -110,6 +110,53 @@ describe("planCompletePages for a single tree", () => {
     expect(pieces.map((p) => p.label)).toEqual(pieces.map((_, i) => String(i + 1)));
     expect(pieces[1].from).toBe("1");
     expect(pieces[0].markerLabel(2)).toBe("2");
+  });
+});
+
+describe("planBowtiePages", () => {
+  const node = (key: string, children: TreeNode[] = []): TreeNode =>
+    ({ key, status: "main-only", name: key, years: "", living: false, sex: "U", detail: "", children, partners: [] });
+  const pedigree = (g: number, p: string): TreeNode =>
+    g === 0 ? node(p) : node(p, [pedigree(g - 1, `${p}f`), pedigree(g - 1, `${p}m`)]);
+  // One person, five generations of ancestors and a wide run of descendants.
+  const up = pedigree(5, "r");
+  const down = node("r", Array.from({ length: 6 }, (_, i) =>
+    node(`c${i}`, Array.from({ length: 5 }, (_, j) => node(`c${i}g${j}`)))));
+
+  it("leaves a bowtie that fits the page alone", () => {
+    expect(planBowtiePages(up, down, opts(20000, 20000))).toBeUndefined();
+    expect(planBowtiePages(up, down, opts(Infinity, Infinity))).toBeUndefined();
+  });
+
+  it("keeps the person with both trunks on piece 1 and cuts either half", () => {
+    const page = opts(1500, 1200);
+    const pages = planBowtiePages(up, down, page)!;
+    const pieces = pages.flatMap((p) => p.pieces);
+    expect(pieces[0].label).toBe("1");
+    expect(pieces[0].other).toBeDefined();
+    // Branches of both halves follow, each under a number of its own.
+    const rest = pieces.slice(1);
+    expect(rest.some((p) => p.ancestors)).toBe(true);
+    expect(rest.some((p) => p.ancestors === false)).toBe(true);
+    expect(new Set(pieces.map((p) => p.label)).size).toBe(pieces.length);
+    expect(rest.filter((p) => p.ancestors).every((p) => p.keyPrefix === "a:")).toBe(true);
+    // Every marker points at a piece that exists.
+    const labels = new Set(pieces.map((p) => p.label));
+    const markers: number[] = [];
+    const walk = (n: TreeNode) => {
+      if (n.continuesOn !== undefined) markers.push(n.continuesOn);
+      n.children.forEach(walk);
+      n.partners.forEach(walk);
+    };
+    for (const p of pieces) { walk(p.root); if (p.other) walk(p.other); }
+    expect(markers.length).toBe(rest.length);
+    expect(markers.every((m) => labels.has(String(m)))).toBe(true);
+    // Nothing is bigger than its page.
+    expect(pages.some((p) => p.oversized)).toBe(false);
+    for (const pg of pages) for (const p of pg.pieces) {
+      expect(p.x + p.w).toBeLessThanOrEqual(1500.5);
+      expect(p.y + p.h).toBeLessThanOrEqual(1200.5);
+    }
   });
 });
 
