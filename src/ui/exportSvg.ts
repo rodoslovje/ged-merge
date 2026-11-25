@@ -13,7 +13,7 @@
 // viewer, a coloured slide, a document theme — and losing it means an invisible
 // chart. White is what the paper it is headed for looks like anyway.
 
-import { fillScale, pageBox, paperPx, type PrintPaper } from "../chart/sheets";
+import { PAGE_MARGIN, fillScale, pageBox, paperPx, type PrintPaper } from "../chart/sheets";
 import { downloadBlob } from "./download";
 
 // The presentation properties worth baking in. Deliberately omits `transform`
@@ -826,8 +826,10 @@ export async function printSvg(live: SVGSVGElement, opts: SvgExportOptions, pape
 }
 
 /**
- * Open the print dialog on a set of diagram sheets, one per page: each SVG is
- * centred on a real paper-sized page and every sheet is drawn at the same
+ * Open the print dialog on a set of diagram sheets, one per page: each SVG
+ * sits at the top of a real paper-sized page, centred across it — what is left
+ * of the paper is then one strip at the bottom, cut off in a single pass — and
+ * every sheet is drawn at the same
  * `scale`, so boxes come out the same size across the whole printed set (a
  * sparse sheet blown up to fill its page would look like a different chart).
  * A scale per sheet is the exception: the Complete Tree prints a sheet that
@@ -855,7 +857,8 @@ export function printSheetSet(
   html, body { margin: 0; padding: 0; }
   .gm-sheet {
     width: ${page.w}px; height: ${page.h}px; box-sizing: border-box;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: ${PAGE_MARGIN}px;
     break-after: page; page-break-after: always; overflow: hidden;
   }
   .gm-sheet:last-child { break-after: auto; page-break-after: auto; }
