@@ -4875,6 +4875,34 @@ button:focus-visible {
  * must measure `ch` in the same mono font the note is typed in — in the sans
  * font it inherits, a line that fits the count wraps. */
 .edit-note-chip { font-family: var(--font-mono); }
+/* A long note folds to its first line. The fold arrow stands before the chip;
+ * the chip keeps a resting border, so where one long note ends and the next
+ * begins shows without hovering each. */
+.note-fold {
+  flex: none;
+  background: none;
+  border: none;
+  padding: 1px 3px 0;
+  font: inherit;
+  font-size: 1.2em;
+  line-height: 1.4;
+  color: var(--faint);
+  cursor: pointer;
+}
+.note-fold:hover,
+.note-fold:focus-visible { color: var(--text); }
+.edit-note-item--long .edit-input:not(:hover):not(:focus) { border-color: var(--border); }
+/* Folded, only the first line shows — in the note's own weight: bold already
+ * says "changed", and is the note's own formatting besides. `:focus` is left
+ * out so a note being typed in is never cut short under the caret. */
+.edit-note-item--collapsed .note-rich:not(:focus) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+}
+
 /* The private lock sits inside the box at the LEFT edge — the mirror of the
  * × clear button: invisible at rest, revealed on the chip's hover/focus,
  * always shown (colored) once the note is private. The text clears it via
@@ -4944,6 +4972,22 @@ button:focus-visible {
   padding: 4px 8px;
   transition: background 0.12s;
 }
+/* Fold/unfold every long note — the quiet neighbour before the trash, which
+   then gives up the push to the row's far end. */
+.edit-notes-fold-toggle {
+  display: inline-flex; align-items: center;
+  margin-left: auto;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.edit-notes-fold-toggle:hover,
+.edit-notes-fold-toggle:focus-visible,
+.edit-notes-fold-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.edit-notes-fold-toggle + .edit-delete-btn { margin-left: 6px; }
 .edit-delete-btn:hover {
   background: var(--danger-soft);
 }
