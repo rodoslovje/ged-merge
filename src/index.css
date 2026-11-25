@@ -1155,11 +1155,11 @@ button:focus-visible {
   color: var(--muted);
 }
 
-/* Right column: privacy bar → capability grid → proof strip → what's new */
+/* Right column: privacy bar → capability grid → family website → proof strip → what's new */
 .lp-right {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .lb-list-h {
@@ -1199,6 +1199,21 @@ button:focus-visible {
   font-weight: 700;
 }
 
+/* The family-website line borrows the bar's shape but not its accent wash:
+   privacy stays the one tinted statement. */
+.lp-sitebar {
+  background: var(--panel);
+  border-color: var(--border);
+}
+
+/* Strip heading with the way to the video tutorials at its right end. */
+.lp-strip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 /* Capability grid: 2×2, one card per mode — the page as a map of the app. */
 .lp-caps {
   display: grid;
@@ -1212,7 +1227,7 @@ button:focus-visible {
 
 .lp-cap {
   background: var(--panel);
-  padding: 18px 18px 16px;
+  padding: 14px 16px 13px;
 }
 
 .lp-cap-head {
@@ -1297,7 +1312,7 @@ button:focus-visible {
 
 .lp-proof-cell {
   background: var(--panel);
-  padding: 12px 14px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
   gap: 3px;

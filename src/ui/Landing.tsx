@@ -71,9 +71,12 @@ const CAPS: { key: string; icon: React.ReactNode }[] = [
 ];
 
 /** Proof strip: numbers only, no prose. Each figure is verified against the
- *  app — 7 = the chart hub's kinds (tree, fan, timeline, relationship,
- *  contemporaries, map, report); "offline" = the PWA precaches everything. */
-const PROOF_KEYS = ["views", "versions", "offline", "account"] as const;
+ *  app — 9 = the chart hub's kinds (ChartsHub's HUB_KINDS: tree, fan, timeline,
+ *  relationship, contemporaries, map, 3D network, report, calendar); 3 = the UI
+ *  languages; "offline" = the PWA precaches everything. */
+const PROOF_KEYS = ["views", "versions", "languages", "offline"] as const;
+
+const VIDEOS_URL = "https://www.youtube.com/@GEDMerge";
 
 /** Screenshot strip: image basename + the app's own label for the caption.
  *  UI shots are PNG (flat color, crisp); map scans are JPEG (photographic). */
@@ -82,8 +85,8 @@ const SHOTS: { key: string; caption: string; ext: string }[] = [
   { key: "merge",   caption: "mode.merge",               ext: "png" },
   { key: "tree",    caption: "tree.settings.type.tree",  ext: "png" },
   { key: "fan",     caption: "tree.settings.type.fan",   ext: "png" },
-  { key: "map",     caption: "map.button",               ext: "jpg" },
   { key: "maphist", caption: "landing.shots.maphist",    ext: "jpg" },
+  { key: "website", caption: "tools.tool.publish",       ext: "png" },
 ];
 
 interface News {
@@ -338,7 +341,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew, onSho
           </p>
         </div>
 
-        {/* Right: privacy bar, capability grid, proof strip, what's new. */}
+        {/* Right: privacy bar, capability grid, family website, proof strip, what's new. */}
         <div className="lp-right">
           <div className="lp-privbar">
             <svg
@@ -380,6 +383,28 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew, onSho
             ))}
           </div>
 
+          {/* The family website: the one tool that is its own reason to come —
+              same bar shape as the privacy line, so it costs one row. */}
+          <div className="lp-privbar lp-sitebar">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+            </svg>
+            <p>
+              <strong>{t("landing.site.title")}</strong> {t("landing.site.body")}
+            </p>
+          </div>
+
           <div className="lp-proof">
             {PROOF_KEYS.map((key) => (
               <div key={key} className="lp-proof-cell">
@@ -413,7 +438,12 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew, onSho
       {/* Full-width strip: screenshots straight from the app (Tudor sample).
           One image per theme; CSS shows the one matching data-theme. */}
       <div className="lp-strip">
-        <p className="lb-list-h">{t("landing.shots.header")}</p>
+        <div className="lp-strip-head">
+          <p className="lb-list-h">{t("landing.shots.header")}</p>
+          <a className="lp-news-link" href={VIDEOS_URL} target="_blank" rel="noopener noreferrer">
+            {t("landing.shots.videos")}
+          </a>
+        </div>
         <div className="lb-shots">
           {SHOTS.map(({ key, caption, ext }, i) => (
             <figure key={key} className="lb-shot">
