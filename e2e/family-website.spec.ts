@@ -205,6 +205,13 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.reload();
   await expect(page.getByRole("tab", { name: "Timeline" })).toHaveAttribute("aria-selected", "true");
 
+  // The 3D network lays its people out in a worker the one file carries: the
+  // progress goes once the people are arranged, with no failure in its place.
+  await page.getByRole("tab", { name: "3D network" }).click();
+  await expect(page).toHaveURL(/\/network$/);
+  await expect(page.locator("canvas.network-canvas")).toBeVisible();
+  await expect(page.locator(".network-progress")).toHaveCount(0);
+
   // The view travels with it: the grid, one direction.
   await page.goto(timelineUrl.replace(/\/timeline$/, "/tree/grid/ancestors"));
   await page.reload();

@@ -90,7 +90,9 @@ async function buildViewer(root: string, define: Record<string, string>): Promis
       rolldownOptions: {
         input: resolve(root, "src/viewer/main.tsx"),
         // One script has no `import.meta`; the app reaches it only to load
-        // chunks and workers, and the site inlines its chunks and runs no worker.
+        // chunks and workers. The site inlines its chunks and can load no
+        // worker file: a chart it shows must import its worker `?worker&inline`
+        // (as NetworkChart does), never as `new URL(…, import.meta.url)`.
         onLog(level, log, handler) {
           if (log.code !== "EMPTY_IMPORT_META") handler(level, log);
         },
