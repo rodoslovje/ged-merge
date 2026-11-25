@@ -161,7 +161,7 @@ const OBRAZI_RE = /^https?:\/\/(?:www\.)?obrazislovenskihpokrajin\.si\/oseba\/([
 /** A dLib.si (Digital Library of Slovenia) document — newspapers, books,
  *  periodicals. Both the details page and a direct stream (PDF/TXT) link
  *  carry the same URN: /details/{urn}, /stream/{urn}/…. */
-const DLIB_RE = /^https?:\/\/(?:www\.)?dlib\.si\/(?:details|stream)\/(urn:nbn:si:[a-z]+-[a-z0-9]+)/i;
+const DLIB_RE = /^https?:\/\/(?:www\.)?dlib\.si\/(?:(?:details|stream|streamdb)\/|\?URN=)?(urn:nbn:si:[a-z]+-[a-z0-9]+)/i;
 
 /** A SIstory.si war-victims record — the Slovene WW1/WW2 casualty databases;
  *  one record per person, evidencing the death. WW2 ids are GUIDs, WW1 ids are

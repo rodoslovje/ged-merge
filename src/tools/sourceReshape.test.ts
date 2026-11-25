@@ -2279,6 +2279,20 @@ describe("reshapeSources — citation placement", () => {
     expect(text).toContain("2 CALN URN:NBN:SI:DOC-2CEAMMVU");
   });
 
+  it("recognizes every dLib.si address of a document", () => {
+    // The page's own citation gives `?URN=`; the image and the metadata
+    // links use `streamdb/` and the bare URN.
+    for (const url of [
+      "http://www.dlib.si/?URN=URN:NBN:SI:IMG-0UXKDHLC",
+      "http://www.dlib.si/streamdb/URN:NBN:SI:IMG-0UXKDHLC",
+      "https://www.dlib.si/URN:NBN:SI:IMG-0UXKDHLC",
+      "https://dlib.si/details/URN:NBN:SI:IMG-0UXKDHLC/?query=x",
+    ]) {
+      expect(recognizeSourceUrl(url)?.bookUrl).toBe("https://dlib.si/details/URN:NBN:SI:IMG-0UXKDHLC");
+    }
+    expect(recognizeSourceUrl("https://www.dlib.si/results/?query=x")).toBeUndefined();
+  });
+
   it("keeps an inline media block's own title, note and form on the record made from it", () => {
     const { text } = applyAll(`0 HEAD
 1 CHAR UTF-8
