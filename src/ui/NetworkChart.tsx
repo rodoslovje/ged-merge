@@ -4,6 +4,9 @@ import type { Dataset } from "../gedcom/types";
 import { buildFamilyGraph, graphBranches, type GraphScope } from "../chart/familyGraph";
 import { linkLength } from "../chart/forceLayout3d";
 import type { Layout3dReply, Layout3dRequest } from "../worker/layout3dMessages";
+// Inlined, not a worker file of its own: the family website is one HTML file
+// (and opens from disk), so it has no file to load a worker from.
+import Layout3dWorker from "../worker/layout3d.worker?worker&inline";
 import { livingLabelFor } from "../chart/nodeDisplay";
 import { isPresumedLiving, lifespanOf } from "../gedcom/lifespan";
 
@@ -220,7 +223,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     // The last graph's picture goes; the new one shows once it has settled.
     const canvas = canvasRef.current;
     if (canvas) canvas.width = canvas.width;
-    const worker = new Worker(new URL("../worker/layout3d.worker.ts", import.meta.url), { type: "module" });
+    const worker = new Layout3dWorker();
     workerRef.current = worker;
     worker.onmessage = (e: MessageEvent<Layout3dReply>) => {
       // A reply queued before this worker was replaced is for another graph.
