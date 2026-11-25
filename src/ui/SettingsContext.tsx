@@ -22,6 +22,7 @@ import {
 import { sanitizeFormatOverrides, type FormatOverrides } from "../normalize/formatOverrides";
 import { MAX_REMEMBERED_TARGETS, sanitizeStartPersons, sanitizeTargetFormats, type TargetMode } from "../normalize/target";
 import { HOME_COUNTRY_AUTO, HOME_COUNTRY_NONE } from "../geo/homeCountry";
+import { SAVE_DESTINATIONS, type SaveDestination } from "./saveTarget";
 import { INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { setDateDisplay } from "../gedcom/dateDisplay";
 import { DATE_DISPLAY_CHOICES, DATE_DISPLAY_WORDS, dateDisplayFormatter } from "./dateDisplayFormat";
@@ -188,6 +189,10 @@ export interface AppSettings extends NameDisplayOptions {
    *  preview already shows the same changes, and some browsers take only one
    *  file from a burst of two downloads. */
   saveReport: boolean;
+  /** Where a save goes: a download, a folder the reader picks, or over the
+   *  file they opened (see `ui/saveTarget.ts`). The save dialog falls back to
+   *  a download wherever the remembered choice cannot be honoured. */
+  saveDestination: SaveDestination;
   /** Which reading of the pending save the preview opens on: the field rows
    *  (`false`, the default) or the GEDCOM lines the file will receive
    *  (`true`). Remembered because it is a habit, not a per-save decision — a
@@ -240,6 +245,7 @@ const DEFAULTS: AppSettings = {
   startPersons: {},
   persistWorkspace: false,
   saveReport: false,
+  saveDestination: "download",
   saveDiffView: false,
   quickEventTags: ["BIRT", "RESI", "OCCU", "DEAT", "BURI"],
   marriedNameFromPartner: false,
@@ -525,6 +531,7 @@ function load(): AppSettings {
       startPersons: sanitizeStartPersons(parsed.startPersons),
       persistWorkspace: bool(parsed.persistWorkspace, DEFAULTS.persistWorkspace),
       saveReport: bool(parsed.saveReport, DEFAULTS.saveReport),
+      saveDestination: SAVE_DESTINATIONS.find((d) => d === parsed.saveDestination) ?? DEFAULTS.saveDestination,
       saveDiffView: bool(parsed.saveDiffView, DEFAULTS.saveDiffView),
       quickEventTags: sanitizeQuickEventTags(parsed.quickEventTags),
       marriedNameFromPartner: bool(parsed.marriedNameFromPartner, DEFAULTS.marriedNameFromPartner),

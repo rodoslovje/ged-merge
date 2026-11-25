@@ -1424,8 +1424,8 @@
               <strong>Health check</strong>'s one-click fixes, a <strong>Find duplicates</strong> merge, a
               <strong>Places</strong> rename and <strong>Geocode places</strong> write into your main file as you work,
               and are saved like any other edit, as do <a href="#normalize">Batch actions</a> and <strong>Normalize file</strong>. <strong>Privacy</strong> and <strong>Organize sources</strong> instead
-              hand you a separate file to download. Either way the <em>.ged</em> on your disk is never rewritten: every
-              save is a new file in your Downloads folder (<a href="#saving">§14</a>).
+              hand you a separate file to download. Either way the <em>.ged</em> on your disk is rewritten only if you choose that
+              when saving: otherwise every save is a new file (<a href="#saving">§14</a>).
               Ten tools sit in the picker at the top —
               <strong>Statistics</strong>, <strong>Places</strong>, <strong>Sources</strong>, <strong>Tasks</strong>,
               <strong>Health check</strong>,
@@ -3637,7 +3637,7 @@
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Tip</span>
-              <p>Your original file on disk is never overwritten — the download is always a new copy. Even so, keep a
+              <p>Your original file on disk is overwritten only when you choose <em>The opened file</em> as the save's destination — otherwise every save is a new copy. Even so, keep a
               backup of your tree before large merges — see <a href="#versioning">Backing up &amp; versioning</a> below.</p>
             </div>
 
@@ -3655,6 +3655,9 @@
               <code>Smith-tree.2026-07-22.gedmerge.ged</code>. Successive versions therefore sit side by side in date order
               and never overwrite one another; the newest is your working copy, the older stamps are your history. Loading
               a stamped file back in is fine — the next save simply carries today's date.
+            </p>
+            <p>
+              <strong>Saving straight to a folder.</strong> In Chrome, Edge and Opera on a computer the save preview also asks where the save goes, under <em>Save to</em>. <strong>A folder</strong> writes the dated <em>.ged</em> — and the change report, if you ticked it — into a folder you pick, so nothing has to be moved out of Downloads. <strong>The opened file</strong> overwrites the file you loaded, which suits a tree kept under Git (below). Firefox, Safari and phones do not let a web page write to a folder, so there every save is a download.
             </p>
 
             <p>
@@ -3721,7 +3724,7 @@
               <li><strong>Store.</strong> Move it into the repository folder and rename it back to <code>tree.ged</code>,
                 replacing the old one. GED Merge stamps the download with the date, but Git records the date and message of
                 every version itself — so a fixed filename gives a clean, line-by-line diff instead of a brand-new file each
-                time.</li>
+                time. In Chrome, Edge or Opera, <em>Save to</em> → <strong>The opened file</strong> does this step for you: the save overwrites <code>tree.ged</code> in the repository.</li>
               <li><strong>Commit.</strong> In GitHub Desktop the changed lines appear (which people and events changed);
                 type a short summary (“Merged Novak branch”, “Fixed birth dates”), click <strong>Commit</strong>, then
                 <strong>Push</strong> to back it up on GitHub.</li>

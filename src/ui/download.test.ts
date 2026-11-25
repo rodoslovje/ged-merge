@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dateStamp, baseStem, savedName } from "./download";
+import { dateStamp, baseStem, savedName, timedName } from "./download";
 
 describe("dateStamp", () => {
   it("formats a date as zero-padded YYYY-MM-DD", () => {
@@ -45,5 +45,19 @@ describe("savedName", () => {
     expect(savedName("Smith-tree.2026-07-22.gedmerge.ged", "ged", d)).toBe(
       "Smith-tree.2026-07-23.gedmerge.ged",
     );
+  });
+});
+
+describe("timedName", () => {
+  it("adds the time of day to a saved name's stamp", () => {
+    const d = new Date(2026, 6, 22, 9, 5);
+    expect(timedName("Smith-tree.2026-07-22.gedmerge.ged", d)).toBe("Smith-tree.2026-07-22-0905.gedmerge.ged");
+    expect(timedName("Smith-tree.2026-07-22.gedmerge.report.txt", d)).toBe(
+      "Smith-tree.2026-07-22-0905.gedmerge.report.txt",
+    );
+  });
+
+  it("gives a name that reads back to the same base", () => {
+    expect(baseStem(timedName("Smith-tree.2026-07-22.gedmerge.ged", new Date(2026, 6, 22, 14, 30)))).toBe("Smith-tree");
   });
 });

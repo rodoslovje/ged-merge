@@ -1430,8 +1430,8 @@
               Ispravci jednim klikom u alatu <strong>Provjera</strong>, spajanje u alatu <strong>Duplikati</strong>,
               preimenovanje u alatu <strong>Mjesta</strong> i <strong>Geokodiranje mjesta</strong> upisuju se u glavnu datoteku dok radite
               i spremaju se kao svako drugo uređivanje, a isto vrijedi za <a href="#normalize">skupne radnje</a> i <strong>Ujednači datoteku</strong>. <strong>Privatnost</strong> i <strong>Uredi izvore</strong> pak
-              pripremaju zasebnu datoteku za preuzimanje. U oba slučaja datoteka <em>.ged</em> na vašem disku nikad se ne
-              prepisuje: svako spremanje nova je datoteka u mapi za preuzimanja (<a href="#saving">§14</a>).
+              pripremaju zasebnu datoteku za preuzimanje. U oba slučaja datoteka <em>.ged</em> na vašem disku prepisuje se samo
+              ako to odaberete pri spremanju: inače je svako spremanje nova datoteka (<a href="#saving">§14</a>).
               U izborniku na vrhu nalazi se deset alata —
               <strong>Statistika</strong>, <strong>Mjesta</strong>, <strong>Izvori</strong>, <strong>Zadaci</strong>,
               <strong>Provjera</strong>,
@@ -3644,7 +3644,7 @@
             </p>
             <div class="gm-callout tip">
               <span class="gm-callout-label">Savjet</span>
-              <p>Vaša izvorna datoteka na disku nikada se ne prepisuje — preuzimanje je uvijek nova kopija. Ipak, prije velikih
+              <p>Vaša izvorna datoteka na disku prepisuje se samo ako za odredište spremanja odaberete mogućnost „Otvorena datoteka“ — inače je svako spremanje nova kopija. Ipak, prije velikih
               spajanja napravite sigurnosnu kopiju stabla — pogledajte <a href="#versioning">Sigurnosne kopije i inačice</a> u nastavku.</p>
             </div>
 
@@ -3662,6 +3662,9 @@
               <code>Smith-tree.2026-07-22.gedmerge.ged</code>. Uzastopne inačice zato stoje jedna uz drugu po redoslijedu datuma
               i nikad ne prepisuju jedna drugu; najnovija je vaša radna kopija, starije su vaša povijest. Ponovno učitavanje
               datoteke s datumom u nazivu posve je u redu — sljedeće spremanje jednostavno nosi današnji datum.
+            </p>
+            <p>
+              <strong>Spremanje izravno u mapu.</strong> U preglednicima Chrome, Edge i Opera na računalu u pregledu spremanja odabirete i <em>Odredište spremanja</em>. Uz mogućnost <strong>Mapa</strong> datoteka <em>.ged</em> s datumom u nazivu — i izvješće o promjenama, ako ste ga označili — zapisuje se u mapu koju odaberete, pa iz Preuzimanja ne treba ništa premještati. Uz mogućnost <strong>Otvorena datoteka</strong> prepisuje se datoteka koju ste učitali, što odgovara stablu koje čuvate u Gitu (u nastavku). Firefox, Safari i telefoni ne dopuštaju web-stranici pisanje u mapu, pa je ondje svako spremanje preuzimanje.
             </p>
 
             <p>
@@ -3728,7 +3731,7 @@
               <li><strong>Pohranite.</strong> Premjestite je u mapu repozitorija i preimenujte natrag u <code>tree.ged</code>,
                 tako da zamijeni staru. GED Merge preuzimanju u naziv dodaje datum, ali Git sam bilježi datum i poruku
                 svake inačice — pa stalan naziv datoteke daje čistu usporedbu redak po redak umjesto potpuno nove datoteke svaki
-                put.</li>
+                put. U preglednicima Chrome, Edge i Opera taj korak otpada ako za <em>Odredište spremanja</em> odaberete mogućnost <strong>Otvorena datoteka</strong>: spremanje prepisuje <code>tree.ged</code> u mapi repozitorija.</li>
               <li><strong>Commit.</strong> U GitHub Desktopu pojavljuju se promijenjeni retci (koje su se osobe i događaji promijenili);
                 upišite kratak sažetak („Spojena grana Novak“, „Ispravljeni datumi rođenja“), kliknite <strong>Commit</strong>, zatim
                 <strong>Push</strong> kako biste ga pohranili na GitHub.</li>
