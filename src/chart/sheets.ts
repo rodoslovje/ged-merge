@@ -294,8 +294,12 @@ export interface Sheet {
  * The result is never empty: a tree too big to fit even after everything
  * cuttable has been cut still comes back as one (oversized) sheet rather than
  * disappearing.
+ *
+ * `next` is the number the first cut branch takes (the root's sheet is always
+ * 1): two trees that share a sheet 1 — the halves of a bowtie — are split one
+ * after the other, the second numbering on from where the first stopped.
  */
-export function splitIntoSheets(root: TreeNode, opts: SheetSplitOptions): Sheet[] {
+export function splitIntoSheets(root: TreeNode, opts: SheetSplitOptions, next = 2): Sheet[] {
   // A private copy: the same tree is the live chart's, and planning must not
   // mark it up. `continuesOn` is then set on the derived sheets only.
   const work = cloneTree(root);
@@ -303,9 +307,9 @@ export function splitIntoSheets(root: TreeNode, opts: SheetSplitOptions): Sheet[
   const numbers = new Map<TreeNode, number>();
 
   const sheets: Sheet[] = [];
-  let counter = 1;
+  let counter = next;
   const queue: { root: TreeNode; number: number; from?: Sheet["from"] }[] = [
-    { root: work, number: counter++ },
+    { root: work, number: 1 },
   ];
   while (queue.length) {
     const item = queue.shift()!;

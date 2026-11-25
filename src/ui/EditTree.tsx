@@ -282,19 +282,19 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [laid, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
-  // What "print in sheets" splits: the layered direction charts only — a fan
-  // has no rectangular branches to cut, and a bowtie's two halves would each
-  // want the root. It re-lays the very same tree the canvas draws.
+  // What "print in sheets" splits: the layered charts only — a fan has no
+  // rectangular branches to cut. It re-lays the very same tree the canvas
+  // draws; a bowtie hands over both its halves.
   const sheetSource = useMemo(
     () =>
       complete
         ? completeTree?.panels.length
           ? { tree: completeTree.panels[0].tree, complete: completeTree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: false }
           : undefined
-        : !radial && !bowtie && tree
-          ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
+        : !radial && tree && (!bowtie || shown.descendants)
+          ? { tree, bowtie: bowtie ? shown.descendants : undefined, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
           : undefined,
-    [radial, bowtie, complete, completeTree, tree, alignment, isGrid, nodeH, marriageLabel, mode],
+    [radial, bowtie, complete, completeTree, tree, shown, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // Everyone the Complete Tree covers, for its button — a walk over ids, not

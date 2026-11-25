@@ -117,7 +117,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
     const { paper, packed } = plan;
     savePrintPrefs(PREFS_SLOT, { ...choice, orientation, size });
     onClose();
-    if (!source) {
+    if (!source || plan.whole) {
       printCanvasPdf(canvasRef.current, opts, paper);
       return;
     }
