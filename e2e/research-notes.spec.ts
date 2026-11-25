@@ -259,6 +259,9 @@ test("a task's text takes the formatting a note's does", async ({ page }) => {
   // The chip shows the words bold, and the dialog opens on them bold.
   const chip = page.locator(".research-section .research-chip");
   await expect(chip.locator(".research-chip-text b")).toHaveText("Check the land register");
+  // So does the chip's tooltip.
+  await chip.locator(".research-chip-open").hover();
+  await expect(page.locator(".icon-tip b")).toHaveText("Check the land register");
   await chip.locator(".research-chip-open").click();
   await expect(page.getByRole("dialog", { name: "Task", exact: true }).locator(".note-rich b")).toHaveText("Check the land register");
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
