@@ -459,6 +459,20 @@ export default function MiniPlaceMap({
             });
       bindFlippingTooltip(map, marker, tooltipEl(p.label, p.lines, p.sub, p.coord));
       marker.on("click", () => latestPins.current[i]?.onPick?.());
+      // A numbered area pin keeps its ring: the badge alone is one more
+      // house-sized dot, and "the whole place" is said by the size around it.
+      if (p.area && p.badge !== undefined) {
+        L.circleMarker([p.coord.lat, p.coord.lon], {
+          radius: 17,
+          color,
+          weight: 2,
+          dashArray: "5 4",
+          fillColor: color,
+          fillOpacity: 0.12,
+          // Never in the way of a click: the houses inside it are what is picked.
+          interactive: false,
+        }).addTo(group);
+      }
       marker.addTo(group);
       // Whatever order the caller listed them in, the area ring belongs under
       // the houses standing on it.

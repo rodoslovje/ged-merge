@@ -64,6 +64,14 @@ test("a stored register answers as the panel opens, beside the position held now
   await expect(current.locator(".gm-coord--set")).toHaveCount(0);
   await expect(current.locator(".tools-geo-cand-num")).toHaveText("2");
 
+  // On the map the settlement's position keeps its wide ring under the number.
+  await expect(page.locator('.edit-coord-map path[stroke-dasharray="5 4"]')).toHaveCount(1);
   await house.click();
   await expect(pin).not.toHaveClass(/edit-event-coord--place|edit-event-coord--empty/);
-});
+
+  // Reopened, the house is the position held: its own line is the marked one,
+  // and it is not listed a second time as "current".
+  await pin.click();
+  await expect(house).toBeVisible();
+  await expect(page.locator(".edit-coord-pop .tools-geo-cand-num.is-current")).toHaveCount(1);
+  await expect(page.locator(".edit-coord-current-line")).toHaveCount(0);});

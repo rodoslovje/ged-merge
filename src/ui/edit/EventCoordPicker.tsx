@@ -525,14 +525,25 @@ export function EventCoordPicker({
   // like them: the map draws it among their pins, and a dot no line accounts
   // for cannot be weighed against the house that was found. Only beside
   // offers — alone, the head of the panel already says all of it.
-  const currentLine = !!coord && optionNumbers.size > 0 && numberOf(coord) === undefined;
+  /** Whether an offer is the position held now. Read at the precision a
+   *  coordinate is shown in: the file's five decimals and a register's six name
+   *  one house, and the same numbers printed on two lines are one option. */
+  const isCurrent = (c: GeoCoord) => !!coord && formatCoord(c) === formatCoord(coord);
+  const offered = [...(candidates ?? []), ...fromFile, ...shownRn, ...shownOsm];
+  const currentLine = !!coord && offered.length > 0 && !offered.some((o) => isCurrent(o.coord));
   if (currentLine) numberFor(coord);
   const currentName = currentLabel || t("event.coord.current");
   /** A list line's number takes the option, as the label beside it does — on
    *  the geocoding lists the number is part of the option's radio label. Kept
    *  out of the tab order: the label is the line's one stop. */
   const pickNumber = (c: GeoCoord, label: string) => (
-    <button type="button" className="tools-geo-cand-num" tabIndex={-1} aria-hidden="true" onClick={() => take(c, label)}>
+    <button
+      type="button"
+      className={"tools-geo-cand-num" + (isCurrent(c) ? " is-current" : "")}
+      tabIndex={-1}
+      aria-hidden="true"
+      onClick={() => take(c, label)}
+    >
       {numberOf(c)}
     </button>
   );
@@ -552,7 +563,7 @@ export function EventCoordPicker({
       coord: c.coord,
       label: c.label,
       lines: [c.detail, c.source, t("event.coord.pinPick")].filter((s): s is string => !!s),
-      kind: sameCoord(c.coord, coord) ? "chosen" : "candidate",
+      kind: isCurrent(c.coord) ? "chosen" : "candidate",
       badge: numberOf(c.coord),
       onPick: () => take(c.coord, c.label),
     });
@@ -576,7 +587,7 @@ export function EventCoordPicker({
       coord: r.coord,
       label: r.address,
       lines: [r.label === r.address ? "" : r.label, t("event.coord.source.gurs"), t("event.coord.pinPick")].filter(Boolean),
-      kind: "candidate",
+      kind: isCurrent(r.coord) ? "chosen" : "candidate",
       badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.label),
     });
@@ -588,14 +599,14 @@ export function EventCoordPicker({
       coord: r.coord,
       label: r.name,
       lines: [short === r.name ? "" : short, t("event.coord.source.osm"), t("event.coord.pinPick")].filter(Boolean),
-      kind: "candidate",
+      kind: isCurrent(r.coord) ? "chosen" : "candidate",
       badge: numberOf(r.coord),
       onPick: () => take(r.coord, r.name),
     });
   }
   if (draftCoord && !pins.some((p) => sameCoord(p.coord, draftCoord))) {
     pins.push({ coord: draftCoord, label: t("event.coord.typed"), kind: "chosen" });
-  } else if (coord && !pins.some((p) => sameCoord(p.coord, coord))) {
+  } else if (coord && !pins.some((p) => isCurrent(p.coord))) {
     pins.push({
       coord,
       label: currentName,
