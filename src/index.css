@@ -2641,7 +2641,6 @@ button:focus-visible {
   display: flex; flex-wrap: wrap; align-items: baseline;
   gap: 4px 10px;
 }
-.person-search-label { color: var(--muted); flex: 0 0 100%; }
 .person-search-site {
   display: inline-flex; align-items: center; gap: 3px;
   color: var(--accent);

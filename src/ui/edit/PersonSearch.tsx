@@ -771,7 +771,6 @@ export function PersonSearch({
           <p className="person-search-note">{t("indexSearch.noName")}</p>
         ) : sites.length > 0 ? (
           <div className="person-search-sites">
-            <span className="person-search-label">{t("indexSearch.searchOn")}</span>
             {sites.map((site) => (
               <a key={site} className="person-search-site" href={searchUrl(site, query)} target="_blank" rel="noopener noreferrer">
                 {t(`indexSearch.site.${site}`)} <ExternalIcon size={11} />

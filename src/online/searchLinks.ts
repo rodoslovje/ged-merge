@@ -70,9 +70,9 @@ export function personQuery(indi: Individual): PersonQuery | undefined {
 }
 
 /** The search sites; `index` is the Slovenian genealogical index, `indexHr` the Croatian one. */
-export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree" | "myheritage" | "geneanet" | "ancestry" | "findagrave" | "dlib" | "biografija" | "wikipediaSl" | "wikipediaEn" | "wikipediaHr";
+export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree" | "myheritage" | "geneanet" | "ancestry" | "findagrave" | "dlib" | "dlibText" | "biografija" | "wikipediaSl" | "wikipediaEn" | "wikipediaHr";
 
-export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree", "myheritage", "geneanet", "ancestry", "findagrave", "dlib", "biografija", "wikipediaSl", "wikipediaEn", "wikipediaHr"];
+export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree", "myheritage", "geneanet", "ancestry", "findagrave", "dlib", "dlibText", "biografija", "wikipediaSl", "wikipediaEn", "wikipediaHr"];
 
 /** The site of each genealogical index. */
 export const INDEX_SEARCH_SITE: Record<GenIndex, SearchSite> = { si: "index", hr: "indexHr" };
@@ -90,6 +90,7 @@ export const DEFAULT_SEARCH_SITES: Record<SearchSite, boolean> = {
   ancestry: true,
   findagrave: true,
   dlib: true,
+  dlibText: true,
   biografija: true,
   wikipediaSl: true,
   wikipediaEn: true,
@@ -211,11 +212,20 @@ export function searchUrl(site: SearchSite, q: PersonQuery): string {
         ...graveYear("death", q.deathFrom, q.deathTo),
       });
     case "dlib":
-      // The Digital Library of Slovenia searches the text of its newspapers
-      // and books, so only the name goes in.
+      // The Digital Library of Slovenia's catalogue (titles, authors, keywords)
+      // knows no person fields, so only the name goes in.
       return withParams("https://www.dlib.si/results/", {
         query: `'keywords=${[q.given, q.surname].filter(Boolean).join(" ")}'`,
       });
+    case "dlibText": {
+      // The scanned text of its newspapers and books (the `fts` field). The
+      // name goes in as a phrase, in both orders: the bare words match any
+      // document that has both anywhere, which is thousands for a common name.
+      const phrases = q.given && q.surname ? [`"${q.given} ${q.surname}"`, `"${q.surname} ${q.given}"`] : [q.given || q.surname];
+      return withParams("https://www.dlib.si/results/", {
+        query: `'${phrases.map((p) => `fts=${p}`).join("@OR@")}'`,
+      });
+    }
     case "biografija":
       // Slovenska biografija's advanced search.
       return withParams("https://www.slovenska-biografija.si/iskanje/", {

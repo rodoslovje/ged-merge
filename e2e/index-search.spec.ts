@@ -99,7 +99,8 @@ test("the search rail prefills the other sites and stays offline with lookups of
   await expect(panel.getByRole("link", { name: "Geneanet" })).toHaveAttribute("href", /nom=Penko&prenom=Janez/);
   await expect(panel.getByRole("link", { name: "Ancestry" })).toHaveAttribute("href", /name=Janez_Penko/);
   await expect(panel.getByRole("link", { name: "Find a Grave" })).toHaveAttribute("href", /firstname=Janez&lastname=Penko/);
-  await expect(panel.getByRole("link", { name: "dLib.si" })).toHaveAttribute("href", /keywords%3DJanez\+Penko/);
+  await expect(panel.getByRole("link", { name: "dLib.si", exact: true })).toHaveAttribute("href", /keywords%3DJanez\+Penko/);
+  await expect(panel.getByRole("link", { name: "dLib.si (full text)" })).toHaveAttribute("href", /fts%3D%22Janez\+Penko%22/);
   await expect(panel.getByRole("link", { name: "Slovenska biografija" })).toHaveAttribute("href", /forename=Janez&surname=Penko&birthFrom=1860/);
   await expect(panel.getByRole("link", { name: "Wikipedia (sl)" })).toHaveAttribute("href", /sl\.wikipedia\.org\/w\/index\.php\?search=Janez\+Penko/);
   await expect(panel.getByRole("link", { name: "Wikipedia (en)" })).toHaveAttribute("href", /en\.wikipedia\.org/);
