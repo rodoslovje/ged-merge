@@ -9,9 +9,16 @@ import { hiddenName, useLivingNameOf } from "./useLivingName";
 import {
   CUSTOM_MM_MAX,
   CUSTOM_MM_MIN,
+  NAME_PT,
   ORIENTATIONS,
   PAPER_NAMES,
+  PRINT_PCT_MAX,
+  PRINT_PCT_MIN,
+  PRINT_SCALE,
   PRINT_SIZES,
+  TINY_SCALE,
+  isPrintSize,
+  printScale,
   type Orientation,
   type PaperName,
   type PrintSize,
@@ -67,9 +74,11 @@ const DEFAULTS: PaperChoice & { orientation: Orientation; size: PrintSize } = {
   name: DEFAULT_PAPER, w: "", h: "", orientation: "landscape", size: "medium",
 };
 const PREFS_SLOT = "chart";
+/** A preset's scale as the whole percent the field shows. */
+const presetPct = (s: Exclude<PrintSize, "fit" | number>) => Math.round(PRINT_SCALE[s] * 100);
 
 export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // A person the privacy setting hides is named in a caption as in their box.
   const { settings } = useChartSettings();
   const livingNameOf = useLivingNameOf();
@@ -78,12 +87,22 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   const [saved] = useState(() => loadPrintPrefs(PREFS_SLOT, DEFAULTS));
   const [choice, setChoice] = useState(() => validPaperChoice(saved, PAPER_NAMES, DEFAULT_PAPER));
   const [orientation, setOrientation] = useState<Orientation>(ORIENTATIONS.includes(saved.orientation) ? saved.orientation : DEFAULTS.orientation);
-  const [size, setSize] = useState<PrintSize>(PRINT_SIZES.includes(saved.size) ? saved.size : DEFAULTS.size);
+  const savedSize = isPrintSize(saved.size) ? saved.size : DEFAULTS.size;
+  // The print size is "one sheet" or a scale; the scale is kept as typed, so a
+  // half-entered "7" isn't repaired under the cursor. The presets only fill it in.
+  const [fit, setFit] = useState(savedSize === "fit");
+  const [pct, setPct] = useState(() => String(Math.round((printScale(savedSize) ?? PRINT_SCALE.medium) * 100)));
+  const pctValue = Number(pct.trim().replace(",", "."));
+  const pctValid = Number.isFinite(pctValue) && pctValue >= PRINT_PCT_MIN && pctValue <= PRINT_PCT_MAX;
+  // `null` while the typed scale is unusable, as the paper is below.
+  const size: PrintSize | null = fit ? "fit" : pctValid ? pctValue / 100 : null;
   const custom = choice.name === "custom";
 
   // `null` while the typed size is unusable — the plan then has nothing to work
   // from, and the count line explains itself instead of showing a stale number.
-  const paper = useMemo(() => chosenPaper(choice), [choice]);
+  const typedPaper = useMemo(() => chosenPaper(choice), [choice]);
+  // Nothing is planned until both the paper and the scale are usable.
+  const paper = size === null ? null : typedPaper;
 
   // The full plan, not just its length: it is what the print then draws, and
   // planning a chart of any ordinary size is quick enough to redo per change.
@@ -91,19 +110,19 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
   // every sheet carries: the plan and the preview must count the same bands the
   // print will draw, or the set comes out smaller than the dialog promised.
   const bandsH = useMemo(
-    () => (paper ? sheetBandsHeight(opts.legend, { paper, orientation, size }) : HEADER_H + FOOTER_H),
+    () => (paper ? sheetBandsHeight(opts.legend, { paper, orientation, size: size! }) : HEADER_H + FOOTER_H),
     [opts.legend, paper, orientation, size],
   );
   const complete = source?.complete;
   const sheets = useMemo(
-    () => (source && !complete && paper ? planSheets(source, { paper, orientation, size }, bandsH) : []),
+    () => (source && !complete && paper ? planSheets(source, { paper, orientation, size: size! }, bandsH) : []),
     [source, complete, paper, orientation, size, bandsH],
   );
   // The Complete Tree, and any chart cut into more than one sheet, prints as
   // its pieces packed onto pages instead: several branches share a sheet.
   const packed = useMemo(() => (source ? packedTrees(source, sheets) : undefined), [source, sheets]);
   const pages = useMemo(
-    () => (source && packed && paper ? planCompleteSheets(packed, source, { paper, orientation, size }, bandsH) : []),
+    () => (source && packed && paper ? planCompleteSheets(packed, source, { paper, orientation, size: size! }, bandsH) : []),
     [source, packed, paper, orientation, size, bandsH],
   );
   const count = !source ? 1 : packed ? pages.length : sheets.length;
@@ -119,7 +138,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
     if (pages.length) {
       return completePrintScales(pages.map((p) => ({ ...p, height: p.height + bandsH })), { paper, orientation }).common;
     }
-    if (source && sheets.length) return planPrintScale(source, { paper, orientation, size }, sheets, bandsH);
+    if (source && sheets.length) return planPrintScale(source, { paper, orientation, size: size! }, sheets, bandsH);
     const whole = canvasDiagramSize(canvasRef.current);
     return whole ? fillScale([{ width: whole.w, height: whole.h + bandsH }], box) : 1;
   }, [source, paper, orientation, size, sheets, pages, canvasRef, bandsH]);
@@ -133,7 +152,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
       return;
     }
     if (packed) {
-      void printCompleteSheets(canvasRef.current, packed, source, { paper, orientation, size }, {
+      void printCompleteSheets(canvasRef.current, packed, source, { paper, orientation, size: size! }, {
         ...opts,
         subtitle: (page, total) => {
           const of = t("sheets.sheetOf", { n: page.number, total });
@@ -147,7 +166,7 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
       return;
     }
     // A chart that fits one sheet: the set is that sheet alone.
-    void printChartSheets(canvasRef.current, source, { paper, orientation, size }, {
+    void printChartSheets(canvasRef.current, source, { paper, orientation, size: size! }, {
       ...opts,
       subtitle: (sheet, total) => t("sheets.sheetOf", { n: sheet.number, total }),
     });
@@ -200,8 +219,11 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
               {PRINT_SIZES.map((s) => (
                 <button
                   key={s}
-                  className={size === s ? "active" : ""}
-                  onClick={() => setSize(s)}
+                  className={(s === "fit" ? fit : !fit && pctValid && pctValue === presetPct(s)) ? "active" : ""}
+                  onClick={() => {
+                    setFit(s === "fit");
+                    if (s !== "fit") setPct(String(presetPct(s)));
+                  }}
                   title={t(`sheets.size.${s}.tip`)}
                 >
                   {t(`sheets.size.${s}`)}
@@ -210,14 +232,38 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
             </div>
           </div>
         )}
+        {/* The scale behind the three sizes, open to any figure in between. */}
+        {source && !fit && (
+          <div className="sheet-dialog-row">
+            <span className="chart-settings-heading">{t("sheets.scaleRow")}</span>
+            <div className="sheet-dialog-custom-fields">
+              <input
+                type="number"
+                inputMode="decimal"
+                min={PRINT_PCT_MIN}
+                max={PRINT_PCT_MAX}
+                value={pct}
+                aria-label={t("sheets.scale.pct")}
+                onChange={(e) => setPct(e.target.value)}
+              />
+              <span className="sheet-dialog-unit">%</span>
+            </div>
+          </div>
+        )}
 
         <p className={`sheet-dialog-count${paper ? "" : " is-hint"}`} aria-live="polite">
           {paper
             ? `${t("sheets.count", { count })} · ${t("sheets.scale", {
                 pct: Math.round(scale * 100),
+                pt: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(scale * NAME_PT),
               })}` + (smaller ? ` · ${t("sheets.smaller", { count: smaller })}` : "")
-            : t("sheets.custom.range", { min: CUSTOM_MM_MIN, max: CUSTOM_MM_MAX })}
+            : !typedPaper
+              ? t("sheets.custom.range", { min: CUSTOM_MM_MIN, max: CUSTOM_MM_MAX })
+              : t("sheets.scale.range", { min: PRINT_PCT_MIN, max: PRINT_PCT_MAX })}
         </p>
+        {paper && scale < TINY_SCALE && (
+          <p className="sheet-dialog-warning" role="status">{t("sheets.tiny")}</p>
+        )}
 
         {/* The browser's own print window asks for the paper once more. */}
         <p className="sheet-dialog-hint">{t("sheets.pdfHint")}</p>

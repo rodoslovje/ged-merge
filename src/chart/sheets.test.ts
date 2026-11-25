@@ -5,6 +5,8 @@ import {
   CUSTOM_MM_MAX,
   CUSTOM_MM_MIN,
   PRINT_SCALE,
+  isPrintSize,
+  printScale,
   pageBox,
   paperPx,
   sheetBudget,
@@ -78,6 +80,15 @@ describe("paper geometry", () => {
     // Smaller print fits more diagram on the same page.
     expect(sheetBudget("a4", "landscape", 0, "small").w)
       .toBeGreaterThan(sheetBudget("a4", "landscape", 0, "large").w);
+  });
+
+  it("takes a typed scale as it takes a preset's", () => {
+    expect(sheetBudget("a4", "landscape", 0, 0.5)).toEqual(sheetBudget("a4", "landscape", 0, "medium"));
+    expect(sheetBudget("a4", "landscape", 0, 0.7).w).toBeCloseTo(pageBox("a4", "landscape").w / 0.7);
+    expect(printScale("fit")).toBeUndefined();
+    expect(isPrintSize(0.7)).toBe(true);
+    expect(isPrintSize(0.01)).toBe(false);
+    expect(isPrintSize("huge")).toBe(false);
   });
 
   it("sizes the named papers off their millimetres", () => {

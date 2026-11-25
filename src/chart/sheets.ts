@@ -110,15 +110,43 @@ export const PAGE_MARGIN = 24;
  * and let the print shrink the whole diagram onto the one sheet, however small
  * that turns out. It is what a plotter-sized sheet is for.
  */
-export type PrintSize = "large" | "medium" | "small" | "fit";
+export type PrintPreset = "large" | "medium" | "small" | "fit";
 
-export const PRINT_SIZES: PrintSize[] = ["large", "medium", "small", "fit"];
+/** A preset, or the reduction itself as a typed scale (0.7 for 70 %) — for
+ *  whoever knows from their own printing how small they can still read. */
+export type PrintSize = PrintPreset | number;
 
-export const PRINT_SCALE: Record<Exclude<PrintSize, "fit">, number> = {
+export const PRINT_SIZES: PrintPreset[] = ["large", "medium", "small", "fit"];
+
+export const PRINT_SCALE: Record<Exclude<PrintPreset, "fit">, number> = {
   large: 0.75,
   medium: 0.5,
   small: 0.3,
 };
+
+/** What a typed scale may be, in percent. */
+export const PRINT_PCT_MIN = 10;
+export const PRINT_PCT_MAX = 200;
+
+/** The node name's type size at full scale, in points (12px at 96 dpi). */
+export const NAME_PT = 9;
+
+/** Below this the names are under 4.5 pt: print most people cannot read. */
+export const TINY_SCALE = 0.5;
+
+/** The reduction a print size stands for; none for "fit", which takes whatever
+ *  scale lands the whole diagram on the sheet. */
+export function printScale(size: PrintSize): number | undefined {
+  if (size === "fit") return undefined;
+  return typeof size === "number" ? size : PRINT_SCALE[size];
+}
+
+/** Whether a stored value is a print size this version knows. */
+export function isPrintSize(v: unknown): v is PrintSize {
+  return typeof v === "number"
+    ? v >= PRINT_PCT_MIN / 100 && v <= PRINT_PCT_MAX / 100
+    : PRINT_SIZES.includes(v as PrintPreset);
+}
 
 /** A chosen page: the paper, and which way round it goes. Every print starts
  *  here — the ones that split into sheets add a {@link PrintSize} on top. */
@@ -170,9 +198,9 @@ export function sheetBudget(
   bandsH: number,
   size: PrintSize = "medium",
 ): { w: number; h: number } {
-  if (size === "fit") return { w: Infinity, h: Infinity };
+  const scale = printScale(size);
+  if (scale === undefined) return { w: Infinity, h: Infinity };
   const box = pageBox(paper, orientation);
-  const scale = PRINT_SCALE[size];
   return { w: box.w / scale, h: box.h / scale - bandsH };
 }
 
