@@ -143,6 +143,12 @@ describe("search addresses", () => {
     );
     expect(searchUrl("findagrave", { given: "", surname: "Penko" })).toBe("https://www.findagrave.com/memorial/search?lastname=Penko");
     expect(searchUrl("dlib", q)).toBe("https://www.dlib.si/results/?query=%27keywords%3DJanez+Penko%27");
+    expect(searchUrl("biografija", { ...q, deathFrom: 1915, deathTo: 1925 })).toBe(
+      "https://www.slovenska-biografija.si/iskanje/?mode=complex&forename=Janez&surname=Penko&birthFrom=1860&birthTo=1864&deathFrom=1915&deathTo=1925",
+    );
+    expect(searchUrl("wikipediaSl", q)).toBe("https://sl.wikipedia.org/w/index.php?search=Janez+Penko");
+    expect(searchUrl("wikipediaEn", q)).toBe("https://en.wikipedia.org/w/index.php?search=Janez+Penko");
+    expect(searchUrl("wikipediaHr", q)).toBe("https://hr.wikipedia.org/w/index.php?search=Janez+Penko");
     expect(searchUrl("myheritage", { given: "Ana Marija", surname: "Novak", deathFrom: 1900, deathTo: 1904, birthPlace: "Stara Loka" })).toBe(
       "https://www.myheritage.com/research?action=query&formId=master&formMode=1&qname=Name+fn.Ana%2F3Marija+ln.Novak&qevents-any%2F1event_1=Event+et.death+ey.1902&qevents=List",
     );

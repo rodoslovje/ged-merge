@@ -74,14 +74,14 @@ export function personQuery(indi: Individual, ds?: Dataset): PersonQuery | undef
 }
 
 /** The search sites; `index` is the Slovenian genealogical index, `indexHr` the Croatian one. */
-export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree" | "myheritage" | "geneanet" | "ancestry" | "findagrave" | "dlib";
+export type SearchSite = "index" | "indexHr" | "familysearchTree" | "familysearchRecords" | "geni" | "wikitree" | "myheritage" | "geneanet" | "ancestry" | "findagrave" | "dlib" | "biografija" | "wikipediaSl" | "wikipediaEn" | "wikipediaHr";
 
-export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree", "myheritage", "geneanet", "ancestry", "findagrave", "dlib"];
+export const SEARCH_SITES: readonly SearchSite[] = ["index", "indexHr", "familysearchTree", "familysearchRecords", "geni", "wikitree", "myheritage", "geneanet", "ancestry", "findagrave", "dlib", "biografija", "wikipediaSl", "wikipediaEn", "wikipediaHr"];
 
 /** The site of each genealogical index. */
 export const INDEX_SEARCH_SITE: Record<GenIndex, SearchSite> = { si: "index", hr: "indexHr" };
 
-/** Which sites are on unless the reader says otherwise: all but the Croatian index. */
+/** Which sites are on unless the reader says otherwise: all but the Croatian index and the Croatian Wikipedia. */
 export const DEFAULT_SEARCH_SITES: Record<SearchSite, boolean> = {
   index: true,
   indexHr: false,
@@ -94,6 +94,10 @@ export const DEFAULT_SEARCH_SITES: Record<SearchSite, boolean> = {
   ancestry: true,
   findagrave: true,
   dlib: true,
+  biografija: true,
+  wikipediaSl: true,
+  wikipediaEn: true,
+  wikipediaHr: false,
 };
 
 function withParams(base: string, params: Record<string, string | number | undefined>): string {
@@ -112,6 +116,12 @@ function familySearch(kind: "tree" | "record", q: PersonQuery): string {
     "q.deathLikeDate.to": q.deathTo,
     "q.birthLikePlace": q.birthPlace,
   });
+}
+
+/** Wikipedia's own search in one language: it opens the article outright when
+ *  one carries exactly that name. */
+function wikipedia(lang: string, q: PersonQuery): string {
+  return withParams(`https://${lang}.wikipedia.org/w/index.php`, { search: [q.given, q.surname].filter(Boolean).join(" ") });
 }
 
 /** One term of a MyHeritage query field: its values join with "+" (a space in
@@ -136,8 +146,8 @@ function graveYear(kind: "birth" | "death", from: number | undefined, to: number
   return { [`${kind}year`]: mid(from, to), [`${kind}yearfilter`]: [1, 3, 5, 10, 25].find((w) => w >= half) ?? 25 };
 }
 
-/** The prefilled search page of one site. Geni, WikiTree and dLib take only the
- *  name in the address; the reader narrows by year on their page. */
+/** The prefilled search page of one site. Geni, WikiTree, dLib and Wikipedia take
+ *  only the name in the address; the reader narrows by year on their page. */
 export function searchUrl(site: SearchSite, q: PersonQuery): string {
   switch (site) {
     case "index":
@@ -210,5 +220,22 @@ export function searchUrl(site: SearchSite, q: PersonQuery): string {
       return withParams("https://www.dlib.si/results/", {
         query: `'keywords=${[q.given, q.surname].filter(Boolean).join(" ")}'`,
       });
+    case "biografija":
+      // Slovenska biografija's advanced search.
+      return withParams("https://www.slovenska-biografija.si/iskanje/", {
+        mode: "complex",
+        forename: q.given,
+        surname: q.surname,
+        birthFrom: q.birthFrom,
+        birthTo: q.birthTo,
+        deathFrom: q.deathFrom,
+        deathTo: q.deathTo,
+      });
+    case "wikipediaSl":
+      return wikipedia("sl", q);
+    case "wikipediaEn":
+      return wikipedia("en", q);
+    case "wikipediaHr":
+      return wikipedia("hr", q);
   }
 }
