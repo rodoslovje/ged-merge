@@ -134,6 +134,15 @@ describe("search addresses", () => {
     expect(searchUrl("myheritage", q)).toBe(
       "https://www.myheritage.com/research?action=query&formId=master&formMode=1&qname=Name+fn.Janez+ln.Penko&qevents-event1=Event+et.birth+ey.1862+ep.Petelinje&qevents=List",
     );
+    expect(searchUrl("geneanet", q)).toBe("https://en.geneanet.org/fonds/individus/?go=1&nom=Penko&prenom=Janez&type_periode=between&from=1860&to=1864");
+    expect(searchUrl("ancestry", { ...q, given: "Ana Marija", deathFrom: 1900, deathTo: 1904 })).toBe(
+      "https://www.ancestry.com/search/?name=Ana_Marija_Penko&birth=1862&death=1902",
+    );
+    expect(searchUrl("findagrave", { ...q, deathFrom: 1915, deathTo: 1925 })).toBe(
+      "https://www.findagrave.com/memorial/search?firstname=Janez&lastname=Penko&birthyear=1862&birthyearfilter=3&deathyear=1920&deathyearfilter=5",
+    );
+    expect(searchUrl("findagrave", { given: "", surname: "Penko" })).toBe("https://www.findagrave.com/memorial/search?lastname=Penko");
+    expect(searchUrl("dlib", q)).toBe("https://www.dlib.si/results/?query=%27keywords%3DJanez+Penko%27");
     expect(searchUrl("myheritage", { given: "Ana Marija", surname: "Novak", deathFrom: 1900, deathTo: 1904, birthPlace: "Stara Loka" })).toBe(
       "https://www.myheritage.com/research?action=query&formId=master&formMode=1&qname=Name+fn.Ana%2F3Marija+ln.Novak&qevents-any%2F1event_1=Event+et.death+ey.1902&qevents=List",
     );

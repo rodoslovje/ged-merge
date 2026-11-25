@@ -715,7 +715,7 @@ function IndexResults({
 /**
  * The Edit view's search rail, in the Relatives rail's place: prefilled
  * search pages of the sites switched on in Settings (the Slovenian and
- * Croatian indexes, FamilySearch, Geni, WikiTree, MyHeritage) for the person open in
+ * Croatian indexes, FamilySearch, MyHeritage and the other sites) for the person open in
  * Edit, and — behind the "Look up details online" switch — each switched-on
  * index's own hits ({@link IndexResults}).
  *
