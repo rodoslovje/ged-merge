@@ -2694,6 +2694,7 @@ export const sl = {
   "sheets.smaller_other": "pri {{count}} listih z zelo velikimi družinami je tisk manjši",
   "sheets.treeFrom": "nadaljevanje drevesa {{label}}",
   "sheets.partFrom": "nadaljevanje dela {{label}}",
+  "sheets.pdfHint": "V oknu za tiskanje, ki se odpre zatem, izberite »Shrani kot PDF«: velikost papirja se takrat nastavi sama. Pri vsakem drugem tiskalniku tam izberite isti papir.",
   "export.txt": "Tekstovna datoteka",
   "export.rtf": "Dokument RTF",
   "export.gedcom_one": "GEDCOM ({{count}} oseba)",

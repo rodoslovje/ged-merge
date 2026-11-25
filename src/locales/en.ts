@@ -2420,6 +2420,7 @@ export const en = {
   "sheets.smaller_other": "{{count}} sheets with very large families print smaller",
   "sheets.treeFrom": "continued from tree {{label}}",
   "sheets.partFrom": "continued from part {{label}}",
+  "sheets.pdfHint": "In the print window that opens next, choose \"Save as PDF\": the paper size is then set for you. With any other printer, pick the same paper there.",
   "export.txt": "Text file",
   "export.rtf": "RTF document",
   "export.gedcom_one": "GEDCOM ({{count}} person)",

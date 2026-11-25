@@ -219,6 +219,9 @@ export function SheetPrintDialog({ source, canvasRef, opts, onClose }: Props) {
             : t("sheets.custom.range", { min: CUSTOM_MM_MIN, max: CUSTOM_MM_MAX })}
         </p>
 
+        {/* The browser's own print window asks for the paper once more. */}
+        <p className="sheet-dialog-hint">{t("sheets.pdfHint")}</p>
+
         <div className="confirm-dialog-actions">
           <button type="button" className="btn-secondary" onClick={onClose}>
             {t("confirm.cancel")}

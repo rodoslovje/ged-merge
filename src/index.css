@@ -8254,6 +8254,8 @@ kbd {
 }
 /* Not a count but the reason there isn't one — reads as guidance, not status. */
 .sheet-dialog-count.is-hint { color: var(--muted); font-weight: 500; }
+/* What to pick in the browser's print window, under the count it follows. */
+.sheet-dialog-hint { margin: -12px 0 20px; font-size: 0.8rem; color: var(--muted); }
 
 /* "Merge all": the confirm-dialog shell plus the three things a whole-cluster
    merge has to settle — which record survives, which duplicated relatives come

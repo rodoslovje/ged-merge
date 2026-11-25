@@ -2528,6 +2528,7 @@ export const hr = {
   "sheets.smaller_other": "{{count}} listova s vrlo velikim obiteljima ispisuje se sitnije",
   "sheets.treeFrom": "nastavak stabla {{label}}",
   "sheets.partFrom": "nastavak dijela {{label}}",
+  "sheets.pdfHint": "U prozoru za ispis koji se zatim otvori odaberite „Spremi kao PDF“: veličina papira tada se postavlja sama. Uz svaki drugi pisač ondje odaberite isti papir.",
   "export.txt": "Tekstualna datoteka",
   "export.rtf": "Dokument RTF",
   "export.gedcom_one": "GEDCOM ({{count}} osoba)",
