@@ -31,6 +31,7 @@ import { DateInput } from "./edit/DateInput";
 import { eventDisplayLabel } from "../gedcom/eventTags";
 import { detectHeads, overlap } from "./faceDetect";
 import { nameCandidates } from "./faceNaming";
+import { TrashIcon } from "./icons/TrashIcon";
 
 /**
  * One full-screen photo viewer shared by every part of the app (Edit, Merge,
@@ -122,7 +123,8 @@ export interface MediaItem {
     others: boolean;
     /** The people already marked on the photo — not offered again. */
     named: () => string[];
-    onName: (personId: string, crop: CropRegion) => void;
+    /** Marks the person's region on the photo — or, with `null`, removes it. */
+    onName: (personId: string, crop: CropRegion | null) => void;
   };
 }
 
@@ -144,7 +146,7 @@ export interface MediaRefContext {
   /** Links a shared media record to another person with their region on it
    *  (or sets the region, when they already have the photo). Enables naming
    *  the other faces on a group photo. */
-  onTagPerson?: (personId: string, file: string, mediaXref: string, crop: CropRegion) => void;
+  onTagPerson?: (personId: string, file: string, mediaXref: string, crop: CropRegion | null) => void;
   /** Which of a photo's date and place the info panel offers: only where a
    *  file kept with its variations writes them (see `mediaInfoOffered`).
    *  Both are offered when omitted. */
@@ -713,6 +715,8 @@ function MediaStage({
     naming: { crop: CropRegion; panel: ReactNode } | null;
     /** A marked person's region resized by its corner handles. */
     onAdjust: (mark: CropMark, crop: CropRegion) => void;
+    /** A marked person's region removed by its bin button. */
+    onRemove: (mark: CropMark) => void;
   };
 }) {
   const { t } = useTranslation();
@@ -854,6 +858,19 @@ function MediaStage({
               }}
             />
           ))}
+          {resizable(m) && !resizing && (
+            <button
+              type="button"
+              className="photo-crop-remove"
+              title={t("media.crop.remove")}
+              aria-label={t("media.crop.remove")}
+              // A touch must not also toggle the boxes away before the click lands.
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); faces!.onRemove(m); }}
+            >
+              <TrashIcon />
+            </button>
+          )}
         </div>
       ))}
       {natural && faces && !cropEdit && !hoverMark && revealing && unnamed.map((f, i) => (
@@ -1024,6 +1041,12 @@ function MediaViewerOverlay({
                       if (mark.personId === current.naming!.openerId) setCropSaved((p) => ({ ...p, [index]: crop }));
                       setCropRefresh((v) => v + 1);
                     },
+                    onRemove: (mark) => {
+                      if (!mark.personId) return;
+                      current.naming!.onName(mark.personId, null);
+                      if (mark.personId === current.naming!.openerId) setCropSaved((p) => ({ ...p, [index]: null }));
+                      setCropRefresh((v) => v + 1);
+                    },
                     naming: namingFace
                       ? {
                           crop: namingFace,
@@ -1073,19 +1096,6 @@ function MediaViewerOverlay({
                         >
                           ⛶ {t(cropOther ? "media.crop.mark" : effectiveCrop ? "media.crop.change" : "media.crop.add")}
                         </button>
-                        {cropOther && effectiveCrop && (
-                          <button
-                            type="button"
-                            className="tree-open-btn"
-                            onClick={() => {
-                              current.edit!.onSaveCrop!(null);
-                              setCropSaved((p) => ({ ...p, [index]: null }));
-                              setCropRefresh((v) => v + 1);
-                            }}
-                          >
-                            {t("media.crop.remove")}
-                          </button>
-                        )}
                       </div>
                     ) : (
                       <>

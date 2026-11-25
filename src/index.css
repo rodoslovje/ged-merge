@@ -3326,6 +3326,26 @@ button:focus-visible {
 .photo-crop-handle-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
 .photo-crop-handle-ne { right: -7px; top: -7px; cursor: nesw-resize; }
 .photo-crop-handle-sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+/* The bin on a marked person's region, astride its top edge: removes the region. */
+.photo-crop-remove {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: var(--panel);
+  color: var(--danger);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.photo-crop-remove:hover { background: var(--danger-soft); }
 /* The region being resized tracks the pointer exactly, in the accent colour. */
 .photo-crop-box.photo-crop-resizing { border: 2px solid var(--accent); transition: none; }
 /* The name panel, under the face being named. */

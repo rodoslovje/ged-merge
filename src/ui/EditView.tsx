@@ -952,8 +952,8 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
 
   /** Name a face on a shared photo as a person, or resize their region: their
    *  link to the photo gets the region — added first, in the same commit, when
-   *  they have no link to it yet. */
-  function tagPersonOnMedia(personId: string, file: string, mediaXref: string, crop: CropRegion) {
+   *  they have no link to it yet. `null` removes the region; the link stays. */
+  function tagPersonOnMedia(personId: string, file: string, mediaXref: string, crop: CropRegion | null) {
     const indi = dataset.individuals.get(personId);
     if (!indi) return;
     const own = { kind: "individual" } as const;
@@ -966,7 +966,7 @@ export function EditView({ dataset, fileName, startId, changeStart, onDirty, onR
         const child = mediaNodeAt(raw, existing);
         if (child) setCropRegion(child, crop, writeVersion);
       }, undefined, indi);
-    } else {
+    } else if (crop) {
       const extraPatches: RecordPatch[] = [];
       const attach = sharedMediaMutation(dataset.records, file, writeVersion, mediaXref, extraPatches);
       ownerCommit(own, (raw) => {
