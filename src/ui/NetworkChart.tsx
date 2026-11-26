@@ -820,7 +820,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             {t("network.spin")}
           </label>
           {associations && ASSOC_KINDS.filter((kind) => associations.counts[kind] > 0).map((kind) => (
-            <label key={kind} className="kin-year network-spin">
+            <label key={kind} className="kin-year network-spin" title={t(`network.assoc.${kind}.tooltip`)}>
               <input type="checkbox" checked={assocKinds.has(kind)} onChange={() => toggleAssocKind(kind)} />
               {t(`network.assoc.${kind}`)}
               <span className="network-assoc-key" style={{ borderColor: ASSOC_COLOR[kind] }} aria-hidden="true" />
