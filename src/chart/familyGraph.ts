@@ -13,7 +13,7 @@
 //
 // Pure: no React, no DOM.
 
-import type { Dataset, Individual } from "../gedcom/types";
+import type { AssocRole, Dataset, Individual } from "../gedcom/types";
 import type { AssociationIndex } from "../gedcom/assoc";
 import type { Translate } from "../locales/i18n";
 import { lineColor, paletteColor, type BranchInfo, type NodePosition } from "./nodeColor";
@@ -65,6 +65,23 @@ export interface GraphAssoc {
   a: number;
   /** Node index of the associate. */
   b: number;
+  kind: AssocKind;
+}
+
+/** The kinds of association the chart tells apart — and shows or hides each
+ *  on its own: godparents, witnesses, and everyone else a record names. */
+export const ASSOC_KINDS = ["godp", "witn", "other"] as const;
+export type AssocKind = (typeof ASSOC_KINDS)[number];
+
+export function assocKind(role: AssocRole): AssocKind {
+  return role === "GODP" ? "godp" : role === "WITN" ? "witn" : "other";
+}
+
+/** How many associations of each kind the file holds. */
+export function assocKindCounts(index: AssociationIndex): Record<AssocKind, number> {
+  const counts: Record<AssocKind, number> = { godp: 0, witn: 0, other: 0 };
+  for (const refs of index.values()) for (const ref of refs) counts[assocKind(ref.assoc.role)]++;
+  return counts;
 }
 
 /** One of the root's grandparent lines. */
@@ -128,6 +145,7 @@ interface AssocTie {
   fromId: string;
   family: boolean;
   toId: string;
+  kind: AssocKind;
 }
 
 /** The file's associations as the walk and the chart need them. */
@@ -142,7 +160,7 @@ interface AssocTies {
  *  was. A guess that only places them: no kinship is read off it. */
 const BAPTISMS: ReadonlySet<string | undefined> = new Set([undefined, "BIRT", "BAPM", "CHR"]);
 
-function assocTies(ds: Dataset, index: AssociationIndex): AssocTies {
+function assocTies(ds: Dataset, index: AssociationIndex, kinds?: ReadonlySet<AssocKind>): AssocTies {
   const near = new Map<string, Near[]>();
   const list: AssocTie[] = [];
   const link = (from: string, to: string, dGen: number) => {
@@ -153,6 +171,8 @@ function assocTies(ds: Dataset, index: AssociationIndex): AssocTies {
   for (const [toId, refs] of index) {
     if (!ds.individuals.has(toId)) continue; // a 5.5.1 pointer at a family
     for (const ref of refs) {
+      const kind = assocKind(ref.assoc.role);
+      if (kinds && !kinds.has(kind)) continue;
       const family = ref.fromKind === "family";
       const fam = family ? ds.families.get(ref.fromId) : undefined;
       const whose = family ? [fam?.husband, fam?.wife] : [ref.fromId];
@@ -164,7 +184,7 @@ function assocTies(ds: Dataset, index: AssociationIndex): AssocTies {
         link(toId, id, -up);
         any = true;
       }
-      if (any) list.push({ fromId: ref.fromId, family, toId });
+      if (any) list.push({ fromId: ref.fromId, family, toId, kind });
     }
   }
   return { near, list };
@@ -195,7 +215,7 @@ export function graphBranches(
  *  a link too: the walk steps over it — though never off the root's blood in
  *  that scope — so the families a parish register ties together stand on the
  *  chart as one, and each such tie between two people on it is listed in
- *  `assocs`. */
+ *  `assocs`. `kinds` keeps only the associations of those kinds. */
 export function buildFamilyGraph(
   ds: Dataset,
   rootId: string,
@@ -203,8 +223,9 @@ export function buildFamilyGraph(
   limit: number,
   maxGen = Infinity,
   associations?: AssociationIndex,
+  kinds?: ReadonlySet<AssocKind>,
 ): FamilyGraph {
-  const ties = associations ? assocTies(ds, associations) : undefined;
+  const ties = associations ? assocTies(ds, associations, kinds) : undefined;
   const index = new Map<string, number>();
   const nodes: GraphNode[] = [];
   const lines: GraphLine[] = [];
@@ -357,19 +378,19 @@ export function buildFamilyGraph(
   if (ties) {
     const drawn = new Set<number>();
     const size = nodes.length + families.length;
-    const add = (a: number | undefined, b: number) => {
+    const add = (a: number | undefined, b: number, kind: AssocKind) => {
       if (a === undefined || a === b || drawn.has(a * size + b)) return;
       drawn.add(a * size + b);
-      assocs.push({ a, b });
+      assocs.push({ a, b, kind });
     };
     for (const tie of ties.list) {
       const b = index.get(tie.toId);
       if (b === undefined) continue;
-      if (!tie.family) add(index.get(tie.fromId), b);
-      else if (hubOf.has(tie.fromId)) add(hubOf.get(tie.fromId), b);
+      if (!tie.family) add(index.get(tie.fromId), b, tie.kind);
+      else if (hubOf.has(tie.fromId)) add(hubOf.get(tie.fromId), b, tie.kind);
       else {
         const fam = ds.families.get(tie.fromId);
-        for (const p of [fam?.husband, fam?.wife]) if (p !== undefined) add(index.get(p), b);
+        for (const p of [fam?.husband, fam?.wife]) if (p !== undefined) add(index.get(p), b, tie.kind);
       }
     }
   }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildAssociationIndex } from "../gedcom/assoc";
-import { ASSOC_LINE, buildFamilyGraph, SPOUSE_LINE } from "./familyGraph";
+import { ASSOC_LINE, assocKindCounts, buildFamilyGraph, SPOUSE_LINE } from "./familyGraph";
 import { createLayout3d, LAYER, treeAnchors } from "./forceLayout3d";
 import { OWN_BRANCH } from "./kinshipWheel";
 
@@ -146,10 +146,20 @@ describe("buildFamilyGraph with associations", () => {
     expect(byId(g, "W").pos).toEqual({ gen: 0, branch: ASSOC_LINE });
     // The baptism's tie hangs on the child, the wedding's on the couple's hub.
     const hub = g.nodes.length + g.families.findIndex((f) => f.partners.includes(at(g, "S")));
-    expect(g.assocs).toEqual(expect.arrayContaining([{ a: at(g, "R"), b: at(g, "G") }, { a: hub, b: at(g, "W") }]));
+    expect(g.assocs).toEqual(expect.arrayContaining([{ a: at(g, "R"), b: at(g, "G"), kind: "godp" }, { a: hub, b: at(g, "W"), kind: "witn" }]));
     expect(g.assocs).toHaveLength(2);
     // The family links are what they were.
     expect(g.edges.every((e) => e.kind === "partner" || e.kind === "child")).toBe(true);
+  });
+
+  it("keeps only the kinds asked for", () => {
+    expect(assocKindCounts(assoc)).toEqual({ godp: 1, witn: 1, other: 0 });
+    const godp = buildFamilyGraph(ds, "@R@", "connected", 100, Infinity, assoc, new Set(["godp"] as const));
+    expect(godp.nodes.map((n) => n.id).sort()).toEqual(["@F@", "@G@", "@GS@", "@GW@", "@M@", "@R@", "@S@"]);
+    expect(godp.assocs.map((e) => e.kind)).toEqual(["godp"]);
+    const witn = buildFamilyGraph(ds, "@R@", "connected", 100, Infinity, assoc, new Set(["witn"] as const));
+    expect(witn.nodes.map((n) => n.id).sort()).toEqual(["@F@", "@M@", "@R@", "@S@", "@W@"]);
+    expect(buildFamilyGraph(ds, "@R@", "connected", 100, Infinity, assoc, new Set()).nodes).toHaveLength(4);
   });
 
   it("never steps off the root's blood", () => {
