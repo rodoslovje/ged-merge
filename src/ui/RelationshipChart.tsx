@@ -12,8 +12,6 @@ import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { assocLinks, labelPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
-import { buildAssociationIndex } from "../gedcom/assoc";
-import { useDatasetDerivations } from "./DatasetDerivations";
 import { roleLabel } from "./edit/EventAssociates";
 import { buildRelationshipChart, type ChartBox } from "../chart/relationshipLayout";
 import { individualFieldRows } from "../review/fields";
@@ -35,7 +33,7 @@ import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
-import { useAssocHover } from "./useAssocHover";
+import { useAssocHover, useAssociationIndex } from "./useAssocHover";
 import { hiddenName, useLivingNameOf } from "./useLivingName";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { YearsText } from "./YearsText";
@@ -127,11 +125,8 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   // edge, unless it is one of those routes already. Last, the path that also
   // steps over a godparent or a witness, where one is shorter than every
   // family link — or the only connection the two have.
-  const derived = useDatasetDerivations();
-  const ties = useMemo(
-    () => assocLinks(mainDs, derived ? derived.associationIndex() : buildAssociationIndex(mainDs)),
-    [mainDs, derived],
-  );
+  const associationIndex = useAssociationIndex(mainDs);
+  const ties = useMemo(() => assocLinks(mainDs, associationIndex()), [mainDs, associationIndex]);
   const options = useMemo<PathOption[]>(() => {
     const blood = labelPaths(mainDs, startSel, targetSel);
     const opts: PathOption[] = blood.map((path) => ({
