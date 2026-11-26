@@ -28,14 +28,23 @@ export interface DetailToggles {
    *  its own in that same row, so either toggle reserves the one row. */
   showAge: boolean;
   showPlace: boolean;
-  /** The address is written on the place row, so it reserves the same one. */
+  /** Alone, the address is written on the place row; with the place shown
+   *  too it takes a row of its own above it. */
   showAddress: boolean;
+  /** How many rows the chart's addresses need: none when nobody drawn has an
+   *  address, two when one is too long for a row ({@link addressOverflows}).
+   *  A chart that does not count them keeps one. */
+  addressLines?: 0 | 1 | 2;
   showKinship: boolean;
 }
 
-/** How many detail rows are enabled (0–3). */
+/** How many detail rows are enabled (0–5). */
 export function detailRowCount(o: DetailToggles): number {
-  return (o.showLifespan || o.showAge ? 1 : 0) + (o.showPlace || o.showAddress ? 1 : 0) + (o.showKinship ? 1 : 0);
+  // The address rows stand above the place's; with the place off, a person
+  // with no address writes their place on the first of them instead.
+  const address = o.showAddress ? o.addressLines ?? 1 : 0;
+  const place = o.showPlace ? 1 + address : o.showAddress ? Math.max(1, address) : 0;
+  return (o.showLifespan || o.showAge ? 1 : 0) + place + (o.showKinship ? 1 : 0);
 }
 
 /** The node-box height for the current display settings: the base box holds the
@@ -720,6 +729,55 @@ function maxDepth(node: TreeNode): number {
 
 export function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/** Glyph width of the 10px monospace place font. */
+const PLACE_CHAR_W = 6;
+/** How far a place row's text is squeezed before it is broken or cut: a fifth
+ *  more characters than the row holds at the font's own width. */
+const PLACE_SQUEEZE = 1.2;
+
+/** The width a box leaves a row of text that starts at `textX`. */
+const rowWidth = (textX: number): number => NODE_W - textX - 12;
+
+/** How many characters a place or address row holds, squeezed as far as it
+ *  goes — fewer in a box with a photo, whose text starts further in. */
+export function placeRowChars(textX: number = TEXT_X_PLAIN): number {
+  return Math.floor((rowWidth(textX) / PLACE_CHAR_W) * PLACE_SQUEEZE);
+}
+
+/** SVG `<text>` props that squeeze a place or address row wider than the box's
+ *  text area into it, as {@link nameFit} does a name; a row that fits renders
+ *  naturally. */
+export function placeFit(text: string, textX: number): { textLength?: number; lengthAdjust?: "spacingAndGlyphs" } {
+  const available = rowWidth(textX);
+  return text.length * PLACE_CHAR_W > available ? { textLength: available, lengthAdjust: "spacingAndGlyphs" } : {};
+}
+
+/** Whether an address is too long for one row of a box, even squeezed. */
+export function addressOverflows(address: string | undefined, textX: number = TEXT_X_PLAIN): boolean {
+  return !!address && address.length > placeRowChars(textX);
+}
+
+/**
+ * An address on the rows a box has for it, `max` characters each. One row: the
+ * address, cut with "…" when it is too long. Two rows: an address that fits
+ * stays on the first; a longer one breaks before its bracketed house name —
+ * "Bitnje 6" over "(pd Urbanov Jaka)" — or, with none there, at the last space
+ * that fits. Only the second row is ever cut.
+ */
+export function wrapAddress(address: string, rows: 1 | 2 = 1, max: number = placeRowChars()): string[] {
+  if (rows === 1 || address.length <= max) return [truncate(address, max)];
+  const bracket = address.search(/\s[([]/);
+  let cut = bracket > 0 && bracket <= max ? bracket : -1;
+  if (cut < 0) {
+    // The last break that leaves the first row within the box; a comma stays on it.
+    for (let i = Math.min(max, address.length - 1); i > 0 && cut < 0; i--) {
+      if (address[i] === " ") cut = i;
+    }
+  }
+  if (cut < 0) cut = max;
+  return [address.slice(0, cut).trim(), truncate(address.slice(cut).trim(), max)];
 }
 
 /** Average glyph width and line height of the 11px marriage-label font. */
