@@ -14,6 +14,7 @@ import { createKinshipResolver, lineageClass } from "../match/kinship";
 import { assocLinks, assocPaths, labelPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
 import { roleLabel } from "./edit/EventAssociates";
 import { buildRelationshipChart, type ChartBox } from "../chart/relationshipLayout";
+import { assocKind } from "../chart/familyGraph";
 import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
 import { sexClass } from "./sex";
@@ -383,7 +384,11 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
             <svg className="tree-svg" width={chart.width} height={chart.height} viewBox={`0 0 ${chart.width} ${chart.height}`} role="img">
               <g transform={`translate(${PAD},${PAD})`}>
                 {chart.links.map((e) => (
-                  <path key={e.id} className={`relchart-edge relchart-edge-${e.kind}`} d={e.d} />
+                  <path
+                    key={e.id}
+                    className={`relchart-edge relchart-edge-${e.kind}${e.assoc ? ` relchart-edge-assoc-${assocKind(e.assoc.assoc.role)}` : ""}`}
+                    d={e.d}
+                  />
                 ))}
                 {chart.links.map((e) =>
                   e.assoc && e.mid ? (
