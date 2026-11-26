@@ -165,14 +165,45 @@ export function placeLabel(indi: Individual | undefined): string | undefined {
 }
 
 /**
+ * One address out of a line that lists several, " / " between them — "Bitnje 6
+ * / Stražišče 12 (pd Urbanov)": the first one, and whatever the others say in
+ * brackets, which is the house name and belongs to them all. A slash inside
+ * brackets, or one with no spaces around it ("38/a"), separates nothing.
+ */
+export function firstAddress(address: string): string {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < address.length; i++) {
+    const ch = address[i];
+    if (ch === "(" || ch === "[") depth++;
+    else if ((ch === ")" || ch === "]") && depth > 0) depth--;
+    else if (depth === 0 && address.startsWith(" / ", i)) {
+      parts.push(address.slice(start, i));
+      start = i + 3;
+      i += 2;
+    }
+  }
+  parts.push(address.slice(start));
+  const first = parts[0].trim();
+  if (parts.length === 1) return first;
+  const bracketed = parts.slice(1).flatMap((part) => part.match(/\([^()]*\)|\[[^[\]]*\]/g) ?? []);
+  return [first, ...bracketed.filter((b, i) => !first.includes(b) && bracketed.indexOf(b) === i)].join(" ");
+}
+
+/**
  * The address label for a person: the address (`ADDR`) of their last residence
- * that records one, else of their birth, else of their death, whole — the
- * house number and the house name are the point of it. Undefined when none of
- * them has an address.
+ * that records one, else of their birth, else of their death — the house
+ * number and the house name are the point of it. A line listing several
+ * addresses gives its first ({@link firstAddress}). Undefined when none of
+ * the events has an address.
  */
 export function addressLabel(indi: Individual | undefined): string | undefined {
   if (!indi) return undefined;
-  return fromHome(indi, (e) => e.address?.raw.trim().replace(/\s*\n\s*/g, ", ") || undefined);
+  return fromHome(indi, (e) => {
+    const raw = e.address?.raw.trim().replace(/\s*\n\s*/g, ", ");
+    return raw ? firstAddress(raw) || undefined : undefined;
+  });
 }
 
 /**

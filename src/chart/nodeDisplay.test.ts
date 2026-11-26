@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
 import { TEXT_X_PHOTO, TEXT_X_PLAIN, addressOverflows, detailRowCount, placeFit, placeRowChars, wrapAddress } from "./treeLayout";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, formatMarriage, addressLabel, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, onePlaceLine, placeLabel, placeLine, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, firstAddress, formatMarriage, addressLabel, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, onePlaceLine, placeLabel, placeLine, type NodeDisplayOptions } from "./nodeDisplay";
 import { marriageOf } from "./personTree";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
@@ -68,6 +68,17 @@ describe("addressLabel", () => {
     ]);
     expect(addressLabel(p)).toBe("Bitnje 6 (pd Urbanov Jaka)");
     expect(addressLabel(person([{ tag: "BIRT", place: "Kranj" }]))).toBeUndefined();
+  });
+
+  it("gives the first of several addresses, with what the others say in brackets", () => {
+    expect(firstAddress("Bitnje 6 / Stražišče 12 (pd Urbanov)")).toBe("Bitnje 6 (pd Urbanov)");
+    expect(firstAddress("Bitnje 6 / Stražišče 12 / Kranj 3")).toBe("Bitnje 6");
+    // The first one's own brackets stay; a house name said twice is written once.
+    expect(firstAddress("Bitnje 6 (pd Urbanov) / Stražišče 12 (pd Urbanov) / Kranj 3 (pd Popar)")).toBe("Bitnje 6 (pd Urbanov) (pd Popar)");
+    // A slash in a house number, or inside brackets, separates nothing.
+    expect(firstAddress("Kidričeva 38/a")).toBe("Kidričeva 38/a");
+    expect(firstAddress("Bitnje 6 (pd Urbanov / Popar)")).toBe("Bitnje 6 (pd Urbanov / Popar)");
+    expect(addressLabel(person([{ tag: "RESI", address: "Bitnje 6 / Stražišče 12 (pd Urbanov)" }]))).toBe("Bitnje 6 (pd Urbanov)");
   });
 });
 
