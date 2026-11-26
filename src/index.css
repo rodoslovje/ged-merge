@@ -7109,13 +7109,15 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .relchart-edge-parent {
   stroke: var(--border-2);
 }
-/* A godparent's or a witness's link is no kinship: dotted, in the accent. */
+/* A godparent's or a witness's link is no kinship: dashed as on the 3D
+   network, and in the colour that kind of association has there. */
 .relchart-edge-assoc {
-  stroke: var(--accent);
-  stroke-dasharray: 1 5;
-  stroke-linecap: round;
+  stroke-dasharray: 4 4;
   stroke-width: 2;
 }
+.relchart-edge-assoc-godp { stroke: var(--chart-assoc-godp); }
+.relchart-edge-assoc-witn { stroke: var(--chart-assoc-witn); }
+.relchart-edge-assoc-other { stroke: var(--chart-assoc-other); }
 /* The two endpoints — the start person and the related target — are the subjects
    of the chart, so they get a bold accent border, a stronger tinted fill, and a
    soft glow to stand out from the (thinner) spine and context boxes. */
