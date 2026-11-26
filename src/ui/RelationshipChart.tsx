@@ -32,6 +32,7 @@ import { ChartLegend } from "./ChartLegend";
 import { AXIS_TINT } from "../chart/nodeColor";
 import { OWN_BRANCH } from "../chart/kinshipWheel";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
+import { useAssocHover } from "./useAssocHover";
 import { hiddenName, useLivingNameOf } from "./useLivingName";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { YearsText } from "./YearsText";
@@ -77,6 +78,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   const { settings } = useChartSettings();
   const formatName = useNameOf(marriedNameOverride(settings.showMarriedName));
   const livingNameOf = useLivingNameOf();
+  const assocHover = useAssocHover(mainDs);
   const [optionIdx, setOptionIdx] = useState(0);
   // Either endpoint can be swapped on this page without touching the app's start
   // person; the local picks reset whenever the page is (re)opened for a new pair.
@@ -229,9 +231,10 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
         },
         b.sex,
         t("tree.node.clickHint"),
+        () => assocHover(indi),
       );
     },
-    [nodesByKey, mainDs, settings, t, kinshipOf, livingNameOf],
+    [nodesByKey, mainDs, settings, t, kinshipOf, livingNameOf, assocHover],
   );
   const kinship = kinshipOf.label(targetSel);
   const kinshipLineage = kinshipOf.lineage(targetSel);

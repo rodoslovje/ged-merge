@@ -13,13 +13,16 @@
 //
 // Pure: no React, no DOM.
 
-import type { Dataset, Individual } from "../gedcom/types";
+import type { AssocRole, Dataset, Individual } from "../gedcom/types";
+import type { AssociationIndex } from "../gedcom/assoc";
 import type { Translate } from "../locales/i18n";
 import { lineColor, paletteColor, type BranchInfo, type NodePosition } from "./nodeColor";
 import { bloodKin, OWN_BRANCH } from "./kinshipWheel";
 
 /** The line of the people reached through the root's partner. */
 export const SPOUSE_LINE = "spouse";
+/** The line of the people reached through a godparent or a witness. */
+export const ASSOC_LINE = "assoc";
 
 /** Blood relatives only, everyone linked to the root, or the whole file. */
 export type GraphScope = "blood" | "connected" | "file";
@@ -54,6 +57,33 @@ export interface GraphEdge {
   kind: "partner" | "child";
 }
 
+/** A godparent, witness or other associate and whose event names them. Not a
+ *  family link: it joins no hub, and the layout holds it only weakly. */
+export interface GraphAssoc {
+  /** Layout index of whose event it is: a person, or a family's hub (a
+   *  wedding's witness belongs to the couple). */
+  a: number;
+  /** Node index of the associate. */
+  b: number;
+  kind: AssocKind;
+}
+
+/** The kinds of association the chart tells apart — and shows or hides each
+ *  on its own: godparents, witnesses, and everyone else a record names. */
+export const ASSOC_KINDS = ["godp", "witn", "other"] as const;
+export type AssocKind = (typeof ASSOC_KINDS)[number];
+
+export function assocKind(role: AssocRole): AssocKind {
+  return role === "GODP" ? "godp" : role === "WITN" ? "witn" : "other";
+}
+
+/** How many associations of each kind the file holds. */
+export function assocKindCounts(index: AssociationIndex): Record<AssocKind, number> {
+  const counts: Record<AssocKind, number> = { godp: 0, witn: 0, other: 0 };
+  for (const refs of index.values()) for (const ref of refs) counts[assocKind(ref.assoc.role)]++;
+  return counts;
+}
+
 /** One of the root's grandparent lines. */
 export interface GraphLine {
   key: string;
@@ -66,6 +96,8 @@ export interface FamilyGraph {
   nodes: GraphNode[];
   families: GraphFamily[];
   edges: GraphEdge[];
+  /** Empty unless the graph was built with the file's associations. */
+  assocs: GraphAssoc[];
   lines: GraphLine[];
   /** People the scope holds in all; more than `nodes.length` when cut by the limit. */
   total: number;
@@ -82,14 +114,14 @@ interface Step {
 interface Near {
   id: string;
   dGen: number;
-  rel: "parent" | "partner" | "child";
+  rel: "parent" | "partner" | "child" | "assoc";
   /** A parent who is the family's wife: the mother's side of a line. */
   mother?: boolean;
 }
 
 /** The people one link away from `indi`, with the generation step and the
  *  role of each (the role only matters next to the root). */
-function neighbours(ds: Dataset, indi: Individual, out: Near[]): void {
+function neighbours(ds: Dataset, indi: Individual, out: Near[], ties?: AssocTies): void {
   out.length = 0;
   for (const famId of indi.childOf) {
     const fam = ds.families.get(famId);
@@ -104,6 +136,58 @@ function neighbours(ds: Dataset, indi: Individual, out: Near[]): void {
     if (other) out.push({ id: other, dGen: 0, rel: "partner" });
     for (const c of fam.children) out.push({ id: c, dGen: -1, rel: "child" });
   }
+  // After the family: a godparent who is also an uncle is reached as the uncle.
+  const tied = ties?.near.get(indi.id);
+  if (tied) for (const n of tied) out.push(n);
+}
+
+interface AssocTie {
+  fromId: string;
+  family: boolean;
+  toId: string;
+  kind: AssocKind;
+}
+
+/** The file's associations as the walk and the chart need them. */
+interface AssocTies {
+  /** Per person, who an association joins them to — in either direction. */
+  near: Map<string, Near[]>;
+  list: AssocTie[];
+}
+
+/** A godparent stands a generation above the child they held at the font —
+ *  mostly one of the parents' own — and everyone else beside whose event it
+ *  was. A guess that only places them: no kinship is read off it. */
+const BAPTISMS: ReadonlySet<string | undefined> = new Set([undefined, "BIRT", "BAPM", "CHR"]);
+
+function assocTies(ds: Dataset, index: AssociationIndex, kinds?: ReadonlySet<AssocKind>): AssocTies {
+  const near = new Map<string, Near[]>();
+  const list: AssocTie[] = [];
+  const link = (from: string, to: string, dGen: number) => {
+    const l = near.get(from);
+    if (l) l.push({ id: to, dGen, rel: "assoc" });
+    else near.set(from, [{ id: to, dGen, rel: "assoc" }]);
+  };
+  for (const [toId, refs] of index) {
+    if (!ds.individuals.has(toId)) continue; // a 5.5.1 pointer at a family
+    for (const ref of refs) {
+      const kind = assocKind(ref.assoc.role);
+      if (kinds && !kinds.has(kind)) continue;
+      const family = ref.fromKind === "family";
+      const fam = family ? ds.families.get(ref.fromId) : undefined;
+      const whose = family ? [fam?.husband, fam?.wife] : [ref.fromId];
+      const up = !family && ref.assoc.role === "GODP" && BAPTISMS.has(ref.eventTag) ? 1 : 0;
+      let any = false;
+      for (const id of whose) {
+        if (id === undefined || id === toId || !ds.individuals.has(id)) continue;
+        link(id, toId, up);
+        link(toId, id, -up);
+        any = true;
+      }
+      if (any) list.push({ fromId: ref.fromId, family, toId, kind });
+    }
+  }
+  return { near, list };
 }
 
 /** The graph's lines named and coloured for the Line axis: each grandparent
@@ -120,12 +204,28 @@ export function graphBranches(
     map.set(l.key, { label: indi ? nameOf(indi) : t("kin.wedge.unknown"), color: lineColor(l.index, "ancestors") });
   }
   map.set(SPOUSE_LINE, { label: t("network.line.spouse"), color: paletteColor(6) });
+  if (graph.assocs.length) map.set(ASSOC_LINE, { label: t("network.line.assoc"), color: paletteColor(8) });
   return map;
 }
 
 /** The people around `rootId`, at most `limit` of them, none more than
- *  `maxGen` generations above or below where their walk started. */
-export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope, limit: number, maxGen = Infinity): FamilyGraph {
+ *  `maxGen` generations above or below where their walk started.
+ *
+ *  With `associations` (the file's index of them) a godparent or a witness is
+ *  a link too: the walk steps over it — though never off the root's blood in
+ *  that scope — so the families a parish register ties together stand on the
+ *  chart as one, and each such tie between two people on it is listed in
+ *  `assocs`. `kinds` keeps only the associations of those kinds. */
+export function buildFamilyGraph(
+  ds: Dataset,
+  rootId: string,
+  scope: GraphScope,
+  limit: number,
+  maxGen = Infinity,
+  associations?: AssociationIndex,
+  kinds?: ReadonlySet<AssocKind>,
+): FamilyGraph {
+  const ties = associations ? assocTies(ds, associations, kinds) : undefined;
   const index = new Map<string, number>();
   const nodes: GraphNode[] = [];
   const lines: GraphLine[] = [];
@@ -171,7 +271,7 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
         });
       }
       const here = index.get(cur.id) ?? -1;
-      neighbours(ds, indi, near);
+      neighbours(ds, indi, near, ties);
       for (const n of near) {
         if (seen.has(n.id) || index.has(n.id) && tree > 0 || blood && !blood.has(n.id)) continue;
         // Past the generation limit the walk stops: no one beyond it is drawn,
@@ -180,7 +280,11 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
         seen.add(n.id);
         let branch = cur.branch;
         let role: Step["role"] = "other";
-        if (tree === 0) {
+        if (n.rel === "assoc") {
+          // Their family follows them onto the chart, and is none of the
+          // root's lines.
+          if (tree === 0) branch = ASSOC_LINE;
+        } else if (tree === 0) {
           if (cur.role === "root") role = n.rel === "parent" ? "parent" : n.rel === "partner" ? "spouse" : "other";
           else if (cur.role === "parent" && n.rel === "parent") {
             // A grandparent opens a line of their own, its colour by who they
@@ -208,7 +312,7 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
     for (let q = 0; q < queue.length; q++) {
       const indi = ds.individuals.get(queue[q]);
       if (!indi) continue;
-      neighbours(ds, indi, near);
+      neighbours(ds, indi, near, ties);
       for (const n of near) {
         if (covered.has(n.id)) continue;
         covered.add(n.id);
@@ -237,6 +341,7 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
   // A hub per family with at least two of its people on the chart, each once;
   // the edges join its partners and its children to it.
   const families: GraphFamily[] = [];
+  const hubOf = new Map<string, number>();
   const doneFams = new Set<string>();
   for (const node of nodes) {
     for (const famId of node.indi.spouseOf) {
@@ -254,7 +359,10 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
         const ci = index.get(c);
         if (ci !== undefined) children.push(ci);
       }
-      if (partners.length + children.length >= 2 && partners.length) families.push({ partners, children });
+      if (partners.length + children.length >= 2 && partners.length) {
+        hubOf.set(famId, nodes.length + families.length);
+        families.push({ partners, children });
+      }
     }
   }
   const edges: GraphEdge[] = [];
@@ -263,5 +371,28 @@ export function buildFamilyGraph(ds: Dataset, rootId: string, scope: GraphScope,
     for (const p of f.partners) edges.push({ a: p, b: hub, kind: "partner" });
     for (const c of f.children) edges.push({ a: hub, b: c, kind: "child" });
   });
-  return { nodes, families, edges, lines, total: Math.max(total, nodes.length), trees };
+  // Each association between two on the chart, once: from the person whose
+  // event it was, or from the couple's hub (a couple with no hub on the chart
+  // has one partner on it at most, and the tie is that partner's).
+  const assocs: GraphAssoc[] = [];
+  if (ties) {
+    const drawn = new Set<number>();
+    const size = nodes.length + families.length;
+    const add = (a: number | undefined, b: number, kind: AssocKind) => {
+      if (a === undefined || a === b || drawn.has(a * size + b)) return;
+      drawn.add(a * size + b);
+      assocs.push({ a, b, kind });
+    };
+    for (const tie of ties.list) {
+      const b = index.get(tie.toId);
+      if (b === undefined) continue;
+      if (!tie.family) add(index.get(tie.fromId), b, tie.kind);
+      else if (hubOf.has(tie.fromId)) add(hubOf.get(tie.fromId), b, tie.kind);
+      else {
+        const fam = ds.families.get(tie.fromId);
+        for (const p of [fam?.husband, fam?.wife]) if (p !== undefined) add(index.get(p), b, tie.kind);
+      }
+    }
+  }
+  return { nodes, families, edges, assocs, lines, total: Math.max(total, nodes.length), trees };
 }

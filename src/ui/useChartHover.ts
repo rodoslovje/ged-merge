@@ -25,6 +25,9 @@ export interface HoverInfo {
   kinship?: string;
   kinshipLineage?: Lineage;
   kinshipDirect?: boolean;
+  /** Their godparents and witnesses, and where they stand as one themselves:
+   *  a line each, already worded (see useAssocHover). */
+  assoc?: string[];
   /** A mark that stands for several people — a surname band on the
    *  Contemporaries rings — carries them instead of one name and lifespan: the
    *  head names the group, and these are its rows. */
@@ -40,16 +43,18 @@ export interface HoverInfo {
  * {@link nodeHover} reads off the record, plus the two things the card itself
  * adds — the sex that colours the name, which a redacted person does not give
  * away, and the muted hint on the last line. Every chart with a card builds it
- * this way; only the fields it reads a node by are its own.
+ * this way; only the fields it reads a node by are its own. `assoc` is asked
+ * for the association lines of a person the card may name.
  */
 export function hoverInfoFrom(
   display: NodeDisplayOptions,
   input: NodeDisplayInput,
   sex: Sex | undefined,
   hint: string,
+  assoc?: () => string[] | undefined,
 ): HoverInfo {
   const h = nodeHover(display, input);
-  return { ...h, sex: h.redacted ? undefined : sex, hint };
+  return { ...h, sex: h.redacted ? undefined : sex, hint, assoc: h.redacted ? undefined : assoc?.() };
 }
 
 /** One person on a card that lists several, written as the head is. */
