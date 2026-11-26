@@ -88,6 +88,9 @@ const PRONOUNCE: Record<Lang, [RegExp, string][]> = {
     [/»Dodaj\b/g, "»Dodáj"],
     // »naložì«, stressed on the last syllable (checked by ear).
     [/\bnaloži\b/g, "naložì"],
+    // Episode 18: the question mark is »vprašáj«, stressed on the last
+    // syllable (the voice put it on the first); »z vprašájem« likewise.
+    [/\b([Vv])prašaj/g, "$1prašáj"],
     // »ukrêp« (checked by ear against ukrèp, ukrép, úkrep).
     [/\b([Uu])krep\b/g, "$1krêp"],
   ],

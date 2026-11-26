@@ -24,6 +24,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ · EN z glasom ✓ |
 | 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ · EN z glasom ✓ |
 | 17 | Spletna stran | `scripts/publish.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 18 | Prvih dvanajst bližnjic | `scripts/shortcuts.ts` | SL z glasom ✓ · EN z glasom ✓ |
 
 Angleške različice vseh epizod so zgrajene z glasom Soniox »Nina« (20. 11. 2026). Recepti so pregledani za aplikacijo na ta dan, tudi slovenski govor, ki je pripravljen za ponovno snemanje.
 
@@ -729,6 +730,63 @@ s trakom obrazov in naslovno fotografijo.
 | 18 | Stran Franca Renka: dogodki, družina | Vsaka oseba ima svojo stran. |
 | 19 | »Diagrami« → »Statistika« | Sorodniki potrebujejo samo brskalnik. |
 | 20 | Zaključna kartica | |
+
+---
+
+## 18. Prvih dvanajst bližnjic na tipkovnici
+
+**Cilj:** gledalec si zapiše dvanajst bližnjic na kartonček (štiri splošne, štiri za navigacijo,
+štiri za urejanje), razume, zakaj je izbrana prav ta tipka, in zna brez miške najti osebo, se
+sprehoditi po družini, dodati otroka in dogodek. Načelo »manj je več«: vse druge bližnjice so v
+seznamu (tipka `?`) in v navodilih.
+**Podatki:** `preseren-hawlina.ged`, `seriesSettings`. Dodamo Šimnova otroka Mino (r. 22. 1. 1808
+v Vrbi, u. 17. 4. 1878) in Jurija (r. 29. 3. 1805 v Vrbi) — iz Hawlinovega drevesa v Slovenskem
+rodoslovnem indeksu. Izvedba in govor: `scripts/shortcuts.ts`. · **Trajanje:** ~5 min
+**Naslovna slika:** oznaka »Tipkovnica« · »Prvih *dvanajst* bližnjic« · posnetek Mine s smrtjo,
+dodano z Alt+Shift+4.
+**Posebnost:** v epizodi ni kazalca miške. Vsaka pritisnjena tipka se izriše spodaj desno
+(`d.press`), kartonček pa je celozaslonska kartica, ki se polni po skupinah (`overlay.sheet`).
+**Opore za pomnjenje:** črke so angleške in enake v vseh jezikih. Kjer se ujemajo tudi po
+slovensko, to povemo (N = nova, M = mati, P = partner); H je Home, E/M/T so Edit/Merge/Tools,
+F in C (father, child) dobita slovenski opori »fotr« in »cicibán« — samo v slovenskem govoru.
+Tipka B ni »briši«, ampak beležka; brisanje nima bližnjice, zato ga epizoda ne uči.
+
+| # | Kader | Govor |
+|---|-------|-------|
+| 1 | Naslovna kartica | Bližnjic je veliko, za začetek jih potrebujete samo dvanajst. |
+| 2 | Prazen kartonček s tremi naslovi | Vzemite kartonček in pisalo; en teden delajte brez miške. |
+| 3 | Tipki `Ctrl+S` in `N` | Pravilo: s Ctrl kot v drugih programih; posebnosti programa so ena sama črka. |
+| 4 | `?` → seznam bližnjic → `Esc` | Kadar ne veste naprej, vprašate. |
+| 5 | `/`, »simen«, `Enter` | Poševnica poišče katero koli osebo. |
+| 6 | Šimen pomotoma ženska → `Ctrl+Z`; `Ctrl+S` ob gumbu »Shrani GEDCOM« | Stari znanki. |
+| 7 | Kartonček: Splošno | |
+| 8 | Obroč na starših in otrocih | Navigacija sledi sliki na zaslonu. |
+| 9 | `Alt+↑ ↓ ↓ → → ←` (Šimen, France, Terezija, Ernestina, Franc) | Alt in puščica. |
+| 10 | `Alt+Shift+↑` (Ana Jelovšek), `Alt+Shift+→` (France) | Shift pomeni »tisti drugi«. |
+| 11 | `⌫ ⌫`, `H` | Vračalka nazaj, H domov. |
+| 12 | `Alt+↓` (Terezija), `V`, `5`, `9`, `P`, `L`, `K`, `Esc` | V kot View odpre diagram; številke 1–9 preklapljajo vrste, P, L, K in G imajo svojo črko. (Zemljevida ne odpremo: datoteka nima koordinat.) |
+| 12a | `M`, `T`, `E` | Trije načini dela: Edit, Merge, Tools. |
+| 13 | Kartonček: Navigacija | |
+| 14 | `N`, `Esc`, `Ctrl+Z` | N kot nova oseba. |
+| 15 | Tipke `Alt+Shift+C` | Med pisanjem bi se črka zapisala, zato Alt in Shift. |
+| 16 | Tipke `Alt+Shift+F M P C`, obroč na otrocih | F očeta, M mater, P partnerja, C otroka. |
+| 17 | `Alt+Shift+C`, »Mina«, `Enter`, datum, `Enter`, »Vrb«, `↓`, `Enter` | Enter shrani polje in skoči na naslednje. |
+| 18 | Obroč na hitrih gumbih, tipke `Alt+Shift+1 2 3 4 5` → `Alt+Shift+4`, »17. 4. 1878« | Rojstvo, prebivališče, poklic, smrt, pokop: številke od 1 do 5; vrstico določite v nastavitvah. |
+| 19 | `Alt+Shift+E`, `↓ ↓`, `Esc`; tipke `Alt+Shift+N S A` | Vsi drugi dogodki; opomba (N), vir (S) in drugo ime (A); Escape vas vedno spusti ven. |
+| 20 | Kartonček: Urejanje | |
+| 21 | `H`, `Alt+↑`, `Alt+Shift+C`, »Jurij«, rojstvo, `Alt+↑`, `Ctrl+S`, `Esc` | Vaja: miške se nismo dotaknili. |
+| 22 | `?`, obroč na gumbu »Natisni« | Celoten seznam natisnete na en list. |
+| 23 | Poln kartonček, 8 s | Tukaj video ustavite in prepišite kartonček. |
+| 24 | Zaključna kartica | |
+
+**Kartonček**
+
+| Splošno | Navigacija | Urejanje |
+|---|---|---|
+| `?` seznam vseh bližnjic | `Alt+↑ ↓ ← →` oče · otrok · brat ali sestra | `N` nova oseba |
+| `/` poišči osebo | `Alt+Shift+↑ →` »tisti drugi«: mati · partner | `Alt+Shift+F M P C` dodaj očeta · mater · partnerja · otroka |
+| `Ctrl+Z` razveljavi | `⌫` nazaj · `H` domov | `Alt+Shift+E 1 2 3 4 5` dogodek: meni · rojstvo · prebivališče · poklic · smrt · pokop |
+| `Ctrl+S` shrani | `E M T V` Urejanje · Združevanje · Orodja · diagram | `Enter` naslednje polje · `Esc` ven iz polja |
 
 ---
 
