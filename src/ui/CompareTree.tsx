@@ -302,8 +302,9 @@ export function CompareTree({
   // height doesn't reserve an always-empty kinship row.
   const kinshipOn = settings.showKinship && appSettings.showKinship && !!kinship;
   const kinshipDrawn = useMemo(
-    () => kinshipOn && someTreeNode(tree, (n) => !!kinshipOf(n)),
-    [kinshipOn, tree, kinshipOf],
+    // A redacted living person never shows a kinship row.
+    () => kinshipOn && someTreeNode(tree, (n) => !(settings.privacyLiving && n.living) && !!kinshipOf(n)),
+    [kinshipOn, settings.privacyLiving, tree, kinshipOf],
   );
   const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn }), [settings, kinshipDrawn]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
