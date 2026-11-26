@@ -122,41 +122,55 @@ export function modeSummary(t: Translate, people: number, generations: number): 
   return `${t("tree.mode.people", { count: people })} · ${t("tree.gen.count", { count: generations })}`;
 }
 
-/** Place events tried in order — show the first one that records a place.
- *  The Birth place colour axis reads the same, so a wedge's colour always
- *  answers the place written on it. */
-export const LABEL_PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
-const PLACE_TAGS = LABEL_PLACE_TAGS;
+/** The residence the person was last recorded at, among those `has` accepts:
+ *  the latest dated one, else the last one written. */
+function lastResidence(indi: Individual, has: (e: GedEvent) => unknown = (e) => e.place || e.address): GedEvent | undefined {
+  let last: GedEvent | undefined;
+  for (const e of indi.events) {
+    if (e.tag !== "RESI" || !has(e)) continue;
+    const year = e.date?.year;
+    const lastYear = last?.date?.year;
+    // A dated residence outranks an undated one; among equals the later written wins.
+    if (lastYear === undefined || (year !== undefined && year >= lastYear)) last = e;
+  }
+  return last;
+}
 
 /**
- * The place label for a person: the most-specific locality of the first available
- * birth / residence / death place (so the user always sees at least one place when
- * the person has any), with any house number stripped via {@link localityParts}.
+ * What a chart writes for where a person is from, read off their events: the
+ * last residence that gives `read` a value, else the birth, else the death.
+ * The residence leads because a birth is so often recorded at a maternity
+ * hospital and a death at a hospital, in the nearest town — and the last one
+ * because the home a person was born into can be read off their parents.
  */
-export function placeLabel(indi: Individual | undefined): string | undefined {
-  if (!indi) return undefined;
-  for (const tag of PLACE_TAGS) {
-    const place = findEvent(indi, tag)?.place;
-    if (place) {
-      const parts = localityParts(place);
-      if (parts.length) return parts[0];
-    }
+function fromHome<T>(indi: Individual, read: (e: GedEvent) => T | undefined): T | undefined {
+  const home = lastResidence(indi, read);
+  for (const e of [home, findEvent(indi, "BIRT"), findEvent(indi, "DEAT")]) {
+    const value = e && read(e);
+    if (value) return value;
   }
   return undefined;
 }
 
 /**
- * The address label for a person: the address (`ADDR`) of the first birth /
- * residence / death event that records one, whole — the house number and the
- * house name are the point of it. Undefined when none of them has an address.
+ * The place label for a person: the most-specific locality of their last
+ * residence, else of their birth, else of their death (see {@link fromHome}),
+ * with any house number stripped via {@link localityParts}.
+ */
+export function placeLabel(indi: Individual | undefined): string | undefined {
+  if (!indi) return undefined;
+  return fromHome(indi, (e) => (e.place ? localityParts(e.place)[0] : undefined));
+}
+
+/**
+ * The address label for a person: the address (`ADDR`) of their last residence
+ * that records one, else of their birth, else of their death, whole — the
+ * house number and the house name are the point of it. Undefined when none of
+ * them has an address.
  */
 export function addressLabel(indi: Individual | undefined): string | undefined {
   if (!indi) return undefined;
-  for (const tag of PLACE_TAGS) {
-    const raw = findEvent(indi, tag)?.address?.raw.trim();
-    if (raw) return raw.replace(/\s*\n\s*/g, ", ");
-  }
-  return undefined;
+  return fromHome(indi, (e) => e.address?.raw.trim().replace(/\s*\n\s*/g, ", ") || undefined);
 }
 
 /**
@@ -178,19 +192,6 @@ export interface HomePlace {
   tag: "RESI" | "BIRT" | "DEAT";
   label: string;
   full: string;
-}
-
-/** The residence the person was last recorded at: the latest dated one, else the last one written. */
-function lastResidence(indi: Individual): GedEvent | undefined {
-  let last: GedEvent | undefined;
-  for (const e of indi.events) {
-    if (e.tag !== "RESI" || !(e.place || e.address)) continue;
-    const year = e.date?.year;
-    const lastYear = last?.date?.year;
-    // A dated residence outranks an undated one; among equals the later written wins.
-    if (lastYear === undefined || (year !== undefined && year >= lastYear)) last = e;
-  }
-  return last;
 }
 
 /**

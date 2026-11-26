@@ -108,7 +108,7 @@ interface Props {
   yearsApprox?: YearsApprox;
   /** Whole-years age, folded into the lifespan line when the Age toggle is on. */
   age?: number;
-  /** First-available place (birth → residence → death); shown on its own row when enabled. */
+  /** First-available place (last residence → birth → death); shown on its own row when enabled. */
   place?: string;
   /** The person's address, written on the place row when the Address toggle is on. */
   address?: string;

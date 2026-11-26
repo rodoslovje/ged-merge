@@ -34,10 +34,21 @@ describe("nodeDisplay: the living by a kept name only", () => {
 });
 
 describe("placeLabel", () => {
-  it("prefers birth, then residence, then death", () => {
-    expect(placeLabel(person([{ tag: "RESI", place: "Maribor" }, { tag: "BIRT", place: "Kranj" }]))).toBe("Kranj");
-    expect(placeLabel(person([{ tag: "RESI", place: "Maribor" }, { tag: "DEAT", place: "Celje" }]))).toBe("Maribor");
+  it("prefers the last residence, then birth, then death", () => {
+    expect(placeLabel(person([{ tag: "BIRT", place: "Kranj" }, { tag: "RESI", place: "Maribor" }, { tag: "DEAT", place: "Celje" }]))).toBe("Maribor");
+    expect(placeLabel(person([{ tag: "BIRT", place: "Kranj" }, { tag: "DEAT", place: "Celje" }]))).toBe("Kranj");
     expect(placeLabel(person([{ tag: "DEAT", place: "Celje" }]))).toBe("Celje");
+  });
+
+  it("takes the latest dated residence, and skips one that names no place", () => {
+    const moved = person([
+      { tag: "RESI", place: "Ptuj", year: 1900 },
+      { tag: "RESI", place: "Maribor", year: 1930 },
+      { tag: "RESI", place: "Celje", year: 1910 },
+      { tag: "RESI", address: "Dunajska 5", year: 1950 },
+    ]);
+    expect(placeLabel(moved)).toBe("Maribor");
+    expect(addressLabel(moved)).toBe("Dunajska 5");
   });
 
   it("strips the house number from the locality and skips placeless events", () => {
@@ -48,9 +59,10 @@ describe("placeLabel", () => {
 });
 
 describe("addressLabel", () => {
-  it("is the whole address of the first birth / residence / death event that has one", () => {
+  it("is the whole address of the last residence that has one, then of the birth, then of the death", () => {
+    expect(addressLabel(person([{ tag: "BIRT", address: "Porodnišnica 1" }, { tag: "DEAT", address: "Dunajska 5" }]))).toBe("Porodnišnica 1");
     const p = person([
-      { tag: "BIRT", place: "Kranj" },
+      { tag: "BIRT", place: "Kranj", address: "Porodnišnica 1" },
       { tag: "RESI", place: "4000 Kranj, Slovenija", address: "Bitnje 6 (pd Urbanov Jaka)" },
       { tag: "DEAT", address: "Dunajska 5" },
     ]);
