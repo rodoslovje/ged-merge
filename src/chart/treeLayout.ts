@@ -27,6 +27,9 @@ export interface DetailToggles {
   /** Age folds into the lifespan row, or — with the lifespan hidden — stands on
    *  its own in that same row, so either toggle reserves the one row. */
   showAge: boolean;
+  /** The sibling and child counts stand at the end of the lifespan row, and
+   *  keep it when neither the lifespan nor the age is shown. */
+  showFamilyCounts?: boolean;
   showPlace: boolean;
   /** Alone, the address is written on the place row; with the place shown
    *  too it takes a row of its own above it. */
@@ -44,7 +47,7 @@ export function detailRowCount(o: DetailToggles): number {
   // with no address writes their place on the first of them instead.
   const address = o.showAddress ? o.addressLines ?? 1 : 0;
   const place = o.showPlace ? 1 + address : o.showAddress ? Math.max(1, address) : 0;
-  return (o.showLifespan || o.showAge ? 1 : 0) + place + (o.showKinship ? 1 : 0);
+  return (o.showLifespan || o.showAge || o.showFamilyCounts ? 1 : 0) + place + (o.showKinship ? 1 : 0);
 }
 
 /** The node-box height for the current display settings: the base box holds the

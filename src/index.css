@@ -7225,6 +7225,16 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
   fill: var(--muted);
   font-size: 10px;
 }
+/* The sibling and child counts at the end of the lifespan row: the icons take
+   the place line's muted ink. */
+.tree-node-counts circle {
+  fill: var(--muted);
+}
+.tree-node-counts-line {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+}
 /* Decision / modified badge next to a node's lifespan — a drop shadow
    separates it from the node fill instead of a hard panel-colour ring. */
 .tree-node-decision {
