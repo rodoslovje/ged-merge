@@ -25,6 +25,7 @@ import {
   layout,
   layoutBowtie,
   layoutGrid,
+  mirrorDepth,
   type ChartAlignment,
   type Flat,
 } from "../chart/treeLayout";
@@ -383,16 +384,19 @@ function drawPage(
 
     const connector = src.grid ? "elbow" : "curve";
     let flat: Flat;
+    const mirrored = !piece.other && !!piece.ancestors;
     if (piece.other) {
       // The bowtie's own piece: both halves, as the screen joins them.
       flat = flattenBowtie(layoutBowtie(piece.root, piece.other, src.alignment, src.nodeH, src.grid), src.alignment, connector, src.nodeH, src.marriageLabel);
     } else {
       const laid = src.grid ? layoutGrid(piece.root, src.alignment, src.nodeH) : layout(piece.root, src.alignment, src.nodeH);
-      flat = flatten(laid.root, src.alignment, connector, src.nodeH, src.marriageLabel, piece.ancestors ?? src.ancestors);
+      // A branch cut off a bowtie's ancestors grows the way they do on part 1.
+      if (mirrored) mirrorDepth(laid, src.alignment, src.nodeH);
+      flat = flatten(laid.root, src.alignment, connector, src.nodeH, src.marriageLabel, piece.ancestors ?? src.ancestors, mirrored);
     }
     const g = document.createElementNS(SVG_NS, "g");
     g.setAttribute("transform", `translate(${piece.x + PAD},${piece.y + PANEL_TITLE_H + PAD})`);
-    drawTree(g, parts, flat, src, piece.markerLabel, piece.keyPrefix, !!piece.other);
+    drawTree(g, parts, flat, src, piece.markerLabel, piece.keyPrefix, !!piece.other, mirrored);
     svg.appendChild(g);
   }
   return svg;
@@ -440,6 +444,8 @@ function drawTree(
   /** The tree is a bowtie: its ancestor half grows the other way, and a
    *  marker there sits on the box's leading side. */
   bowtie = false,
+  /** The whole tree is a branch of a bowtie's ancestors, drawn mirrored. */
+  mirrored = false,
 ): void {
   for (const e of flat.edges) {
     const path = (e.partner ? templates.partner : templates.edge).cloneNode(true) as SVGPathElement;
@@ -474,7 +480,7 @@ function drawTree(
     const node = box.cloneNode(true) as SVGGElement;
     node.setAttribute("transform", `translate(${n.x},${n.y})`);
     if (n.continuesOn !== undefined) {
-      node.appendChild(continuationMarker(markerLabel(n.continuesOn), src, bowtie && n.key.startsWith(ANCESTOR_KEY_PREFIX)));
+      node.appendChild(continuationMarker(markerLabel(n.continuesOn), src, mirrored || (bowtie && n.key.startsWith(ANCESTOR_KEY_PREFIX))));
     }
     g.appendChild(node);
   }

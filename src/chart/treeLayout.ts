@@ -299,6 +299,28 @@ export function isBowtie(laid: { root: Placed }): laid is BowtieLaid {
 }
 
 /**
+ * Flip a laid tree along the depth axis, in place: the root moves to the
+ * trailing end and the tree grows back towards the leading one — how a bowtie
+ * draws its ancestors, for a branch of them printed in a frame of its own.
+ */
+export function mirrorDepth<T extends { root: Placed; width: number; height: number }>(
+  laid: T,
+  alignment: ChartAlignment = "lr",
+  nodeH: number = NODE_H,
+): T {
+  const lr = alignment === "lr";
+  const extent = lr ? laid.width - 2 * PAD - NODE_W : laid.height - 2 * PAD - nodeH;
+  const walk = (n: Placed): void => {
+    if (lr) n.x = extent - n.x;
+    else n.y = extent - n.y;
+    n.partners.forEach(walk);
+    n.children.forEach(walk);
+  };
+  walk(laid.root);
+  return laid;
+}
+
+/**
  * Bowtie layout: the descendants lay out as usual from the root, the ancestors
  * lay out the same way and are then flipped along the depth axis, so they sit
  * to the left (LR) or above (TB) the root while the descendants sit to the
