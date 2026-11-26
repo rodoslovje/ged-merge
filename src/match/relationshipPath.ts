@@ -176,12 +176,21 @@ export function bloodPath(
   return { kind: "blood", steps, hops: steps.length - 1, lcaIndex };
 }
 
+/** How many ways up to one common ancestor are followed from either person,
+ *  and how many bloodlines are offered in all: a village that married its
+ *  cousins for two centuries has more than anyone will read. */
+const BLOOD_CHAINS = 6;
+const BLOOD_PATHS = 12;
+
 /**
  * Every distinct bloodline between start and target: one path per most-recent
- * common ancestor (MRCA), so intermarriage / double-cousin cases each surface
- * as their own route. The common-ancestor *couple* (two spouses) is one
- * bloodline, not two — paths that differ only in which spouse is the apex are
- * collapsed. Sorted shortest-first. Empty when they share no ancestor.
+ * common ancestor (MRCA) *and per way up to them*, so intermarriage /
+ * double-cousin cases each surface as their own route — and so does a person
+ * who descends from the same ancestor through both parents. The
+ * common-ancestor *couple* (two spouses) is one bloodline, not two — paths
+ * that differ only in which spouse is the apex are collapsed. Sorted
+ * shortest-first, the first {@link BLOOD_PATHS} of them. Empty when they
+ * share no ancestor.
  */
 export function bloodPaths(
   ds: Dataset,
@@ -201,25 +210,155 @@ export function bloodPaths(
   const paths: RelationshipPath[] = [];
   const seen = new Set<string>();
   for (const a of common) {
-    const up = walkTo(startAnc, a, startId); // [start, …, a]
-    const down = walkTo(targetAnc, a, targetId); // [target, …, a]
-    // Skip A when a *closer* common ancestor already covers this line: an MRCA
-    // has no other common ancestor strictly between an endpoint and itself.
-    if (interiorHasCommon(up, common) || interiorHasCommon(down, common)) continue;
+    // A way up counts only when no *closer* common ancestor already covers it:
+    // an MRCA has no other common ancestor strictly between an endpoint and
+    // itself. (That also keeps the two legs apart: a person on both would be
+    // a common ancestor between them.)
+    const ups = chainsTo(ds, startId, a, BLOOD_CHAINS).filter((c) => !interiorHasCommon(c, common)); // [start, …, a]
+    if (!ups.length) continue;
+    const downs = chainsTo(ds, targetId, a, BLOOD_CHAINS).filter((c) => !interiorHasCommon(c, common)); // [target, …, a]
+    for (const up of ups) {
+      for (const down of downs) {
+        const steps: PathStep[] = up.map((id, i) => ({ id, edge: i === 0 ? undefined : "parent" }));
+        const lcaIndex = up.length - 1;
+        for (const id of down.slice(0, -1).reverse()) steps.push({ id, edge: "child" });
 
-    const steps: PathStep[] = up.map((id, i) => ({ id, edge: i === 0 ? undefined : "parent" }));
-    const lcaIndex = up.length - 1;
-    for (const id of down.slice(0, -1).reverse()) steps.push({ id, edge: "child" });
-
-    // Collapse a common-ancestor couple: two MRCAs that are spouses produce
-    // paths with identical legs differing only at the apex, so wildcard the apex.
-    const key = steps.map((s, i) => (i === lcaIndex ? "*" : s.id)).join(">");
-    if (seen.has(key)) continue;
-    seen.add(key);
-    paths.push({ kind: "blood", steps, hops: steps.length - 1, lcaIndex });
+        // Collapse a common-ancestor couple: two MRCAs that are spouses produce
+        // paths with identical legs differing only at the apex, so wildcard the apex.
+        const key = steps.map((s, i) => (i === lcaIndex ? "*" : s.id)).join(">");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        paths.push({ kind: "blood", steps, hops: steps.length - 1, lcaIndex });
+      }
+    }
   }
 
-  return paths.sort((a, b) => a.hops - b.hops);
+  return paths.sort((a, b) => a.hops - b.hops).slice(0, BLOOD_PATHS);
+}
+
+/**
+ * The routes that take exactly one association: the start's family up to a
+ * person, that person's godparent or witness (or the one they stood as such
+ * for), and on through the associate's family to the target — "my
+ * grandfather's godfather was her uncle". One per association (a wedding's
+ * witness is tied to both partners, and the nearer one is the route),
+ * shortest first, at most `limit`. Unlike {@link shortestPath} with
+ * associations, these are offered whether or not kinship joins the two more
+ * closely: they answer what else ties them.
+ */
+export function assocPaths(
+  ds: Dataset,
+  startId: string,
+  targetId: string,
+  links: AssocLinks,
+  limit = 5,
+): RelationshipPath[] {
+  if (startId === targetId || !links.size || !ds.individuals.has(startId) || !ds.individuals.has(targetId)) return [];
+  const fromStart = familyReach(ds, startId);
+  const fromTarget = familyReach(ds, targetId);
+
+  const candidates: { near: string; link: AssocLink; hops: number }[] = [];
+  for (const [near, s] of fromStart) {
+    for (const link of links.get(near) ?? []) {
+      const t = fromTarget.get(link.id);
+      if (t) candidates.push({ near, link, hops: s.dist + 1 + t.dist });
+    }
+  }
+  candidates.sort((a, b) => a.hops - b.hops);
+
+  const paths: RelationshipPath[] = [];
+  const seen = new Set<string>();
+  const taken = new Set<Association>();
+  for (const c of candidates) {
+    if (paths.length >= limit) break;
+    const key = `${c.near}>${c.link.id}`;
+    // Godparent and witness to the same person: one route. A couple's
+    // witness, reached over either partner: the nearer one's.
+    if (seen.has(key) || taken.has(c.link.assoc)) continue;
+
+    // start → … → near, as the walk from the start found it.
+    const steps: PathStep[] = [];
+    for (let cur = c.near; cur !== startId; ) {
+      const p = fromStart.get(cur)!;
+      steps.push({ id: cur, edge: p.edge });
+      cur = p.from!;
+    }
+    steps.push({ id: startId });
+    steps.reverse();
+    steps.push({ id: c.link.id, edge: "assoc", assoc: c.link });
+    // associate → … → target: the walk from the target, read backwards.
+    for (let cur = c.link.id; cur !== targetId; ) {
+      const p = fromTarget.get(cur)!;
+      steps.push({ id: p.from!, edge: p.edge === "parent" ? "child" : p.edge === "child" ? "parent" : "spouse" });
+      cur = p.from!;
+    }
+    // A route that passes anyone twice says nothing a shorter one does not.
+    if (new Set(steps.map((s) => s.id)).size !== steps.length) continue;
+    seen.add(key);
+    taken.add(c.link.assoc);
+    paths.push({ kind: "assoc", steps, hops: steps.length - 1 });
+  }
+  return paths;
+}
+
+/** Everyone a parent/child/spouse walk reaches from `startId`, each with the
+ *  hops, the person they were reached from and their relation to that one. */
+function familyReach(ds: Dataset, startId: string): Map<string, { dist: number; from?: string; edge?: RelationEdge }> {
+  const reach = new Map<string, { dist: number; from?: string; edge?: RelationEdge }>([[startId, { dist: 0 }]]);
+  const queue = [startId];
+  for (let h = 0; h < queue.length; h++) {
+    const id = queue[h];
+    const dist = reach.get(id)!.dist + 1;
+    for (const { id: next, edge } of neighbors(id, ds)) {
+      if (reach.has(next)) continue;
+      reach.set(next, { dist, from: id, edge });
+      queue.push(next);
+    }
+  }
+  return reach;
+}
+
+/** Up to `cap` parent chains `[fromId, …, ancestorId]`: every way the one
+ *  descends from the other, the father's side first. */
+function chainsTo(ds: Dataset, fromId: string, ancestorId: string, cap: number): string[][] {
+  const parentsOf = (id: string): string[] => {
+    const out: string[] = [];
+    for (const famId of ds.individuals.get(id)?.childOf ?? []) {
+      const fam = ds.families.get(famId);
+      if (fam?.husband) out.push(fam.husband);
+      if (fam?.wife) out.push(fam.wife);
+    }
+    return out;
+  };
+  // Who descends from the ancestor, learnt once per person while climbing — so
+  // a branch that never gets there is not climbed again.
+  const leads = new Map<string, boolean>();
+  const reaches = (id: string): boolean => {
+    if (id === ancestorId) return true;
+    const known = leads.get(id);
+    if (known !== undefined) return known;
+    leads.set(id, false); // a person recorded as their own ancestor ends here
+    const yes = parentsOf(id).some(reaches);
+    leads.set(id, yes);
+    return yes;
+  };
+  const chains: string[][] = [];
+  const chain = [fromId];
+  const climb = (id: string) => {
+    if (chains.length >= cap) return;
+    if (id === ancestorId) {
+      chains.push([...chain]);
+      return;
+    }
+    for (const p of parentsOf(id)) {
+      if (chain.includes(p) || !reaches(p)) continue;
+      chain.push(p);
+      climb(p);
+      chain.pop();
+    }
+  };
+  if (reaches(fromId)) climb(fromId);
+  return chains;
 }
 
 /**

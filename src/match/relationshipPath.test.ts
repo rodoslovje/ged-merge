@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildAssociationIndex } from "../gedcom/assoc";
-import { assocLinks, bloodLineage, bloodPath, bloodPaths, labelPaths, relationshipPaths, shortestPath } from "./relationshipPath";
+import { assocLinks, assocPaths, bloodLineage, bloodPath, bloodPaths, labelPaths, relationshipPaths, shortestPath } from "./relationshipPath";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -288,5 +288,86 @@ describe("shortestPath through associations", () => {
   it("stays a family path where no association is on it", () => {
     expect(shortestPath(ds, "@C@", "@M@", ties)?.kind).toBe("shortest");
     expect(shortestPath(ds, "@C@", "@X@", ties)).toBeUndefined();
+  });
+});
+
+describe("bloodPaths, every way up", () => {
+  // E's parents F and M are first cousins: both grandchildren of the couple
+  // A + B, through the brothers P (F's father) and Q (M's father). T is a
+  // third grandchild, through their sister R.
+  const person = (id: string, famc: string | undefined, fams: string[]) =>
+    `0 @${id}@ INDI\n` + (famc ? `1 FAMC @${famc}@\n` : "") + fams.map((f) => `1 FAMS @${f}@\n`).join("");
+  const ds = dataset(
+    `0 HEAD\n1 GEDC\n2 VERS 5.5.1\n` +
+      person("A", undefined, ["F0"]) + person("B", undefined, ["F0"]) +
+      person("P", "F0", ["F1"]) + person("Q", "F0", ["F2"]) + person("R", "F0", ["F3"]) +
+      person("F", "F1", ["F4"]) + person("M", "F2", ["F4"]) + person("T", "F3", []) + person("E", "F4", []) +
+      `0 @F0@ FAM\n1 HUSB @A@\n1 WIFE @B@\n1 CHIL @P@\n1 CHIL @Q@\n1 CHIL @R@\n` +
+      `0 @F1@ FAM\n1 HUSB @P@\n1 CHIL @F@\n0 @F2@ FAM\n1 HUSB @Q@\n1 CHIL @M@\n0 @F3@ FAM\n1 WIFE @R@\n1 CHIL @T@\n` +
+      `0 @F4@ FAM\n1 HUSB @F@\n1 WIFE @M@\n1 CHIL @E@\n0 TRLR\n`,
+  );
+
+  it("offers the line through each parent to the same ancestors", () => {
+    const paths = bloodPaths(ds, "@E@", "@T@");
+    // The couple A + B is one apex; the two ways up to it are two bloodlines.
+    expect(paths.map((p) => ids(p)!.slice(0, 3).join(">"))).toEqual(["@E@>@F@>@P@", "@E@>@M@>@Q@"]);
+    expect(paths.every((p) => p.hops === 5 && ids(p)!.at(-1) === "@T@")).toBe(true);
+  });
+
+  it("keeps one line where there is one way", () => {
+    expect(bloodPaths(ds, "@F@", "@T@")).toHaveLength(1);
+    // E to their own father: the direct line only, not the detour over M's side.
+    expect(bloodPaths(ds, "@E@", "@F@").map(ids)).toEqual([["@E@", "@F@"]]);
+  });
+});
+
+describe("assocPaths", () => {
+  // C (child of F, grandchild of GF, nephew of U) has godfather G — father of
+  // GS — and godfather U, his own uncle. F's wedding was witnessed by W.
+  const ds = dataset(
+    `0 HEAD\n1 GEDC\n2 VERS 7.0\n` +
+      `0 @C@ INDI\n1 FAMC @F1@\n1 BIRT\n2 ASSO @G@\n3 ROLE GODP\n2 ASSO @U@\n3 ROLE GODP\n` +
+      `0 @F@ INDI\n1 FAMC @F0@\n1 FAMS @F1@\n0 @M@ INDI\n1 FAMS @F1@\n` +
+      `0 @U@ INDI\n1 FAMC @F0@\n0 @GF@ INDI\n1 FAMS @F0@\n` +
+      `0 @G@ INDI\n1 FAMS @F2@\n0 @GS@ INDI\n1 FAMC @F2@\n0 @W@ INDI\n0 @X@ INDI\n` +
+      `0 @F0@ FAM\n1 HUSB @GF@\n1 CHIL @F@\n1 CHIL @U@\n` +
+      `0 @F1@ FAM\n1 HUSB @F@\n1 WIFE @M@\n1 CHIL @C@\n1 MARR\n2 ASSO @W@\n3 ROLE WITN\n` +
+      `0 @F2@ FAM\n1 HUSB @G@\n1 CHIL @GS@\n0 TRLR\n`,
+  );
+  const ties = assocLinks(ds, buildAssociationIndex(ds));
+
+  it("joins two families over the one association between them", () => {
+    const paths = assocPaths(ds, "@F@", "@GS@", ties);
+    expect(paths.map(ids)).toEqual([["@F@", "@C@", "@G@", "@GS@"]]);
+    expect(edges(paths[0])).toEqual([undefined, "child", "assoc", "child"]);
+    expect(paths[0].kind).toBe("assoc");
+  });
+
+  it("reads the far family's steps the right way round", () => {
+    // From the godfather's son back to the child's grandfather.
+    expect(edges(assocPaths(ds, "@GS@", "@GF@", ties)[0])).toEqual([undefined, "parent", "assoc", "parent", "parent"]);
+  });
+
+  it("offers the association beside a kinship that is as close or closer", () => {
+    // C and uncle U: kin in three steps, godchild and godfather in one.
+    expect(assocPaths(ds, "@C@", "@U@", ties).map(ids)).toEqual([["@C@", "@U@"]]);
+    // C and his own father: the father's brother is C's godfather.
+    expect(assocPaths(ds, "@C@", "@F@", ties).map(ids)).toContainEqual(["@C@", "@U@", "@GF@", "@F@"]);
+  });
+
+  it("takes a couple's witness over the nearer partner only", () => {
+    // W witnessed the wedding of F and M: from C, one route, not one per parent.
+    const paths = assocPaths(ds, "@C@", "@W@", ties);
+    expect(paths.map(ids)).toEqual([["@C@", "@F@", "@W@"]]);
+  });
+
+  it("never passes a person twice, and keeps to the limit", () => {
+    for (const p of assocPaths(ds, "@C@", "@F@", ties)) expect(new Set(ids(p)).size).toBe(ids(p)!.length);
+    expect(assocPaths(ds, "@C@", "@F@", ties, 1)).toHaveLength(1);
+  });
+
+  it("finds nothing where no single association joins them", () => {
+    expect(assocPaths(ds, "@C@", "@X@", ties)).toEqual([]);
+    expect(assocPaths(ds, "@C@", "@C@", ties)).toEqual([]);
   });
 });
