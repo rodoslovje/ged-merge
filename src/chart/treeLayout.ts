@@ -28,14 +28,15 @@ export interface DetailToggles {
    *  its own in that same row, so either toggle reserves the one row. */
   showAge: boolean;
   showPlace: boolean;
-  /** The address is written on the place row, so it reserves the same one. */
+  /** Alone, the address is written on the place row; with the place shown
+   *  too it takes a row of its own above it. */
   showAddress: boolean;
   showKinship: boolean;
 }
 
-/** How many detail rows are enabled (0–3). */
+/** How many detail rows are enabled (0–4). */
 export function detailRowCount(o: DetailToggles): number {
-  return (o.showLifespan || o.showAge ? 1 : 0) + (o.showPlace || o.showAddress ? 1 : 0) + (o.showKinship ? 1 : 0);
+  return (o.showLifespan || o.showAge ? 1 : 0) + (o.showPlace ? 1 : 0) + (o.showAddress ? 1 : 0) + (o.showKinship ? 1 : 0);
 }
 
 /** The node-box height for the current display settings: the base box holds the

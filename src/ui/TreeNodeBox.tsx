@@ -186,9 +186,10 @@ export function TreeNodeBox({
       : null;
   const textX = photoPath ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const photoY = (nodeH - PHOTO_SIZE) / 2;
-  // Lifespan, then place, then kinship — each on its own row beneath the name.
+  // Lifespan, then address and place, then kinship — each on its own row beneath the name.
   const rows: { text: string; cls: string; approx?: YearsApprox }[] = [];
   if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year", approx: disp.yearsApprox });
+  if (disp.address) rows.push({ text: truncate(disp.address, 26), cls: "tree-node-place tree-node-address" });
   if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
   if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage, disp.kinshipDirect)}` });
   return (

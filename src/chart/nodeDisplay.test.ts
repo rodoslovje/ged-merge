@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
+import { detailRowCount } from "./treeLayout";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, formatMarriage, addressLabel, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, placeLabel, placeLine, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, addressLabel, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, onePlaceLine, placeLabel, placeLine, type NodeDisplayOptions } from "./nodeDisplay";
 import { marriageOf } from "./personTree";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
@@ -72,7 +73,22 @@ describe("placeLine", () => {
   });
 
   it("reaches the node through nodeDisplay", () => {
-    expect(nodeDisplay(opts({ showAddress: true }), { ...base, address: "Bitnje 6" }).place).toBe("Bitnje 6");
+    const input = { ...base, address: "Bitnje 6" };
+    const alone = nodeDisplay(opts({ showPlace: false, showAddress: true }), input);
+    expect(alone.place).toBe("Bitnje 6");
+    expect(alone.address).toBeUndefined();
+  });
+
+  it("gives the address a line of its own above the place when both are on", () => {
+    const both = opts({ showPlace: true, showAddress: true });
+    const disp = nodeDisplay(both, { ...base, address: "Bitnje 6" });
+    expect([disp.address, disp.place]).toEqual(["Bitnje 6", "Kranj"]);
+    // No address: the place alone, on its usual line.
+    expect(nodeDisplay(both, base)).toMatchObject({ address: undefined, place: "Kranj" });
+    // The tooltip lists both; a one-line chart (the fan) keeps the address.
+    expect(nodeTooltip(both, { ...base, address: "Bitnje 6" })).toBe("Janez Novak, 1817–1890\nBitnje 6\nKranj\n2nd cousin");
+    expect(onePlaceLine(disp)).toMatchObject({ place: "Bitnje 6", address: undefined });
+    expect(detailRowCount({ ...both })).toBe(detailRowCount({ ...both, showAddress: false }) + 1);
   });
 });
 

@@ -19,7 +19,7 @@
 
 import { PAD } from "./treeLayout";
 import { countTreePeople, type TreeNode } from "./personTree";
-import { ALL_DISPLAY, formatMarriage, marriageApprox, nodeDisplay, nodeTooltip, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, marriageApprox, nodeDisplay, nodeTooltip, onePlaceLine, type NodeDisplay, type NodeDisplayOptions } from "./nodeDisplay";
 import type { YearsApprox } from "../gedcom/lifespan";
 
 export type FanShape = "fan" | "circle";
@@ -257,7 +257,7 @@ export function fanResolvers(opts: FanChartOptions): {
     const redacted = display.privacyLiving && node.living;
     const livingName = redacted ? opts.livingNameOf?.(node) : undefined;
     const kinship = redacted && !livingName ? opts.kinshipOf?.(node) : undefined;
-    return nodeDisplay(display, {
+    return onePlaceLine(nodeDisplay(display, {
       name: node.name,
       years: node.years,
       yearsApprox: node.yearsApprox,
@@ -269,7 +269,7 @@ export function fanResolvers(opts: FanChartOptions): {
       living: node.living,
       livingLabel: livingLabelOf(node),
       livingName,
-    });
+    }));
   };
   /** The hover text: the full name and lifespan regardless of what the wedge
    *  could fit, then the fields the settings show (see nodeTooltip) — the

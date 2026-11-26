@@ -21,6 +21,8 @@ export interface HoverInfo {
   /** A muted line under the head, saying what the mark is — the Contemporaries
    *  rings name the direction and the blood distance a surname band stands at. */
   subtitle?: string;
+  /** The address on a line of its own above the place, when both are shown. */
+  address?: string;
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;

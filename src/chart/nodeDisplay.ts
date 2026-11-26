@@ -22,7 +22,8 @@ export interface NodeDisplayOptions {
   showAge: boolean;
   showPlace: boolean;
   /** Write the address on the place line where the person has one (the place
-   *  stands in where they have none) — see {@link placeLine}. */
+   *  stands in where they have none) — see {@link placeLine}. With the place
+   *  shown too, a chart with the room writes both, the address above. */
   showAddress: boolean;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
@@ -251,6 +252,10 @@ export interface NodeDisplay {
   yearsApprox?: YearsApprox;
   /** Place line, present only when shown and not redacted. */
   place?: string;
+  /** The address on a line of its own above the place: only with both the
+   *  Place and the Address toggle on. A chart with one line for the two reads
+   *  {@link onePlaceLine} instead. */
+  address?: string;
   /** Kinship line, present only when shown and not redacted. */
   kinship?: string;
   /** Blood lineage of the shown kinship line, for colour-coding. */
@@ -294,11 +299,12 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
       showPhoto: false,
     };
   }
+  const both = opts.showPlace && opts.showAddress;
   return {
     name: input.name,
     years: lifespanLine(opts, input),
     yearsApprox: opts.showLifespan ? input.yearsApprox : undefined,
-    place: placeLine(opts, input),
+    ...(both ? { address: input.address || undefined, place: input.place } : { place: placeLine(opts, input) }),
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
     kinshipDirect: input.kinshipDirect,
@@ -306,17 +312,24 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
   };
 }
 
+/** A resolved display for a chart with one line for the place: the address
+ *  where the person has one, else the place — whatever the two toggles say. */
+export function onePlaceLine(disp: NodeDisplay): NodeDisplay {
+  if (!disp.address) return disp;
+  return { ...disp, place: disp.address, address: undefined };
+}
+
 /**
  * The hover text for a chart node: the full name with the lifespan (and the
  * age, when shown) on the first line — whatever the box or wedge had room to
  * draw — then each further field the chart options show on a line of its
- * own: the place and the kinship to the start person. A redacted living
+ * own: the address, the place and the kinship to the start person. A redacted living
  * person shows only their placeholder, and every line the redaction hides
  * stays hidden here too.
  */
 export function nodeTooltip(opts: NodeDisplayOptions, input: NodeDisplayInput): string {
   const h = nodeHover(opts, input);
-  return [h.years ? `${h.name}, ${h.years}` : h.name, h.place, h.kinship].filter(Boolean).join("\n");
+  return [h.years ? `${h.name}, ${h.years}` : h.name, h.address, h.place, h.kinship].filter(Boolean).join("\n");
 }
 
 /** What the hover card shows for a node, field by field: the name (or the
@@ -326,6 +339,8 @@ export interface NodeHover {
   name: string;
   years?: string;
   yearsApprox?: YearsApprox;
+  /** The address line above the place — see {@link NodeDisplay.address}. */
+  address?: string;
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;
@@ -341,6 +356,7 @@ export function nodeHover(opts: NodeDisplayOptions, input: NodeDisplayInput): No
     name: input.name,
     years: lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age }) || undefined,
     yearsApprox: input.yearsApprox,
+    address: disp.address,
     place: disp.place,
     kinship: disp.kinship,
     kinshipLineage: disp.kinshipLineage,
