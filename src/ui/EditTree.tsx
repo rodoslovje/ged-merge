@@ -217,12 +217,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const kinshipOn = settings.showKinship && appSettings.showKinship && !!kinship;
   const kinshipDrawn = useMemo(() => {
     if (!kinshipOn || !kinship) return false;
-    const related = (n: TreeNode) => !!n.main && !!kinship.label(n.main.id);
+    // A redacted living person never shows a kinship row.
+    const related = (n: TreeNode) => !!n.main && !(settings.privacyLiving && n.living) && !!kinship.label(n.main.id);
     const roots = complete
       ? completeTree?.panels.map((p) => p.tree) ?? []
       : bowtie ? [shown.ancestors, shown.descendants] : [tree];
     return roots.some((root) => someTreeNode(root, related));
-  }, [kinshipOn, kinship, complete, completeTree, bowtie, shown, tree]);
+  }, [kinshipOn, kinship, settings.privacyLiving, complete, completeTree, bowtie, shown, tree]);
   const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn }), [settings, kinshipDrawn]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
