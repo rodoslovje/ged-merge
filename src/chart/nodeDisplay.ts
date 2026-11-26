@@ -197,18 +197,18 @@ export function familyCounts(indi: Individual | undefined, ds: Dataset): FamilyC
 }
 
 /**
- * The counts as a box writes them at the end of its lifespan row — "S 4 · C 6"
- * — and spelled out for the hover; a count of none is left out, and a person
- * with neither gets `undefined`.
+ * The counts as a box draws them at the end of its lifespan row — an icon and
+ * a number each, siblings first — and spelled out for the hover. A count of
+ * none is left out, and a person with neither gets `undefined`.
  */
-export function familyCountsText(t: Translate, counts: FamilyCounts | undefined): { short: string; full: string } | undefined {
+export function familyCountsText(
+  t: Translate,
+  counts: FamilyCounts | undefined,
+): { parts: { kind: keyof FamilyCounts; n: number }[]; full: string } | undefined {
   if (!counts) return undefined;
-  const parts = [
-    counts.siblings > 0 ? { short: t("tree.node.siblingsShort", { n: counts.siblings }), full: t("tree.node.siblingsCount", { n: counts.siblings }) } : undefined,
-    counts.children > 0 ? { short: t("tree.node.childrenShort", { n: counts.children }), full: t("tree.node.childrenCount", { n: counts.children }) } : undefined,
-  ].filter((part) => part !== undefined);
+  const parts = (["siblings", "children"] as const).filter((kind) => counts[kind] > 0).map((kind) => ({ kind, n: counts[kind] }));
   if (!parts.length) return undefined;
-  return { short: parts.map((part) => part.short).join(" · "), full: parts.map((part) => part.full).join(" · ") };
+  return { parts, full: parts.map(({ kind, n }) => t(`tree.node.${kind}Count`, { n })).join(" · ") };
 }
 
 /**

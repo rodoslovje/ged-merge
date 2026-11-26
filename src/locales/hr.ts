@@ -3139,8 +3139,6 @@ export const hr = {
   "tree.node.living": "živ(a)",
   "tree.node.living_M": "živ",
   "tree.node.living_F": "živa",
-  "tree.node.siblingsShort": "B {{n}}",
-  "tree.node.childrenShort": "D {{n}}",
   "tree.node.siblingsCount": "Braća i sestre: {{n}}",
   "tree.node.childrenCount": "Djeca: {{n}}",
   "tree.node.agePhrase": "dob: {{age}} g.",

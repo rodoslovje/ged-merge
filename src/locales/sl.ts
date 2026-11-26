@@ -3358,8 +3358,6 @@ export const sl = {
   "tree.node.living": "živ(a)",
   "tree.node.living_M": "živ",
   "tree.node.living_F": "živa",
-  "tree.node.siblingsShort": "S {{n}}",
-  "tree.node.childrenShort": "O {{n}}",
   "tree.node.siblingsCount": "Sorojenci: {{n}}",
   "tree.node.childrenCount": "Otroci: {{n}}",
   "tree.node.agePhrase": "star(a) {{age}} let",

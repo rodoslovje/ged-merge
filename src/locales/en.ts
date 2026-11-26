@@ -2926,8 +2926,6 @@ export const en = {
   // The cited page in a source line: "§ Krstna knjiga, page 23".
   "report.source.page": "page {{page}}",
   "tree.node.living": "Living",
-  "tree.node.siblingsShort": "S {{n}}",
-  "tree.node.childrenShort": "C {{n}}",
   "tree.node.siblingsCount": "Siblings: {{n}}",
   "tree.node.childrenCount": "Children: {{n}}",
   "tree.node.agePhrase": "age {{age}}",

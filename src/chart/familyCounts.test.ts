@@ -37,10 +37,10 @@ describe("familyCounts", () => {
 
   it("writes only the counts there are", () => {
     expect(familyCountsText(t, { siblings: 3, children: 2 })).toEqual({
-      short: "siblingsShort=3 · childrenShort=2",
+      parts: [{ kind: "siblings", n: 3 }, { kind: "children", n: 2 }],
       full: "siblingsCount=3 · childrenCount=2",
     });
-    expect(familyCountsText(t, { siblings: 0, children: 2 })?.short).toBe("childrenShort=2");
+    expect(familyCountsText(t, { siblings: 0, children: 2 })?.parts).toEqual([{ kind: "children", n: 2 }]);
     expect(familyCountsText(t, { siblings: 0, children: 0 })).toBeUndefined();
   });
 

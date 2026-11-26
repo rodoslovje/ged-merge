@@ -101,6 +101,50 @@ export function nodeStatusBadges(
   };
 }
 
+/** Glyph width of the counts' 10px monospace digits, and the room an icon takes. */
+const COUNT_CHAR_W = 6;
+const COUNT_ICON = 10;
+
+/**
+ * The sibling and child counts at the end of the lifespan row: each an icon
+ * and a number, laid out from the box's right edge. The sibling icon is two
+ * people hanging from one bracket — children of the same parents; the child
+ * icon one person above the two that hang from them.
+ */
+function FamilyCountMarks({ parts, title }: { parts: { kind: keyof FamilyCounts; n: number }[]; title: string }) {
+  let right = NODE_W - 12;
+  const placed = [...parts].reverse().map(({ kind, n }) => {
+    const text = String(n);
+    const x = right - text.length * COUNT_CHAR_W - 3 - COUNT_ICON;
+    right = x - 8;
+    return { kind, text, x };
+  });
+  return (
+    <g className="tree-node-counts">
+      <title>{title}</title>
+      {placed.map(({ kind, text, x }) => (
+        <g key={kind} transform={`translate(${x},${DETAIL_ROW_TOP - 9})`}>
+          {kind === "siblings" ? (
+            <>
+              <path className="tree-node-counts-line" d="M5,0 V2.5 M2,5 V2.5 H8 V5" />
+              <circle cx={2} cy={7.4} r={1.9} />
+              <circle cx={8} cy={7.4} r={1.9} />
+            </>
+          ) : (
+            <>
+              <circle cx={5} cy={2} r={1.9} />
+              <path className="tree-node-counts-line" d="M5,4 V5.5 M2,7 V5.5 H8 V7" />
+              <circle cx={2} cy={8.5} r={1.4} />
+              <circle cx={8} cy={8.5} r={1.4} />
+            </>
+          )}
+          <text className="tree-node-place gm-data" x={COUNT_ICON + 3} y={9}>{text}</text>
+        </g>
+      ))}
+    </g>
+  );
+}
+
 interface Props {
   name: string;
   years?: string;
@@ -216,12 +260,7 @@ export function TreeNodeBox({
           <YearsText text={r.text} approx={r.approx} svg />
         </text>
       ))}
-      {counts && (
-        <text className="tree-node-place tree-node-counts gm-data" x={NODE_W - 12} y={DETAIL_ROW_TOP} textAnchor="end">
-          <title>{counts.full}</title>
-          {counts.short}
-        </text>
-      )}
+      {counts && <FamilyCountMarks parts={counts.parts} title={counts.full} />}
       {photoPath && photo && (
         <TreeNodePhoto
           node={photo.node}
