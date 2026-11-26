@@ -3205,6 +3205,7 @@ export const en = {
   "relpath.optShortest":      "Shortest path ({{count}} steps)",
   "relpath.optBlood":         "Bloodline via {{name}} ({{count}} steps)",
   "relpath.optAssoc":         "Through godparents and witnesses ({{count}} steps)",
+  "relpath.optAssocVia":      "{{role}} {{name}} ({{count}} steps)",
   "relpath.openInEdit":       "Edit",
   "relpath.replace":          "Click to change this person",
   "relpath.replaceStart":      "Replace start person:",

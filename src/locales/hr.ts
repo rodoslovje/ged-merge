@@ -3450,6 +3450,7 @@ export const hr = {
   "relpath.optShortest": "Najkraći put (koraka: {{count}})",
   "relpath.optBlood": "Krvno srodstvo preko: {{name}} (koraka: {{count}})",
   "relpath.optAssoc": "Preko kumova i svjedoka (koraka: {{count}})",
+  "relpath.optAssocVia": "{{role}} {{name}} (koraka: {{count}})",
   "relpath.openInEdit": "Uredi",
   "relpath.replace": "Kliknite za zamjenu osobe",
   "relpath.replaceStart": "Zamijeni polaznu osobu:",

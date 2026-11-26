@@ -11,7 +11,7 @@ import { SelectMenu } from "./DropdownMenu";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
-import { assocLinks, labelPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
+import { assocLinks, assocPaths, labelPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
 import { roleLabel } from "./edit/EventAssociates";
 import { buildRelationshipChart, type ChartBox } from "../chart/relationshipLayout";
 import { assocKind } from "../chart/familyGraph";
@@ -123,9 +123,9 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   // Every route the relationship label names (each bloodline, or for an in-law
   // a bloodline plus one marriage) first — the first is the default, so the
   // drawing always agrees with the label — then the shortest path through any
-  // edge, unless it is one of those routes already. Last, the path that also
-  // steps over a godparent or a witness, where one is shorter than every
-  // family link — or the only connection the two have.
+  // edge, unless it is one of those routes already. Last, what else ties the
+  // two: each route over one godparent or witness, named after them, and the
+  // path over several where that is shorter — or the only connection there is.
   const associationIndex = useAssociationIndex(mainDs);
   const ties = useMemo(() => assocLinks(mainDs, associationIndex()), [mainDs, associationIndex]);
   const options = useMemo<PathOption[]>(() => {
@@ -138,11 +138,31 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     if (shortest && !blood.some((b) => sameSteps(b, shortest))) {
       opts.push({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
+    const single = assocPaths(mainDs, startSel, targetSel, ties);
+    const viaOne = single.map((path): PathOption => {
+      const link = path.steps.find((s) => s.assoc)!.assoc!;
+      const associateId = link.associate ? link.id : path.steps[path.steps.findIndex((s) => s.assoc) - 1].id;
+      const role = roleLabel(link.assoc, t, mainDs.individuals.get(associateId)?.sex);
+      return {
+        path,
+        label: t("relpath.optAssocVia", { role: role.charAt(0).toLocaleUpperCase() + role.slice(1), name: nameOf(associateId), count: path.hops }),
+      };
+    });
+    // Over several associations only where that is shorter than over any one
+    // — and then first, as the shortest of them.
     const tied = ties.size ? shortestPath(mainDs, startSel, targetSel, ties) : undefined;
-    if (tied?.kind === "assoc" && (!shortest || tied.hops < shortest.hops)) {
+    if (tied?.kind === "assoc" && !single.some((p) => p.hops <= tied.hops)) {
       opts.push({ path: tied, label: t("relpath.optAssoc", { count: tied.hops }) });
     }
-    return opts;
+    opts.push(...viaOne);
+    // Two routes that read alike — the same ancestor reached two ways — are
+    // told apart by the first person only this one passes.
+    return opts.map((o, i) => {
+      const twin = opts.find((other, j) => j !== i && other.label === o.label);
+      if (!twin) return o;
+      const differs = o.path.steps.find((s, k) => s.id !== twin.path.steps[k]?.id);
+      return differs ? { ...o, label: `${o.label} · ${nameOf(differs.id)}` } : o;
+    });
   }, [mainDs, startSel, targetSel, t, nameOf, ties]);
 
   const { alignment } = settings;
