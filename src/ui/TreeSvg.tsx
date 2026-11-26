@@ -176,6 +176,7 @@ export const TreeSvg = memo(function TreeSvg({
                     age: n.age,
                     ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
                     place: n.place,
+                    address: n.address,
                     kinship: kinshipOf?.(n),
                     living: n.living,
                     livingLabel: livingLabelFor(t, n.sex),
@@ -190,6 +191,7 @@ export const TreeSvg = memo(function TreeSvg({
                 yearsApprox={n.yearsApprox}
                 age={n.age}
                 place={n.place}
+                address={n.address}
                 sex={n.sex}
                 color={colorOf(n)}
                 kinship={kinshipOf?.(n)}

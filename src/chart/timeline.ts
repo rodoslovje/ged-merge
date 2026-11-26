@@ -18,7 +18,7 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { EVENT_GLYPHS, LDS_ORDINANCE_TAGS, eventDisplayLabel } from "../gedcom/eventTags";
 import { localityParts } from "../gedcom/place";
 import type { Translate } from "../locales/i18n";
-import { MARRIAGE_SYMBOL, placeLabel } from "./nodeDisplay";
+import { MARRIAGE_SYMBOL, addressLabel, placeLabel } from "./nodeDisplay";
 import { marriageOf } from "./personTree";
 
 /** The person's relation to the timeline's root, in row-group order. A parent's
@@ -90,6 +90,8 @@ export interface TimelineRow {
   private?: boolean;
   /** First-available place (birth → residence → death) for the place toggle. */
   place?: string;
+  /** The address of the first of those events that records one. */
+  address?: string;
   /** Bar extent in years; absent when the person has no dated event at all. */
   from?: number;
   to?: number;
@@ -312,6 +314,7 @@ function makeRow(
     living,
     private: !!indi.private,
     place: placeLabel(indi),
+    address: addressLabel(indi),
     from,
     to,
     openStart: from !== undefined && birth === undefined,

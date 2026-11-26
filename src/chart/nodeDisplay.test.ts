@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
 import { parsePlace } from "../gedcom/place";
-import { ALL_DISPLAY, formatMarriage, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, placeLabel, type NodeDisplayOptions } from "./nodeDisplay";
+import { ALL_DISPLAY, formatMarriage, addressLabel, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, placeLabel, placeLine, type NodeDisplayOptions } from "./nodeDisplay";
 import { marriageOf } from "./personTree";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
@@ -43,6 +43,36 @@ describe("placeLabel", () => {
     expect(placeLabel(person([{ tag: "BIRT", place: "Kranj 22, Slovenija" }]))).toBe("Kranj");
     expect(placeLabel(person([{ tag: "BIRT" }, { tag: "DEAT", place: "Celje" }]))).toBe("Celje");
     expect(placeLabel(person([]))).toBeUndefined();
+  });
+});
+
+describe("addressLabel", () => {
+  it("is the whole address of the first birth / residence / death event that has one", () => {
+    const p = person([
+      { tag: "BIRT", place: "Kranj" },
+      { tag: "RESI", place: "4000 Kranj, Slovenija", address: "Bitnje 6 (pd Urbanov Jaka)" },
+      { tag: "DEAT", address: "Dunajska 5" },
+    ]);
+    expect(addressLabel(p)).toBe("Bitnje 6 (pd Urbanov Jaka)");
+    expect(addressLabel(person([{ tag: "BIRT", place: "Kranj" }]))).toBeUndefined();
+  });
+});
+
+describe("placeLine", () => {
+  const both = { place: "Kranj", address: "Bitnje 6" };
+  it("writes the address when Address is on, and the place where there is no address", () => {
+    expect(placeLine({ showPlace: false, showAddress: true }, both)).toBe("Bitnje 6");
+    expect(placeLine({ showPlace: true, showAddress: true }, both)).toBe("Bitnje 6");
+    expect(placeLine({ showPlace: false, showAddress: true }, { place: "Kranj" })).toBe("Kranj");
+  });
+
+  it("writes the place alone when only Place is on, and nothing when both are off", () => {
+    expect(placeLine({ showPlace: true, showAddress: false }, both)).toBe("Kranj");
+    expect(placeLine({ showPlace: false, showAddress: false }, both)).toBeUndefined();
+  });
+
+  it("reaches the node through nodeDisplay", () => {
+    expect(nodeDisplay(opts({ showAddress: true }), { ...base, address: "Bitnje 6" }).place).toBe("Bitnje 6");
   });
 });
 

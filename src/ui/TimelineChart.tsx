@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
 import { buildTimeline, familyDepth, type TimelineRow } from "../chart/timeline";
 import { blurYear } from "../chart/lineageYears";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox, placeLine } from "../chart/nodeDisplay";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, type ChartNode } from "../chart/treeLayout";
 import { useTreeCanvas } from "./useTreeCanvas";
@@ -389,7 +389,7 @@ export function TimelineChart({ mainDs, rootId: currentRootId, startId, backLabe
       age,
       ageText: age !== undefined ? ageStandalone(t, row.sex, age) : undefined,
     });
-    return [lifespan, settings.showPlace ? row.place : undefined].filter(Boolean).join(" · ");
+    return [lifespan, placeLine(settings, row)].filter(Boolean).join(" · ");
   };
   /** The row's role chip. The root person carries none — the highlight already
    *  marks them. "Great-grandmother" says what "Ancestor" cannot, and the

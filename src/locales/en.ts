@@ -2493,6 +2493,7 @@ export const en = {
   "tree.settings.display.marriedName": "Married surname",
   "tree.settings.display.kinship": "Kinship",
   "tree.settings.display.place": "Place",
+  "tree.settings.display.address": "Address",
   "tree.settings.display.emphasizeDirect": "Highlight ancestors & descendants",
   "tree.settings.marriage": "Marriage",
   "tree.settings.marriage.date": "Date",

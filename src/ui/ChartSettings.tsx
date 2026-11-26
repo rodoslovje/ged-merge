@@ -17,10 +17,11 @@ const ALIGNMENTS: ChartAlignment[] = ["lr", "tb"];
 
 /** The boolean display toggles, in popover order — the per-person fields (the
  *  "Person" group). */
-const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "emphasizeDirect" | "showPlace" | "showMarriedName"; label: string }[] = [
+const DISPLAY_FIELDS: { key: "showLifespan" | "showAge" | "showPhoto" | "showKinship" | "emphasizeDirect" | "showPlace" | "showAddress" | "showMarriedName"; label: string }[] = [
   { key: "showLifespan", label: "lifespan" },
   { key: "showAge", label: "age" },
   { key: "showPlace", label: "place" },
+  { key: "showAddress", label: "address" },
   { key: "showPhoto", label: "photo" },
   { key: "showKinship", label: "kinship" },
   { key: "showMarriedName", label: "marriedName" },
