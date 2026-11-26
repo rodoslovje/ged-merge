@@ -25,8 +25,8 @@ export interface NodeDisplayOptions {
    *  stands in where they have none) — see {@link placeLine}. With the place
    *  shown too, a chart with the room writes both, the address above. */
   showAddress: boolean;
-  /** The chart keeps two rows for the address — see `DetailToggles`. */
-  addressLines?: 1 | 2;
+  /** How many rows the chart keeps for the address — see `DetailToggles`. */
+  addressLines?: 0 | 1 | 2;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */

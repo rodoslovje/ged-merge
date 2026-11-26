@@ -108,6 +108,11 @@ describe("placeLine", () => {
   it("keeps a second row for an address too long for one", () => {
     const on = opts({ showPlace: false, showAddress: true });
     expect(detailRowCount({ ...on, addressLines: 2 })).toBe(detailRowCount(on) + 1);
+    // Nobody on the chart has an address: no row for one beside the place's,
+    // and the place still has its row when the address stands alone.
+    const both = opts({ showPlace: true, showAddress: true });
+    expect(detailRowCount({ ...both, addressLines: 0 })).toBe(detailRowCount({ ...both, showAddress: false }));
+    expect(detailRowCount({ ...on, addressLines: 0 })).toBe(detailRowCount(on));
     // A plain box's row holds 32 characters and squeezes to 38; beside a photo, 24 and 29.
     expect([placeRowChars(TEXT_X_PLAIN), placeRowChars(TEXT_X_PHOTO)]).toEqual([38, 29]);
     const long = "Bitnje 6 (pd Urbanov Jaka, Popar)";

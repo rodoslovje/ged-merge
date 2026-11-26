@@ -193,7 +193,7 @@ export function TreeNodeBox({
   const rows: { text: string; cls: string; approx?: YearsApprox; fit?: ReturnType<typeof placeFit> }[] = [];
   const placeChars = placeRowChars(textX);
   if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year", approx: disp.yearsApprox });
-  for (const text of disp.address ? wrapAddress(disp.address, display.addressLines, placeChars) : []) {
+  for (const text of disp.address ? wrapAddress(disp.address, display.addressLines === 2 ? 2 : 1, placeChars) : []) {
     rows.push({ text, cls: "tree-node-place tree-node-address", fit: placeFit(text, textX) });
   }
   if (disp.place) {

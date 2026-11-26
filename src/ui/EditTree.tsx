@@ -230,13 +230,17 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // chart drawing photos measures by the narrower row beside one.
   const mediaFolder = useMediaFolder().folderName;
   const addressTextX = settings.showPhoto && mediaFolder ? TEXT_X_PHOTO : TEXT_X_PLAIN;
-  const addressLines = useMemo<1 | 2>(() => {
-    if (!settings.showAddress) return 1;
+  // And a chart where nobody has an address keeps no row for one.
+  const addressLines = useMemo<0 | 1 | 2>(() => {
+    if (!settings.showAddress) return 0;
     const roots = complete
       ? completeTree?.panels.map((p) => p.tree) ?? []
       : bowtie ? [shown.ancestors, shown.descendants] : [tree];
-    return roots.some((root) => someTreeNode(root, (n) => addressOverflows(n.address, addressTextX))) ? 2 : 1;
-  }, [settings.showAddress, addressTextX, complete, completeTree, bowtie, shown, tree]);
+    // A redacted living person shows no address.
+    const shows = (n: TreeNode) => !!n.address && !(settings.privacyLiving && n.living);
+    if (roots.some((root) => someTreeNode(root, (n) => shows(n) && addressOverflows(n.address, addressTextX)))) return 2;
+    return roots.some((root) => someTreeNode(root, shows)) ? 1 : 0;
+  }, [settings.showAddress, settings.privacyLiving, addressTextX, complete, completeTree, bowtie, shown, tree]);
   const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn, addressLines }), [settings, kinshipDrawn, addressLines]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.

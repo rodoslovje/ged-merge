@@ -31,15 +31,20 @@ export interface DetailToggles {
   /** Alone, the address is written on the place row; with the place shown
    *  too it takes a row of its own above it. */
   showAddress: boolean;
-  /** An address on the chart is too long for one row ({@link addressOverflows}),
-   *  so every box keeps a second one for it. */
-  addressLines?: 1 | 2;
+  /** How many rows the chart's addresses need: none when nobody drawn has an
+   *  address, two when one is too long for a row ({@link addressOverflows}).
+   *  A chart that does not count them keeps one. */
+  addressLines?: 0 | 1 | 2;
   showKinship: boolean;
 }
 
 /** How many detail rows are enabled (0–5). */
 export function detailRowCount(o: DetailToggles): number {
-  return (o.showLifespan || o.showAge ? 1 : 0) + (o.showPlace ? 1 : 0) + (o.showAddress ? o.addressLines ?? 1 : 0) + (o.showKinship ? 1 : 0);
+  // The address rows stand above the place's; with the place off, a person
+  // with no address writes their place on the first of them instead.
+  const address = o.showAddress ? o.addressLines ?? 1 : 0;
+  const place = o.showPlace ? 1 + address : o.showAddress ? Math.max(1, address) : 0;
+  return (o.showLifespan || o.showAge ? 1 : 0) + place + (o.showKinship ? 1 : 0);
 }
 
 /** The node-box height for the current display settings: the base box holds the

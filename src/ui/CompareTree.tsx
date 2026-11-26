@@ -312,10 +312,14 @@ export function CompareTree({
   // chart drawing photos measures by the narrower row beside one.
   const mediaFolder = useMediaFolder().folderName;
   const addressTextX = settings.showPhoto && mediaFolder ? TEXT_X_PHOTO : TEXT_X_PLAIN;
-  const addressLines = useMemo<1 | 2>(
-    () => (settings.showAddress && someTreeNode(tree, (n) => addressOverflows(n.address, addressTextX)) ? 2 : 1),
-    [settings.showAddress, addressTextX, tree],
-  );
+  // And a chart where nobody has an address keeps no row for one.
+  const addressLines = useMemo<0 | 1 | 2>(() => {
+    if (!settings.showAddress) return 0;
+    // A redacted living person shows no address.
+    const shows = (n: TreeNode) => !!n.address && !(settings.privacyLiving && n.living);
+    if (someTreeNode(tree, (n) => shows(n) && addressOverflows(n.address, addressTextX))) return 2;
+    return someTreeNode(tree, shows) ? 1 : 0;
+  }, [settings.showAddress, settings.privacyLiving, addressTextX, tree]);
   const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn, addressLines }), [settings, kinshipDrawn, addressLines]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
