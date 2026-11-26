@@ -220,12 +220,13 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const kinshipOn = settings.showKinship && appSettings.showKinship && !!kinship;
   const kinshipDrawn = useMemo(() => {
     if (!kinshipOn || !kinship) return false;
-    const related = (n: TreeNode) => !!n.main && !!kinship.label(n.main.id);
+    // A redacted living person never shows a kinship row.
+    const related = (n: TreeNode) => !!n.main && !(settings.privacyLiving && n.living) && !!kinship.label(n.main.id);
     const roots = complete
       ? completeTree?.panels.map((p) => p.tree) ?? []
       : bowtie ? [shown.ancestors, shown.descendants] : [tree];
     return roots.some((root) => someTreeNode(root, related));
-  }, [kinshipOn, kinship, complete, completeTree, bowtie, shown, tree]);
+  }, [kinshipOn, kinship, settings.privacyLiving, complete, completeTree, bowtie, shown, tree]);
   // An address too long for one row gives every box a second one for it. A
   // chart drawing photos measures by the narrower row beside one.
   const mediaFolder = useMediaFolder().folderName;
