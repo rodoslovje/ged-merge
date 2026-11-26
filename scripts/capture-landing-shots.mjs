@@ -1,5 +1,6 @@
 // Capture of the landing-page screenshot strip from the live dev server.
-// Six shots per theme: Edit view + Tree + Fan from the Tudor sample, the
+// Six shots per theme: Edit view + Tree + Fan from the Tudor sample (the fan
+// rooted on Margaret Tudor: ancestors, descendants and siblings at once), the
 // Merge view matching Europe Royal Families against the Tudor file, the Map
 // from scripts/capture-map-fixture.ged (a family moving across Austria-Hungary,
 // coordinates embedded) with life paths on the self-hosted Spezialkarte overlay
@@ -7,7 +8,8 @@
 // front page of the family website Tools makes from the Tudor sample.
 // The strip serves them 1600 px on the long side, the map as JPEG:
 //   magick shot.png -resize 1600x1600 -strip public/landing/<name>.png|.jpg
-// Usage: node scripts/capture-landing-shots.mjs <baseURL> <outDir>
+// Usage: node scripts/capture-landing-shots.mjs <baseURL> <outDir> [only]
+// `only` = "fan" stops each pass after the Edit, Tree and Fan shots.
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "fs";
 import { tmpdir } from "os";
@@ -18,7 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.resolve(__dirname, "capture-map-fixture.ged");
 const TUDOR = path.resolve(__dirname, "../public/samples/EnglishTudorRoyalFamily.ged");
 
-const [base = "http://localhost:5173", outDir = "shots"] = process.argv.slice(2);
+const [base = "http://localhost:5173", outDir = "shots", only = ""] =process.argv.slice(2);
 mkdirSync(outDir, { recursive: true });
 
 const browser = await chromium.launch();
@@ -37,6 +39,8 @@ async function makePage(theme, overlays, phone) {
   const page = await ctx.newPage();
   await page.addInitScript(([t, ov]) => {
     localStorage.setItem("gedmerge.theme", t);
+    // The fan's Siblings switch, on from the start.
+    localStorage.setItem("gedmerge.chartSettings", JSON.stringify({ fanSiblings: true }));
     localStorage.setItem("gedmerge.settings", JSON.stringify({
       allowMapTiles: true,
       mapOverlays: ov ? [{
@@ -144,6 +148,14 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
       await chartShot(page, `${outDir}/tree-${theme}${m}.png`);
     }
     await pickKind(page, phone, "Fan");
+    // Back to Both (no key for it; a phone keeps the tabs in the ☰ menu) and
+    // re-rooted on Henry's daughter Margaret: her ancestors above, her
+    // descendants below, her brothers and sister beside.
+    if (phone) await page.locator(".chart-menu-btn").click();
+    await page.getByRole("tab", { name: /^Both/ }).click();
+    if (phone) await page.locator(".chart-menu-btn").click();
+    await page.locator("g.fan-node:not(.fan-spouse)").filter({ hasText: /^Margaret ?Tudor/ }).first().click();
+    await page.getByRole("button", { name: "Root", exact: true }).click();
     // The fan's layout reserves its empty lower half, so plain fit leaves it
     // small — zoom (with the app's own stepper) until the drawn content nearly
     // fills the canvas height, then centre on it.
@@ -176,6 +188,7 @@ for (const [theme, phone] of [["dark", false], ["light", false], ["dark", true],
     });
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${outDir}/fan-${theme}${m}.png` });
+    if (only === "fan") { await ctx.close(); continue; }
 
     // Merge: Europe Royal Families as main, the Tudor file as compare.
     await page.goto(base);
