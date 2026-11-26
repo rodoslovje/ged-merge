@@ -156,10 +156,20 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
 
   // Kinship-to-start resolver: one start-side pedigree walk, per-target caching —
   // labelling every node costs each person once, not two walks per node per render.
-  const kinship = useMemo(
+  const startKinship = useMemo(
     () => (startId ? createKinshipResolver(mainDs, startId, t) : undefined),
     [mainDs, startId, t],
   );
+  // The labels on the chart are measured from the start person, or — the
+  // user's choice — from the person the chart is rooted on, who then carries
+  // none: "start person" is not what the root is. The title's kinship and the
+  // bold direct line stay the start person's.
+  const kinship = useMemo(() => {
+    if (settings.kinshipFrom !== "root" || currentRootId === startId) return startKinship;
+    if (!mainDs.individuals.has(currentRootId)) return undefined;
+    const fromRoot = createKinshipResolver(mainDs, currentRootId, t);
+    return { ...fromRoot, label: (id: string) => (id === currentRootId ? undefined : fromRoot.label(id)) };
+  }, [settings.kinshipFrom, currentRootId, startId, startKinship, mainDs, t]);
 
   // Both directions build once per root/dataset: they feed the mode-button
   // head-counts and the current direction's chart, layered or radial — so
@@ -355,8 +365,8 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
     [kinship],
   );
   const directOf = useCallback(
-    (n: TreeNode) => (n.main ? kinship?.direct(n.main.id) ?? false : false),
-    [kinship],
+    (n: TreeNode) => (n.main ? startKinship?.direct(n.main.id) ?? false : false),
+    [startKinship],
   );
   // Identity-stable across renders — the chart bodies are memoized, and an
   // inline arrow here would void that on every zoom/scroll tick.
@@ -553,9 +563,9 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   const selectedModified = selected ? isModified(selected) : false;
 
   // Root person's kinship to the start person, shown in the title.
-  const rootKinship = rootPerson ? kinship?.label(rootPerson.id) : undefined;
-  const rootLineage = rootPerson ? kinship?.lineage(rootPerson.id) : undefined;
-  const rootDirect = rootPerson ? kinship?.direct(rootPerson.id) : undefined;
+  const rootKinship = rootPerson ? startKinship?.label(rootPerson.id) : undefined;
+  const rootLineage = rootPerson ? startKinship?.lineage(rootPerson.id) : undefined;
+  const rootDirect = rootPerson ? startKinship?.direct(rootPerson.id) : undefined;
 
   // Chart "kind" label = direction — diagram type, e.g. "Ancestors — Fan Chart"
   // or "Bowtie — Tree", plus "4 of 9 generations" while the limit is cutting —
@@ -639,7 +649,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       }
       actions={
         <>
-          <ChartSettings availableGenerations={shownDepth} />
+          <ChartSettings availableGenerations={shownDepth} kinshipFrom />
           <ChartExportMenu
             disabled={!activeLaid}
             slug={chartSlug(exportName, directionLabel)}

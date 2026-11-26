@@ -42,6 +42,10 @@ export function marriedNameOverride(show: boolean): { readonly marriedSurname: b
 }
 
 /** The variant these settings draw. */
+/** Who the kinship labels of a tree are measured from. */
+export type KinshipFrom = "start" | "root";
+export const KINSHIP_FROM: KinshipFrom[] = ["start", "root"];
+
 export function pedigreeVariant(s: Pick<ChartSettings, "type" | "treeLayout" | "fanShape">): PedigreeVariant {
   return s.type === "fan" ? s.fanShape : s.treeLayout === "grid" ? "grid" : "tree";
 }
@@ -93,6 +97,9 @@ export interface ChartSettings {
   /** Set the start person's direct line — ancestors and descendants — in bold,
    *  name and kinship alike. */
   emphasizeDirect: boolean;
+  /** Who a tree's kinship labels are measured from: the file's start person,
+   *  or the person the chart is rooted on. */
+  kinshipFrom: KinshipFrom;
   /** Show the person's photo (when a media folder is loaded). */
   showPhoto: boolean;
   /** Show the birth–death lifespan years. */
@@ -169,6 +176,7 @@ const DEFAULTS: ChartSettings = {
   alignment: "lr",
   showKinship: true,
   emphasizeDirect: true,
+  kinshipFrom: "start",
   showPhoto: true,
   showLifespan: true,
   showAge: false,
@@ -266,6 +274,7 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       alignment: parsed.alignment === "tb" ? "tb" : DEFAULTS.alignment,
       showKinship: bool(parsed.showKinship, DEFAULTS.showKinship),
       emphasizeDirect: bool(parsed.emphasizeDirect, DEFAULTS.emphasizeDirect),
+      kinshipFrom: parsed.kinshipFrom === "root" ? "root" : DEFAULTS.kinshipFrom,
       showPhoto: bool(parsed.showPhoto, DEFAULTS.showPhoto),
       showLifespan: bool(parsed.showLifespan, DEFAULTS.showLifespan),
       showAge: bool(parsed.showAge, defaults.showAge),

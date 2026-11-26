@@ -3,7 +3,7 @@ import { usePopoverKeyboard } from "../keyboard/usePopoverKeyboard";
 import { useTranslation } from "react-i18next";
 import { GearIcon } from "./icons/GearIcon";
 import { useMediaFolder } from "./MediaFolderContext";
-import { LIVING_NAMES, useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
+import { KINSHIP_FROM, LIVING_NAMES, useChartSettings, type ChartAlignment, type ChartSettings as Settings, type PedigreeType, type TimelineEventScope } from "./ChartSettingsContext";
 import { colorAxesFor, type ColorAxisScope } from "../chart/nodeColor";
 
 // The Chart-settings control for the full-page diagram toolbars: a gear button
@@ -46,6 +46,7 @@ export function ChartSettings({
   lockedType,
   availableGenerations,
   colorAxes = "all",
+  kinshipFrom = false,
 }: {
   lockedType?: PedigreeType | "timeline" | "report" | "map" | "kin" | "network";
   /** How many generations the current view actually has to offer. Passing it
@@ -56,6 +57,9 @@ export function ChartSettings({
    *  that colours by something of its own takes "none" and is offered no Color
    *  setting at all (see {@link ColorAxisScope}). */
   colorAxes?: ColorAxisScope;
+  /** The chart can measure its kinship labels from its own root instead of
+   *  the start person, and so offers the choice. */
+  kinshipFrom?: boolean;
 } = {}) {
   const { t } = useTranslation();
   const { settings, setAlignment, set } = useChartSettings();
@@ -179,6 +183,24 @@ export function ChartSettings({
               })}
             </div>
           </div>
+          {/* Who the kinship labels are measured from — offered while they show. */}
+          {kinshipFrom && settings.showKinship && (
+            <div className="chart-settings-group">
+              <span className="chart-settings-heading">{t("tree.settings.kinshipFrom")}</span>
+              <div className="chart-settings-segmented">
+                {KINSHIP_FROM.map((from) => (
+                  <button
+                    key={from}
+                    className={settings.kinshipFrom === from ? "active" : ""}
+                    aria-pressed={settings.kinshipFrom === from}
+                    onClick={() => set({ kinshipFrom: from })}
+                  >
+                    {t(`tree.settings.kinshipFrom.${from}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {/* Per-couple marriage fields (date / place) — drawn on the couple's
               connector (tree / grid), the fan collar, or beside the timeline's
               ⚭ markers; both default off. */}
