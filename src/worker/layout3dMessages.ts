@@ -9,6 +9,8 @@ export type Layout3dRequest =
       ea: Int32Array;
       eb: Int32Array;
       len: Float32Array;
+      /** 1 for a weak link (see LayoutEdge), one entry per edge. */
+      weak: Uint8Array;
       gen: Float64Array;
       hops: Int32Array;
       trees: Int32Array;

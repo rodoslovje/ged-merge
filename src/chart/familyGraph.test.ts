@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { buildFamilyGraph, SPOUSE_LINE } from "./familyGraph";
+import { buildAssociationIndex } from "../gedcom/assoc";
+import { ASSOC_LINE, buildFamilyGraph, SPOUSE_LINE } from "./familyGraph";
 import { createLayout3d, LAYER, treeAnchors } from "./forceLayout3d";
 import { OWN_BRANCH } from "./kinshipWheel";
 
@@ -108,6 +109,62 @@ describe("buildFamilyGraph", () => {
   });
 });
 
+describe("buildFamilyGraph with associations", () => {
+  // R, child of F and M, was held at the font by G — of another family, G's
+  // wife GW and their son GS. R's own wedding to S was witnessed by W, who has
+  // no family at all. X is nobody's associate.
+  const person = (id: string, famc: string[], fams: string[], extra = "") =>
+    `0 @${id}@ INDI\n1 NAME ${id} /X/\n${extra}` + famc.map((f) => `1 FAMC @${f}@\n`).join("") + fams.map((f) => `1 FAMS @${f}@\n`).join("");
+  const text =
+    `0 HEAD\n1 GEDC\n2 VERS 7.0\n` +
+    person("R", ["F1"], ["F9"], "1 BIRT\n2 DATE 1700\n2 ASSO @G@\n3 ROLE GODP\n") +
+    person("F", [], ["F1"]) + person("M", [], ["F1"]) + person("S", [], ["F9"]) +
+    person("G", [], ["F2"]) + person("GW", [], ["F2"]) + person("GS", ["F2"], []) +
+    person("W", [], []) + person("X", [], []) +
+    fam("F1", "F", "M", ["R"]) + fam("F2", "G", "GW", ["GS"]) +
+    `0 @F9@ FAM\n1 HUSB @R@\n1 WIFE @S@\n1 MARR\n2 ASSO @W@\n3 ROLE WITN\n` +
+    `0 TRLR\n`;
+  const ds = dataset(text);
+  const assoc = buildAssociationIndex(ds);
+  const byId = (g: ReturnType<typeof buildFamilyGraph>, id: string) => g.nodes.find((n) => n.id === `@${id}@`)!;
+  const at = (g: ReturnType<typeof buildFamilyGraph>, id: string) => g.nodes.indexOf(byId(g, id));
+
+  it("leaves them out unless asked", () => {
+    const g = buildFamilyGraph(ds, "@R@", "connected", 100);
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(["@F@", "@M@", "@R@", "@S@"]);
+    expect(g.assocs).toEqual([]);
+  });
+
+  it("walks over a godparent and a witness, and brings the godparent's family", () => {
+    const g = buildFamilyGraph(ds, "@R@", "connected", 100, Infinity, assoc);
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(["@F@", "@G@", "@GS@", "@GW@", "@M@", "@R@", "@S@", "@W@"]);
+    expect(g.trees).toBe(1);
+    // The godparent a generation up, his family on a line of its own; the
+    // witness beside the couple.
+    expect(byId(g, "G").pos).toEqual({ gen: 1, branch: ASSOC_LINE });
+    expect(byId(g, "GS").pos).toEqual({ gen: 0, branch: ASSOC_LINE });
+    expect(byId(g, "W").pos).toEqual({ gen: 0, branch: ASSOC_LINE });
+    // The baptism's tie hangs on the child, the wedding's on the couple's hub.
+    const hub = g.nodes.length + g.families.findIndex((f) => f.partners.includes(at(g, "S")));
+    expect(g.assocs).toEqual(expect.arrayContaining([{ a: at(g, "R"), b: at(g, "G") }, { a: hub, b: at(g, "W") }]));
+    expect(g.assocs).toHaveLength(2);
+    // The family links are what they were.
+    expect(g.edges.every((e) => e.kind === "partner" || e.kind === "child")).toBe(true);
+  });
+
+  it("never steps off the root's blood", () => {
+    const g = buildFamilyGraph(ds, "@R@", "blood", 100, Infinity, assoc);
+    expect(g.nodes.map((n) => n.id).sort()).toEqual(["@F@", "@M@", "@R@"]);
+    expect(g.assocs).toEqual([]);
+  });
+
+  it("counts the trees an association joins as one", () => {
+    const g = buildFamilyGraph(ds, "@R@", "file", 100, Infinity, assoc);
+    expect(g.trees).toBe(2); // the root's, and X alone
+    expect(buildFamilyGraph(ds, "@R@", "file", 100).trees).toBe(4);
+  });
+});
+
 describe("treeAnchors", () => {
   it("keeps the root's tree in the middle and the others apart, outside it", () => {
     // Tree 0 of 200 people, then 30 small trees of 2.
@@ -148,6 +205,22 @@ describe("createLayout3d", () => {
     const p = l.pos;
     expect(Math.hypot(p[6] - p[9], p[7] - p[10], p[8] - p[11])).toBeLessThan(40);
     expect([...p].every(Number.isFinite)).toBe(true);
+  });
+
+  it("lets a weak link draw two families nearer without loosening either", () => {
+    // Two couples (0–1, 2–3), free of any layer, and a weak link from 0 to 2.
+    const settle = (weak: boolean) => {
+      const edges = [{ a: 0, b: 1, length: 30 }, { a: 2, b: 3, length: 30 }];
+      if (weak) edges.push({ a: 0, b: 2, length: 60, weak: true } as (typeof edges)[number]);
+      const l = createLayout3d(4, edges, Float64Array.from([NaN, NaN, NaN, NaN]), new Int32Array(4), Int32Array.from([0, 0, 1, 1]));
+      while (l.step());
+      const p = l.pos;
+      return (a: number, b: number) => Math.hypot(p[a * 3] - p[b * 3], p[a * 3 + 1] - p[b * 3 + 1], p[a * 3 + 2] - p[b * 3 + 2]);
+    };
+    const apart = settle(false), tied = settle(true);
+    expect(tied(0, 2)).toBeLessThan(apart(0, 2));
+    expect(tied(0, 1)).toBeLessThan(tied(0, 2));
+    expect(tied(2, 3)).toBeLessThan(tied(0, 2));
   });
 
   it("is deterministic", () => {

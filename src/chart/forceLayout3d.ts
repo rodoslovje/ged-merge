@@ -15,6 +15,10 @@ export interface LayoutEdge {
   b: number;
   /** Rest length, in layout units. */
   length: number;
+  /** A link that only draws its ends nearer — a godparent, a witness — and
+   *  must not pull a family apart: held at a fraction of a family link's
+   *  strength, and counted apart from them. */
+  weak?: boolean;
 }
 
 export interface Layout3d {
@@ -37,6 +41,8 @@ const CHARGE = 1500;
 const SPREAD = 4;
 /** How hard a family's links hold it together against the push. */
 const STIFF = 3;
+/** A weak link's share of that. */
+const WEAK = 0.12;
 const ALPHA_MIN = 0.004;
 /** Past this many nodes the layout trades some precision for time: a coarser
  *  Barnes–Hut cut and fewer steps (it starts near its end anyway, see `via`). */
@@ -195,8 +201,14 @@ export function createLayout3d(
   const vel = new Float32Array(n * 3);
   const force = new Float32Array(n * 3);
   const rand = rng(seed);
+  // A family's links and the weak ones are counted apart: standing godparent
+  // to a dozen children must not loosen the hold of one's own family.
   const degree = new Int32Array(n);
-  for (const e of edges) { degree[e.a]++; degree[e.b]++; }
+  const weakDegree = new Int32Array(n);
+  for (const e of edges) {
+    const d = e.weak ? weakDegree : degree;
+    d[e.a]++; d[e.b]++;
+  }
   const anchor = treeAnchors(trees ?? new Int32Array(n));
   // Start positions. A node with a `via` waits for that one to be placed (the
   // chain is followed with a stack, not recursion: it can run thousands deep).
@@ -284,8 +296,10 @@ export function createLayout3d(
   const elen = new Float32Array(m), ewa = new Float32Array(m), ewb = new Float32Array(m);
   edges.forEach((e, k) => {
     ea[k] = e.a; eb[k] = e.b; elen[k] = e.length;
-    ewa[k] = 1 / Math.max(degree[e.a], 1);
-    ewb[k] = 1 / Math.max(degree[e.b], 1);
+    const d = e.weak ? weakDegree : degree;
+    const hold = e.weak ? WEAK : 1;
+    ewa[k] = hold / Math.max(d[e.a], 1);
+    ewb[k] = hold / Math.max(d[e.b], 1);
   });
   const every = n > BIG ? 2 : 1;
   let steps = 0;
@@ -379,7 +393,9 @@ export function treeAnchors(tree: Int32Array): Float64Array {
 }
 
 /** Rest length of a link: partners sit close beside their family's hub, the
- *  children a little more than a generation below, so they fan out under it. */
-export function linkLength(kind: "partner" | "child"): number {
-  return kind === "partner" ? LINK * 0.35 : LAYER * 1.3;
+ *  children a little more than a generation below, so they fan out under it;
+ *  a godparent or witness a little further off than that, their own family
+ *  between them. */
+export function linkLength(kind: "partner" | "child" | "assoc"): number {
+  return kind === "partner" ? LINK * 0.35 : kind === "child" ? LAYER * 1.3 : LAYER * 1.6;
 }

@@ -23,6 +23,7 @@ import { AXIS_TINT, CHART_AXES, fanPosition, indexPositions, type NodePosition }
 import { useNodeColorer } from "./useNodeColorer";
 import { ChartLegend } from "./ChartLegend";
 import { hoverInfoFrom, type HoverInfo } from "./useChartHover";
+import { useAssocHover } from "./useAssocHover";
 import { hiddenName, useLivingNameOf } from "./useLivingName";
 import { ChartHoverCard } from "./ChartHoverCard";
 import { useFanChart } from "./useFanChart";
@@ -135,6 +136,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
   // the same formatter the lists, the timeline and the reports use.
   const nameOf = useNameOf(marriedNameOverride(settings.showMarriedName));
   const livingNameOf = useLivingNameOf();
+  const assocHover = useAssocHover(mainDs);
   const { alignment } = settings;
   // Grid is a layered chart (it reuses the tidy-tree SVG path); only the fan
   // kind (fan / circle) is radial.
@@ -477,9 +479,10 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
         },
         n.sex,
         t("tree.node.clickHint"),
+        () => assocHover(n.main),
       );
     },
-    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf, directOf, livingNameOf],
+    [radial, fanNodes, nodesByKey, display, t, fanKinshipOf, lineageOf, directOf, livingNameOf, assocHover],
   );
 
   // +/− zoom, 0 reset, F fit, A/D direction, E the selected person in Edit,

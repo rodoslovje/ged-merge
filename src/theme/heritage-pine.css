@@ -117,6 +117,7 @@
   --map-residence: #5fa8d3;
   --map-other:     #8a9a90;
   --map-mixed:     var(--accent);   /* cluster holding several kinds */
+  --chart-assoc:   var(--map-burial);  /* godparent and witness links on the 3D network */
   --map-land:      #22302a;         /* offline fallback land fill on --bg water */
   --map-path:      #cf7fb4;         /* life-path lines — deliberately off the kind palette */
   /* Period borders (OpenHistoricalMap). One pair for both themes on purpose:
