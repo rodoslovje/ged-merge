@@ -59,7 +59,7 @@ export interface TreeNode {
   /** Whole-years age (at death, or current for the living) when known — folded
    *  into the lifespan line by {@link nodeDisplay} when the Age toggle is on. */
   age?: number;
-  /** First-available place (birth → residence → death), most-specific locality. */
+  /** First-available place (last residence → birth → death), most-specific locality. */
   place?: string;
   /** The address of the first of those events that records one. */
   address?: string;

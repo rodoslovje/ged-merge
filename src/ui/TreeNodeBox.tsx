@@ -11,7 +11,10 @@ import {
   TEXT_X_PHOTO,
   TEXT_X_PLAIN,
   nameFit,
+  placeFit,
+  placeRowChars,
   truncate,
+  wrapAddress,
 } from "../chart/treeLayout";
 import { ageStandalone, ALL_DISPLAY, familyCountsText, livingLabelFor, nodeDisplay, type FamilyCounts, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { lineageClass, type Lineage } from "../match/kinship";
@@ -152,7 +155,7 @@ interface Props {
   yearsApprox?: YearsApprox;
   /** Whole-years age, folded into the lifespan line when the Age toggle is on. */
   age?: number;
-  /** First-available place (birth → residence → death); shown on its own row when enabled. */
+  /** First-available place (last residence → birth → death); shown on its own row when enabled. */
   place?: string;
   /** The person's address, written on the place row when the Address toggle is on. */
   address?: string;
@@ -233,13 +236,20 @@ export function TreeNodeBox({
       : null;
   const textX = photoPath ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const photoY = (nodeH - PHOTO_SIZE) / 2;
-  // Lifespan, then place, then kinship — each on its own row beneath the name.
-  const rows: { text: string; cls: string; approx?: YearsApprox }[] = [];
+  // Lifespan, then address and place, then kinship — each on its own row beneath the name.
+  const rows: { text: string; cls: string; approx?: YearsApprox; fit?: ReturnType<typeof placeFit> }[] = [];
+  const placeChars = placeRowChars(textX);
   // The counts stand at the end of the lifespan row, which they keep for
   // themselves when the person has no years to write there.
   const counts = familyCountsText(t, disp.familyCounts);
   if (disp.years || counts) rows.push({ text: disp.years ?? "", cls: "tree-node-year", approx: disp.yearsApprox });
-  if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
+  for (const text of disp.address ? wrapAddress(disp.address, display.addressLines === 2 ? 2 : 1, placeChars) : []) {
+    rows.push({ text, cls: "tree-node-place tree-node-address", fit: placeFit(text, textX) });
+  }
+  if (disp.place) {
+    const text = truncate(disp.place, placeChars);
+    rows.push({ text, cls: "tree-node-place", fit: placeFit(text, textX) });
+  }
   if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage, disp.kinshipDirect)}` });
   return (
     <>
@@ -256,7 +266,7 @@ export function TreeNodeBox({
         {disp.name}
       </text>
       {rows.map((r, i) => (
-        <text key={r.cls} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>
+        <text key={i} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H} {...r.fit}>
           <YearsText text={r.text} approx={r.approx} svg />
         </text>
       ))}

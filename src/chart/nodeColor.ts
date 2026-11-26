@@ -22,7 +22,6 @@ import type { Translate } from "../locales/i18n";
 import type { TreeMode, TreeNode } from "./personTree";
 import { splitParents, type FanSegment } from "./fanLayout";
 import { OWN_BRANCH } from "./kinshipWheel";
-import { LABEL_PLACE_TAGS } from "./nodeDisplay";
 
 export type ColorAxis =
   | "plain"
@@ -406,10 +405,12 @@ function countryOf(indi: Individual, home: string): string {
 
 /** The birth place's locality and the country it lies in (the home country
  *  for a place that names none). With no birth place, the residence or death
- *  place stands in — the place the chart writes on the person (see
- *  `placeLabel` in nodeDisplay), so the colour never disagrees with the label. */
+ *  place stands in. The axis is the birth place by name, so it reads the birth
+ *  first — unlike the place line (`placeLabel` in nodeDisplay), which leads
+ *  with the last residence. */
+const BIRTH_PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
 function birthPlaceOf(indi: Individual, home: string): { place: string } & PlaceWhere {
-  for (const tag of LABEL_PLACE_TAGS) {
+  for (const tag of BIRTH_PLACE_TAGS) {
     const place = findEvent(indi, tag)?.place;
     const parts = place ? localityParts(place) : [];
     if (place && parts[0]) {

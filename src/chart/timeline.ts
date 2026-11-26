@@ -88,7 +88,7 @@ export interface TimelineRow {
   living: boolean;
   /** Declared private — redacted like the living, without affecting the bar. */
   private?: boolean;
-  /** First-available place (birth → residence → death) for the place toggle. */
+  /** First-available place (last residence → birth → death) for the place toggle. */
   place?: string;
   /** The address of the first of those events that records one. */
   address?: string;

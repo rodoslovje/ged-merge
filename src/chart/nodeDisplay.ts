@@ -22,8 +22,11 @@ export interface NodeDisplayOptions {
   showAge: boolean;
   showPlace: boolean;
   /** Write the address on the place line where the person has one (the place
-   *  stands in where they have none) — see {@link placeLine}. */
+   *  stands in where they have none) — see {@link placeLine}. With the place
+   *  shown too, a chart with the room writes both, the address above. */
   showAddress: boolean;
+  /** How many rows the chart keeps for the address — see `DetailToggles`. */
+  addressLines?: 0 | 1 | 2;
   /** Show how many siblings and children the person has, at the end of the
    *  lifespan row — see {@link familyCounts}. */
   showFamilyCounts: boolean;
@@ -125,41 +128,86 @@ export function modeSummary(t: Translate, people: number, generations: number): 
   return `${t("tree.mode.people", { count: people })} · ${t("tree.gen.count", { count: generations })}`;
 }
 
-/** Place events tried in order — show the first one that records a place.
- *  The Birth place colour axis reads the same, so a wedge's colour always
- *  answers the place written on it. */
-export const LABEL_PLACE_TAGS = ["BIRT", "RESI", "DEAT"] as const;
-const PLACE_TAGS = LABEL_PLACE_TAGS;
+/** The residence the person was last recorded at, among those `has` accepts:
+ *  the latest dated one, else the last one written. */
+function lastResidence(indi: Individual, has: (e: GedEvent) => unknown = (e) => e.place || e.address): GedEvent | undefined {
+  let last: GedEvent | undefined;
+  for (const e of indi.events) {
+    if (e.tag !== "RESI" || !has(e)) continue;
+    const year = e.date?.year;
+    const lastYear = last?.date?.year;
+    // A dated residence outranks an undated one; among equals the later written wins.
+    if (lastYear === undefined || (year !== undefined && year >= lastYear)) last = e;
+  }
+  return last;
+}
 
 /**
- * The place label for a person: the most-specific locality of the first available
- * birth / residence / death place (so the user always sees at least one place when
- * the person has any), with any house number stripped via {@link localityParts}.
+ * What a chart writes for where a person is from, read off their events: the
+ * last residence that gives `read` a value, else the birth, else the death.
+ * The residence leads because a birth is so often recorded at a maternity
+ * hospital and a death at a hospital, in the nearest town — and the last one
+ * because the home a person was born into can be read off their parents.
  */
-export function placeLabel(indi: Individual | undefined): string | undefined {
-  if (!indi) return undefined;
-  for (const tag of PLACE_TAGS) {
-    const place = findEvent(indi, tag)?.place;
-    if (place) {
-      const parts = localityParts(place);
-      if (parts.length) return parts[0];
-    }
+function fromHome<T>(indi: Individual, read: (e: GedEvent) => T | undefined): T | undefined {
+  const home = lastResidence(indi, read);
+  for (const e of [home, findEvent(indi, "BIRT"), findEvent(indi, "DEAT")]) {
+    const value = e && read(e);
+    if (value) return value;
   }
   return undefined;
 }
 
 /**
- * The address label for a person: the address (`ADDR`) of the first birth /
- * residence / death event that records one, whole — the house number and the
- * house name are the point of it. Undefined when none of them has an address.
+ * The place label for a person: the most-specific locality of their last
+ * residence, else of their birth, else of their death (see {@link fromHome}),
+ * with any house number stripped via {@link localityParts}.
+ */
+export function placeLabel(indi: Individual | undefined): string | undefined {
+  if (!indi) return undefined;
+  return fromHome(indi, (e) => (e.place ? localityParts(e.place)[0] : undefined));
+}
+
+/**
+ * One address out of a line that lists several, " / " between them — "Bitnje 6
+ * / Stražišče 12 (pd Urbanov)": the first one, and whatever the others say in
+ * brackets, which is the house name and belongs to them all. A slash inside
+ * brackets, or one with no spaces around it ("38/a"), separates nothing.
+ */
+export function firstAddress(address: string): string {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < address.length; i++) {
+    const ch = address[i];
+    if (ch === "(" || ch === "[") depth++;
+    else if ((ch === ")" || ch === "]") && depth > 0) depth--;
+    else if (depth === 0 && address.startsWith(" / ", i)) {
+      parts.push(address.slice(start, i));
+      start = i + 3;
+      i += 2;
+    }
+  }
+  parts.push(address.slice(start));
+  const first = parts[0].trim();
+  if (parts.length === 1) return first;
+  const bracketed = parts.slice(1).flatMap((part) => part.match(/\([^()]*\)|\[[^[\]]*\]/g) ?? []);
+  return [first, ...bracketed.filter((b, i) => !first.includes(b) && bracketed.indexOf(b) === i)].join(" ");
+}
+
+/**
+ * The address label for a person: the address (`ADDR`) of their last residence
+ * that records one, else of their birth, else of their death — the house
+ * number and the house name are the point of it. A line listing several
+ * addresses gives its first ({@link firstAddress}). Undefined when none of
+ * the events has an address.
  */
 export function addressLabel(indi: Individual | undefined): string | undefined {
   if (!indi) return undefined;
-  for (const tag of PLACE_TAGS) {
-    const raw = findEvent(indi, tag)?.address?.raw.trim();
-    if (raw) return raw.replace(/\s*\n\s*/g, ", ");
-  }
-  return undefined;
+  return fromHome(indi, (e) => {
+    const raw = e.address?.raw.trim().replace(/\s*\n\s*/g, ", ");
+    return raw ? firstAddress(raw) || undefined : undefined;
+  });
 }
 
 /** How many siblings and children a person has on file. */
@@ -232,19 +280,6 @@ export interface HomePlace {
   full: string;
 }
 
-/** The residence the person was last recorded at: the latest dated one, else the last one written. */
-function lastResidence(indi: Individual): GedEvent | undefined {
-  let last: GedEvent | undefined;
-  for (const e of indi.events) {
-    if (e.tag !== "RESI" || !(e.place || e.address)) continue;
-    const year = e.date?.year;
-    const lastYear = last?.date?.year;
-    // A dated residence outranks an undated one; among equals the later written wins.
-    if (lastYear === undefined || (year !== undefined && year >= lastYear)) last = e;
-  }
-  return last;
-}
-
 /**
  * Where a person lived, to tell namesakes apart in a person search: the last
  * residence, else the birth place, else the death place — births and deaths
@@ -306,6 +341,11 @@ export interface NodeDisplay {
   yearsApprox?: YearsApprox;
   /** Place line, present only when shown and not redacted. */
   place?: string;
+  /** The address, on a line of its own, when the Address toggle is on and the
+   *  person has one. The place then shows beneath it only with the Place
+   *  toggle on too; a person with no address shows the place either way. A
+   *  chart with one line for the two reads {@link onePlaceLine} instead. */
+  address?: string;
   /** The sibling and child counts, present only when shown and not redacted. */
   familyCounts?: FamilyCounts;
   /** Kinship line, present only when shown and not redacted. */
@@ -351,11 +391,13 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
       showPhoto: false,
     };
   }
+  const address = opts.showAddress ? input.address || undefined : undefined;
   return {
     name: input.name,
     years: lifespanLine(opts, input),
     yearsApprox: opts.showLifespan ? input.yearsApprox : undefined,
-    place: placeLine(opts, input),
+    address,
+    place: opts.showPlace || (opts.showAddress && !address) ? input.place : undefined,
     ...(opts.showFamilyCounts && input.familyCounts ? { familyCounts: input.familyCounts } : {}),
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
@@ -364,17 +406,24 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
   };
 }
 
+/** A resolved display for a chart with one line for the place: the address
+ *  where the person has one, else the place — whatever the two toggles say. */
+export function onePlaceLine(disp: NodeDisplay): NodeDisplay {
+  if (!disp.address) return disp;
+  return { ...disp, place: disp.address, address: undefined };
+}
+
 /**
  * The hover text for a chart node: the full name with the lifespan (and the
  * age, when shown) on the first line — whatever the box or wedge had room to
  * draw — then each further field the chart options show on a line of its
- * own: the place and the kinship to the start person. A redacted living
+ * own: the address, the place and the kinship to the start person. A redacted living
  * person shows only their placeholder, and every line the redaction hides
  * stays hidden here too.
  */
 export function nodeTooltip(opts: NodeDisplayOptions, input: NodeDisplayInput): string {
   const h = nodeHover(opts, input);
-  return [h.years ? `${h.name}, ${h.years}` : h.name, h.place, h.kinship].filter(Boolean).join("\n");
+  return [h.years ? `${h.name}, ${h.years}` : h.name, h.address, h.place, h.kinship].filter(Boolean).join("\n");
 }
 
 /** What the hover card shows for a node, field by field: the name (or the
@@ -384,6 +433,8 @@ export interface NodeHover {
   name: string;
   years?: string;
   yearsApprox?: YearsApprox;
+  /** The address line above the place — see {@link NodeDisplay.address}. */
+  address?: string;
   place?: string;
   kinship?: string;
   kinshipLineage?: Lineage;
@@ -399,6 +450,7 @@ export function nodeHover(opts: NodeDisplayOptions, input: NodeDisplayInput): No
     name: input.name,
     years: lifespanLine({ showLifespan: true, showAge: opts.showAge }, { years: input.years, age: input.age }) || undefined,
     yearsApprox: input.yearsApprox,
+    address: disp.address,
     place: disp.place,
     kinship: disp.kinship,
     kinshipLineage: disp.kinshipLineage,

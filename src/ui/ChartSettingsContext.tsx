@@ -100,7 +100,7 @@ export interface ChartSettings {
   /** Show the person's age: appended to the lifespan in parentheses, or — when
    *  the lifespan is hidden — as its own "age N" line. */
   showAge: boolean;
-  /** Show a place line (first available of birth / residence / death). */
+  /** Show a place line (first available of last residence / birth / death). */
   showPlace: boolean;
   /** Write the person's address on the place line where they have one; the
    *  place stands in where they have none. */

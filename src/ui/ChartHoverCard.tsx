@@ -41,6 +41,7 @@ export function ChartHoverCard({
         {info.years && <span className="person-years gm-data"><YearsText text={info.years} approx={info.yearsApprox} /></span>}
       </div>
       {info.subtitle && <div className="chart-hover-line">{info.subtitle}</div>}
+      {info.address && <div className="chart-hover-line">{info.address}</div>}
       {info.place && <div className="chart-hover-line">{info.place}</div>}
       {info.kinship && <div className={`chart-hover-kin ${lineageClass(info.kinshipLineage, info.kinshipDirect)}`}>{info.kinship}</div>}
       {info.assoc?.map((line) => <div key={line} className="chart-hover-line">{line}</div>)}
