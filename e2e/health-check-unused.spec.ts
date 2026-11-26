@@ -38,5 +38,11 @@ test("the health check lists shared records nothing points at", async ({ page })
   await expect(rows).toHaveCount(3);
   await expect(page.locator(".tools-issues")).toContainText("Mrliška knjiga Naklo");
   await expect(page.locator(".tools-issues")).not.toContainText("Krstna knjiga Kranj");
+
+  // An unused source is removed from its editor, opened on the row.
+  await page.locator(".tools-issues li", { hasText: "Mrliška knjiga Naklo" }).getByRole("button", { name: "Edit source" }).click();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(rows).toHaveCount(2);
+  await expect(page.locator(".tools-issues")).not.toContainText("Mrliška knjiga Naklo");
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT, fullPage: true });
 });

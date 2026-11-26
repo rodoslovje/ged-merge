@@ -25,6 +25,7 @@ import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
 import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
+import { recordCitedBy } from "../../tools/sources";
 import { eventDisplayLabel } from "../../gedcom/eventTags";
 import { MULTI } from "../../gedcom/vendorTags";
 import { ConfirmDialog } from "../ConfirmDialog";
@@ -188,6 +189,7 @@ export function ValidatePanel({
   onRemoveBranch,
   onTagTranslations,
   onEditSource,
+  onRemoveSource,
   onEditMediaFile,
   view,
   onViewChange,
@@ -220,6 +222,8 @@ export function ValidatePanel({
   onTagTranslations: (choices: Map<string, string[]>) => number;
   /** Save an edited source record — a finding on a source opens its editor. */
   onEditSource: (sourceXref: string, fields: EditSourceFields) => void;
+  /** Delete a source record nothing cites — an "unused record" finding. */
+  onRemoveSource: (sourceXref: string) => void;
   /** Rewrite a media record's FILE — a file whose name says no form opens the
    *  link editor, so the address can be corrected where it is reported. */
   onEditMediaFile: (objeXref: string, path: string | undefined, url: string) => void;
@@ -335,8 +339,19 @@ export function ValidatePanel({
         setEditSrc(null);
         scans.refresh("validate");
       },
+      // Remove only for a source nothing cites, as in Tools → Sources:
+      // deleting a cited record would leave its citations dangling.
+      ...(recordCitedBy(dataset, [editSrc]).length === 0
+        ? {
+            onRemove: () => {
+              onRemoveSource(editSrc);
+              setEditSrc(null);
+              scans.refresh("validate");
+            },
+          }
+        : {}),
     };
-  }, [editSrc, dataset, onEditSource, scans]);
+  }, [editSrc, dataset, onEditSource, onRemoveSource, scans]);
 
   // A media file whose name says no form (a label in front of the address, …)
   // opens the link editor the 🔗 chip does; saving re-runs the check.
