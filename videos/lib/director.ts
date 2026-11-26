@@ -20,6 +20,11 @@ export interface Frame {
   t: number;
 }
 
+/** How a key reads on its keycap, where Playwright's name is not it. */
+const KEYCAP: Record<string, string> = {
+  Control: "Ctrl", Escape: "Esc", Backspace: "⌫", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+};
+
 export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class Recorder {
@@ -173,6 +178,23 @@ export class Director {
   async scrollTo(target: Locator): Promise<void> {
     await target.evaluate((e) => e.scrollIntoView({ behavior: "smooth", block: "center" }));
     await sleep(800);
+  }
+
+  /**
+   * Press a key or chord (Playwright's spelling: "Alt+Shift+C", "ArrowUp")
+   * and show it as keycaps while it acts — the pointer of a video that is
+   * driven from the keyboard.
+   */
+  async press(chord: string, ms = 900): Promise<void> {
+    await this.overlay("keys", chord.split("+").map((k) => KEYCAP[k] ?? (k.length === 1 ? k.toUpperCase() : k)).join("+"), 0);
+    await sleep(350);
+    await this.page.keyboard.press(chord);
+    await sleep(ms);
+  }
+
+  /** Take the keycaps of the last `press` off the screen. */
+  async releaseKeys(): Promise<void> {
+    await this.overlay("keys", null, 0);
   }
 
   async card(kicker: Text | null, title: Text | null, line: Text | null = null): Promise<void> {

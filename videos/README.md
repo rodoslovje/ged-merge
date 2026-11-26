@@ -46,7 +46,8 @@ YouTube chapter (`callout`), and the on-screen actions (`run`), which start
 together with the narration. The step lasts until both are done.
 
 The `Director` passed to `run` offers `click`, `point`, `upload`,
-`highlight`, `scrollTo`, `card` and `wait`. Select elements by CSS class
+`highlight`, `scrollTo`, `card`, `wait` and — for a video driven from the
+keyboard — `press`, which draws the key as keycaps while it acts. Select elements by CSS class
 rather than by label, so one scenario works in both languages.
 
 Demo data lives in `demo/`: a fictional family (`moje-drevo`, `bratranec`) and
