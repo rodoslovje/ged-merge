@@ -33,6 +33,8 @@ import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
 import {
   flatten,
+  TEXT_X_PHOTO,
+  TEXT_X_PLAIN,
   addressOverflows,
   layout,
   layoutGrid,
@@ -306,10 +308,13 @@ export function CompareTree({
     () => kinshipOn && someTreeNode(tree, (n) => !!kinshipOf(n)),
     [kinshipOn, tree, kinshipOf],
   );
-  // An address too long for one row gives every box a second one for it.
+  // An address too long for one row gives every box a second one for it. A
+  // chart drawing photos measures by the narrower row beside one.
+  const mediaFolder = useMediaFolder().folderName;
+  const addressTextX = settings.showPhoto && mediaFolder ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const addressLines = useMemo<1 | 2>(
-    () => (settings.showAddress && someTreeNode(tree, (n) => addressOverflows(n.address)) ? 2 : 1),
-    [settings.showAddress, tree],
+    () => (settings.showAddress && someTreeNode(tree, (n) => addressOverflows(n.address, addressTextX)) ? 2 : 1),
+    [settings.showAddress, addressTextX, tree],
   );
   const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn, addressLines }), [settings, kinshipDrawn, addressLines]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it

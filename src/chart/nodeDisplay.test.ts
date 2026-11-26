@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
-import { addressOverflows, detailRowCount, wrapAddress } from "./treeLayout";
+import { TEXT_X_PHOTO, TEXT_X_PLAIN, addressOverflows, detailRowCount, placeFit, placeRowChars, wrapAddress } from "./treeLayout";
 import { parsePlace } from "../gedcom/place";
 import { ALL_DISPLAY, formatMarriage, addressLabel, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, onePlaceLine, placeLabel, placeLine, type NodeDisplayOptions } from "./nodeDisplay";
 import { marriageOf } from "./personTree";
@@ -108,15 +108,21 @@ describe("placeLine", () => {
   it("keeps a second row for an address too long for one", () => {
     const on = opts({ showPlace: false, showAddress: true });
     expect(detailRowCount({ ...on, addressLines: 2 })).toBe(detailRowCount(on) + 1);
-    expect(addressOverflows("Bitnje 6 (pd Urbanov)")).toBe(false);
-    expect(addressOverflows("Bitnje 6 (pd Urbanov Jaka, Popar)")).toBe(true);
+    // A plain box's row holds 32 characters and squeezes to 38; beside a photo, 24 and 29.
+    expect([placeRowChars(TEXT_X_PLAIN), placeRowChars(TEXT_X_PHOTO)]).toEqual([38, 29]);
+    const long = "Bitnje 6 (pd Urbanov Jaka, Popar)";
+    expect(addressOverflows(long)).toBe(false);
+    expect(addressOverflows(long, TEXT_X_PHOTO)).toBe(true);
+    // Squeezed only past the row's own width.
+    expect(placeFit("Bitnje 6", TEXT_X_PLAIN)).toEqual({});
+    expect(placeFit(long, TEXT_X_PLAIN)).toEqual({ textLength: 192, lengthAdjust: "spacingAndGlyphs" });
     // The bracketed house name goes whole onto the second row.
-    expect(wrapAddress("Bitnje 6 (pd Urbanov Jaka, Popar)", 2)).toEqual(["Bitnje 6", "(pd Urbanov Jaka, Popar)"]);
+    expect(wrapAddress(long, 2, 29)).toEqual(["Bitnje 6", "(pd Urbanov Jaka, Popar)"]);
     // No bracket: the break is at the last space that fits.
-    expect(wrapAddress("Ulica Staneta Žagarja 27, Kranj", 2)).toEqual(["Ulica Staneta Žagarja 27,", "Kranj"]);
-    // A short address stays on one row; one row alone cuts with an ellipsis.
-    expect(wrapAddress("Bitnje 6", 2)).toEqual(["Bitnje 6"]);
-    expect(wrapAddress("Bitnje 6 (pd Urbanov Jaka, Popar)")).toEqual(["Bitnje 6 (pd Urbanov Jaka…"]);
+    expect(wrapAddress("Ulica Staneta Žagarja 27, Kranj", 2, 29)).toEqual(["Ulica Staneta Žagarja 27,", "Kranj"]);
+    // An address that fits stays on one row; one row alone cuts with an ellipsis.
+    expect(wrapAddress(long, 2)).toEqual([long]);
+    expect(wrapAddress(long, 1, 29)).toEqual(["Bitnje 6 (pd Urbanov Jaka, P…"]);
   });
 });
 

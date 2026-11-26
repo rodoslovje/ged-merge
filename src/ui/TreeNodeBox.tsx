@@ -10,8 +10,9 @@ import {
   PHOTO_X,
   TEXT_X_PHOTO,
   TEXT_X_PLAIN,
-  PLACE_ROW_CHARS,
   nameFit,
+  placeFit,
+  placeRowChars,
   truncate,
   wrapAddress,
 } from "../chart/treeLayout";
@@ -189,12 +190,16 @@ export function TreeNodeBox({
   const textX = photoPath ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const photoY = (nodeH - PHOTO_SIZE) / 2;
   // Lifespan, then address and place, then kinship — each on its own row beneath the name.
-  const rows: { text: string; cls: string; approx?: YearsApprox }[] = [];
+  const rows: { text: string; cls: string; approx?: YearsApprox; fit?: ReturnType<typeof placeFit> }[] = [];
+  const placeChars = placeRowChars(textX);
   if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year", approx: disp.yearsApprox });
-  for (const text of disp.address ? wrapAddress(disp.address, display.addressLines) : []) {
-    rows.push({ text, cls: "tree-node-place tree-node-address" });
+  for (const text of disp.address ? wrapAddress(disp.address, display.addressLines, placeChars) : []) {
+    rows.push({ text, cls: "tree-node-place tree-node-address", fit: placeFit(text, textX) });
   }
-  if (disp.place) rows.push({ text: truncate(disp.place, PLACE_ROW_CHARS), cls: "tree-node-place" });
+  if (disp.place) {
+    const text = truncate(disp.place, placeChars);
+    rows.push({ text, cls: "tree-node-place", fit: placeFit(text, textX) });
+  }
   if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage, disp.kinshipDirect)}` });
   return (
     <>
@@ -211,7 +216,7 @@ export function TreeNodeBox({
         {disp.name}
       </text>
       {rows.map((r, i) => (
-        <text key={i} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H}>
+        <text key={i} className={`${r.cls} gm-data`} x={textX} y={DETAIL_ROW_TOP + i * DETAIL_ROW_H} {...r.fit}>
           <YearsText text={r.text} approx={r.approx} svg />
         </text>
       ))}

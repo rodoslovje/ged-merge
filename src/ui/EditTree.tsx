@@ -6,6 +6,8 @@ import { buildPersonTree, countTreePeople, pruneTree, someTreeNode, treeDepth, t
 import { buildCompleteTree, connectedCount, flattenComplete, layoutComplete, type CompleteLaid } from "../chart/completeTree";
 import { buildFamilyGraph, graphBranches } from "../chart/familyGraph";
 import {
+  TEXT_X_PHOTO,
+  TEXT_X_PLAIN,
   addressOverflows,
   bowtieHalf,
   flatten,
@@ -224,14 +226,17 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
       : bowtie ? [shown.ancestors, shown.descendants] : [tree];
     return roots.some((root) => someTreeNode(root, related));
   }, [kinshipOn, kinship, complete, completeTree, bowtie, shown, tree]);
-  // An address too long for one row gives every box a second one for it.
+  // An address too long for one row gives every box a second one for it. A
+  // chart drawing photos measures by the narrower row beside one.
+  const mediaFolder = useMediaFolder().folderName;
+  const addressTextX = settings.showPhoto && mediaFolder ? TEXT_X_PHOTO : TEXT_X_PLAIN;
   const addressLines = useMemo<1 | 2>(() => {
     if (!settings.showAddress) return 1;
     const roots = complete
       ? completeTree?.panels.map((p) => p.tree) ?? []
       : bowtie ? [shown.ancestors, shown.descendants] : [tree];
-    return roots.some((root) => someTreeNode(root, (n) => addressOverflows(n.address))) ? 2 : 1;
-  }, [settings.showAddress, complete, completeTree, bowtie, shown, tree]);
+    return roots.some((root) => someTreeNode(root, (n) => addressOverflows(n.address, addressTextX))) ? 2 : 1;
+  }, [settings.showAddress, addressTextX, complete, completeTree, bowtie, shown, tree]);
   const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn, addressLines }), [settings, kinshipDrawn, addressLines]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.

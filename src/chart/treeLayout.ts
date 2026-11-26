@@ -726,23 +726,42 @@ export function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
-/** How many characters of the 10px place font a box's row holds. */
-export const PLACE_ROW_CHARS = 26;
+/** Glyph width of the 10px monospace place font. */
+const PLACE_CHAR_W = 6;
+/** How far a place row's text is squeezed before it is broken or cut: a fifth
+ *  more characters than the row holds at the font's own width. */
+const PLACE_SQUEEZE = 1.2;
 
-/** Whether an address is too long for one row of a box. */
-export function addressOverflows(address: string | undefined): boolean {
-  return !!address && address.length > PLACE_ROW_CHARS;
+/** The width a box leaves a row of text that starts at `textX`. */
+const rowWidth = (textX: number): number => NODE_W - textX - 12;
+
+/** How many characters a place or address row holds, squeezed as far as it
+ *  goes — fewer in a box with a photo, whose text starts further in. */
+export function placeRowChars(textX: number = TEXT_X_PLAIN): number {
+  return Math.floor((rowWidth(textX) / PLACE_CHAR_W) * PLACE_SQUEEZE);
+}
+
+/** SVG `<text>` props that squeeze a place or address row wider than the box's
+ *  text area into it, as {@link nameFit} does a name; a row that fits renders
+ *  naturally. */
+export function placeFit(text: string, textX: number): { textLength?: number; lengthAdjust?: "spacingAndGlyphs" } {
+  const available = rowWidth(textX);
+  return text.length * PLACE_CHAR_W > available ? { textLength: available, lengthAdjust: "spacingAndGlyphs" } : {};
+}
+
+/** Whether an address is too long for one row of a box, even squeezed. */
+export function addressOverflows(address: string | undefined, textX: number = TEXT_X_PLAIN): boolean {
+  return !!address && address.length > placeRowChars(textX);
 }
 
 /**
- * An address on the rows a box has for it. One row: the address, cut with "…"
- * when it is too long. Two rows: an address that fits stays on the first; a
- * longer one breaks before its bracketed house name — "Bitnje 6" over "(pd
- * Urbanov Jaka)" — or, with none there, at the last space or comma that fits.
- * Only the second row is ever cut.
+ * An address on the rows a box has for it, `max` characters each. One row: the
+ * address, cut with "…" when it is too long. Two rows: an address that fits
+ * stays on the first; a longer one breaks before its bracketed house name —
+ * "Bitnje 6" over "(pd Urbanov Jaka)" — or, with none there, at the last space
+ * that fits. Only the second row is ever cut.
  */
-export function wrapAddress(address: string, rows: 1 | 2 = 1): string[] {
-  const max = PLACE_ROW_CHARS;
+export function wrapAddress(address: string, rows: 1 | 2 = 1, max: number = placeRowChars()): string[] {
   if (rows === 1 || address.length <= max) return [truncate(address, max)];
   const bracket = address.search(/\s[([]/);
   let cut = bracket > 0 && bracket <= max ? bracket : -1;
