@@ -24,7 +24,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ · EN z glasom ✓ |
 | 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ · EN z glasom ✓ |
 | 17 | Spletna stran | `scripts/publish.ts` | SL z glasom ✓ · EN z glasom ✓ |
-| 18 | Prvih dvanajst bližnjic | `scripts/shortcuts.ts` | SL z glasom ✓ · EN čaka na potrditev SL |
+| 18 | Prvih dvanajst bližnjic | `scripts/shortcuts.ts` | SL z glasom ✓ · EN z glasom ✓ |
 
 Angleške različice vseh epizod so zgrajene z glasom Soniox »Nina« (20. 11. 2026). Recepti so pregledani za aplikacijo na ta dan, tudi slovenski govor, ki je pripravljen za ponovno snemanje.
 
