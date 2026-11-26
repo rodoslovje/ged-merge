@@ -25,6 +25,8 @@ export interface NodeDisplayOptions {
    *  stands in where they have none) — see {@link placeLine}. With the place
    *  shown too, a chart with the room writes both, the address above. */
   showAddress: boolean;
+  /** The chart keeps two rows for the address — see `DetailToggles`. */
+  addressLines?: 1 | 2;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */
@@ -253,9 +255,10 @@ export interface NodeDisplay {
   yearsApprox?: YearsApprox;
   /** Place line, present only when shown and not redacted. */
   place?: string;
-  /** The address on a line of its own above the place: only with both the
-   *  Place and the Address toggle on. A chart with one line for the two reads
-   *  {@link onePlaceLine} instead. */
+  /** The address, on a line of its own, when the Address toggle is on and the
+   *  person has one. The place then shows beneath it only with the Place
+   *  toggle on too; a person with no address shows the place either way. A
+   *  chart with one line for the two reads {@link onePlaceLine} instead. */
   address?: string;
   /** Kinship line, present only when shown and not redacted. */
   kinship?: string;
@@ -300,12 +303,13 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
       showPhoto: false,
     };
   }
-  const both = opts.showPlace && opts.showAddress;
+  const address = opts.showAddress ? input.address || undefined : undefined;
   return {
     name: input.name,
     years: lifespanLine(opts, input),
     yearsApprox: opts.showLifespan ? input.yearsApprox : undefined,
-    ...(both ? { address: input.address || undefined, place: input.place } : { place: placeLine(opts, input) }),
+    address,
+    place: opts.showPlace || (opts.showAddress && !address) ? input.place : undefined,
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
     kinshipDirect: input.kinshipDirect,

@@ -31,12 +31,15 @@ export interface DetailToggles {
   /** Alone, the address is written on the place row; with the place shown
    *  too it takes a row of its own above it. */
   showAddress: boolean;
+  /** An address on the chart is too long for one row ({@link addressOverflows}),
+   *  so every box keeps a second one for it. */
+  addressLines?: 1 | 2;
   showKinship: boolean;
 }
 
-/** How many detail rows are enabled (0–4). */
+/** How many detail rows are enabled (0–5). */
 export function detailRowCount(o: DetailToggles): number {
-  return (o.showLifespan || o.showAge ? 1 : 0) + (o.showPlace ? 1 : 0) + (o.showAddress ? 1 : 0) + (o.showKinship ? 1 : 0);
+  return (o.showLifespan || o.showAge ? 1 : 0) + (o.showPlace ? 1 : 0) + (o.showAddress ? o.addressLines ?? 1 : 0) + (o.showKinship ? 1 : 0);
 }
 
 /** The node-box height for the current display settings: the base box holds the
@@ -721,6 +724,36 @@ function maxDepth(node: TreeNode): number {
 
 export function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/** How many characters of the 10px place font a box's row holds. */
+export const PLACE_ROW_CHARS = 26;
+
+/** Whether an address is too long for one row of a box. */
+export function addressOverflows(address: string | undefined): boolean {
+  return !!address && address.length > PLACE_ROW_CHARS;
+}
+
+/**
+ * An address on the rows a box has for it. One row: the address, cut with "…"
+ * when it is too long. Two rows: an address that fits stays on the first; a
+ * longer one breaks before its bracketed house name — "Bitnje 6" over "(pd
+ * Urbanov Jaka)" — or, with none there, at the last space or comma that fits.
+ * Only the second row is ever cut.
+ */
+export function wrapAddress(address: string, rows: 1 | 2 = 1): string[] {
+  const max = PLACE_ROW_CHARS;
+  if (rows === 1 || address.length <= max) return [truncate(address, max)];
+  const bracket = address.search(/\s[([]/);
+  let cut = bracket > 0 && bracket <= max ? bracket : -1;
+  if (cut < 0) {
+    // The last break that leaves the first row within the box; a comma stays on it.
+    for (let i = Math.min(max, address.length - 1); i > 0 && cut < 0; i--) {
+      if (address[i] === " ") cut = i;
+    }
+  }
+  if (cut < 0) cut = max;
+  return [address.slice(0, cut).trim(), truncate(address.slice(cut).trim(), max)];
 }
 
 /** Average glyph width and line height of the 11px marriage-label font. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Individual } from "../gedcom/types";
-import { detailRowCount } from "./treeLayout";
+import { addressOverflows, detailRowCount, wrapAddress } from "./treeLayout";
 import { parsePlace } from "../gedcom/place";
 import { ALL_DISPLAY, formatMarriage, addressLabel, homePlaceOf, lifespanLine, marriageApprox, nodeDisplay, nodeTooltip, onePlaceLine, placeLabel, placeLine, type NodeDisplayOptions } from "./nodeDisplay";
 import { marriageOf } from "./personTree";
@@ -87,8 +87,10 @@ describe("placeLine", () => {
   it("reaches the node through nodeDisplay", () => {
     const input = { ...base, address: "Bitnje 6" };
     const alone = nodeDisplay(opts({ showPlace: false, showAddress: true }), input);
-    expect(alone.place).toBe("Bitnje 6");
-    expect(alone.address).toBeUndefined();
+    // Address alone: the address where there is one, the place where there is not.
+    expect([alone.address, alone.place]).toEqual(["Bitnje 6", undefined]);
+    expect(nodeDisplay(opts({ showPlace: false, showAddress: true }), base)).toMatchObject({ address: undefined, place: "Kranj" });
+    expect(onePlaceLine(alone).place).toBe("Bitnje 6");
   });
 
   it("gives the address a line of its own above the place when both are on", () => {
@@ -101,6 +103,20 @@ describe("placeLine", () => {
     expect(nodeTooltip(both, { ...base, address: "Bitnje 6" })).toBe("Janez Novak, 1817–1890\nBitnje 6\nKranj\n2nd cousin");
     expect(onePlaceLine(disp)).toMatchObject({ place: "Bitnje 6", address: undefined });
     expect(detailRowCount({ ...both })).toBe(detailRowCount({ ...both, showAddress: false }) + 1);
+  });
+
+  it("keeps a second row for an address too long for one", () => {
+    const on = opts({ showPlace: false, showAddress: true });
+    expect(detailRowCount({ ...on, addressLines: 2 })).toBe(detailRowCount(on) + 1);
+    expect(addressOverflows("Bitnje 6 (pd Urbanov)")).toBe(false);
+    expect(addressOverflows("Bitnje 6 (pd Urbanov Jaka, Popar)")).toBe(true);
+    // The bracketed house name goes whole onto the second row.
+    expect(wrapAddress("Bitnje 6 (pd Urbanov Jaka, Popar)", 2)).toEqual(["Bitnje 6", "(pd Urbanov Jaka, Popar)"]);
+    // No bracket: the break is at the last space that fits.
+    expect(wrapAddress("Ulica Staneta Žagarja 27, Kranj", 2)).toEqual(["Ulica Staneta Žagarja 27,", "Kranj"]);
+    // A short address stays on one row; one row alone cuts with an ellipsis.
+    expect(wrapAddress("Bitnje 6", 2)).toEqual(["Bitnje 6"]);
+    expect(wrapAddress("Bitnje 6 (pd Urbanov Jaka, Popar)")).toEqual(["Bitnje 6 (pd Urbanov Jaka…"]);
   });
 });
 

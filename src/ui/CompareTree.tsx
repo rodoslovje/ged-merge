@@ -33,6 +33,7 @@ import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
 import {
   flatten,
+  addressOverflows,
   layout,
   layoutGrid,
   nodeHeight,
@@ -305,7 +306,12 @@ export function CompareTree({
     () => kinshipOn && someTreeNode(tree, (n) => !!kinshipOf(n)),
     [kinshipOn, tree, kinshipOf],
   );
-  const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn }), [settings, kinshipDrawn]);
+  // An address too long for one row gives every box a second one for it.
+  const addressLines = useMemo<1 | 2>(
+    () => (settings.showAddress && someTreeNode(tree, (n) => addressOverflows(n.address)) ? 2 : 1),
+    [settings.showAddress, tree],
+  );
+  const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn, addressLines }), [settings, kinshipDrawn, addressLines]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);
