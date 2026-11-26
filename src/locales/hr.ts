@@ -2605,6 +2605,7 @@ export const hr = {
   "tree.settings.display.marriedName": "Prezime u braku",
   "tree.settings.display.kinship": "Srodstvo",
   "tree.settings.display.place": "Mjesto",
+  "tree.settings.display.address": "Adresa",
   "tree.settings.display.emphasizeDirect": "Istakni pretke i potomke",
   "tree.settings.marriage": "Vjenčanje",
   "tree.settings.marriage.date": "Datum",

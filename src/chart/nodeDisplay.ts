@@ -21,6 +21,9 @@ export interface NodeDisplayOptions {
    *  the lifespan is hidden, standing on its own as "<age-word> N". */
   showAge: boolean;
   showPlace: boolean;
+  /** Write the address on the place line where the person has one (the place
+   *  stands in where they have none) — see {@link placeLine}. */
+  showAddress: boolean;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */
@@ -35,6 +38,7 @@ export const ALL_DISPLAY: NodeDisplayOptions = {
   showLifespan: true,
   showAge: false,
   showPlace: true,
+  showAddress: false,
   showMarriageDate: true,
   showMarriagePlace: true,
   privacyLiving: false,
@@ -140,6 +144,33 @@ export function placeLabel(indi: Individual | undefined): string | undefined {
   return undefined;
 }
 
+/**
+ * The address label for a person: the address (`ADDR`) of the first birth /
+ * residence / death event that records one, whole — the house number and the
+ * house name are the point of it. Undefined when none of them has an address.
+ */
+export function addressLabel(indi: Individual | undefined): string | undefined {
+  if (!indi) return undefined;
+  for (const tag of PLACE_TAGS) {
+    const raw = findEvent(indi, tag)?.address?.raw.trim();
+    if (raw) return raw.replace(/\s*\n\s*/g, ", ");
+  }
+  return undefined;
+}
+
+/**
+ * The place line under the two toggles: with Address on, the person's address,
+ * or their place when they have no address; with only Place on, the place.
+ * Shared by every chart that writes the line.
+ */
+export function placeLine(
+  opts: { showPlace: boolean; showAddress: boolean },
+  input: { place?: string; address?: string },
+): string | undefined {
+  if (opts.showAddress) return input.address || input.place;
+  return opts.showPlace ? input.place : undefined;
+}
+
 /** A person's place as a search list shows it: a short label beside the name,
  *  and the event it came from with the full place and address for the tooltip. */
 export interface HomePlace {
@@ -193,6 +224,8 @@ export interface NodeDisplayInput {
    *  supply {@link ageStandalone}. Only used when the lifespan line is hidden. */
   ageText?: string;
   place?: string;
+  /** The person's address ({@link addressLabel}), for the Address toggle. */
+  address?: string;
   /** Kinship-to-start label, when known. */
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
@@ -265,7 +298,7 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
     name: input.name,
     years: lifespanLine(opts, input),
     yearsApprox: opts.showLifespan ? input.yearsApprox : undefined,
-    place: opts.showPlace ? input.place : undefined,
+    place: placeLine(opts, input),
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
     kinshipDirect: input.kinshipDirect,

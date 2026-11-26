@@ -470,6 +470,7 @@ export function EditTree({ mainDs, rootId: currentRootId, startId, changedPerson
           age: n.age,
           ageText: n.age !== undefined ? ageStandalone(t, n.sex, n.age) : undefined,
           place: n.place,
+          address: n.address,
           kinship: fanKinshipOf(n),
           kinshipLineage: lineageOf(n),
           kinshipDirect: directOf(n),

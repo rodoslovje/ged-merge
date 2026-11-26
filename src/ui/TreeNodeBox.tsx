@@ -110,6 +110,8 @@ interface Props {
   age?: number;
   /** First-available place (birth → residence → death); shown on its own row when enabled. */
   place?: string;
+  /** The person's address, written on the place row when the Address toggle is on. */
+  address?: string;
   sex?: Sex | string;
   /** State colour for the border and the tinted fill. */
   color: string;
@@ -156,6 +158,7 @@ export function TreeNodeBox({
   yearsApprox,
   age,
   place,
+  address,
   sex,
   color,
   strokeWidth = 2.5,
@@ -172,7 +175,7 @@ export function TreeNodeBox({
 }: Props) {
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, kinship, kinshipLineage, kinshipDirect, living, livingLabel: livingLabelFor(t, sex), livingName });
+  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, address, kinship, kinshipLineage, kinshipDirect, living, livingLabel: livingLabelFor(t, sex), livingName });
   // Main side first, then incoming — the same order TreeNodePhoto resolves.
   const photoPath =
     disp.showPhoto && photo && folderName

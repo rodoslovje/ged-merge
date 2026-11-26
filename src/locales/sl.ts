@@ -2773,6 +2773,7 @@ export const sl = {
   "tree.settings.display.marriedName": "Poročni priimek",
   "tree.settings.display.kinship": "Sorodstvo",
   "tree.settings.display.place": "Kraj",
+  "tree.settings.display.address": "Naslov",
   "tree.settings.display.emphasizeDirect": "Poudari prednike in potomce",
   "tree.settings.marriage": "Poroka",
   "tree.settings.marriage.date": "Datum",
