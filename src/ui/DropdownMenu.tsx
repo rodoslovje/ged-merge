@@ -370,7 +370,9 @@ export function DropdownMenu({
             onMenuKeyDown(e);
             return;
           }
-          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          // A bare arrow only: ⌥ + arrow is Edit's step through the family,
+          // and must take it from a trigger left focused by Esc as well.
+          if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !e.altKey) {
             e.preventDefault();
             e.stopPropagation();
             openMenu();
