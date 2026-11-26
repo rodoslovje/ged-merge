@@ -14,6 +14,7 @@ import {
   layoutBowtie,
   layoutGrid,
   minimapFit,
+  mirrorDepth,
   wrapLabel,
 } from "./treeLayout";
 
@@ -307,6 +308,31 @@ describe("minimap fit", () => {
     const fit = minimapFit(3000, 1000, viewport);
     expect(fit.h).toBeGreaterThan(80);
     expect(fit.scaleX).toBeCloseTo(fit.scaleY, 10); // so no stretch is applied
+  });
+});
+
+describe("mirrorDepth", () => {
+  // A branch of ancestors printed in its own frame: two generations above R.
+  const branch = () => node("R", [node("F", [node("FF"), node("FM")]), node("M")]);
+
+  it("puts the root at the trailing end with every generation before it, extents kept", () => {
+    for (const alignment of ["lr", "tb"] as const) {
+      for (const lay of [layout, layoutGrid]) {
+        const plain = lay(branch(), alignment);
+        const laid = mirrorDepth(lay(branch(), alignment), alignment);
+        const depth = (n: { x: number; y: number }) => (alignment === "lr" ? n.x : n.y);
+        const breadth = (n: { x: number; y: number }) => (alignment === "lr" ? n.y : n.x);
+        const box = alignment === "lr" ? NODE_W : NODE_H;
+        const extent = alignment === "lr" ? laid.width : laid.height;
+        expect(depth(laid.root) + box + PAD * 2).toBe(extent);
+        const [f, m] = laid.root.children;
+        expect(depth(f)).toBeLessThan(depth(laid.root));
+        expect(depth(m)).toBe(depth(f));
+        expect(depth(f.children[0])).toBe(0);
+        // Only the depth axis flips: the breadth positions are the plain layout's.
+        expect(breadth(f)).toBe(breadth(plain.root.children[0]));
+      }
+    }
   });
 });
 
