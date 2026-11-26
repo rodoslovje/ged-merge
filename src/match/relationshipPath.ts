@@ -1,4 +1,5 @@
-import type { Dataset } from "../gedcom/types";
+import type { Association, Dataset } from "../gedcom/types";
+import type { AssociationIndex } from "../gedcom/assoc";
 
 /**
  * Relationship paths between the start person and a target individual: the actual
@@ -10,19 +11,61 @@ import type { Dataset } from "../gedcom/types";
  *  - {@link bloodPath} only walks parent/child edges and meets at the closest
  *    common ancestor (the fork apex) — a pure blood relationship, consistent
  *    with the label from `kinship.ts`. Absent when the two share no ancestor.
+ *  - {@link shortestPath} given the file's associations also steps from a
+ *    person to their godparent or witness and back — the only connection two
+ *    families of one parish often have. It is no kinship, and says so: such a
+ *    step carries the association it stands for.
  */
 
 /** Relation of a path step to the *previous* step. */
-export type RelationEdge = "parent" | "child" | "spouse";
+export type RelationEdge = "parent" | "child" | "spouse" | "assoc";
 
 export interface PathStep {
   id: string;
   /** How this person relates to the previous step. Undefined on the first (start). */
   edge?: RelationEdge;
+  /** On an `assoc` step: the association it stands for. */
+  assoc?: AssocLink;
+}
+
+/** One end of an association, seen from the other. */
+export interface AssocLink {
+  /** The person at the far end. */
+  id: string;
+  /** True when they are the associate — the godparent, the witness — of the
+   *  near end's event; false when the near end is theirs. */
+  associate: boolean;
+  assoc: Association;
+}
+
+/** Per person, the people an association ties them to, in either direction. */
+export type AssocLinks = Map<string, AssocLink[]>;
+
+/** The file's associations as path steps: each joins the associate and the
+ *  person whose record or event names them — both partners, for a family's. */
+export function assocLinks(ds: Dataset, index: AssociationIndex): AssocLinks {
+  const links: AssocLinks = new Map();
+  const add = (from: string, link: AssocLink) => {
+    const list = links.get(from);
+    if (list) list.push(link);
+    else links.set(from, [link]);
+  };
+  for (const [toId, refs] of index) {
+    if (!ds.individuals.has(toId)) continue; // a 5.5.1 pointer at a family
+    for (const ref of refs) {
+      const fam = ref.fromKind === "family" ? ds.families.get(ref.fromId) : undefined;
+      for (const id of ref.fromKind === "family" ? [fam?.husband, fam?.wife] : [ref.fromId]) {
+        if (id === undefined || id === toId || !ds.individuals.has(id)) continue;
+        add(id, { id: toId, associate: true, assoc: ref.assoc });
+        add(toId, { id, associate: false, assoc: ref.assoc });
+      }
+    }
+  }
+  return links;
 }
 
 export interface RelationshipPath {
-  kind: "shortest" | "blood";
+  kind: "shortest" | "blood" | "assoc";
   /** Start person first, target last (inclusive). A length-1 path means self. */
   steps: PathStep[];
   /** Number of hops = steps.length - 1. */
@@ -51,16 +94,19 @@ export function relationshipPaths(
   };
 }
 
-/** Shortest connection through parent/child/spouse edges (BFS). */
+/** Shortest connection through parent/child/spouse edges (BFS) — and, given
+ *  `assoc`, through the file's associations too: the path is then of the
+ *  `assoc` kind when it takes one, and a family link wins a tie. */
 export function shortestPath(
   ds: Dataset,
   startId: string,
   targetId: string,
+  assoc?: AssocLinks,
 ): RelationshipPath | undefined {
   if (startId === targetId) return self(startId, "shortest");
   if (!ds.individuals.has(startId) || !ds.individuals.has(targetId)) return undefined;
 
-  const prev = new Map<string, { from: string; edge: RelationEdge }>();
+  const prev = new Map<string, { from: string; edge: RelationEdge; assoc?: AssocLink }>();
   const seen = new Set([startId]);
   const queue = [startId];
   for (let h = 0; h < queue.length; h++) {
@@ -72,19 +118,27 @@ export function shortestPath(
       prev.set(next, { from: id, edge });
       queue.push(next);
     }
+    for (const link of assoc?.get(id) ?? []) {
+      if (seen.has(link.id)) continue;
+      seen.add(link.id);
+      prev.set(link.id, { from: id, edge: "assoc", assoc: link });
+      queue.push(link.id);
+    }
   }
   if (!prev.has(targetId)) return undefined;
 
   const steps: PathStep[] = [];
   let cur = targetId;
+  let tied = false;
   while (cur !== startId) {
     const p = prev.get(cur)!;
-    steps.push({ id: cur, edge: p.edge });
+    steps.push(p.assoc ? { id: cur, edge: p.edge, assoc: p.assoc } : { id: cur, edge: p.edge });
+    if (p.assoc) tied = true;
     cur = p.from;
   }
   steps.push({ id: startId });
   steps.reverse();
-  return { kind: "shortest", steps, hops: steps.length - 1 };
+  return { kind: tied ? "assoc" : "shortest", steps, hops: steps.length - 1 };
 }
 
 /** Blood path: two ancestor chains meeting at the closest common ancestor. */

@@ -3,7 +3,8 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { buildRelationshipChart } from "./relationshipLayout";
 import { NODE_H, NODE_W } from "./treeLayout";
-import { bloodPath, shortestPath } from "../match/relationshipPath";
+import { buildAssociationIndex } from "../gedcom/assoc";
+import { assocLinks, bloodPath, shortestPath } from "../match/relationshipPath";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -218,5 +219,40 @@ describe("relationshipChartLayout", () => {
     expect(link.mid).toBeDefined();
     // A couple with no MARR (I2/I3) leaves the link's marriage undefined.
     expect(chart.links.find((l) => l.id === "p~@I2@~@I3@")!.marriage).toBeUndefined();
+  });
+});
+
+describe("buildRelationshipChart through an association", () => {
+  // C's godfather G has a son GS; nothing else joins the two families.
+  const ds = dataset(
+    `0 HEAD\n1 GEDC\n2 VERS 7.0\n` +
+      `0 @C@ INDI\n1 BIRT\n2 ASSO @G@\n3 ROLE GODP\n` +
+      `0 @G@ INDI\n1 FAMS @F2@\n0 @GW@ INDI\n1 FAMS @F2@\n0 @GS@ INDI\n1 FAMC @F2@\n` +
+      `0 @F2@ FAM\n1 HUSB @G@\n1 WIFE @GW@\n1 CHIL @GS@\n0 TRLR\n`,
+  );
+  const ties = assocLinks(ds, buildAssociationIndex(ds));
+  const box = (chart: ReturnType<typeof buildRelationshipChart>, id: string) => chart.boxes.find((b) => b.id === id)!;
+
+  it("stands the godparent beside the child, on a link of its own kind", () => {
+    const chart = buildRelationshipChart(ds, shortestPath(ds, "@C@", "@GS@", ties)!);
+    const c = box(chart, "@C@"), g = box(chart, "@G@"), gs = box(chart, "@GS@");
+    expect(g.y).toBe(c.y);
+    expect(g.x).toBeGreaterThan(c.x);
+    // His son hangs straight below him, the mother beside as a partner.
+    expect(gs.x).toBe(g.x);
+    expect(gs.y).toBeGreaterThan(g.y);
+    expect(box(chart, "@GW@").onSpine).toBe(false);
+    const tie = chart.links.filter((l) => l.kind === "assoc");
+    expect(tie).toHaveLength(1);
+    // The godfather is at the link's far end.
+    expect(tie[0].assoc).toMatchObject({ associateId: "@G@", far: true, assoc: { role: "GODP" } });
+    expect(tie[0].mid).toBeDefined();
+    expect(chart.links.filter((l) => l.kind === "partner")).toHaveLength(1);
+  });
+
+  it("points the link back at the godparent when the path starts from his side", () => {
+    const chart = buildRelationshipChart(ds, shortestPath(ds, "@GS@", "@C@", ties)!);
+    expect(box(chart, "@C@").y).toBe(box(chart, "@G@").y);
+    expect(chart.links.find((l) => l.kind === "assoc")?.assoc).toMatchObject({ associateId: "@G@", far: false });
   });
 });

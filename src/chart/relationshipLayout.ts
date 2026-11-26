@@ -9,7 +9,7 @@
 // same side, so no collision search is needed — a left-to-right column cursor in
 // path order keeps every box in its own column.
 
-import type { Dataset, Individual, Sex } from "../gedcom/types";
+import type { Association, Dataset, Individual, Sex } from "../gedcom/types";
 import { lifespanOf } from "../gedcom/lifespan";
 import { NODE_H, NODE_W, PAD, type ChartAlignment } from "./treeLayout";
 import { displayName, primaryName } from "../match/relatives";
@@ -41,10 +41,14 @@ export interface ChartBox {
 export interface ChartLink {
   id: string;
   d: string;
-  kind: "partner" | "parent";
+  kind: "partner" | "parent" | "assoc";
   /** The couple's marriage (year + place), on partner links when recorded. */
   marriage?: MarriageInfo;
-  /** Label anchor (connector midpoint) for the marriage label. */
+  /** On an `assoc` link: the association, who its associate is — the
+   *  godparent, the witness — and whether they stand at the link's far end
+   *  (right, or below when the chart runs left to right) or its near one. */
+  assoc?: { assoc: Association; associateId: string; far: boolean };
+  /** Label anchor (connector midpoint) for the marriage or association label. */
   mid?: { x: number; y: number };
 }
 
@@ -101,6 +105,7 @@ export function buildRelationshipChart(
   };
 
   const partners: [string, string][] = [];
+  const ties: { a: string; b: string; assoc: Association; associateId: string }[] = [];
   const drops: { child: string; parent: string }[] = [];
 
   put(steps[0].id, 0, rowOf(gen[0]), true);
@@ -115,18 +120,25 @@ export function buildRelationshipChart(
     const prevId = steps[i - 1].id;
     const row = rowOf(gen[i]);
 
-    if (e === "spouse") {
-      // The spouse starts a new rail to the right of everything placed.
+    if (e === "spouse" || e === "assoc") {
+      // The spouse starts a new rail to the right of everything placed — and
+      // so does a godparent or a witness, who stands beside whose event it was
+      // as a partner does, on a link of their own kind.
       railCol = frontier + 1;
       railSpouseCol = null;
       railSide = 1;
       descentHead = null;
       put(steps[i].id, railCol, row, true);
       frontier = Math.max(frontier, railCol);
-      partners.push([prevId, steps[i].id]);
+      const link = steps[i].assoc;
+      if (e === "spouse") partners.push([prevId, steps[i].id]);
+      else if (link) ties.push({ a: prevId, b: steps[i].id, assoc: link.assoc, associateId: link.associate ? steps[i].id : prevId });
       continue;
     }
 
+    // A step off a spouse or an associate heads a rail of its own either way.
+    const before = steps[i - 1].edge;
+    const fresh = i === 1 || before === "spouse" || before === "assoc";
     const ascending = e === "parent";
     const childId = ascending ? prevId : steps[i].id;
     const parentId = ascending ? steps[i].id : prevId;
@@ -167,7 +179,7 @@ export function buildRelationshipChart(
         frontier = Math.max(frontier, railSpouseCol);
       }
       drops.push({ child: childId, parent: parentId }); // previous member, above
-    } else if (i === 1 || steps[i - 1].edge === "spouse") {
+    } else if (fresh) {
       // Descending from the start person, or from a spouse on the path: they
       // head the rail themselves, the child directly below, so the line of
       // descent reads straight down; the child's other parent stands beside
@@ -254,7 +266,7 @@ export function buildRelationshipChart(
   //    reachable from both its links. ROW_GAP_TD is the gap between generations.
   const links: ChartLink[] = [];
   const seen = new Set<string>();
-  const addPartner = (a: string, b: string) => {
+  const addPartner = (a: string, b: string, tie?: { assoc: Association; associateId: string }) => {
     const pa = place.get(a), pb = place.get(b);
     if (!pa || !pb) return;
     const key = [a, b].sort().join("~");
@@ -272,9 +284,13 @@ export function buildRelationshipChart(
     const mid = lr
       ? { x: cLo.x + NODE_W / 2, y: (cLo.y + nodeH + cHi.y) / 2 }
       : { x: (cLo.x + cHi.x + NODE_W) / 2, y: cLo.y + nodeH + 13 };
-    links.push({ id: `p~${key}`, d, kind: "partner", marriage: coupleMarriage(ds, a, b), mid });
+    if (tie) {
+      const far = (pa.col <= pb.col ? b : a) === tie.associateId;
+      links.push({ id: `a~${key}`, d, kind: "assoc", assoc: { ...tie, far }, mid });
+    } else links.push({ id: `p~${key}`, d, kind: "partner", marriage: coupleMarriage(ds, a, b), mid });
   };
   for (const [a, b] of partners) addPartner(a, b);
+  for (const { a, b, ...tie } of ties) addPartner(a, b, tie);
   for (const { child, parent } of drops) {
     const c = coordOf(place.get(child)!);
     const p = coordOf(place.get(parent)!);

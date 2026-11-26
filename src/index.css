@@ -7109,6 +7109,13 @@ a.report-source:hover { color: var(--accent); text-decoration: underline; }
 .relchart-edge-parent {
   stroke: var(--border-2);
 }
+/* A godparent's or a witness's link is no kinship: dotted, in the accent. */
+.relchart-edge-assoc {
+  stroke: var(--accent);
+  stroke-dasharray: 1 5;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
 /* The two endpoints — the start person and the related target — are the subjects
    of the chart, so they get a bold accent border, a stronger tinted fill, and a
    soft glow to stand out from the (thinner) spine and context boxes. */
