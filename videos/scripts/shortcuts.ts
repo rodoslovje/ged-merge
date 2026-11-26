@@ -47,7 +47,7 @@ const SHEET: { title: Text; groups: { name: Text; rows: [string, Text][] }[] } =
       rows: [
         ["N", { sl: "nova oseba", en: "new person" }],
         ["Alt+Shift+F M P C", { sl: "dodaj očeta · mater · partnerja · otroka", en: "add father · mother · partner · child" }],
-        ["Alt+Shift+1 2 3 4 5", { sl: "rojstvo · prebivališče · poklic · smrt · pokop", en: "birth · residence · occupation · death · burial" }],
+        ["Alt+Shift+E 1 2 3 4 5", { sl: "dogodek: meni · rojstvo · prebivališče · poklic · smrt · pokop", en: "event: menu · birth · residence · occupation · death · burial" }],
         ["Enter Esc", { sl: "naslednje polje · ven iz polja", en: "next field · leave the field" }],
       ],
     },
@@ -379,8 +379,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Vse druge dogodke najdete v meniju, ki ga odpre Alt+Shift+E, kot »event«; po njem se premikate s puščicama. Escape vas vedno spusti ven: iz menija, iz polja ali iz okna.",
-        en: "Every other event is in the menu that Alt+Shift+E opens, E for event; the arrow keys move through it. Escape always lets you out: of a menu, a field or a dialog.",
+        sl: "Vse druge dogodke najdete v meniju, ki ga odpre Alt+Shift+E, kot »event«; po njem se premikate s puščicama. Z Alt in Shift dodate tudi opombo s črko N, kot note, vir s črko S, kot source, in drugo ime s črko A, kot alias. Escape vas vedno spusti ven: iz menija, iz polja ali iz okna.",
+        en: "Every other event is in the menu that Alt+Shift+E opens, E for event; the arrow keys move through it. Alt and Shift also add a note with N, a source with S, and another name with A, for alias. Escape always lets you out: of a menu, a field or a dialog.",
       },
       run: async (d) => {
         await d.press("Enter", 500);
@@ -388,14 +388,18 @@ const scenario: Scenario = {
         await d.press("Alt+Shift+E", 1500);
         await d.press("ArrowDown", 600);
         await d.press("ArrowDown", 600);
-        await d.untilSaid(4);
+        await d.untilSaid(17);
         await d.press("Escape", 800);
+        // Named, not pressed: each would leave an empty row behind.
+        await d.overlay("keys", "Alt+Shift+N S A", 0);
+        await d.untilSaid(4.5);
+        await d.overlay("keys", "Esc", 0);
       },
     },
     {
       say: {
-        sl: "Tretja skupina je zapisana in kartonček je poln: N, Alt in Shift s črkami F, M, P in C ter s številkami od 1 do 5, pa še Enter in Escape.",
-        en: "The third group is written down and the card is full: N, Alt and Shift with the letters F, M, P and C and with the numbers 1 to 5, plus Enter and Escape.",
+        sl: "Tretja skupina je zapisana in kartonček je poln: N, Alt in Shift s črkami F, M, P in C za sorodnike, s črko E in s številkami od 1 do 5 za dogodke, pa še Enter in Escape.",
+        en: "The third group is written down and the card is full: N, Alt and Shift with the letters F, M, P and C for relatives, with E and the numbers 1 to 5 for events, plus Enter and Escape.",
       },
       run: async (d) => {
         await d.releaseKeys();

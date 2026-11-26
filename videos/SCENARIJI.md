@@ -772,7 +772,7 @@ Tipka B ni »briši«, ampak beležka; brisanje nima bližnjice, zato ga epizoda
 | 16 | Tipke `Alt+Shift+F M P C`, obroč na otrocih | F očeta, M mater, P partnerja, C otroka. |
 | 17 | `Alt+Shift+C`, »Mina«, `Enter`, datum, `Enter`, »Vrb«, `↓`, `Enter` | Enter shrani polje in skoči na naslednje. |
 | 18 | Obroč na hitrih gumbih, tipke `Alt+Shift+1 2 3 4 5` → `Alt+Shift+4`, »17. 4. 1878« | Rojstvo, prebivališče, poklic, smrt, pokop: številke od 1 do 5; vrstico določite v nastavitvah. |
-| 19 | `Alt+Shift+E`, `↓ ↓`, `Esc` | Vsi drugi dogodki; Escape vas vedno spusti ven. |
+| 19 | `Alt+Shift+E`, `↓ ↓`, `Esc`; tipke `Alt+Shift+N S A` | Vsi drugi dogodki; opomba (N), vir (S) in drugo ime (A); Escape vas vedno spusti ven. |
 | 20 | Kartonček: Urejanje | |
 | 21 | `H`, `Alt+↑`, `Alt+Shift+C`, »Jurij«, rojstvo, `Alt+↑`, `Ctrl+S`, `Esc` | Vaja: miške se nismo dotaknili. |
 | 22 | `?`, obroč na gumbu »Natisni« | Celoten seznam natisnete na en list. |
@@ -785,7 +785,7 @@ Tipka B ni »briši«, ampak beležka; brisanje nima bližnjice, zato ga epizoda
 |---|---|---|
 | `?` seznam vseh bližnjic | `Alt+↑ ↓ ← →` oče · otrok · brat ali sestra | `N` nova oseba |
 | `/` poišči osebo | `Alt+Shift+↑ →` »tisti drugi«: mati · partner | `Alt+Shift+F M P C` dodaj očeta · mater · partnerja · otroka |
-| `Ctrl+Z` razveljavi | `⌫` nazaj · `H` domov | `Alt+Shift+1 2 3 4 5` rojstvo · prebivališče · poklic · smrt · pokop |
+| `Ctrl+Z` razveljavi | `⌫` nazaj · `H` domov | `Alt+Shift+E 1 2 3 4 5` dogodek: meni · rojstvo · prebivališče · poklic · smrt · pokop |
 | `Ctrl+S` shrani | `E M T V` Urejanje · Združevanje · Orodja · diagram | `Enter` naslednje polje · `Esc` ven iz polja |
 
 ---
