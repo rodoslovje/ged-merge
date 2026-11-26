@@ -107,11 +107,14 @@ export interface ChartSettings {
   /** Show the person's age: appended to the lifespan in parentheses, or — when
    *  the lifespan is hidden — as its own "age N" line. */
   showAge: boolean;
-  /** Show a place line (first available of birth / residence / death). */
+  /** Show a place line (first available of last residence / birth / death). */
   showPlace: boolean;
   /** Write the person's address on the place line where they have one; the
    *  place stands in where they have none. */
   showAddress: boolean;
+  /** Show how many siblings and children each person has, at the end of the
+   *  lifespan row. */
+  showFamilyCounts: boolean;
   /** Append a woman's married surname to her name, as the global Name-display
    *  setting does elsewhere. Seeded from that setting and independent after. */
   showMarriedName: boolean;
@@ -182,6 +185,7 @@ const DEFAULTS: ChartSettings = {
   showAge: false,
   showPlace: false,
   showAddress: false,
+  showFamilyCounts: false,
   showMarriedName: true,
   showMarriageDate: false,
   showMarriagePlace: false,
@@ -281,6 +285,7 @@ function load(defaults: { showAge: boolean; showMarriedName: boolean }): ChartSe
       showMarriedName: bool(parsed.showMarriedName, defaults.showMarriedName),
       showPlace: bool(parsed.showPlace, DEFAULTS.showPlace),
       showAddress: bool(parsed.showAddress, DEFAULTS.showAddress),
+      showFamilyCounts: bool(parsed.showFamilyCounts, DEFAULTS.showFamilyCounts),
       showMarriageDate: bool(parsed.showMarriageDate, DEFAULTS.showMarriageDate),
       showMarriagePlace: bool(parsed.showMarriagePlace, DEFAULTS.showMarriagePlace),
       maxGenerations: clampGenerations(parsed.maxGenerations),

@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox, addressLabel, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox, addressLabel, familyCounts, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -166,13 +166,28 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   }, [mainDs, startSel, targetSel, t, nameOf, ties]);
 
   const { alignment } = settings;
-  const nodeH = nodeHeight(settings);
+  const current = options[Math.min(optionIdx, options.length - 1)]?.path;
+  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching.
+  const kinshipOf = useMemo(() => createKinshipResolver(mainDs, startSel, t), [mainDs, startSel, t]);
+  // Who the chart draws does not depend on the box height, so a first build
+  // says whether anyone on it shows a kinship: a path over godparents or
+  // in-laws may carry none, and a redacted living person never shows theirs.
+  // The row is kept only then, so the toggle never changes the height alone.
+  const kinshipDrawn = useMemo(() => {
+    if (!settings.showKinship || !current) return false;
+    return buildRelationshipChart(mainDs, current, alignment, undefined, formatName).boxes.some((b) => {
+      const indi = mainDs.individuals.get(b.id);
+      const redacted = settings.privacyLiving && (isPresumedLiving(indi, mainDs) || !!indi?.private);
+      return !redacted && !!kinshipOf.label(b.id);
+    });
+  }, [settings.showKinship, settings.privacyLiving, current, mainDs, alignment, formatName, kinshipOf]);
+  const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn }), [settings, kinshipDrawn]);
+  const nodeH = nodeHeight(display);
   // Marriage label fields, when either toggle is on (else no labels are drawn).
   const marriageFields =
     settings.showMarriageDate || settings.showMarriagePlace
       ? { date: settings.showMarriageDate, place: settings.showMarriagePlace }
       : undefined;
-  const current = options[Math.min(optionIdx, options.length - 1)]?.path;
   // An association's link says which role, in the associate's own form of the
   // word, with an arrow to them: the godfather, not the godchild.
   const assocText = (link: NonNullable<ReturnType<typeof buildRelationshipChart>["links"][number]["assoc"]>) => {
@@ -242,9 +257,6 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     [t, selectedIndi, mainDs],
   );
 
-  // Kinship-to-start resolver: one start-side pedigree walk, per-target caching
-  // (every box on the chart carries a kinship label).
-  const kinshipOf = useMemo(() => createKinshipResolver(mainDs, startSel, t), [mainDs, startSel, t]);
   // The hover card for the box under the pointer (see EditTree's twin).
   const hoverInfoFor = useCallback(
     (key: string): HoverInfo | undefined => {
@@ -441,6 +453,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         age={lifespanAge(indi)}
                         place={placeLabel(indi)}
                         address={addressLabel(indi)}
+                        familyCounts={familyCounts(indi, mainDs)}
                         sex={b.sex}
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}
@@ -448,7 +461,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         kinshipLineage={kinshipOf.lineage(b.id)}
                         kinshipDirect={kinshipOf.direct(b.id)}
                         photo={indi ? { node: { main: { raw: indi.raw } }, mainRecords: mainDs.records, mainRefCtx: { dataset: mainDs, onNavigate } } : undefined}
-                        display={settings}
+                        display={display}
                         living={isPresumedLiving(indi, mainDs) || !!indi?.private}
                         livingName={livingNameOf(indi)}
                         nodeH={nodeH}

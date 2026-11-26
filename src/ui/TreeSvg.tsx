@@ -192,6 +192,7 @@ export const TreeSvg = memo(function TreeSvg({
                 age={n.age}
                 place={n.place}
                 address={n.address}
+                familyCounts={n.familyCounts}
                 sex={n.sex}
                 color={colorOf(n)}
                 kinship={kinshipOf?.(n)}

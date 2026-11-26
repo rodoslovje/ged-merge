@@ -33,6 +33,9 @@ import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
 import {
   flatten,
+  TEXT_X_PHOTO,
+  TEXT_X_PLAIN,
+  addressOverflows,
   layout,
   layoutGrid,
   nodeHeight,
@@ -302,10 +305,23 @@ export function CompareTree({
   // height doesn't reserve an always-empty kinship row.
   const kinshipOn = settings.showKinship && appSettings.showKinship && !!kinship;
   const kinshipDrawn = useMemo(
-    () => kinshipOn && someTreeNode(tree, (n) => !!kinshipOf(n)),
-    [kinshipOn, tree, kinshipOf],
+    // A redacted living person never shows a kinship row.
+    () => kinshipOn && someTreeNode(tree, (n) => !(settings.privacyLiving && n.living) && !!kinshipOf(n)),
+    [kinshipOn, settings.privacyLiving, tree, kinshipOf],
   );
-  const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn }), [settings, kinshipDrawn]);
+  // An address too long for one row gives every box a second one for it. A
+  // chart drawing photos measures by the narrower row beside one.
+  const mediaFolder = useMediaFolder().folderName;
+  const addressTextX = settings.showPhoto && mediaFolder ? TEXT_X_PHOTO : TEXT_X_PLAIN;
+  // And a chart where nobody has an address keeps no row for one.
+  const addressLines = useMemo<0 | 1 | 2>(() => {
+    if (!settings.showAddress) return 0;
+    // A redacted living person shows no address.
+    const shows = (n: TreeNode) => !!n.address && !(settings.privacyLiving && n.living);
+    if (someTreeNode(tree, (n) => shows(n) && addressOverflows(n.address, addressTextX))) return 2;
+    return someTreeNode(tree, shows) ? 1 : 0;
+  }, [settings.showAddress, settings.privacyLiving, addressTextX, tree]);
+  const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn, addressLines }), [settings, kinshipDrawn, addressLines]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);

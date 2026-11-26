@@ -2497,6 +2497,7 @@ export const en = {
   "tree.settings.display.kinship": "Kinship",
   "tree.settings.display.place": "Place",
   "tree.settings.display.address": "Address",
+  "tree.settings.display.familyCounts": "Siblings & children",
   "tree.settings.display.emphasizeDirect": "Highlight ancestors & descendants",
   "tree.settings.marriage": "Marriage",
   "tree.settings.marriage.date": "Date",
@@ -2928,6 +2929,8 @@ export const en = {
   // The cited page in a source line: "§ Krstna knjiga, page 23".
   "report.source.page": "page {{page}}",
   "tree.node.living": "Living",
+  "tree.node.siblingsCount": "Siblings: {{n}}",
+  "tree.node.childrenCount": "Children: {{n}}",
   "tree.node.agePhrase": "age {{age}}",
   "tree.openInMatches": "Open this match in the Matches list",
   "tree.main": "Main",

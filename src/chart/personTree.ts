@@ -17,7 +17,7 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { lifespanAge } from "../gedcom/age";
 import { isApproximate } from "../gedcom/lifespan";
 import { localityParts } from "../gedcom/place";
-import { MARRIAGE_SYMBOL, addressLabel, placeLabel } from "./nodeDisplay";
+import { MARRIAGE_SYMBOL, addressLabel, familyCounts, placeLabel, type FamilyCounts } from "./nodeDisplay";
 import { unionMark } from "../gedcom/union";
 import { SEPARATION_TAGS } from "../gedcom/eventTags";
 import type { Translate } from "../locales/i18n";
@@ -59,10 +59,12 @@ export interface TreeNode {
   /** Whole-years age (at death, or current for the living) when known — folded
    *  into the lifespan line by {@link nodeDisplay} when the Age toggle is on. */
   age?: number;
-  /** First-available place (birth → residence → death), most-specific locality. */
+  /** First-available place (last residence → birth → death), most-specific locality. */
   place?: string;
   /** The address of the first of those events that records one. */
   address?: string;
+  /** How many siblings and children the person has on file. */
+  familyCounts?: FamilyCounts;
   /** Presumed living (no death event + recent birth) — a privacy-redaction candidate. */
   living: boolean;
   sex: Sex;
@@ -936,6 +938,7 @@ function makeNode(
     age: lifespanAge(primary),
     place: placeLabel(primary),
     address: addressLabel(primary),
+    familyCounts: familyCounts(primary, main ? mainDs : compareDs),
     // Declared-private people redact exactly like the presumed-living.
     living: isPresumedLiving(main, mainDs) || isPresumedLiving(incoming, compareDs) || !!main?.private || !!incoming?.private,
     sex,
