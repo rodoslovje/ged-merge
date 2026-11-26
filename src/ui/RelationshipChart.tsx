@@ -4,7 +4,7 @@ import type { Dataset } from "../gedcom/types";
 import { isPresumedLiving, lifespanApproxOf, lifespanOf } from "../gedcom/lifespan";
 import { lifespanAge, lifespanTooltipOf } from "../gedcom/age";
 import { PAD, nodeHeight } from "../chart/treeLayout";
-import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox, addressLabel, placeLabel } from "../chart/nodeDisplay";
+import { ageStandalone, formatMarriage, lifespanLine, livingLabelFor, marriageApprox, addressLabel, familyCounts, placeLabel } from "../chart/nodeDisplay";
 import { useTreeCanvas } from "./useTreeCanvas";
 import { ChartZoom } from "./ChartZoom";
 import { SelectMenu } from "./DropdownMenu";
@@ -441,6 +441,7 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                         age={lifespanAge(indi)}
                         place={placeLabel(indi)}
                         address={addressLabel(indi)}
+                        familyCounts={familyCounts(indi, mainDs)}
                         sex={b.sex}
                         color={color}
                         strokeWidth={b.onSpine ? 2.5 : 1.5}

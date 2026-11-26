@@ -13,7 +13,7 @@ import {
   nameFit,
   truncate,
 } from "../chart/treeLayout";
-import { ageStandalone, ALL_DISPLAY, livingLabelFor, nodeDisplay, type NodeDisplayOptions } from "../chart/nodeDisplay";
+import { ageStandalone, ALL_DISPLAY, familyCountsText, livingLabelFor, nodeDisplay, type FamilyCounts, type NodeDisplayOptions } from "../chart/nodeDisplay";
 import { lineageClass, type Lineage } from "../match/kinship";
 import { collectFirstFilePath, TreeNodePhoto } from "./PersonMedia";
 import { useMediaFolder } from "./MediaFolderContext";
@@ -112,6 +112,8 @@ interface Props {
   place?: string;
   /** The person's address, written on the place row when the Address toggle is on. */
   address?: string;
+  /** Sibling and child counts, written at the end of the lifespan row when shown. */
+  familyCounts?: FamilyCounts;
   sex?: Sex | string;
   /** State colour for the border and the tinted fill. */
   color: string;
@@ -159,6 +161,7 @@ export function TreeNodeBox({
   age,
   place,
   address,
+  familyCounts,
   sex,
   color,
   strokeWidth = 2.5,
@@ -175,7 +178,7 @@ export function TreeNodeBox({
 }: Props) {
   const { t } = useTranslation();
   const { folderName } = useMediaFolder();
-  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, address, kinship, kinshipLineage, kinshipDirect, living, livingLabel: livingLabelFor(t, sex), livingName });
+  const disp = nodeDisplay(display, { name, years, yearsApprox, age, ageText: age !== undefined ? ageStandalone(t, sex, age) : undefined, place, address, familyCounts, kinship, kinshipLineage, kinshipDirect, living, livingLabel: livingLabelFor(t, sex), livingName });
   // Main side first, then incoming — the same order TreeNodePhoto resolves.
   const photoPath =
     disp.showPhoto && photo && folderName
@@ -188,7 +191,10 @@ export function TreeNodeBox({
   const photoY = (nodeH - PHOTO_SIZE) / 2;
   // Lifespan, then place, then kinship — each on its own row beneath the name.
   const rows: { text: string; cls: string; approx?: YearsApprox }[] = [];
-  if (disp.years) rows.push({ text: disp.years, cls: "tree-node-year", approx: disp.yearsApprox });
+  // The counts stand at the end of the lifespan row, which they keep for
+  // themselves when the person has no years to write there.
+  const counts = familyCountsText(t, disp.familyCounts);
+  if (disp.years || counts) rows.push({ text: disp.years ?? "", cls: "tree-node-year", approx: disp.yearsApprox });
   if (disp.place) rows.push({ text: truncate(disp.place, 26), cls: "tree-node-place" });
   if (disp.kinship) rows.push({ text: disp.kinship, cls: `tree-node-kinship ${lineageClass(disp.kinshipLineage, disp.kinshipDirect)}` });
   return (
@@ -210,6 +216,12 @@ export function TreeNodeBox({
           <YearsText text={r.text} approx={r.approx} svg />
         </text>
       ))}
+      {counts && (
+        <text className="tree-node-place tree-node-counts gm-data" x={NODE_W - 12} y={DETAIL_ROW_TOP} textAnchor="end">
+          <title>{counts.full}</title>
+          {counts.short}
+        </text>
+      )}
       {photoPath && photo && (
         <TreeNodePhoto
           node={photo.node}

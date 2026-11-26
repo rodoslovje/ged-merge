@@ -3,7 +3,7 @@
 // here keeps all four in sync as the Chart-settings toggles change which fields a
 // node shows, and how living people are redacted for privacy.
 
-import type { GedEvent, Individual, Sex } from "../gedcom/types";
+import type { Dataset, GedEvent, Individual, Sex } from "../gedcom/types";
 import type { YearsApprox } from "../gedcom/lifespan";
 import type { Translate } from "../locales/i18n";
 import type { Lineage } from "../match/kinship";
@@ -24,6 +24,9 @@ export interface NodeDisplayOptions {
   /** Write the address on the place line where the person has one (the place
    *  stands in where they have none) — see {@link placeLine}. */
   showAddress: boolean;
+  /** Show how many siblings and children the person has, at the end of the
+   *  lifespan row — see {@link familyCounts}. */
+  showFamilyCounts: boolean;
   /** Show the marriage year on the couple's connector / fan collar. */
   showMarriageDate: boolean;
   /** Show the marriage place on the couple's connector / fan collar. */
@@ -39,6 +42,7 @@ export const ALL_DISPLAY: NodeDisplayOptions = {
   showAge: false,
   showPlace: true,
   showAddress: false,
+  showFamilyCounts: false,
   showMarriageDate: true,
   showMarriagePlace: true,
   privacyLiving: false,
@@ -158,6 +162,55 @@ export function addressLabel(indi: Individual | undefined): string | undefined {
   return undefined;
 }
 
+/** How many siblings and children a person has on file. */
+export interface FamilyCounts {
+  siblings: number;
+  children: number;
+}
+
+/**
+ * A person's siblings and children, counted across every union: the siblings
+ * are the other children of each family the person is a child of and of every
+ * other union of either parent (half-siblings count), the children those of
+ * every family the person is a spouse in. Each person counts once.
+ */
+export function familyCounts(indi: Individual | undefined, ds: Dataset): FamilyCounts | undefined {
+  if (!indi) return undefined;
+  const siblings = new Set<string>();
+  for (const famId of indi.childOf) {
+    const fam = ds.families.get(famId);
+    if (!fam) continue;
+    for (const c of fam.children) siblings.add(c);
+    for (const parentId of [fam.husband, fam.wife]) {
+      const parent = parentId ? ds.individuals.get(parentId) : undefined;
+      for (const otherId of parent?.spouseOf ?? []) {
+        for (const c of ds.families.get(otherId)?.children ?? []) siblings.add(c);
+      }
+    }
+  }
+  siblings.delete(indi.id);
+  const children = new Set<string>();
+  for (const famId of indi.spouseOf) {
+    for (const c of ds.families.get(famId)?.children ?? []) children.add(c);
+  }
+  return { siblings: siblings.size, children: children.size };
+}
+
+/**
+ * The counts as a box writes them at the end of its lifespan row — "S 4 · C 6"
+ * — and spelled out for the hover; a count of none is left out, and a person
+ * with neither gets `undefined`.
+ */
+export function familyCountsText(t: Translate, counts: FamilyCounts | undefined): { short: string; full: string } | undefined {
+  if (!counts) return undefined;
+  const parts = [
+    counts.siblings > 0 ? { short: t("tree.node.siblingsShort", { n: counts.siblings }), full: t("tree.node.siblingsCount", { n: counts.siblings }) } : undefined,
+    counts.children > 0 ? { short: t("tree.node.childrenShort", { n: counts.children }), full: t("tree.node.childrenCount", { n: counts.children }) } : undefined,
+  ].filter((part) => part !== undefined);
+  if (!parts.length) return undefined;
+  return { short: parts.map((part) => part.short).join(" · "), full: parts.map((part) => part.full).join(" · ") };
+}
+
 /**
  * The place line under the two toggles: with Address on, the person's address,
  * or their place when they have no address; with only Place on, the place.
@@ -226,6 +279,8 @@ export interface NodeDisplayInput {
   place?: string;
   /** The person's address ({@link addressLabel}), for the Address toggle. */
   address?: string;
+  /** The person's siblings and children ({@link familyCounts}). */
+  familyCounts?: FamilyCounts;
   /** Kinship-to-start label, when known. */
   kinship?: string;
   /** Blood lineage of the kinship, for colour-coding the kinship row. */
@@ -251,6 +306,8 @@ export interface NodeDisplay {
   yearsApprox?: YearsApprox;
   /** Place line, present only when shown and not redacted. */
   place?: string;
+  /** The sibling and child counts, present only when shown and not redacted. */
+  familyCounts?: FamilyCounts;
   /** Kinship line, present only when shown and not redacted. */
   kinship?: string;
   /** Blood lineage of the shown kinship line, for colour-coding. */
@@ -299,6 +356,7 @@ export function nodeDisplay(opts: NodeDisplayOptions, input: NodeDisplayInput): 
     years: lifespanLine(opts, input),
     yearsApprox: opts.showLifespan ? input.yearsApprox : undefined,
     place: placeLine(opts, input),
+    ...(opts.showFamilyCounts && input.familyCounts ? { familyCounts: input.familyCounts } : {}),
     kinship: opts.showKinship ? input.kinship : undefined,
     kinshipLineage: opts.showKinship ? input.kinshipLineage : undefined,
     kinshipDirect: input.kinshipDirect,
