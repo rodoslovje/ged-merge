@@ -24,7 +24,7 @@ Scenariji vseh epizod. Govor je tu v slovenščini; dokončni govor v obeh jezik
 | 15 | Pregled | `scripts/health.ts` | SL z glasom ✓ · EN z glasom ✓ |
 | 16 | Paketno urejanje | `scripts/batch.ts` | SL z glasom ✓ · EN z glasom ✓ |
 | 17 | Spletna stran | `scripts/publish.ts` | SL z glasom ✓ · EN z glasom ✓ |
-| 18 | Prvih dvanajst bližnjic | `scripts/shortcuts.ts` | SL z glasom ✓ · EN z glasom ✓ |
+| 18 | Prvih dvanajst bližnjic | `scripts/shortcuts.ts` | SL z glasom ✓ · EN čaka na potrditev SL |
 
 Angleške različice vseh epizod so zgrajene z glasom Soniox »Nina« (20. 11. 2026). Recepti so pregledani za aplikacijo na ta dan, tudi slovenski govor, ki je pripravljen za ponovno snemanje.
 
@@ -764,13 +764,14 @@ Tipka B ni »briši«, ampak beležka; brisanje nima bližnjice, zato ga epizoda
 | 9 | `Alt+↑ ↓ ↓ → → ←` (Šimen, France, Terezija, Ernestina, Franc) | Alt in puščica. |
 | 10 | `Alt+Shift+↑` (Ana Jelovšek), `Alt+Shift+→` (France) | Shift pomeni »tisti drugi«. |
 | 11 | `⌫ ⌫`, `H` | Vračalka nazaj, H domov. |
-| 12 | `V`, `Esc`, `M`, `T`, `E` | Diagram in trije načini dela. |
+| 12 | `Alt+↓` (Terezija), `V`, `5`, `9`, `P`, `L`, `K`, `Esc` | V kot View odpre diagram; številke 1–9 preklapljajo vrste, P, L, K in G imajo svojo črko. (Zemljevida ne odpremo: datoteka nima koordinat.) |
+| 12a | `M`, `T`, `E` | Trije načini dela: Edit, Merge, Tools. |
 | 13 | Kartonček: Navigacija | |
 | 14 | `N`, `Esc`, `Ctrl+Z` | N kot nova oseba. |
 | 15 | Tipke `Alt+Shift+C` | Med pisanjem bi se črka zapisala, zato Alt in Shift. |
 | 16 | Tipke `Alt+Shift+F M P C`, obroč na otrocih | F očeta, M mater, P partnerja, C otroka. |
 | 17 | `Alt+Shift+C`, »Mina«, `Enter`, datum, `Enter`, »Vrb«, `↓`, `Enter` | Enter shrani polje in skoči na naslednje. |
-| 18 | Obroč na hitrih gumbih, tipke `Alt+Shift+1 2 3 4 5` → `Alt+Shift+4`, »17. 4. 1878« | Rojstvo, prebivališče, poklic, smrt, pokop: številke od 1 do 5. |
+| 18 | Obroč na hitrih gumbih, tipke `Alt+Shift+1 2 3 4 5` → `Alt+Shift+4`, »17. 4. 1878« | Rojstvo, prebivališče, poklic, smrt, pokop: številke od 1 do 5; vrstico določite v nastavitvah. |
 | 19 | `Alt+Shift+E`, `↓ ↓`, `Esc` | Vsi drugi dogodki; Escape vas vedno spusti ven. |
 | 20 | Kartonček: Urejanje | |
 | 21 | `H`, `Alt+↑`, `Alt+Shift+C`, »Jurij«, rojstvo, `Alt+↑`, `Ctrl+S`, `Esc` | Vaja: miške se nismo dotaknili. |

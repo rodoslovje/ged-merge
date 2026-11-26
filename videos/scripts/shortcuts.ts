@@ -268,14 +268,31 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Črka V odpre diagram osebe. Med načini dela preklapljate z začetnicami E, M in T. To so angleške besede Edit, Merge in Tools; M je isti Merge kot v imenu programa.",
-        en: "The letter V opens the person's chart. You switch between the three modes with their initials: E for Edit, M for Merge, as in the program's name, and T for Tools.",
+        sl: "Črka V, kot View, pogled, odpre diagram osebe. Med vrstami diagramov preklapljate s številkami od 1 do 9. Nekateri imajo tudi svojo črko: P kot pedigree, pahljača prednikov, L kot linija, časovnica, K kot kinship, sorodstvo, in G kot geografija, zemljevid.",
+        en: "The letter V, for View, opens the person's chart. The numbers 1 to 9 switch between the kinds of chart. Some have a letter of their own as well: P for the pedigree fan, L for the timeline, K for kinship, and G, for geography, the map.",
       },
       run: async (d) => {
-        await d.press("v", 2600);
-        await d.press("Escape", 1200);
-        await d.press("m", 1800);
-        await d.press("t", 1800);
+        await d.press("Alt+ArrowDown", 1200);
+        await d.press("v", 3200);
+        await d.press("5", 2000);
+        await d.press("9", 2000);
+        await d.untilSaid(11);
+        await d.press("p", 3200);
+        await d.press("l", 2600);
+        await d.press("k", 2600);
+        await d.untilSaid();
+        await d.press("Escape", 1000);
+      },
+    },
+    {
+      say: {
+        sl: "Med načini dela preklapljate z začetnicami E, M in T. To so angleške besede Edit, Merge in Tools; M je isti Merge kot v imenu programa.",
+        en: "You switch between the three modes with their initials: E for Edit, M for Merge, as in the program's name, and T for Tools.",
+      },
+      run: async (d) => {
+        await d.wait(1500);
+        await d.press("m", 2200);
+        await d.press("t", 2200);
         await d.press("e", 1200);
       },
     },
@@ -289,6 +306,7 @@ const scenario: Scenario = {
         await sheet(d, 2);
         // Behind the card: to Šimen, whose children we add next.
         await d.wait(700);
+        await d.page.keyboard.press("h");
         await d.page.keyboard.press("Alt+ArrowUp");
       },
     },
@@ -343,8 +361,8 @@ const scenario: Scenario = {
     },
     {
       say: {
-        sl: "Pod dogodki je vrsta gumbov za najpogostejše dogodke: rojstvo, prebivališče, poklic, smrt in pokop. Z Alt in Shift jih prikličete s številkami od 1 do 5, v istem vrstnem redu. Smrt je četrta, torej Alt+Shift+4.",
-        en: "Below the events is a row of buttons for the most common ones: birth, residence, occupation, death and burial. With Alt and Shift you call them by the numbers 1 to 5, in the same order. Death is the fourth, so Alt+Shift+4.",
+        sl: "Pod dogodki je vrsta gumbov za najpogostejše dogodke: rojstvo, prebivališče, poklic, smrt in pokop. Z Alt in Shift jih prikličete s številkami od 1 do 5, v istem vrstnem redu. Katere dogodke vsebuje vrstica, določite v nastavitvah. Smrt je četrta, torej Alt+Shift+4.",
+        en: "Below the events is a row of buttons for the most common ones: birth, residence, occupation, death and burial. With Alt and Shift you call them by the numbers 1 to 5, in the same order. Which events the row holds is yours to choose in Settings. Death is the fourth, so Alt+Shift+4.",
       },
       run: async (d) => {
         await d.releaseKeys();
