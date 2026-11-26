@@ -11,7 +11,10 @@ import { SelectMenu } from "./DropdownMenu";
 import { ChartFindBox } from "./ChartFindBox";
 import { useChartFind } from "./useChartFind";
 import { createKinshipResolver, lineageClass } from "../match/kinship";
-import { labelPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
+import { assocLinks, labelPaths, shortestPath, type RelationshipPath } from "../match/relationshipPath";
+import { buildAssociationIndex } from "../gedcom/assoc";
+import { useDatasetDerivations } from "./DatasetDerivations";
+import { roleLabel } from "./edit/EventAssociates";
 import { buildRelationshipChart, type ChartBox } from "../chart/relationshipLayout";
 import { individualFieldRows } from "../review/fields";
 import { useNameOf } from "./SettingsContext";
@@ -70,7 +73,9 @@ interface PathOption {
  * people connecting the start person to the target, drawn as two vertical rails
  * (start's line and the target's line) joined at the common-ancestor couple, with
  * parent couples beside each rail. A selector offers the shortest route plus
- * every distinct bloodline; clicking a person opens the shared detail panel.
+ * every distinct bloodline — and, where a godparent or a witness makes a
+ * shorter connection or the only one, the route through them; clicking a
+ * person opens the shared detail panel.
  */
 export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack, onNavigate, kindSwitcher, onTargetChange, onStartChange }: Props) {
   const { t } = useTranslation();
@@ -117,7 +122,14 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
   // Every route the relationship label names (each bloodline, or for an in-law
   // a bloodline plus one marriage) first — the first is the default, so the
   // drawing always agrees with the label — then the shortest path through any
-  // edge, unless it is one of those routes already.
+  // edge, unless it is one of those routes already. Last, the path that also
+  // steps over a godparent or a witness, where one is shorter than every
+  // family link — or the only connection the two have.
+  const derived = useDatasetDerivations();
+  const ties = useMemo(
+    () => assocLinks(mainDs, derived ? derived.associationIndex() : buildAssociationIndex(mainDs)),
+    [mainDs, derived],
+  );
   const options = useMemo<PathOption[]>(() => {
     const blood = labelPaths(mainDs, startSel, targetSel);
     const opts: PathOption[] = blood.map((path) => ({
@@ -128,8 +140,12 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
     if (shortest && !blood.some((b) => sameSteps(b, shortest))) {
       opts.push({ path: shortest, label: t("relpath.optShortest", { count: shortest.hops }) });
     }
+    const tied = ties.size ? shortestPath(mainDs, startSel, targetSel, ties) : undefined;
+    if (tied?.kind === "assoc" && (!shortest || tied.hops < shortest.hops)) {
+      opts.push({ path: tied, label: t("relpath.optAssoc", { count: tied.hops }) });
+    }
     return opts;
-  }, [mainDs, startSel, targetSel, t, nameOf]);
+  }, [mainDs, startSel, targetSel, t, nameOf, ties]);
 
   const { alignment } = settings;
   const nodeH = nodeHeight(settings);
@@ -139,6 +155,13 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
       ? { date: settings.showMarriageDate, place: settings.showMarriagePlace }
       : undefined;
   const current = options[Math.min(optionIdx, options.length - 1)]?.path;
+  // An association's link says which role, in the associate's own form of the
+  // word, with an arrow to them: the godfather, not the godchild.
+  const assocText = (link: NonNullable<ReturnType<typeof buildRelationshipChart>["links"][number]["assoc"]>) => {
+    const role = roleLabel(link.assoc, t, mainDs.individuals.get(link.associateId)?.sex);
+    const lr = alignment === "lr";
+    return link.far ? `${role} ${lr ? "↓" : "→"}` : `${lr ? "↑" : "←"} ${role}`;
+  };
   const chart = useMemo(
     () => (current ? buildRelationshipChart(mainDs, current, alignment, nodeH, formatName) : undefined),
     [mainDs, current, alignment, nodeH, formatName],
@@ -344,6 +367,13 @@ export function RelationshipChart({ mainDs, startId, targetId, backLabel, onBack
                 {chart.links.map((e) => (
                   <path key={e.id} className={`relchart-edge relchart-edge-${e.kind}`} d={e.d} />
                 ))}
+                {chart.links.map((e) =>
+                  e.assoc && e.mid ? (
+                    <text key={`${e.id}-a`} className="tree-edge-label" x={e.mid.x} y={e.mid.y} textAnchor="middle" dominantBaseline="central">
+                      {assocText(e.assoc)}
+                    </text>
+                  ) : null,
+                )}
                 {marriageFields &&
                   chart.links.map((e) => {
                     const text = e.mid && formatMarriage(e.marriage, marriageFields, settings.privacyLiving);

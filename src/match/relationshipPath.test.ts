@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { bloodLineage, bloodPath, bloodPaths, labelPaths, relationshipPaths, shortestPath } from "./relationshipPath";
+import { buildAssociationIndex } from "../gedcom/assoc";
+import { assocLinks, bloodLineage, bloodPath, bloodPaths, labelPaths, relationshipPaths, shortestPath } from "./relationshipPath";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -239,5 +240,53 @@ describe("bloodLineage both / descendant", () => {
 
   it("a descendant has no ancestral line from the start person", () => {
     expect(bloodLineage(ds, "@I1@", "@I5@")).toBeUndefined();
+  });
+});
+
+describe("shortestPath through associations", () => {
+  // Two families with no kinship: C, child of F, was held at the font by G,
+  // whose son is GS. F's wedding to M was witnessed by W. C's uncle U is also
+  // C's godfather.
+  const ds = dataset(
+    `0 HEAD\n1 GEDC\n2 VERS 7.0\n` +
+      `0 @C@ INDI\n1 FAMC @F1@\n1 BIRT\n2 ASSO @G@\n3 ROLE GODP\n2 ASSO @U@\n3 ROLE GODP\n` +
+      `0 @F@ INDI\n1 FAMC @F0@\n1 FAMS @F1@\n0 @M@ INDI\n1 FAMS @F1@\n` +
+      `0 @U@ INDI\n1 FAMC @F0@\n0 @GF@ INDI\n1 FAMS @F0@\n` +
+      `0 @G@ INDI\n1 FAMS @F2@\n0 @GS@ INDI\n1 FAMC @F2@\n0 @W@ INDI\n0 @X@ INDI\n` +
+      `0 @F0@ FAM\n1 HUSB @GF@\n1 CHIL @F@\n1 CHIL @U@\n` +
+      `0 @F1@ FAM\n1 HUSB @F@\n1 WIFE @M@\n1 CHIL @C@\n1 MARR\n2 ASSO @W@\n3 ROLE WITN\n` +
+      `0 @F2@ FAM\n1 HUSB @G@\n1 CHIL @GS@\n0 TRLR\n`,
+  );
+  const ties = assocLinks(ds, buildAssociationIndex(ds));
+
+  it("finds no family path between the two families, and one through the godparent", () => {
+    expect(shortestPath(ds, "@C@", "@GS@")).toBeUndefined();
+    const p = shortestPath(ds, "@C@", "@GS@", ties);
+    expect(p?.kind).toBe("assoc");
+    expect(ids(p)).toEqual(["@C@", "@G@", "@GS@"]);
+    expect(edges(p)).toEqual([undefined, "assoc", "child"]);
+    // The step names the association and who the associate is.
+    expect(p?.steps[1].assoc).toMatchObject({ id: "@G@", associate: true, assoc: { role: "GODP" } });
+  });
+
+  it("walks it the other way, from the godparent to the child", () => {
+    const p = shortestPath(ds, "@GS@", "@C@", ties);
+    expect(ids(p)).toEqual(["@GS@", "@G@", "@C@"]);
+    expect(p?.steps[2].assoc).toMatchObject({ id: "@C@", associate: false });
+  });
+
+  it("ties a wedding's witness to both partners", () => {
+    expect(edges(shortestPath(ds, "@M@", "@W@", ties))).toEqual([undefined, "assoc"]);
+    expect(edges(shortestPath(ds, "@W@", "@F@", ties))).toEqual([undefined, "assoc"]);
+  });
+
+  it("takes the godparent's step where it is shorter than the kinship", () => {
+    expect(shortestPath(ds, "@C@", "@U@")?.hops).toBe(3);
+    expect(shortestPath(ds, "@C@", "@U@", ties)).toMatchObject({ kind: "assoc", hops: 1 });
+  });
+
+  it("stays a family path where no association is on it", () => {
+    expect(shortestPath(ds, "@C@", "@M@", ties)?.kind).toBe("shortest");
+    expect(shortestPath(ds, "@C@", "@X@", ties)).toBeUndefined();
   });
 });

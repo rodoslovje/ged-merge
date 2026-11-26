@@ -3654,6 +3654,7 @@ export const sl = {
   "relpath.availablePaths":   "Razpoložljive poti",
   "relpath.optShortest":      "Najkrajša pot (korakov: {{count}})",
   "relpath.optBlood":         "Krvno sorodstvo prek: {{name}} (korakov: {{count}})",
+  "relpath.optAssoc":         "Prek botrov in prič (korakov: {{count}})",
   "relpath.openInEdit":       "Uredi",
   "relpath.replace":          "Kliknite za zamenjavo osebe",
   "relpath.replaceStart":      "Zamenjaj izhodiščno osebo:",
