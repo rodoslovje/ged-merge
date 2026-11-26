@@ -1,6 +1,7 @@
 /**
  * The on-screen layer of a tutorial video: a visible mouse pointer, a ring that
- * points at a control, a step callout and full-screen title cards.
+ * points at a control, a step callout, full-screen title cards, the keycaps of
+ * a key being pressed and an index card of shortcuts.
  *
  * It runs inside the page (installed with `addInitScript`, so it survives a
  * reload) and lives in its own shadow root with `pointer-events: none`, so the
@@ -55,6 +56,31 @@ export function installOverlay(): void {
   .list .g h3 { margin: 0 0 3px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #a9c7b8; }
   .list .g div { font-size: 17px; line-height: 1.4; white-space: nowrap; }
   .list .g div span { display: inline-block; width: 28px; }
+  kbd { display: inline-block; min-width: 1.9em; padding: .12em .5em; border-radius: .32em; text-align: center;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 600; line-height: 1.35;
+    background: #fdfaf3; color: #1d2b25; border: 1px solid #b9ad94; box-shadow: 0 .14em 0 #b9ad94; }
+  .keys { position: absolute; right: 28px; bottom: 28px; display: flex; gap: 10px; align-items: center;
+    padding: 14px 18px 18px; border-radius: 16px; background: rgba(24,44,36,.92); color: #e8c38a;
+    font-size: 34px; font-weight: 700; box-shadow: 0 6px 24px rgba(0,0,0,.3);
+    opacity: 0; transform: translateY(12px); transition: opacity 200ms, transform 200ms; }
+  .keys.on { opacity: 1; transform: none; }
+  .keys.hit kbd { animation: hit 260ms ease-out; }
+  @keyframes hit { from { transform: translateY(.14em); box-shadow: 0 0 0 #b9ad94; background: #e8a33d; } to { transform: none; } }
+  .sheet { position: absolute; inset: 0; display: grid; place-items: center;
+    background: radial-gradient(ellipse at center, #2c5a47 0%, #1b3a2e 70%);
+    opacity: 0; transition: opacity 500ms; }
+  .sheet.on { opacity: 1; }
+  .sheet .paper { width: 1240px; padding: 30px 40px 34px; border-radius: 10px; background: #fdfaf3; color: #1d2b25;
+    box-shadow: 0 18px 50px rgba(0,0,0,.4); transform: rotate(-.6deg); }
+  .sheet h2 { margin: 0 0 20px; font-size: 30px; font-weight: 700; }
+  .sheet .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px; }
+  .sheet h3 { margin: 0 0 12px; padding-bottom: 8px; border-bottom: 2px solid #e8a33d; font-size: 17px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: #2c5a47; }
+  .sheet .row { min-height: 78px; padding: 8px 0; border-bottom: 1px solid #e3dccb; font-size: 19px; line-height: 1.3;
+    opacity: 0; transition: opacity 500ms; }
+  .sheet .row.on { opacity: 1; }
+  .sheet .row .k { font-size: 19px; font-weight: 700; color: #6b6354; margin-bottom: 5px; white-space: nowrap; }
+  .sheet .row .k kbd { margin: 0 1px; }
 </style>
 <div class="layer">
   <div class="ring"></div>
@@ -63,6 +89,8 @@ export function installOverlay(): void {
   <div class="callout"><span class="n"></span><span class="t"></span></div>
   <div class="card"><div><div class="k"></div><h1></h1><p></p></div></div>
   <div class="list"><h2></h2><div class="groups"></div></div>
+  <div class="sheet"><div class="paper"><h2></h2><div class="cols"></div></div></div>
+  <div class="keys"></div>
 </div>`;
     document.documentElement.appendChild(host);
     const $ = <T extends Element>(s: string) => root.querySelector(s) as T;
@@ -72,6 +100,21 @@ export function installOverlay(): void {
     const callout = $<HTMLElement>(".callout");
     const card = $<HTMLElement>(".card");
     const list = $<HTMLElement>(".list");
+    const keys = $<HTMLElement>(".keys");
+    const sheet = $<HTMLElement>(".sheet");
+    let keysTimer = 0;
+    // "Alt+Shift+F M" → the chords "Alt+Shift+F" and "M", each key a keycap.
+    const keycaps = (into: HTMLElement, text: string) => {
+      for (const [i, chord] of text.split(" ").entries()) {
+        if (i) into.append(" ");
+        for (const [j, key] of chord.split("+").entries()) {
+          if (j) into.append("+");
+          const cap = document.createElement("kbd");
+          cap.textContent = key;
+          into.appendChild(cap);
+        }
+      }
+    };
 
     w.__gmv = {
       cursor(x: number, y: number, ms: number) {
@@ -82,8 +125,8 @@ export function installOverlay(): void {
       },
       hideCursor() { cursor.style.opacity = "0"; },
       chrome(visible: boolean) {
-        // Pointer and callout off while a thumbnail screenshot is taken; the ring stays.
-        cursor.style.visibility = callout.style.visibility = visible ? "" : "hidden";
+        // Pointer, callout and keycaps off while a thumbnail screenshot is taken; the ring stays.
+        cursor.style.visibility = callout.style.visibility = keys.style.visibility = visible ? "" : "hidden";
       },
       click(x: number, y: number) {
         ripple.style.left = `${x}px`;
@@ -131,6 +174,44 @@ export function installOverlay(): void {
         }
         list.classList.add("on");
       },
+      keys(chord: string | null, ms: number) {
+        window.clearTimeout(keysTimer);
+        if (!chord) { keys.classList.remove("on"); return; }
+        keys.textContent = "";
+        keycaps(keys, chord);
+        keys.classList.remove("hit");
+        void keys.offsetWidth;
+        keys.classList.add("on", "hit");
+        if (ms > 0) keysTimer = window.setTimeout(() => keys.classList.remove("on"), ms);
+      },
+      sheet(title: string | null, groups: { name: string; rows: [string, string][] }[], shown: number) {
+        if (!title) { sheet.classList.remove("on"); return; }
+        $<HTMLElement>(".sheet h2").textContent = title;
+        const cols = $<HTMLElement>(".sheet .cols");
+        // Built once, so a later call only fades further groups in.
+        if (cols.childElementCount !== groups.length) {
+          cols.textContent = "";
+          for (const g of groups) {
+            const col = document.createElement("div");
+            const h = document.createElement("h3");
+            h.textContent = g.name;
+            col.appendChild(h);
+            for (const [chords, label] of g.rows) {
+              const row = document.createElement("div");
+              row.className = "row";
+              const k = document.createElement("div");
+              k.className = "k";
+              keycaps(k, chords);
+              row.append(k, label);
+              col.appendChild(row);
+            }
+            cols.appendChild(col);
+          }
+          void cols.offsetWidth;
+        }
+        [...cols.children].forEach((col, i) => col.querySelectorAll(".row").forEach((r) => r.classList.toggle("on", i < shown)));
+        sheet.classList.add("on");
+      },
       card(kicker: string | null, title: string | null, line: string | null) {
         if (!title) { card.classList.remove("on"); return; }
         $<HTMLElement>(".card .k").textContent = kicker ?? "";
@@ -168,4 +249,9 @@ export interface OverlayApi {
   card(kicker: string | null, title: string | null, line: string | null): void;
   /** A panel listing named groups of [icon, label] rows; a null title hides it. */
   list(title: string | null, groups: { name: string; items: [string, string][]; column?: boolean }[]): void;
+  /** The key just pressed, as keycaps ("Alt+Shift+C"); gone after `ms` (0: stays), null hides it. */
+  keys(chord: string | null, ms: number): void;
+  /** A full-screen index card of shortcut groups, each row [chords, label]; the
+   *  first `shown` groups are filled in. A null title hides it. */
+  sheet(title: string | null, groups: { name: string; rows: [string, string][] }[], shown: number): void;
 }

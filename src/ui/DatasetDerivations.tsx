@@ -34,6 +34,8 @@ import { useSettingsSlice } from "./SettingsContext";
  * Edit-only session never pays for the address scan.
  */
 export interface DatasetDerivations {
+  /** The dataset these are derived from. */
+  dataset: Dataset;
   /** Bumped on every dataset mutation — safe to use as a memo key. */
   version: number;
   /** Place/address suggestions from every value the file holds — brought up
@@ -99,6 +101,7 @@ export function DatasetDerivationsProvider({
     const placeValues = lazy(() => collectPlaceValues(dataset));
     const addressScan = lazy(() => startAddressScan(dataset));
     return {
+      dataset,
       version,
       fieldSuggestions: lazy(() => suggestionIndex.get(dataset, changes, version)),
       addressScan,

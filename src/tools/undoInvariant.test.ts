@@ -66,6 +66,7 @@ import { fixDuplicatePointers } from "./fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./fixDuplicateFamilies";
 import { fixSexFromRole } from "./fixSex";
 import { fixSwappedRoles } from "./fixRoleSwap";
+import { fixMarriageGodparents } from "./fixMarriageGodparents";
 import { fixDates } from "./fixDates";
 import { clusterDuplicates, findDuplicates } from "./duplicates";
 import { duplicateDefaults, mergeDuplicateChain } from "./mergeDuplicate";
@@ -476,6 +477,16 @@ describe("undo invariant: health-check fixers", () => {
     const probe = load(text);
     expect(fixSwappedRoles(probe).length).toBeGreaterThan(0);
     expectUndoInvariant(load(text), (ds) => fixSwappedRoles(ds));
+  });
+
+  it("marriage godparents to witnesses", () => {
+    // A 5.5-era witness pointing at the family, and one on the family itself.
+    const text = interleave(corpusText("geneanet-5.5.1-utf8.ged"), [
+      "0 @ZY1@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @ZYF@\n1 ASSO @ZYF@\n2 TYPE FAM\n2 RELA botra\n",
+      "0 @ZYF@ FAM\n1 WIFE @ZY1@\n1 MARR\n2 ASSO @ZY1@\n3 ROLE GODP\n",
+    ]);
+    expect(fixMarriageGodparents(load(text))).toHaveLength(2);
+    expectUndoInvariant(load(text), (ds) => fixMarriageGodparents(ds));
   });
 });
 

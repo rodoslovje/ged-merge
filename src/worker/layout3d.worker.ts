@@ -47,7 +47,7 @@ function start() {
 self.onmessage = (e: MessageEvent<Layout3dRequest>) => {
   const m = e.data;
   if (m.type === "init") {
-    const edges = Array.from({ length: m.ea.length }, (_, k) => ({ a: m.ea[k], b: m.eb[k], length: m.len[k] }));
+    const edges = Array.from({ length: m.ea.length }, (_, k) => ({ a: m.ea[k], b: m.eb[k], length: m.len[k], weak: m.weak[k] === 1 }));
     layout = createLayout3d(m.n, edges, m.gen, m.hops, m.trees, m.via);
     layout.setLayered(m.layered);
     start();

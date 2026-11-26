@@ -115,9 +115,10 @@ export function usePopoverKeyboard<T extends HTMLElement = HTMLDivElement, B ext
     };
   }, [open]);
 
-  /** ↓ on the trigger opens the popover, as on a select. */
+  /** ↓ on the trigger opens the popover, as on a select — a bare arrow only:
+   *  ⌥ + arrow is Edit's step through the family. */
   function onTriggerKeyDown(e: ReactKeyboardEvent) {
-    if (open || (e.key !== "ArrowDown" && e.key !== "ArrowUp")) return;
+    if (open || e.altKey || (e.key !== "ArrowDown" && e.key !== "ArrowUp")) return;
     e.preventDefault();
     setOpenRef.current(true);
   }

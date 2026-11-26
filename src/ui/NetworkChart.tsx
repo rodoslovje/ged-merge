@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset } from "../gedcom/types";
-import { buildFamilyGraph, graphBranches, type GraphScope } from "../chart/familyGraph";
+import { ASSOC_KINDS, assocKindCounts, buildFamilyGraph, graphBranches, type AssocKind, type GraphAssoc, type GraphScope } from "../chart/familyGraph";
 import { linkLength } from "../chart/forceLayout3d";
 import type { Layout3dReply, Layout3dRequest } from "../worker/layout3dMessages";
 // Inlined, not a worker file of its own: the family website is one HTML file
@@ -28,13 +28,16 @@ import { useNameOf } from "./SettingsContext";
 import { Segmented } from "./Segmented";
 import { useDocTheme } from "./map/useDocTheme";
 import { sexClass, sexColorVar } from "./sex";
+import { useAssocHover, useAssociationIndex } from "./useAssocHover";
 import { useChartShortcuts } from "../keyboard/useChartShortcuts";
 
 // The 3D network chart: everyone in the root's tree (or the whole file) as a
 // dot, every parent–child and couple link as a line, laid out by a force
 // simulation (src/chart/forceLayout3d.ts) and drawn on a 2D canvas with a
-// perspective projection. Drag turns it, the wheel or a pinch zooms, a
-// right/shift drag pans. The dots take the charts' shared Color axis, so a
+// perspective projection. Godparents, witnesses and a record's other
+// associates join in as dashed lines (and as links the walk follows), each
+// kind in its own colour and under a checkbox of its own. Drag turns it,
+// the wheel or a pinch zooms, a right/shift drag pans. The dots take the charts' shared Color axis, so a
 // cluster's family line, country or surname reads at a glance; the colour key
 // hides groups. Layered mode holds each generation to its own height.
 
@@ -44,6 +47,12 @@ const NO_MARRIED_NAME = { marriedSurname: false };
 const BIG = 20000;
 const HIT_PX = 9;
 const DOT = 2.6;
+/** The dashed links' colour per kind of association. */
+const ASSOC_COLOR: Record<AssocKind, string> = {
+  godp: "var(--chart-assoc-godp)",
+  witn: "var(--chart-assoc-witn)",
+  other: "var(--chart-assoc-other)",
+};
 /** The colour key's "other" entry (nodeColor folds the long tail into it). */
 const OTHER_KEY = "\u0000other";
 
@@ -75,6 +84,22 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   const [scope, setScope] = useState<GraphScope>("blood");
   const [layered, setLayered] = useState(true);
   const [spin, setSpin] = useState(false);
+  // Godparents, witnesses and the other associates, each kind on its own
+  // checkbox — offered only for the kinds the file holds.
+  const [assocKinds, setAssocKinds] = useState<ReadonlySet<AssocKind>>(() => new Set(ASSOC_KINDS));
+  const toggleAssocKind = (kind: AssocKind) =>
+    setAssocKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind); else next.add(kind);
+      return next;
+    });
+  const associationIndex = useAssociationIndex(mainDs);
+  const associations = useMemo(() => {
+    const index = associationIndex();
+    return index.size ? { index, counts: assocKindCounts(index) } : undefined;
+  }, [associationIndex]);
+  const walked = associations && assocKinds.size ? associations.index : undefined;
+  const assocHover = useAssocHover(mainDs);
   // The selected person, whose family stays lit on the chart, and whether
   // their panel is open: closing the panel keeps the family lit.
   const [selected, setSelected] = useState<number | null>(null);
@@ -94,15 +119,18 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
   // The shared Generations setting limits how far the walk goes up and down
   // from the root. The whole graph is walked once to learn how many there are
   // (the stepper's "of N"); a limit below that walks again, stopping there.
-  const fullGraph = useMemo(() => buildFamilyGraph(mainDs, rootId, scope, Infinity), [mainDs, rootId, scope]);
+  const fullGraph = useMemo(
+    () => buildFamilyGraph(mainDs, rootId, scope, Infinity, Infinity, walked, assocKinds),
+    [mainDs, rootId, scope, walked, assocKinds],
+  );
   const depth = useMemo(
     () => fullGraph.nodes.reduce((m, nd) => Math.max(m, Math.abs(nd.gen)), 0),
     [fullGraph],
   );
   const maxGen = settings.maxGenerations;
   const graph = useMemo(
-    () => (maxGen === null || maxGen >= depth ? fullGraph : buildFamilyGraph(mainDs, rootId, scope, Infinity, maxGen)),
-    [fullGraph, depth, maxGen, mainDs, rootId, scope],
+    () => (maxGen === null || maxGen >= depth ? fullGraph : buildFamilyGraph(mainDs, rootId, scope, Infinity, maxGen, walked, assocKinds)),
+    [fullGraph, depth, maxGen, mainDs, rootId, scope, walked, assocKinds],
   );
   // A new graph: nobody of the old one stays selected or hovered (their
   // indexes now name other people, or nobody).
@@ -151,7 +179,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     });
     // theme is a dependency: the variables change with it.
     void theme;
-    const out = { fill, family: resolve("var(--map-marriage)"), accent: resolve("var(--accent)"), text: resolve("var(--text)"), panel: resolve("var(--panel)") };
+    const out = { fill, family: resolve("var(--map-marriage)"), assoc: { godp: resolve(ASSOC_COLOR.godp), witn: resolve(ASSOC_COLOR.witn), other: resolve(ASSOC_COLOR.other) }, accent: resolve("var(--accent)"), text: resolve("var(--text)"), panel: resolve("var(--panel)") };
     probe.remove();
     return out;
   }, [graph, colorer, categories, theme]);
@@ -211,9 +239,13 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
     graph.edges.forEach((e) => {
       if (e.kind === "child" && graph.families[e.a - people].partners[0] < e.b) via[e.b] = e.a;
     });
-    const m = graph.edges.length;
-    const ea = new Int32Array(m), eb = new Int32Array(m), len = new Float32Array(m);
+    // The links: the families', then the godparents' and witnesses' — weak
+    // ones, which draw two families nearer without pulling either apart.
+    const fm = graph.edges.length;
+    const m = fm + graph.assocs.length;
+    const ea = new Int32Array(m), eb = new Int32Array(m), len = new Float32Array(m), weak = new Uint8Array(m);
     graph.edges.forEach((e, k) => { ea[k] = e.a; eb[k] = e.b; len[k] = linkLength(e.kind); });
+    graph.assocs.forEach((e, k) => { ea[fm + k] = e.a; eb[fm + k] = e.b; len[fm + k] = linkLength("assoc"); weak[fm + k] = 1; });
     positions.current = { pos: null, fresh: false };
     // The old picture's screen positions go with it: until the new layout
     // arrives, clicks, hovers and Find must hit nobody.
@@ -241,8 +273,8 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       setProgress(null);
       setFailed(true);
     };
-    const init: Layout3dRequest = { type: "init", n, ea, eb, len, gen, hops, trees, via, layered: layeredRef.current };
-    worker.postMessage(init, [ea.buffer, eb.buffer, len.buffer, gen.buffer, hops.buffer, trees.buffer, via.buffer]);
+    const init: Layout3dRequest = { type: "init", n, ea, eb, len, weak, gen, hops, trees, via, layered: layeredRef.current };
+    worker.postMessage(init, [ea.buffer, eb.buffer, len.buffer, weak.buffer, gen.buffer, hops.buffer, trees.buffer, via.buffer]);
     return () => {
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
@@ -323,7 +355,9 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       if (!list) dots.set(colors.fill[i], (list = []));
       list.push(i);
     });
-    return { links, dots };
+    const assocs: Record<AssocKind, GraphAssoc[]> = { godp: [], witn: [], other: [] };
+    for (const e of graph.assocs) if (shownMask[e.a] && shownMask[e.b]) assocs[e.kind].push(e);
+    return { links, dots, assocs };
   }, [graph, colors, shownMask]);
   const rootIdx = useMemo(() => graph.nodes.findIndex((nd) => nd.id === rootId), [graph, rootId]);
 
@@ -411,13 +445,20 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
       // everyone else on those hubs — partner, parents, children, siblings.
       const sel = L.selected;
       const focus = new Uint8Array(n);
+      // The selection's own ties: their godparents and godchildren, and the
+      // witnesses of their own wedding (hung on the hub they are a partner of).
+      const tied: GraphAssoc[] = [];
       if (sel !== null) {
         focus[sel] = 1;
         for (const e of L.graph.edges) if (e.a === sel || e.b === sel) { focus[e.a] = 1; focus[e.b] = 1; }
+        for (const kind of ASSOC_KINDS) for (const e of L.batches.assocs[kind]) {
+          if (e.a === sel || e.b === sel || (e.a >= people && L.graph.families[e.a - people].partners.includes(sel))) tied.push(e);
+        }
         for (const e of L.graph.edges) {
           const hub = e.a >= people ? e.a : e.b;
           if (focus[hub] && hub !== sel) { focus[e.a] = 1; focus[e.b] = 1; }
         }
+        for (const e of tied) { focus[e.a] = 1; focus[e.b] = 1; }
       }
       const big = people > BIG;
       ctx.lineWidth = big ? 0.4 : n > 4000 ? 0.6 : 1;
@@ -439,6 +480,37 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
           ctx.stroke();
         }
       }
+      // The associates' links, dashed so they never read as kin, each kind
+      // in its colour; the selection's own stand out.
+      ctx.setLineDash([4, 4]);
+      for (const kind of ASSOC_KINDS) {
+        const list = L.batches.assocs[kind];
+        if (!list.length) continue;
+        const width = ctx.lineWidth;
+        ctx.strokeStyle = L.colors.assoc[kind];
+        for (let band = 0; band < 3; band++) {
+          ctx.globalAlpha = (sel === null ? 0.5 : 0.12) * (big ? 0.5 : 1) * FOG[band];
+          ctx.beginPath();
+          for (const e of list) {
+            const near = ((depth[e.a] + depth[e.b]) / (2 * r) + 1) / 2;
+            if ((near < 0.4 ? 0 : near < 0.6 ? 1 : 2) !== band) continue;
+            ctx.moveTo(sx[e.a], sy[e.a]);
+            ctx.lineTo(sx[e.b], sy[e.b]);
+          }
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 0.95;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (const e of tied) {
+          if (e.kind !== kind) continue;
+          ctx.moveTo(sx[e.a], sy[e.a]);
+          ctx.lineTo(sx[e.b], sy[e.b]);
+        }
+        ctx.stroke();
+        ctx.lineWidth = width;
+      }
+      ctx.setLineDash([]);
       if (sel !== null) {
         ctx.globalAlpha = 0.95;
         ctx.lineWidth = 2;
@@ -747,6 +819,13 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             <input type="checkbox" checked={spin} onChange={(e) => setSpin(e.target.checked)} />
             {t("network.spin")}
           </label>
+          {associations && ASSOC_KINDS.filter((kind) => associations.counts[kind] > 0).map((kind) => (
+            <label key={kind} className="kin-year network-spin" title={t(`network.assoc.${kind}.tooltip`)}>
+              <input type="checkbox" checked={assocKinds.has(kind)} onChange={() => toggleAssocKind(kind)} />
+              {t(`network.assoc.${kind}`)}
+              <span className="network-assoc-key" style={{ borderColor: ASSOC_COLOR[kind] }} aria-hidden="true" />
+            </label>
+          ))}
         </>
       }
     >
@@ -763,7 +842,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
           onContextMenu={(e) => e.preventDefault()}
         />
         <div className="network-count">
-          {t("network.count", { shown: graph.nodes.length.toLocaleString(), links: graph.edges.length.toLocaleString() })}
+          {t("network.count", { shown: graph.nodes.length.toLocaleString(), links: (graph.edges.length + graph.assocs.length).toLocaleString() })}
           {scope === "file" && graph.trees > 1 && ` · ${t("network.trees", { count: graph.trees })}`}
         </div>
         {hover && hover.i !== selected && (
@@ -771,6 +850,7 @@ export function NetworkChart({ mainDs, rootId, startId, backLabel, onBack, onNav
             <span className={`person-name ${sexClass(redacted(hover.i) ? undefined : graph.nodes[hover.i].indi.sex)}`}>{nameAt(hover.i)}</span>
             {yearsOf(hover.i) && <span className="network-years"> {yearsOf(hover.i)}</span>}
             {categoryLabel(hover.i) && <div className="network-cat">{categoryLabel(hover.i)}</div>}
+            {!redacted(hover.i) && assocHover(graph.nodes[hover.i].indi)?.map((line) => <div key={line} className="network-cat">{line}</div>)}
           </div>
         )}
         {sel && selected !== null && panelOpen && (

@@ -16,6 +16,7 @@ import { buildPlaceTree, UNSPECIFIED, UNSPECIFIED_PLACE } from "./places";
 import { fixBrokenLinks } from "./fixLinks";
 import { countInferableSex, fixSexFromRole } from "./fixSex";
 import { countSwappedRoles, fixSwappedRoles } from "./fixRoleSwap";
+import { fixMarriageGodparents } from "./fixMarriageGodparents";
 import { fixDuplicatePointers } from "./fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./fixDuplicateFamilies";
 import { countDanglingRefs, fixDanglingRefs } from "./fixDanglingRefs";
@@ -3555,5 +3556,95 @@ describe("fixDuplicateFamilies", () => {
 0 TRLR`);
     expect(validateDataset(ds, 2026).counts.duplicateFamily).toBe(0);
     expect(fixDuplicateFamilies(ds)).toHaveLength(0);
+  });
+});
+
+describe("fixMarriageGodparents", () => {
+  const people = `0 @I1@ INDI
+1 NAME Janez /Kos/
+1 SEX M
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Ana /Novak/
+1 SEX F
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Miha /Zajc/
+1 SEX M`;
+  const godparentFindings = (ds: Dataset) =>
+    validateDataset(ds, 2026).issues.filter((i) => i.marriageGodparent);
+  // Checked against the file's own standard: 7.0 in one test, 5.5.1 in the other.
+  const conformanceErrors = (ds: Dataset) => validateConformance(ds);
+
+  it("restates a godparent on a 7.0 marriage as a witness, keeping the rest", () => {
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS 7.0
+${people}
+1 BAPM
+2 ASSO @I1@
+3 ROLE GODP
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 MARR
+2 DATE 12 MAY 1880
+2 ASSO @I3@
+3 ROLE GODP
+4 PHRASE boter
+3 NOTE brat ženina
+2 ASSO @VOID@
+3 PHRASE Jože Hribar
+3 ROLE WITN
+0 TRLR`);
+    const found = godparentFindings(ds);
+    expect(found.map((i) => [i.scope, i.id])).toEqual([["family", "@F1@"]]);
+    expect(found[0].messageVars?.who).toContain("Miha");
+    const before = conformanceErrors(ds).length;
+
+    const patches = fixMarriageGodparents(ds);
+    expect(patches.map((p) => [p.type, p.id])).toEqual([["family", "@F1@"]]);
+    const [first, second] = ds.families.get("@F1@")!.events[0].associations!;
+    expect(first).toMatchObject({ targetId: "@I3@", role: "WITN" });
+    // "boter" said godparent too, so it goes; the note about him stays.
+    expect(first.roleText).toBeUndefined();
+    expect(first.noteRefs?.[0]?.text).toBe("brat ženina");
+    expect(second).toMatchObject({ role: "WITN", name: "Jože Hribar" });
+    // The godparent of a baptism is no business of this fix.
+    expect(ds.individuals.get("@I3@")!.events[0].associations![0].role).toBe("GODP");
+    expect(conformanceErrors(ds)).toHaveLength(before);
+    expect(godparentFindings(ds)).toHaveLength(0);
+    expect(fixMarriageGodparents(ds)).toHaveLength(0);
+  });
+
+  it("restates a 5.5.1 association pointing at a family, and only the row named", () => {
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+${people}
+1 ASSO @F1@
+2 TYPE FAM
+2 RELA botra
+1 ASSO @I1@
+2 RELA Godfather
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 MARR
+2 DATE 12 MAY 1880
+0 TRLR`);
+    expect(godparentFindings(ds).map((i) => [i.scope, i.id])).toEqual([["individual", "@I3@"]]);
+    const before = conformanceErrors(ds).length;
+    expect(fixMarriageGodparents(ds, "@I1@")).toHaveLength(0);
+
+    expect(fixMarriageGodparents(ds, "@I3@")).toHaveLength(1);
+    const [atFamily, atPerson] = ds.individuals.get("@I3@")!.associations!;
+    expect(atFamily).toMatchObject({ targetId: "@F1@", targetKind: "FAM", role: "WITN", roleText: "witness" });
+    // His godfather is a person's, not a marriage's.
+    expect(atPerson).toMatchObject({ role: "GODP", roleText: "Godfather" });
+    expect(conformanceErrors(ds)).toHaveLength(before);
+    expect(godparentFindings(ds)).toHaveLength(0);
   });
 });

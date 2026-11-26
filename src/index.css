@@ -6695,6 +6695,11 @@ input.tree-zoom-pct:focus { outline: none; color: var(--text); background: var(-
    beside the segmented controls rather than at their top edge. */
 .network-spin,
 .fan-siblings-toggle { align-self: stretch; }
+/* The dashed sample beside an associates checkbox, in that kind's colour. */
+.network-assoc-key {
+  width: 18px;
+  border-top: 2px dashed;
+}
 .network-count,
 .network-help {
   position: absolute;

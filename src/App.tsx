@@ -62,6 +62,7 @@ import { fixBrokenLinks } from "./tools/fixLinks";
 import { fixSexFromRole } from "./tools/fixSex";
 import { fixMarriageDates } from "./tools/fixMarriageDate";
 import { fixSwappedRoles } from "./tools/fixRoleSwap";
+import { fixMarriageGodparents } from "./tools/fixMarriageGodparents";
 import { fixDates, fixNonStandardDates } from "./tools/fixDates";
 import { fixDuplicatePointers } from "./tools/fixDuplicatePointers";
 import { fixDuplicateFamilies } from "./tools/fixDuplicateFamilies";
@@ -1432,12 +1433,15 @@ function AppContent() {
     function onKey(e: KeyboardEvent) {
       const editable = isEditableTarget(e.target);
       const mod = e.metaKey || e.ctrlKey;
+      // The letter of a chord, whatever its case: with Shift held (redo) or
+      // Caps Lock on, the browser reports "Z" and "S", not "z" and "s".
+      const letter = e.key.toLowerCase();
 
       // Ctrl/Cmd+S saves from anywhere — including mid-edit. Blur the field
       // first so its in-progress value commits (edit fields save on blur),
       // then save. preventDefault always, so the browser never shows its own
       // "save page" prompt. Skipped only while another dialog is open.
-      if (mod && e.key === "s" && !isModalOpen()) {
+      if (mod && letter === "s" && !isModalOpen()) {
         e.preventDefault();
         const doSave = () => { if (globalShortcutRef.current.canSave) globalShortcutRef.current.save(); };
         if (editable) {
@@ -1465,8 +1469,8 @@ function AppContent() {
       if (isModalOpen()) return;
 
       if (mod) {
-        if (e.key === "z" && !e.shiftKey) { e.preventDefault(); globalShortcutRef.current.undo(); }
-        else if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); globalShortcutRef.current.redo(); }
+        if (letter === "z" && !e.shiftKey) { e.preventDefault(); globalShortcutRef.current.undo(); }
+        else if ((letter === "z" && e.shiftKey) || letter === "y") { e.preventDefault(); globalShortcutRef.current.redo(); }
         return;
       }
 
@@ -3231,6 +3235,7 @@ function AppContent() {
               onFixBrokenLinks={(only) => applyToolPatches(fixBrokenLinks(mainDataset, only), true)}
               onFixSexFromRole={(only) => applyToolPatches(fixSexFromRole(mainDataset, only), true)}
               onFixSwappedRoles={(only) => applyToolPatches(fixSwappedRoles(mainDataset, only), true)}
+              onFixMarriageGodparents={(only) => applyToolPatches(fixMarriageGodparents(mainDataset, only), true)}
               onFixMarriageDates={(fixes) => applyToolPatches(fixMarriageDates(mainDataset, fixes), true)}
               onMarkDeceased={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "markDeceased" }, writeVersionOf(formatOverrides)).patches, true)}
               onEstimateBirths={(ids) => applyToolPatches(applyBatchAction(mainDataset, ids, { kind: "estimateBirth" }, writeVersionOf(formatOverrides)).patches, true)}

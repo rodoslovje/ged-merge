@@ -76,7 +76,16 @@ const CAPS: { key: string; icon: React.ReactNode }[] = [
  *  languages; "offline" = the PWA precaches everything. */
 const PROOF_KEYS = ["views", "versions", "languages", "offline"] as const;
 
-const VIDEOS_URL = "https://www.youtube.com/@GEDMerge";
+/** YouTube tutorial playlists. The videos exist in Slovenian and English
+ *  only, so every other UI language gets the English one. */
+const VIDEO_PLAYLISTS: Record<string, string> = {
+  sl: "https://www.youtube.com/watch?v=qEsR1sWkMNo&list=PLXKQGQgTQGAY",
+  en: "https://www.youtube.com/watch?v=ZI9LRvNBKus&list=PLCZlpBwBMMqU",
+};
+
+function videosUrl(lang: string | null | undefined): string {
+  return VIDEO_PLAYLISTS[(lang ?? "").slice(0, 2)] ?? VIDEO_PLAYLISTS.en;
+}
 
 /** Screenshot strip: image basename + the app's own label for the caption.
  *  UI shots are PNG (flat color, crisp); map scans are JPEG (photographic). */
@@ -440,7 +449,7 @@ export function Landing({ mainState, onLoadFile, onLoadSample, onStartNew, onSho
       <div className="lp-strip">
         <div className="lp-strip-head">
           <p className="lb-list-h">{t("landing.shots.header")}</p>
-          <a className="lp-news-link" href={VIDEOS_URL} target="_blank" rel="noopener noreferrer">
+          <a className="lp-news-link" href={videosUrl(i18n.language)} target="_blank" rel="noopener noreferrer">
             {t("landing.shots.videos")}
           </a>
         </div>

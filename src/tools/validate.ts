@@ -14,6 +14,7 @@ export const STATED_AGE_TOLERANCE = 1;
 import { birthParentFamilies, isBirthChildLink, isSameSexCouple } from "../gedcom/couple";
 import { contradicts } from "../gedcom/negative";
 import { birthBound, daySpan, marriageEstimate, previewBirthEstimateDates } from "./estimates";
+import { marriageGodparents } from "./fixMarriageGodparents";
 
 /**
  * Plausibility limits for age-based sanity checks, in whole years. Computed from
@@ -107,6 +108,9 @@ export interface ValidationIssue {
   /** The birth date the estimate would write (`missingVitals`) — the same
    *  one Batch's "Estimate birth" proposes, and what the row's fix writes. */
   birthEstimate?: string;
+  /** A godparent named at a marriage (`association`) — the row's fix restates
+   *  the role as witness. */
+  marriageGodparent?: boolean;
 }
 
 /** Write `value` as the `MARR` date of family `famId`. */
@@ -738,6 +742,15 @@ export function validateDataset(
     // Deliberately not flagged: an association restating a family link the tree
     // already holds. Some files record those on purpose, and phase 1 is not the
     // place to start an argument about them.
+    // A godparent at somebody's wedding — a 5.5-era association pointing at a
+    // family. The role is the slip; the fix makes it the witness it was.
+    if (marriageGodparents(ds, indi).length) {
+      push({
+        scope: "individual", id: indi.id, category: "association", severity: "warning",
+        subject: (subject ??= subjectOf(indi)), messageKey: "tools.validate.issue.assocMarriageGodparent",
+        sexContext: sexOf(indi), marriageGodparent: true,
+      });
+    }
     for (const [event, assoc] of associationsOfIndividual(indi)) {
       const where = event ? { tag: event.tag } : undefined;
       if (assoc.targetId === indi.id) {
@@ -1076,6 +1089,18 @@ export function validateDataset(
       push({
         scope: "family", id: fam.id, category: "noEventConflict", severity: "warning",
         subject, messageKey: "tools.validate.issue.noEventConflict", messageVars: { tag: a.tag },
+      });
+    }
+
+    // Godparents named at the wedding: a marriage has witnesses, and the role
+    // is what an editor or an import proposed for every associate alike.
+    const godparents = marriageGodparents(ds, fam);
+    if (godparents.length) {
+      push({
+        scope: "family", id: fam.id, category: "association", severity: "warning",
+        subject, messageKey: "tools.validate.issue.assocGodparentAtMarriage",
+        messageVars: { who: godparents.map((a) => associateLabel(a, ds)).join(", ") },
+        marriageGodparent: true,
       });
     }
 
