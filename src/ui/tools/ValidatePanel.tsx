@@ -1702,7 +1702,7 @@ export function ValidatePanel({
                           ? { label: t("tools.validate.editSourceOpen"), run: () => setEditSrc(row.issue.recordId!) }
                           // A row standing for several records: which ones.
                           : !drill && isGrouped(row.issue) && canDrill(row.issue)
-                            ? { label: t("tools.validate.drillOpen"), run: () => setDrill(row.issue) }
+                            ? { label: t("tools.validate.drillOpen"), run: () => setDrill(row.issue), lead: true }
                             : undefined}
                   />
                 );
@@ -2025,7 +2025,7 @@ function StructRow({
   onRun: (run: () => void) => void;
   onEditSource: (xref: string) => void;
   /** Takes the reader to where the finding is settled (no fix of its own). */
-  open?: { label: string; run: () => void };
+  open?: { label: string; run: () => void; /** Ahead of the row's fix, not after it. */ lead?: boolean };
   /** The file's producer (`HEAD.SOUR`): whose page a tag in the message links. */
   headSour?: string;
   /** The row's checkbox for a batch (empty when it has no fix). */
@@ -2053,8 +2053,9 @@ function StructRow({
         />
         {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
       </span>
+      {open?.lead && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
-      {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
+      {open && !open.lead && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}
       {issue.fix && !fix && (
