@@ -3,7 +3,7 @@ import { liftNestedStamps } from "../gedcom/chanCrea";
 import { toStandardCoverage } from "./sourceReshape/apply";
 import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
-import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
+import { keepSecondTitleAsNote, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, keepsSourceTag, rebuildFamily, rebuildIndividual, settleSourceFields } from "../gedcom/edit";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { untypedEvents, upgradeExtensions } from "../normalize/migrate";
@@ -35,10 +35,11 @@ import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite
  *  - **relocate** — a media record's `TITL`/`FORM` kept beside its `FILE`
  *    (the 5.5 shape): moved under the `FILE` in every media record at once,
  *    as the finding is one row for the whole habit;
- *  - **fileTitles** — the one repair that removes something, run only on the
- *    user's word: where a media record has a title beside its `FILE` and a
- *    different one under it, the one under the `FILE` (which the app shows)
- *    is kept;
+ *  - **fileTitles** — run only on the user's word: where a media record has
+ *    a title beside its `FILE` and a different one under it, the one under
+ *    the `FILE` (which the app shows) stays the title and the other becomes
+ *    a `NOTE` on the record — dropped only where it repeats the file's own
+ *    link or path;
  *  - **agency** — a source's own `AGNC`, which no version allows on the
  *    record: moved to `DATA.AGNC` in every source at once;
  *  - **extensions** — an extension standing in for a 7.0 structure (`_UID`,
@@ -282,7 +283,7 @@ type MediaPass = (obje: GedNode) => GedNode[];
  *  beside FILE out of place (5.5 allows them). */
 function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, issues: ConformanceIssue[]): MediaPass | undefined {
   if (kind === "fileTitles") {
-    return issues.some((i) => i.relocate && i.sample === "TITL") ? dropTitleBesideFileTitle : undefined;
+    return issues.some((i) => i.relocate && i.sample === "TITL") ? keepSecondTitleAsNote : undefined;
   }
   if (!issues.some((i) => i.relocate)) return undefined;
   // 7.0 writes a FORM as a media type, so a moved `jpg` arrives as one.

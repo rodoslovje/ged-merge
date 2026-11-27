@@ -588,6 +588,29 @@ describe("fixConformance", () => {
     expect(check551("0 @I1@ INDI\n1 EVEN Graduation\n1 FACT blue").filter((i) => i.messageVars.tag === "TYPE")).toEqual([]);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("keeps a media record's second title as a note in %s, dropping only a copy of the file's link", (_v, head) => {
+    const ds = dataset(`${head}
+0 @O1@ OBJE
+1 FILE https://example.org/osmrtnica
+2 FORM text/html
+2 TITL Alojz Naglič
+1 TITL https://example.org/osmrtnica
+0 @O2@ OBJE
+1 FILE https://example.org/knjiga
+2 FORM text/html
+2 TITL #153 - Deaths 1858-1896, Ravna Gora
+1 TITL https://example.org/drugje
+0 TRLR`);
+    expect(countFixableConformance(ds, "fileTitles")).toBe(2);
+    fixConformance(ds, "fileTitles");
+    const out = serializeGedcom(ds.records, ds);
+    // The file's own link said twice: the copy goes.
+    expect(out).toContain("2 TITL Alojz Naglič\n0 @O2@");
+    // A link the record holds nowhere else stays, as a note.
+    expect(out).toContain("2 TITL #153 - Deaths 1858-1896, Ravna Gora\n1 NOTE https://example.org/drugje\n");
+    expect(validateConformance(ds)).toEqual([]);
+  });
+
   it("moves media titles and formats kept beside FILE under it, in every media record", () => {
     const ds = dataset(`${HEAD_551}
 0 @O1@ OBJE
@@ -617,12 +640,13 @@ describe("fixConformance", () => {
     expect(out).toContain("0 @O2@ OBJE\n1 FILE b.jpg\n2 FORM jpg\n2 TITL Poroka\n0 @O3@"); // the copy goes
     expect(out).toContain("2 TITL Pogreb\n1 TITL Different\n"); // left for the user
 
-    // Only on the user's word: the FILE's own title stays, the other goes.
+    // Only on the user's word: the FILE's own title stays, the other is
+    // kept as a note on the record.
     expect(fixConformance(ds)).toEqual([]); // a run of every fix never picks one
     expect(countFixableConformance(ds, "fileTitles")).toBe(1);
     const titles = fixConformance(ds, "fileTitles");
     expect(titles.map((p) => p.id)).toEqual(["@O3@"]);
-    expect(serializeGedcom(ds.records, ds)).toContain("0 @O3@ OBJE\n1 FILE c.jpg\n2 FORM jpg\n2 TITL Pogreb\n0 TRLR");
+    expect(serializeGedcom(ds.records, ds)).toContain("0 @O3@ OBJE\n1 FILE c.jpg\n2 FORM jpg\n2 TITL Pogreb\n1 NOTE Different\n0 TRLR");
     expect(validateConformance(ds).filter((i) => i.category === "misplacedTag")).toEqual([]);
 
     applyRecordPatches(ds, titles, "undo");

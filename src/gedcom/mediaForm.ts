@@ -108,13 +108,36 @@ export function hangMediaLinesUnderFile(obje: GedNode, form?: (value: string) =>
   return done;
 }
 
-/** Drop a media record's record-level `TITL` lines when its first `FILE` has
- *  a title of its own — the one the app shows, and the one the standard
- *  reads. Returns the lines dropped. */
-export function dropTitleBesideFileTitle(obje: GedNode): GedNode[] {
-  const file = firstChild(obje, "FILE");
-  if (!file || !firstChild(file, "TITL")) return [];
-  const dropped = childrenByTag(obje, "TITL");
-  if (dropped.length) obje.children = obje.children.filter((c) => !dropped.includes(c));
-  return dropped;
+/**
+ * Settle a media record's record-level `TITL` lines when its first `FILE` has
+ * a title of its own — the one the app shows, and the one the standard reads.
+ * The second title is often something the first does not say (the page's link,
+ * the same register named another way), so it is kept, as a `NOTE` on the
+ * record; only a line that repeats what the record already holds — a `FILE`'s
+ * own link or path, its title, a note — is dropped. Returns the lines settled.
+ */
+export function keepSecondTitleAsNote(obje: GedNode): GedNode[] {
+  const files = childrenByTag(obje, "FILE");
+  if (!files.length || !firstChild(files[0], "TITL")) return [];
+  const settled = childrenByTag(obje, "TITL");
+  if (!settled.length) return [];
+  const fold = (v?: string) => (v ?? "").trim().toLowerCase();
+  const held = new Set<string>();
+  for (const file of files) {
+    held.add(fold(file.value));
+    held.add(fold(firstChild(file, "TITL")?.value));
+  }
+  for (const note of childrenByTag(obje, "NOTE")) held.add(fold(note.value));
+  const dropped = new Set<GedNode>();
+  for (const titl of settled) {
+    const text = fold(titl.value);
+    if (!text || held.has(text)) dropped.add(titl);
+    else {
+      titl.tag = "NOTE";
+      delete titl.spelling;
+      held.add(text);
+    }
+  }
+  if (dropped.size) obje.children = obje.children.filter((c) => !dropped.has(c));
+  return settled;
 }
