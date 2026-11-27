@@ -2,10 +2,12 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import { childrenByTag, cloneNode } from "../gedcom/node";
 import { FAM_EVENT_TAGS, INDI_EVENT_TAGS } from "../gedcom/eventTags";
 import { linkPageMedia, SOUR_TRAILING_TAGS } from "../gedcom/edit";
+import { writeMediaTitle } from "../gedcom/edit/media";
 import { EVENT_CHILD_ORDER, FAM_CHILD_ORDER, INDI_CHILD_ORDER, insertGrouped } from "../gedcom/edit/shared";
 import { bookKeyOf, buildObjeIndex, isPointer, looseKey, pageParamOf, sourceTitle, type ObjeIndex } from "../gedcom/source";
 import { parseFamilySearchUrl } from "../normalize/links";
 import type { PageMediaStyle } from "./sourceReshape";
+import { pageObjeTitle, recognizeSourceUrl } from "./sourceReshape/urls";
 
 /**
  * The citations whose record does not link the page image their source holds —
@@ -52,8 +54,22 @@ export interface UnfiledPageImage {
   page?: string;
 }
 
-/** One source: the citations of it missing their page image, and the pages of
- *  it the file keeps on records without ever filing them under the book. */
+/** A page image whose `#N` title prefix disagrees with its URL's page number. */
+export interface MismatchedPageTitle {
+  objeXref: string;
+  /** The page number the media title currently states. */
+  titlePage: string;
+  /** The page number the media URL states. */
+  urlPage: string;
+  currentTitle: string;
+  /** The Add Source title for this page (`#<urlPage> - <source title>`). */
+  proposedTitle: string;
+  url: string;
+}
+
+/** One source: the citations of it missing their page image, the pages of it
+ *  the file keeps on records without ever filing them under the book, and its
+ *  page images whose `#N` title disagrees with their URL's page number. */
 export interface PageMediaGroup {
   /** Stable identity (`pm:${sourceXref}`), the selection/React key. */
   id: string;
@@ -67,6 +83,8 @@ export interface PageMediaGroup {
    * grows from, and the two are fixed in one pass.
    */
   unfiled: UnfiledPageImage[];
+  /** Page images of this source whose `#N` title disagrees with their URL page. */
+  mismatched: MismatchedPageTitle[];
   /**
    * Citations of this source whose image could not be told from another: the
    * source holds several pages and the citation names none, or names one no
@@ -82,11 +100,13 @@ export interface PageMediaReport {
   total: number;
   /** Pages that would be filed under the book they belong to. */
   unfiled: number;
+  /** Page images whose `#N` title would be aligned to their URL page. */
+  mismatched: number;
   /** Citations left alone because which image they mean is not knowable. */
   ambiguous: number;
 }
 
-const EMPTY: PageMediaReport = { groups: [], total: 0, unfiled: 0, ambiguous: 0 };
+const EMPTY: PageMediaReport = { groups: [], total: 0, unfiled: 0, mismatched: 0, ambiguous: 0 };
 
 /** The page number an image's own URL states — the `pg=` a register link
  *  carries, or the image a FamilySearch ark was copied at. */
@@ -94,16 +114,64 @@ function pageOfImage(url: string): string | undefined {
   return pageParamOf(url) ?? parseFamilySearchUrl(url)?.image;
 }
 
+/** Leading `#N` page prefix in a media title (leading zeros stripped). */
+function titlePageOf(title: string | undefined): string | undefined {
+  return title ? /^#0*(\d+)\b/.exec(title.trim())?.[1] : undefined;
+}
+
 /** The page an image says it is: its address, else its title (`#190 - Births
  *  …`, how every page image this app writes is named) — a FamilySearch ark
  *  stored without its `?i=` names no page in the address at all. */
 function pageOfPageImage(url: string, title: string | undefined): string | undefined {
-  return pageOfImage(url) ?? (title ? /^#0*(\d+)\b/.exec(title.trim())?.[1] : undefined);
+  return pageOfImage(url) ?? titlePageOf(title);
 }
 
 /** Two page numbers as one, leading zeros aside (`007` and `7`). */
 function samePage(a: string, b: string): boolean {
   return a.replace(/^0+(?=\d)/, "") === b.replace(/^0+(?=\d)/, "");
+}
+
+/** Whether a media record's leading `#N` title disagrees with its URL's page
+ *  number — shared with duplicate ranking so a matching title wins survivor. */
+export function pageTitleMismatch(url: string | undefined, title: string | undefined): boolean {
+  if (!url || !title) return false;
+  const titlePage = titlePageOf(title);
+  if (!titlePage) return false;
+  const rec = recognizeSourceUrl(url);
+  const rawUrlPage = rec?.page ?? pageParamOf(url);
+  const urlPage = rawUrlPage && /^\d+$/.test(rawUrlPage) ? rawUrlPage : undefined;
+  return !!urlPage && !samePage(titlePage, urlPage);
+}
+
+/**
+ * Whether a page media record's `#N` title prefix disagrees with the page
+ * number in its URL, and the Add Source title that aligns them. Titles without
+ * a leading `#N`, URLs without a numeric page, and titles whose `#N` already
+ * matches the URL (leading zeros aside) return undefined.
+ */
+function mismatchedTitleOf(
+  objeXref: string,
+  info: { url?: string; title?: string } | undefined,
+  source: GedNode,
+): MismatchedPageTitle | undefined {
+  const url = info?.url;
+  const currentTitle = info?.title?.trim();
+  if (!url || !currentTitle) return undefined;
+  const titlePage = titlePageOf(currentTitle);
+  if (!titlePage) return undefined;
+  const rec = recognizeSourceUrl(url);
+  const rawUrlPage = rec?.page ?? pageParamOf(url);
+  const urlPage = rawUrlPage && /^\d+$/.test(rawUrlPage) ? rawUrlPage : undefined;
+  if (!urlPage || samePage(titlePage, urlPage)) return undefined;
+  const book = sourceTitle(source)?.trim();
+  const proposedTitle = pageObjeTitle(
+    rec?.site,
+    book,
+    urlPage,
+    rec?.site === "familysearch" ? urlPage : undefined,
+  );
+  if (!proposedTitle || proposedTitle === currentTitle) return undefined;
+  return { objeXref, titlePage, urlPage, currentTitle, proposedTitle, url };
 }
 
 /** The page images a `SOUR` record holds, in file order. */
@@ -308,20 +376,24 @@ function sourceIndex(records: GedNode[]): Map<string, GedNode> {
   return map;
 }
 
+function objeNodeIndex(records: GedNode[]): Map<string, GedNode> {
+  const map = new Map<string, GedNode>();
+  for (const rec of records) if (rec.tag === "OBJE" && rec.xref) map.set(rec.xref, rec);
+  return map;
+}
+
 /**
- * Scan the file for citations missing their page image. `style` is the file's
- * page-link style as the reader's settings resolve it: under "source only"
- * there is nothing to report — the images belong under the source there, and
- * the main scan already offers the pointers that should not be beside a
- * citation.
+ * Scan the file for page-image issues: citations missing their page image and
+ * unfiled pages (under the `"event"` style), plus page images whose `#N` title
+ * disagrees with their URL's page number (in either style).
  */
 export function findMissingPageMedia(dataset: Dataset, style: PageMediaStyle): PageMediaReport {
-  if (style !== "event") return EMPTY;
   const records = dataset.records;
   const sources = sourceIndex(records);
   if (sources.size === 0) return EMPTY;
   const objes = buildObjeIndex(records);
   const bySource = new Map<string, PageMediaGroup>();
+  const seenMismatch = new Map<string, Set<string>>();
   const groupFor = (sourceXref: string): PageMediaGroup => {
     const existing = bySource.get(sourceXref);
     if (existing) return existing;
@@ -332,89 +404,140 @@ export function findMissingPageMedia(dataset: Dataset, style: PageMediaStyle): P
       title: sourceTitle(source) || sourceXref,
       missing: [],
       unfiled: [],
+      mismatched: [],
       ambiguous: 0,
     };
     bySource.set(sourceXref, group);
     return group;
   };
+  const checkMismatch = (sourceXref: string, objeXref: string) => {
+    let seen = seenMismatch.get(sourceXref);
+    if (seen?.has(objeXref)) return;
+    const source = sources.get(sourceXref);
+    if (!source) return;
+    const m = mismatchedTitleOf(objeXref, objes.get(objeXref), source);
+    if (!m) return;
+    if (!seen) seenMismatch.set(sourceXref, (seen = new Set()));
+    seen.add(objeXref);
+    groupFor(sourceXref).mismatched.push(m);
+  };
 
-  collect(
-    records,
-    sources,
-    objes,
-    (container, record, sourceXref, objeXref, page) => {
-      groupFor(sourceXref).missing.push({
-        recordXref: record.xref!,
-        eventTag: container === record ? undefined : container.tag,
-        page,
-        objeXref,
-        objeTitle: objes.get(objeXref)?.title,
-      });
-    },
-    (sourceXref) => {
-      groupFor(sourceXref).ambiguous++;
-    },
-    (record, container, sourceXref, objeXref, page) => {
-      groupFor(sourceXref).unfiled.push({
-        recordXref: record.xref!,
-        eventTag: container === record ? undefined : container.tag,
-        objeXref,
-        page,
-      });
-    },
-  );
+  // Every source's own page images — independent of page-link style.
+  for (const [sourceXref, source] of sources) {
+    for (const child of childrenByTag(source, "OBJE")) {
+      const xref = child.value?.trim();
+      if (xref && isPointer(xref)) checkMismatch(sourceXref, xref);
+    }
+  }
+
+  if (style === "event") {
+    collect(
+      records,
+      sources,
+      objes,
+      (container, record, sourceXref, objeXref, page) => {
+        groupFor(sourceXref).missing.push({
+          recordXref: record.xref!,
+          eventTag: container === record ? undefined : container.tag,
+          page,
+          objeXref,
+          objeTitle: objes.get(objeXref)?.title,
+        });
+      },
+      (sourceXref) => {
+        groupFor(sourceXref).ambiguous++;
+      },
+      (record, container, sourceXref, objeXref, page) => {
+        groupFor(sourceXref).unfiled.push({
+          recordXref: record.xref!,
+          eventTag: container === record ? undefined : container.tag,
+          objeXref,
+          page,
+        });
+        checkMismatch(sourceXref, objeXref);
+      },
+    );
+  }
 
   // A source whose citations are all ambiguous has nothing to offer, and a row
   // that can only say "no" is not worth a line in the list.
-  const groups = [...bySource.values()].filter((g) => g.missing.length + g.unfiled.length > 0);
-  const work = (g: PageMediaGroup) => g.missing.length + g.unfiled.length;
+  const work = (g: PageMediaGroup) => g.missing.length + g.unfiled.length + g.mismatched.length;
+  const groups = [...bySource.values()].filter((g) => work(g) > 0);
   groups.sort((a, b) => work(b) - work(a) || a.title.localeCompare(b.title));
   return {
     groups,
     total: groups.reduce((n, g) => n + g.missing.length, 0),
     unfiled: groups.reduce((n, g) => n + g.unfiled.length, 0),
+    mismatched: groups.reduce((n, g) => n + g.mismatched.length, 0),
     ambiguous: groups.reduce((n, g) => n + g.ambiguous, 0),
   };
 }
 
 /**
- * Link the missing page images for the selected sources, on a fresh clone of
- * `records` — the input is never touched, like every other whole-file tool
- * here. The pass re-derives what to write rather than replaying positions the
- * scan recorded: an edit (or an earlier pass of the same apply) between scan
- * and apply then costs a row, never a pointer on the wrong node.
+ * Link the missing page images, file unfiled ones, and align mismatched page
+ * titles for the selected sources, on a fresh clone of `records` — the input is
+ * never touched, like every other whole-file tool here. The pass re-derives
+ * what to write rather than replaying positions the scan recorded: an edit (or
+ * an earlier pass of the same apply) between scan and apply then costs a row,
+ * never a pointer on the wrong node.
  */
 export function linkMissingPageMedia(
   records: GedNode[],
   sourceXrefs: ReadonlySet<string>,
+  style: PageMediaStyle = "event",
 ): { records: GedNode[]; count: number } {
   if (sourceXrefs.size === 0) return { records, count: 0 };
   const clone = records.map(cloneNode);
   const sources = sourceIndex(clone);
   let count = 0;
 
-  // 1. Every page beside a citation joins the book it is a page of. First, and
-  // for one reason: the pass below then reads a book that knows all its own
-  // pages, so a source that looked like it held a single page — and would have
-  // answered for every citation of it — is no longer read that way.
-  collect(clone, sources, buildObjeIndex(clone), () => {}, undefined, (_record, _container, sourceXref, objeXref) => {
-    if (!sourceXrefs.has(sourceXref)) return;
-    const source = sources.get(sourceXref);
-    if (!source) return;
-    insertGrouped(source, { level: source.level + 1, tag: "OBJE", value: objeXref, children: [] }, SOUR_TRAILING_TAGS);
-    count++;
-  });
+  if (style === "event") {
+    // 1. Every page beside a citation joins the book it is a page of. First, and
+    // for one reason: the pass below then reads a book that knows all its own
+    // pages, so a source that looked like it held a single page — and would have
+    // answered for every citation of it — is no longer read that way.
+    collect(clone, sources, buildObjeIndex(clone), () => {}, undefined, (_record, _container, sourceXref, objeXref) => {
+      if (!sourceXrefs.has(sourceXref)) return;
+      const source = sources.get(sourceXref);
+      if (!source) return;
+      insertGrouped(source, { level: source.level + 1, tag: "OBJE", value: objeXref, children: [] }, SOUR_TRAILING_TAGS);
+      count++;
+    });
+  }
 
-  // 2. …and every citation gets the page its book now knows about.
-  collect(clone, sources, buildObjeIndex(clone), (container, record, sourceXref, objeXref) => {
-    // A source merged away by an earlier pass of the same apply is no longer
-    // this run's to fix; the citation now points at the survivor, and the next
-    // scan offers it under that one.
-    if (!sourceXrefs.has(sourceXref)) return;
-    const order =
-      container === record ? (record.tag === "FAM" ? FAM_CHILD_ORDER : INDI_CHILD_ORDER) : EVENT_CHILD_ORDER;
-    linkPageMedia(container, objeXref, order);
-    count++;
-  });
+  const objesAfterFiling = buildObjeIndex(clone);
+  if (style === "event") {
+    // 2. …and every citation gets the page its book now knows about.
+    collect(clone, sources, objesAfterFiling, (container, record, sourceXref, objeXref) => {
+      // A source merged away by an earlier pass of the same apply is no longer
+      // this run's to fix; the citation now points at the survivor, and the next
+      // scan offers it under that one.
+      if (!sourceXrefs.has(sourceXref)) return;
+      const order =
+        container === record ? (record.tag === "FAM" ? FAM_CHILD_ORDER : INDI_CHILD_ORDER) : EVENT_CHILD_ORDER;
+      linkPageMedia(container, objeXref, order);
+      count++;
+    });
+  }
+
+  // 3. Align any page media whose `#N` title disagrees with its URL's page
+  // number (including pages just filed under their source in step 1).
+  const objeNodes = objeNodeIndex(clone);
+  const retitled = new Set<string>();
+  for (const sourceXref of sourceXrefs) {
+    const source = sources.get(sourceXref);
+    if (!source) continue;
+    for (const child of childrenByTag(source, "OBJE")) {
+      const xref = child.value?.trim();
+      if (!xref || !isPointer(xref) || retitled.has(xref)) continue;
+      const m = mismatchedTitleOf(xref, objesAfterFiling.get(xref), source);
+      if (!m) continue;
+      const node = objeNodes.get(xref);
+      if (!node) continue;
+      writeMediaTitle(node, m.proposedTitle);
+      retitled.add(xref);
+      count++;
+    }
+  }
   return count > 0 ? { records: clone, count } : { records, count: 0 };
 }

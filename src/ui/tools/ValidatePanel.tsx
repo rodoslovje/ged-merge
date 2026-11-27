@@ -23,6 +23,8 @@ import { spouseSlotFor, type BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
+import { recordsWithTag } from "../../tools/recordRewrite";
+import { TEMPLATE_STANDARD_TAGS } from "../../tools/sourceReshape/apply";
 import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { recordCitedBy } from "../../tools/sources";
@@ -46,7 +48,6 @@ import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced, ToolsInt
 import { useTranslationLang } from "./TranslationLangSection";
 import { MediaLinkDialog } from "../MediaLinkDialog";
 import { nodeAtPath } from "../../tools/conformance/conformance";
-import { keptHabits } from "../../tools/normalizeRepairs";
 
 /** Message vars that hold a date as GEDCOM text (years travel as numbers). */
 const DATE_VARS = ["birth", "marriage", "date", "death"] as const;
@@ -58,7 +59,7 @@ const FIX_DONE_MS = 8000;
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "godparents" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", titleLinks: "ConformTitleLinks", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", publication: "ConformPublication", templateFields: "ConformTemplateFields", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
 /** Fixes that settle only the rows that ask: picking every row of the kind
  *  still runs them one by one, never as a whole-file pass. */
 const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs"]);
@@ -159,7 +160,7 @@ const SEV_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
 
 /** The findings list's filter: a category, All, the rows with a repair, or
  *  one of the two chips carved out of a category. */
-type Filter = IssueCategory | StructCategory | "all" | "fixable" | "tranLang" | "eventText";
+type Filter = IssueCategory | StructCategory | "all" | "fixable" | "tranLang" | "eventText" | "nameType" | "titleLink";
 
 /** A row in the unified Health Check list — a record-level finding or a structural
  *  ("spec") one. Both carry a severity so they interleave by it in the "All" view. */
@@ -237,16 +238,16 @@ export function ValidatePanel({
   const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
-  const { target, dialect, formatOverrides } = useTargetFormat();
-  // A file kept with its variations keeps its program's flat source fields
-  // (PLAC/DATE/AGNC on the source itself) and its event stamps: the row says
-  // whose habit it is, and offers no fix. Normalize keeps the same ones.
-  const scanned = scans.validate.status === "done" ? scans.validate.result : null;
-  const { coverage: keptCoverage, stamps: keptStamps } = useMemo(
-    () => keptHabits(dataset, formatOverrides, dialect),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, formatOverrides, dialect, scanned],
-  );
+  const { target, formatOverrides } = useTargetFormat();
+  // The habits of a file kept with its variations — flat source fields
+  // (PLAC/DATE/AGNC on the source itself), stamps on its events — are ones
+  // Normalize leaves alone, but their fixes are on offer all the same: a
+  // reader may want to settle one variation and keep the rest. Once the
+  // sources are restated, the file's own majority is the standard shape, and
+  // Normalize follows it. The one exception is a reader who chose the flat
+  // source fields in Settings: there Normalize would write them straight
+  // back, so the row offers no fix.
+  const keptCoverage = !formatOverrides?.standard && formatOverrides?.sourceCoverage === "vendor";
   /** Message vars with a GEDCOM event tag turned into its display name —
    *  validate.ts is pure and can't localize, so tags travel raw — plus the sex
    *  the wording agrees with as the i18next context, so Slovenian says "Umrla"
@@ -283,6 +284,8 @@ export function ValidatePanel({
   // up; after a batch of several kinds, how many fixes it made.
   const [picked, setPicked] = useState<Map<string, IssueRow>>(() => new Map());
   const [batchPending, setBatchPending] = useState(false);
+  /** The grouped finding whose records the list is showing (see drillRows). */
+  const [drill, setDrill] = useState<StructIssue | null>(null);
   // A detached branch's (or a disconnected person's) removal, asked about: who
   // goes and the message counting everything that goes with them.
   const [removeAsk, setRemoveAsk] = useState<{ issues: ValidationIssue[]; branch: boolean; ids: string[]; message: string } | null>(null);
@@ -404,7 +407,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "publication" || kind === "templateFields" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -440,7 +443,14 @@ export function ValidatePanel({
   useEffect(() => {
     if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
     if (filter === "eventText" && !structure?.issues.some(isEventText)) setFilter("all");
-  }, [filter, structure]);
+    if (filter === "nameType" && !structure?.issues.some(isNameType)) setFilter("all");
+    // Its last record settled: back to the findings.
+    if (drill && drillRecords(dataset, drill).length === 0) setDrill(null);
+    if (filter === "titleLink" && !structure?.issues.some((i) => i.titleLink)) setFilter("all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, structure, drill]);
+  // Another list is another question: the opened finding closes.
+  useEffect(() => { setDrill(null); }, [filter, group]);
 
   useEffect(() => {
     lastRef.current = null;
@@ -522,6 +532,29 @@ export function ValidatePanel({
       : [0, 0]),
     [structure, dataset],
   );
+  // Sources whose flat PLAC/DATE the coverage fix would restate. Up here, with
+  // the other counts a row's own button reads (see structRowFix).
+  const fixableCoverage = useMemo(
+    () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "coverage") : 0),
+    [structure, dataset],
+  );
+  // Sources that are no register, whose flat PLAC/DATE say where and when
+  // they were published.
+  const fixablePublication = useMemo(
+    () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "publication") : 0),
+    [structure, dataset],
+  );
+  // Sources whose MacFamilyTree template fields a standard field says as well.
+  const fixableTemplateFields = useMemo(
+    () => (structure?.issues.some(isTemplateField) ? countFixableConformance(dataset, "templateFields") : 0),
+    [structure, dataset],
+  );
+  // Media records whose title is a link the record's FILE lines do not hold.
+  const fixableTitleLinks = useMemo(
+    () => (structure?.issues.some((i) => i.titleLink) ? countFixableConformance(dataset, "titleLinks") : 0),
+    [structure, dataset],
+  );
+  const titleLinkCount = structure?.issues.filter((i) => i.titleLink).length ?? 0;
 
   // The rows for one filter and search; the "fixable" chip is the whole list
   // narrowed to the rows that carry a repair.
@@ -541,10 +574,13 @@ export function ValidatePanel({
       if (structGroup(issue.category) !== group) continue;
       if (f === "all" && NOTED_ONLY.has(issue.category)) continue;
       // Translations without a language are a chip of their own, carved out
-      // of the missing lines they technically are.
+      // of the missing lines they technically are; so are a name's types,
+      // which would otherwise bury the other non-standard values.
       if (f === "tranLang" ? !isUntaggedTran(issue)
         : f === "eventText" ? !isEventText(issue)
-        : f !== "all" && (issue.category !== f || isUntaggedTran(issue) || isEventText(issue))) continue;
+        : f === "nameType" ? !isNameType(issue)
+        : f === "titleLink" ? !issue.titleLink
+        : f !== "all" && (issue.category !== f || isUntaggedTran(issue) || isEventText(issue) || isNameType(issue) || issue.titleLink)) continue;
       // Structural rows have no person subject; match the search on the tag/record.
       if (query && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(query)) continue;
       // A translation without a language is one row however often it occurs:
@@ -612,23 +648,43 @@ export function ValidatePanel({
   };
   const rowFixOf = (row: IssueRow): RowFix | null =>
     row.kind === "record" ? recordRowFix(row.issue) : structRowFix(row.issue);
-  /** A row's fix when it repairs something: removing a custom tag is the
-   *  row's own button only — never counted as fixable, never picked in bulk. */
+  /** A row's fix when it repairs something: removing a custom tag is not a
+   *  repair — never counted as fixable, never swept up by "select all fixable"
+   *  on the other lists. */
   const repairOf = (row: IssueRow): RowFix | null => {
     const fix = rowFixOf(row);
     return fix && fix.kind !== "customTags" ? fix : null;
   };
+  /** What a row's checkbox stands for. On the custom-tags list the removals
+   *  themselves are what is picked: the reader came there to clear tags out,
+   *  and thirty of them one button at a time is thirty confirmations. */
+  const pickFixOf = (row: IssueRow): RowFix | null =>
+    drill ? null : filter === "customTag" ? rowFixOf(row) : repairOf(row);
   const allRows = useMemo(
     () => buildRows("all", ""),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, group],
   );
-  const shown = useMemo(
+  const listed = useMemo(
     () => (filter === "fixable" ? buildRows("all", q).filter((r) => repairOf(r)) : buildRows(filter, q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles]);
+    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication, fixableTemplateFields]);
+  // One finding opened into its records: a row per record, each opening the
+  // record itself. A row that counts 116 sources names none of them, and the
+  // ones a fix cannot settle have to be found to be settled by hand.
+  const drillRows = useMemo((): IssueRow[] | null => {
+    if (!drill) return null;
+    const records = drillRecords(dataset, drill);
+    return records.map(({ id, count }) => {
+      const issue: StructIssue = { ...drill, recordId: id, groupCount: undefined, messageVars: { ...drill.messageVars, count } };
+      PER_RECORD.add(issue);
+      return { kind: "struct", severity: issue.severity, issue };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drill, dataset, structure]);
+  const shown = drillRows ?? listed;
 
-  const pickable = (row: IssueRow) => !!repairOf(row) && !fixedRows.has(rowKey(row.issue));
+  const pickable = (row: IssueRow) => !!pickFixOf(row) && !fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
     () => shown.filter(pickable),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -636,11 +692,11 @@ export function ValidatePanel({
   );
   // The checkbox column, on every row of a list where any row has a repair.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const pickColumn = useMemo(() => shown.some((r) => repairOf(r)), [shown]);
+  const pickColumn = useMemo(() => shown.some((r) => pickFixOf(r)), [shown]);
   const fixableTotal = useMemo(
     () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allRows, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles],
+    [allRows, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication, fixableTemplateFields],
   );
   function togglePick(row: IssueRow) {
     setPicked((prev) => {
@@ -964,6 +1020,15 @@ export function ValidatePanel({
         run: () => onFixConformance("forms", { value: issue.fix }),
       };
     }
+    // A link typed as a media title: made a FILE of the record, in every one.
+    if (issue.category === "misplacedTag" && issue.titleLink && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneTitleLinks"),
+        hint: t("tools.validate.fixConformTitleLinksHint"),
+        kind: "titleLinks",
+        run: () => onFixConformance("titleLinks"),
+      };
+    }
     // Media lines beside their FILE: one row for the whole habit, so its
     // button moves them in every media record.
     if (issue.category === "misplacedTag" && issue.relocate && issue.recordId) {
@@ -1061,7 +1126,10 @@ export function ValidatePanel({
       };
     }
     // A source's flat place or date: restated as DATA > EVEN in every source.
-    if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage) {
+    // Only while a source is left that it can restate: the row counts every
+    // flat line in the file, and a source whose title names no register type
+    // has no coverage to state — a button there would do nothing.
+    if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage && fixableCoverage > 0) {
       return {
         label: t("tools.validate.fixOneCoverage"),
         hint: t("tools.validate.fixOneCoverageHint"),
@@ -1069,8 +1137,18 @@ export function ValidatePanel({
         run: () => onFixConformance("coverage"),
       };
     }
+    // What is left once the registers are restated: books, newspapers and
+    // collections, whose place and date are their publication's.
+    if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage && fixablePublication > 0) {
+      return {
+        label: t("tools.validate.fixOnePublication"),
+        hint: t("tools.validate.fixConformPublicationHint"),
+        kind: "publication",
+        run: () => onFixConformance("publication"),
+      };
+    }
     // Change and creation stamps below the records: one row, every record.
-    if (issue.category === "misplacedTag" && issue.stamps && issue.recordId && !keptStamps) {
+    if (issue.category === "misplacedTag" && issue.stamps && issue.recordId) {
       return {
         label: t("tools.validate.fixOneStamps"),
         hint: t("tools.validate.fixOneStampsHint"),
@@ -1089,6 +1167,15 @@ export function ValidatePanel({
         run: () => onFixConformance("xrefs", { id: issue.recordId, value: String(issue.messageVars?.version ?? "") }),
       };
     }
+    // A source-template field with a standard field of its own: moved there.
+    if (isTemplateField(issue) && fixableTemplateFields > 0) {
+      return {
+        label: t("tools.validate.fixOneTemplateFields"),
+        hint: t("tools.validate.fixConformTemplateFieldsHint"),
+        kind: "templateFields",
+        run: () => onFixConformance("templateFields"),
+      };
+    }
     // An extension tag: every line of it can go, wherever it stands.
     if (issue.category === "customTag" && issue.sample) {
       return {
@@ -1097,6 +1184,19 @@ export function ValidatePanel({
         removes: true,
         kind: "customTags",
         run: () => onFixConformance("customTags", { value: issue.sample }),
+      };
+    }
+    // A standard tag where the version has no place for it, and no repair
+    // above that knows where it belongs: the lines can go — there only.
+    const ownRepair = issue.relocate || issue.titleLink || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.mediaInfo || issue.childPedi || issue.citationPage;
+    if (issue.category === "misplacedTag" && !ownRepair && issue.recordId && issue.sample && issue.messageVars?.parent) {
+      const parent = String(issue.messageVars.parent);
+      return {
+        label: t("tools.validate.fixOneRemoveTag"),
+        hint: t("tools.validate.fixOneRemoveMisplacedHint", { tag: issue.sample, parent, count: Number(issue.messageVars?.count) || 1 }),
+        removes: true,
+        kind: "customTags",
+        run: () => onFixConformance("customTags", { value: issue.sample, parent }),
       };
     }
     return null;
@@ -1136,11 +1236,6 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.assoDate) ? countFixableConformance(dataset, "assoDates") : 0),
     [structure, dataset],
   );
-  // Sources whose flat PLAC/DATE the coverage fix would restate.
-  const fixableCoverage = useMemo(
-    () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "coverage") : 0),
-    [structure, dataset],
-  );
   // Records whose nested CHAN/CREA the stamps fix would lift.
   const fixableStamps = useMemo(
     () => (structure?.issues.some((i) => i.stamps) ? countFixableConformance(dataset, "stamps") : 0),
@@ -1172,6 +1267,7 @@ export function ValidatePanel({
   // worklist below re-reads those lines on the main thread, so only then.
   const untaggedTranCount = structure?.issues.filter(isUntaggedTran).length ?? 0;
   const eventTextCount = structure?.issues.filter(isEventText).length ?? 0;
+  const nameTypeCount = structure?.issues.filter(isNameType).length ?? 0;
   const hasUntaggedTran = untaggedTranCount > 0;
   const tranLang = useTranslationLang({
     dataset,
@@ -1230,6 +1326,7 @@ export function ValidatePanel({
     .reduce((n, i) => n + (Number(i.messageVars?.count) || 1), 0) ?? 0;
   if (conformEventTypes > 0) fixActions.push({ kind: "eventTypes", count: conformEventTypes });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
+  if (fixableTitleLinks > 0) fixActions.push({ kind: "titleLinks", count: fixableTitleLinks });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0 && !keptCoverage) fixActions.push({ kind: "agency", count: fixableAgency });
   if (fixableSourceFields > 0) fixActions.push({ kind: "sourceFields", count: fixableSourceFields });
@@ -1240,7 +1337,9 @@ export function ValidatePanel({
   if (fixableSmartMatch > 0) fixActions.push({ kind: "smartMatch", count: fixableSmartMatch });
   if (fixableAssoDates > 0) fixActions.push({ kind: "assoDates", count: fixableAssoDates });
   if (fixableCoverage > 0 && !keptCoverage) fixActions.push({ kind: "coverage", count: fixableCoverage });
-  if (fixableStamps > 0 && !keptStamps) fixActions.push({ kind: "stamps", count: fixableStamps });
+  if (fixablePublication > 0 && !keptCoverage) fixActions.push({ kind: "publication", count: fixablePublication });
+  if (fixableTemplateFields > 0) fixActions.push({ kind: "templateFields", count: fixableTemplateFields });
+  if (fixableStamps > 0) fixActions.push({ kind: "stamps", count: fixableStamps });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
@@ -1258,7 +1357,9 @@ export function ValidatePanel({
   const batchMessage = batchPending
     ? [t("tools.validate.fixPickedIntro"), ...[...pickedByKind()].map(([kind, rows]) => {
         const count = wholeKind(kind, rows) ? (fixActions.find((a) => a.kind === kind)?.count ?? rows.length) : rows.length;
-        return `• ${t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}\n${t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}`;
+        // A removal names what goes: the hint alone says "these tags".
+        const tags = kind === "customTags" ? `\n${rows.flatMap((r) => (r.kind === "struct" && r.issue.sample ? [r.issue.sample] : [])).join(", ")}` : "";
+        return `• ${t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}\n${t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}${tags}`;
       })].join("\n\n")
     : "";
   return (
@@ -1426,7 +1527,8 @@ export function ValidatePanel({
               {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => {
                 const count = structure!.counts[c]
                   - (c === "missingLine" ? untaggedTranCount : 0)
-                  - (c === "enumValue" ? eventTextCount : 0);
+                  - (c === "enumValue" ? eventTextCount + nameTypeCount : 0)
+                  - (c === "misplacedTag" ? titleLinkCount : 0);
                 return count > 0 && (
                   <button
                     key={c}
@@ -1437,6 +1539,22 @@ export function ValidatePanel({
                   </button>
                 );
               })}
+              {group === "gedcom" && titleLinkCount > 0 && (
+                <button
+                  className={`tools-chip ${filter === "titleLink" ? "active" : ""}`}
+                  onClick={() => setFilter("titleLink")}
+                >
+                  {t("tools.validate.titleLink.title")} <span className="tools-chip-count">{titleLinkCount}</span>
+                </button>
+              )}
+              {group === "gedcom" && nameTypeCount > 0 && (
+                <button
+                  className={`tools-chip ${filter === "nameType" ? "active" : ""}`}
+                  onClick={() => setFilter("nameType")}
+                >
+                  {t("tools.validate.nameType.title")} <span className="tools-chip-count">{nameTypeCount}</span>
+                </button>
+              )}
               {group === "gedcom" && hasUntaggedTran && (
                 <button
                   className={`tools-chip ${filter === "tranLang" ? "active" : ""}`}
@@ -1509,6 +1627,14 @@ export function ValidatePanel({
               </button>
             </div>
           )}
+          {drill && (
+            <div className="tools-pick-bar">
+              <button className="tools-issue-link" onClick={() => setDrill(null)}>{t("tools.validate.drillBack")}</button>
+              <span className="tools-issue-msg">
+                {t(drill.messageKey, drill.messageVars)}
+              </span>
+            </div>
+          )}
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
@@ -1576,7 +1702,9 @@ export function ValidatePanel({
                     current={current}
                     dataset={dataset}
                     onNavigate={onNavigate}
-                    fix={structRowFix(row.issue)}
+                    // A record of an opened finding is there to be edited: the
+                    // finding's own fix is file-wide, and stays on its row.
+                    fix={drill ? null : structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
                     headSour={headSour}
@@ -1586,9 +1714,12 @@ export function ValidatePanel({
                         ? { label: t("mediaLink.title"), run: () => setEditMedia(mediaLinkOf(row.issue)!) }
                         // A source's own finding with no fix (a reversed range, …) is
                         // settled in its editor: say so on the row, not only on the title.
-                        : row.issue.recordTag === "SOUR" && row.issue.recordId && !isGrouped(row.issue) && !structRowFix(row.issue)
+                        : row.issue.recordTag === "SOUR" && row.issue.recordId && !isGrouped(row.issue) && (drill || !structRowFix(row.issue))
                           ? { label: t("tools.validate.editSourceOpen"), run: () => setEditSrc(row.issue.recordId!) }
-                          : undefined}
+                          // A row standing for several records: which ones.
+                          : !drill && isGrouped(row.issue) && canDrill(row.issue)
+                            ? { label: t("tools.validate.drillOpen"), run: () => setDrill(row.issue), lead: true }
+                            : undefined}
                   />
                 );
               })}
@@ -1736,7 +1867,24 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.danglingXref",
 ]);
 function isGrouped(i: StructIssue): boolean {
+  if (PER_RECORD.has(i)) return false;
   return (GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1) || (i.groupCount ?? 0) > 1;
+}
+
+/** The rows of an opened finding: each stands for one record, whatever it counts. */
+const PER_RECORD = new WeakSet<StructIssue>();
+
+/** Whether a grouped finding can be opened into its records: one that names
+ *  the tag it is about — misplaced under a path, or an extension anywhere.
+ *  Not the change stamps, which are one row for every record in the file. */
+function canDrill(i: StructIssue): boolean {
+  if (!i.sample || i.stamps) return false;
+  return i.category === "customTag" || (i.category === "misplacedTag" && !!i.messageVars?.parent);
+}
+
+function drillRecords(dataset: Dataset, i: StructIssue): { id: string; count: number }[] {
+  if (!canDrill(i)) return [];
+  return recordsWithTag(dataset.records, i.sample!, i.category === "misplacedTag" ? String(i.messageVars!.parent) : undefined);
 }
 
 /** A value the fix rewrites in place: a mis-spelt enumeration value, or a
@@ -1748,6 +1896,20 @@ function isValueFix(i: StructIssue): boolean {
 /** Text on an event line (`DEAT 1.5y old`), which the fix moves into a note. */
 function isEventText(i: StructIssue): boolean {
   return i.messageKey === "tools.validate.struct.issue.badY" && !!i.toNote;
+}
+
+/** A name's type (`NAME > TYPE`) outside the version's list, or in another
+ *  case than it writes. */
+function isNameType(i: StructIssue): boolean {
+  return i.category === "enumValue" && String(i.messageVars?.parent).endsWith(".NAME.TYPE");
+}
+
+/** A MacFamilyTree source-template field on a source, which a standard field
+ *  says as well — reported as the program's tag, or as an unknown one once
+ *  the file no longer carries the template that declared it. */
+function isTemplateField(i: StructIssue): boolean {
+  return (i.category === "customTag" || i.category === "unknownTag") && i.recordTag === "SOUR"
+    && !!i.sample && TEMPLATE_STANDARD_TAGS.has(i.sample);
 }
 
 /** A translation the standard wants a language on, written without one. */
@@ -1887,7 +2049,7 @@ function StructRow({
   onRun: (run: () => void) => void;
   onEditSource: (xref: string) => void;
   /** Takes the reader to where the finding is settled (no fix of its own). */
-  open?: { label: string; run: () => void };
+  open?: { label: string; run: () => void; /** Ahead of the row's fix, not after it. */ lead?: boolean };
   /** The file's producer (`HEAD.SOUR`): whose page a tag in the message links. */
   headSour?: string;
   /** The row's checkbox for a batch (empty when it has no fix). */
@@ -1915,8 +2077,9 @@ function StructRow({
         />
         {(issue.groupCount ?? 0) > 1 && ` (${issue.groupCount}×)`}
       </span>
+      {open?.lead && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       <RowFixButton fix={fix} done={done} onRun={onRun} />
-      {open && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
+      {open && !open.lead && <button className="tools-issue-fix sets" onClick={open.run}>{open.label}</button>}
       {/* A repairable date whose record can't carry an undo patch (no xref of its
           own) keeps the plain preview mark — the batch fix skips it too. */}
       {issue.fix && !fix && (

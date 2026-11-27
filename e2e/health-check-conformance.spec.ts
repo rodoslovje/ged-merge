@@ -35,20 +35,20 @@ test("conformance findings: a wrong-type pointer and a mis-cased value, and the 
   await expect(page.locator(".tools-issues").first()).toBeVisible();
 
   await expect(chip(page, "Pointers to the wrong record")).toBeVisible();
-  await expect(chip(page, "Non-standard values")).toBeVisible();
+  await expect(chip(page, "Values")).toBeVisible();
   await expect(page.locator(".tools-issue.sev-error", { hasText: "SOUR points at @R1@, a REPO record" })).toBeVisible();
   const pedi = page.locator(".tools-issue", { hasText: "PEDI Adopted is written adopted" });
   await expect(pedi).toBeVisible();
   await expect(pedi.locator(".tools-issue-fix")).toHaveText("→ adopted");
 
   // Picked and run as a batch: the confirmation names the fix it makes.
-  await chip(page, "Non-standard values").click();
+  await chip(page, "Values").click();
   await pedi.locator(".tools-pick").check();
   await page.getByRole("button", { name: "Fix selected (1)" }).click();
   await expect(page.locator(".confirm-dialog")).toContainText("Fix value spelling (1)");
   await page.getByRole("button", { name: "Apply fix" }).click();
   await expect(page.locator(".tools-clean--ok")).toContainText("Fixed values in 1 record");
-  await expect(chip(page, "Non-standard values")).toHaveCount(0);
+  await expect(chip(page, "Values")).toHaveCount(0);
   // The pointer has no safe repair and stays reported.
   await expect(chip(page, "Pointers to the wrong record")).toBeVisible();
 

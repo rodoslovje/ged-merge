@@ -16,6 +16,7 @@ import {
   type SourceKeyOptions,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
+import { pageTitleMismatch } from "./pageMediaCheck";
 
 /**
  * Within-file duplicate finder for the supporting records (`OBJE`, `SOUR`,
@@ -165,9 +166,22 @@ function groupRecords(
   for (const [key, recs] of buckets) {
     if (recs.length < 2) continue;
     const ranked = recs
-      .map((rec, i) => ({ rec, i, full: fullness(rec), rich: richness(rec), use: refs.get(rec.xref!) ?? 0 }))
+      .map((rec, i) => {
+        const info = kind === "media" ? objeInfoOf(rec) : undefined;
+        return {
+          rec,
+          i,
+          badTitle: info && pageTitleMismatch(info.url, info.title) ? 1 : 0,
+          full: fullness(rec),
+          rich: richness(rec),
+          use: refs.get(rec.xref!) ?? 0,
+        };
+      })
       .sort((a, b) =>
-        (citedFirst ? b.use - a.use || b.full - a.full : b.full - a.full || b.use - a.use) || b.rich - a.rich || a.i - b.i,
+        a.badTitle - b.badTitle ||
+        (citedFirst ? b.use - a.use || b.full - a.full : b.full - a.full || b.use - a.use) ||
+        b.rich - a.rich ||
+        a.i - b.i,
       );
     const members: DupMember[] = ranked.map(({ rec }, idx) => {
       const d = describe(rec);

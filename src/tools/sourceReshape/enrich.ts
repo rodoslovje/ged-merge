@@ -20,18 +20,8 @@ import { parseSourceInput } from "../../gedcom/citationParse";
 // ---------------------------------------------------------------------------
 // Enrichment (optional, online; main thread only)
 
-/** Parse a Matricula page title — `Krstna knjiga / Taufbuch - 04406 | Vodice |
- *  Nadškofijski arhiv Ljubljana | Slovenia` with an optional trailing
- *  `| Matricula Online` (present in the raw `<title>`, absent in the rendering
- *  relay's version). */
-export function parseMatriculaTitle(
-  title: string,
-): { title: string; agency?: string; place?: string } | undefined {
-  const parts = title.split("|").map((p) => p.trim());
-  if (/matricula\s*online/i.test(parts[parts.length - 1] ?? "")) parts.pop();
-  if (parts.length < 4) return undefined;
-  return { title: `${parts[0]} | ${parts[1]}`, place: parts[1], agency: parts[2] };
-}
+export { parseMatriculaTitle } from "./urls";
+import { parseMatriculaTitle } from "./urls";
 
 /** Strip markdown link syntax, keeping the link text: `[Naklo](url)` → `Naklo`. */
 function stripMdLinks(s: string): string {

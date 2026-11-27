@@ -5,7 +5,7 @@ import { cloneNode, firstChild, recordLookup } from "../gedcom/node";
 import { clearObjeNodeCache } from "../gedcom/source";
 import { familySearchPageUrl } from "../normalize/links";
 import { type RecordPatch } from "../ui/historyTypes";
-import { reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
+import { detectPageMediaStyle, reshapeSources, type ReshapeEnrichment, type ReshapeGroup, type ReshapeOptions } from "./sourceReshape";
 import { dedupeSources, findSourceDuplicates, type DupGroup } from "./sourceDuplicates";
 import { regroupRepositories, scanRepoRegroup, type RepoRegroupGroup } from "./repoRegroup";
 import { linkMissingPageMedia, type PageMediaGroup } from "./pageMediaCheck";
@@ -50,9 +50,14 @@ export function applySourceCleanup(
   // Last: the page images it links are the ones the passes above have finished
   // moving and merging, so a pointer is never written to a record that another
   // pass then drops.
+  const pageMediaStyle =
+    reshape.options.pageMedia && reshape.options.pageMedia !== "auto"
+      ? reshape.options.pageMedia
+      : detectPageMediaStyle(regrouped);
   const next = linkMissingPageMedia(
     regrouped,
     new Set(pageMediaGroups.map((g) => g.sourceXref)),
+    pageMediaStyle,
   ).records;
   if (next === dataset.records) return [];
 

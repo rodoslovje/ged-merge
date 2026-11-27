@@ -1,5 +1,5 @@
 import type { Dataset, DateOrder, GedNode } from "../gedcom/types";
-import { parseDate } from "../gedcom/date";
+import { isDateTag, parseDate } from "../gedcom/date";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit";
 import { hasDualYear, isReadable, normalizeDateString } from "../normalize/date";
 import { applyDateOverrides, type FormatOverrides } from "../normalize/formatOverrides";
@@ -179,7 +179,7 @@ function proposeYearPeriod(value: string): string | undefined {
 
 /** Collect (node, repaired value) pairs for every fixable DATE under `node`. */
 function collectFixes(node: GedNode, ctx: DateFixContext, out: { node: GedNode; next: string }[]): void {
-  if (node.tag === "DATE" && node.value && node.value.trim()) {
+  if (isDateTag(node.tag) && node.value && node.value.trim()) {
     const next = proposeDateFix(node.value, ctx);
     if (next) out.push({ node, next });
   }
@@ -328,7 +328,7 @@ export function nonStandardDate(
  *  stamps, whose dates are the program's own. */
 function collectStyleFixes(node: GedNode, ctx: DateFixContext, out: { node: GedNode; next: string }[]): void {
   if (node.tag === "CHAN" || node.tag === "CREA") return;
-  if (node.tag === "DATE" && node.value) {
+  if (isDateTag(node.tag) && node.value) {
     const verdict = nonStandardDate(node.value, ctx);
     if (verdict?.kind === "fix") out.push({ node, next: verdict.next });
   }

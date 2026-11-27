@@ -754,7 +754,7 @@ export function SourcesPanel({
               groups: reshapeCount,
               dups: dupCount,
               repos: regroupReport.total,
-              pages: pageMediaReport.total,
+              pages: pageMediaReport.total + pageMediaReport.unfiled + pageMediaReport.mismatched,
             })}
             onOpen={() => setView("cleanup")}
           />

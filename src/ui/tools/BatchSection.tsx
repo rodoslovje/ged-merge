@@ -225,6 +225,14 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
 
   const results = useMemo(() => rows.filter((r) => matchesBatch(r, criteria, ctx)), [rows, criteria, ctx]);
   const targets = useMemo(() => results.filter((r) => !excluded.has(r.id)), [results, excluded]);
+  /** The name types the people the action will run on actually carry: what a
+   *  conversion can start from. Offering every type in the file let the reader
+   *  pick one none of them has — and the action then changed nobody. */
+  const targetNameTypes = useMemo(() => {
+    const present = new Set<string>();
+    for (const r of targets) for (const type of r.nameTypes) present.add(type);
+    return present.size ? [...present].sort() : nameTypeOptions;
+  }, [targets, nameTypeOptions]);
   const savedCounts = useMemo(
     () => saved.map((f) => rows.filter((r) => matchesBatch(r, f.criteria, ctx)).length),
     [saved, rows, ctx],
@@ -441,7 +449,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
             : action.kind === "convertNameType"
-              ? !!(action.fromType && action.toType && action.fromType !== action.toType)
+              ? !!(action.fromType && action.toType && (action.fromType !== action.toType || action.phrase?.trim()))
             : !!(action.xref || action.file?.trim()));
 
   function apply() {
@@ -591,7 +599,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           sourceOptions={sourceOptions}
           vendorEventOptions={vendorEventOptions}
           familyVendorOptions={familyVendorOptions}
-          nameTypeOptions={nameTypeOptions}
+          nameTypeOptions={targetNameTypes}
           filteredNameType={criteria.flatMap((c) => (c.kind === "nameType" && c.mode === "has" ? [c.type] : []))[0]}
           onChange={changeAction}
         />
@@ -1311,11 +1319,25 @@ function ActionEditor({
           <SelectMenu
             className="batch-select"
             value={action.toType}
-            onChange={(v) => onChange({ ...action, toType: v })}
-            options={nameTypeTargets
-              .filter((type) => type !== action.fromType)
-              .map((type) => ({ value: type, label: nameTypeMenuLabel(type, t) }))}
+            // "Other" opens on the word the names carry now, when it is one no
+            // version defines (`family`): kept unless the reader words it better.
+            onChange={(v) => onChange({
+              ...action,
+              toType: v,
+              phrase: v === "other" ? action.phrase ?? (nameTypeTargets.includes(action.fromType) ? "" : action.fromType) : undefined,
+            })}
+            options={nameTypeTargets.map((type) => ({ value: type, label: nameTypeMenuLabel(type, t) }))
+              .filter((o) => o.value !== action.fromType || o.value === "other")}
           />
+          {action.toType === "other" && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.namePhrasePlaceholder")}
+              aria-label={t("tools.batch.namePhrasePlaceholder")}
+              value={action.phrase ?? ""}
+              onChange={(e) => onChange({ ...action, phrase: e.target.value })}
+            />
+          )}
         </>
       )}
     </div>

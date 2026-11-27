@@ -148,7 +148,9 @@ export function buildGroups(records: GedNode[], hits: ScanHit[], foldDuplicates:
       state.group.proposed = recognized.proposed;
       state.titleRank = recognized.titleRank ?? 0;
     }
-    if (!state.group.existingSourceXref && hit.shape === "sourTitle" && hit.rec.xref) {
+    // The record a title rewrite is about is the group's source, whether the
+    // scan met it first or matched it to the book already.
+    if (hit.shape === "sourTitle" && hit.rec.xref && (!state.group.existingSourceXref || state.group.existingSourceXref === hit.rec.xref)) {
       state.group.existingSourceXref = hit.rec.xref;
       state.group.existingSourceTitle = undefined; // it's the URL — will be rewritten
       state.group.urlTitled = true;

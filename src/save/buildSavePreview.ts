@@ -12,6 +12,7 @@ import { parseDecisionKey, type CandidateDecision } from "../review/types";
 import { findDanglingXrefs } from "../tools/structure";
 import type { SaveBaseline } from "../gedcom/fingerprint";
 import { auditAgainstBaseline } from "./auditReport";
+import { pairRenamedRecords } from "./renamedRecords";
 import type { SharedRecordSnapshot } from "../edit-state/useDirtyTracking";
 import { baseStem, savedName } from "../ui/download";
 
@@ -177,6 +178,11 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   // fails to leave at all.
   auditAgainstBaseline(records, baseline, report);
 
+  // A record that only changed its id is one edit, not a removal and an
+  // addition — after the audit, so a rename the tracking missed pairs up too.
+  const before = beforeRecords(input, isMerge);
+  pairRenamedRecords(report, records, before, t);
+
   // Which records get a fresh CHAN/`_UPD` stamp: dirty records with a
   // substantive change behind them, everything the merge touched, and any
   // record the audit just added to the report (a change of unknown origin is
@@ -189,7 +195,7 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
 
   return {
     records,
-    beforeRecords: beforeRecords(input, isMerge),
+    beforeRecords: before,
     report,
     title: t("save.preview.title"),
     files: [savedName(base, "ged", now), savedName(base, "report.txt", now)],

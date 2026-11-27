@@ -1790,7 +1790,11 @@ function AppContent() {
       const batch = toolBatchRef.current;
       toolBatchRef.current = null;
       // A record two fixes touched undoes to its state before the first.
-      if (batch.length) handlePushEdit(coalescePatches(batch), undefined, undefined, true);
+      if (batch.length) {
+        const patches = dropNoopPatches(coalescePatches(batch));
+        handlePushEdit(patches, undefined, undefined, true);
+        if (mainDataset) dirty.markDirtyMany(patches, mainDataset);
+      }
     }
   }
 
@@ -1825,8 +1829,15 @@ function AppContent() {
     // there is no single person to show, and the Tools page they came from
     // re-scans itself off the edit version.
     // One by one: a whole-file pass hands over a patch per record.
-    if (toolBatchRef.current) for (const p of patches) toolBatchRef.current.push(p);
-    else handlePushEdit(patches, undefined, undefined, true);
+    if (toolBatchRef.current) {
+      // Marked dirty when the batch lands (see runToolBatch), never here: the
+      // records are already changed, and marking one before the push has taken
+      // its `before` would snapshot the changed record as its pre-edit state —
+      // the save preview then diffs the record against itself.
+      for (const p of patches) toolBatchRef.current.push(p);
+      return patches.length;
+    }
+    handlePushEdit(patches, undefined, undefined, true);
     // Shared-record patches are flagged by the push itself (see
     // captureSnapshotsForPush): a record with no owner card behind it — e.g.
     // the date repair rewriting a SOUR's DATE — is its own dirty subject; with

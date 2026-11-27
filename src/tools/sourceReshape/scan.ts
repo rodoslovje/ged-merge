@@ -8,7 +8,7 @@ import {
 import type { GedNode } from "../../gedcom/types";
 import { memoOnContent } from "../../gedcom/edit/cache";
 import { childrenByTag, childText, firstChild } from "../../gedcom/node";
-import { cleanUrl, recognize, type Recognized } from "./urls";
+import { cleanUrl, parseMatriculaTitle, recognize, type Recognized } from "./urls";
 import { URL_RE } from "../../gedcom/builder";
 import { linkKey } from "../../normalize/links";
 import { buildObjeIndex, isPointer, looksLikeUrl, sourceTitle } from "../../gedcom/source";
@@ -21,18 +21,36 @@ import { isPrivateNode } from "../../gedcom/private";
 const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown">, RegExp> = {
   // Baptism covers birth registers too — the same book under a civil name, and
   // Croatian/Slovenian collection titles say "Rođeni"/"Rojeni" for it.
-  baptism: /krst|tauf|baptiz|baptism|rojstn|rojen|rođen|rodjen|birth|\bkk\b/i,
-  marriage: /poro[čc]|vjen[čc]an|trauung|matrimon|copulat|marriage|\bpk\b/i,
+  // "Matična knjiga krščenih" says it with the participle, not the noun; MKK /
+  // MKP / MKU are the Slovenian archives' own shelf marks for the three
+  // registers (krščenih, poročenih, umrlih), RMK the civil birth register.
+  baptism: /krst|kr[sš][cč]en|tauf|baptiz|baptism|rojstn|rojen|rođen|rodjen|birth|\bkk\b|\bmkk\b|\brmk\b/i,
+  marriage: /poro[čc]|vjen[čc]an|trauung|matrimon|copulat|marriage|\bpk\b|\bmkp\b/i,
   // The tail (obituar|osmrtnic|pogreb|navc?ek|funeral) recognizes obituary and
   // funeral-announcement pages by their URLs/titles — funeral homes,
   // komunala pogreb notices, navcek.si.
-  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b|obituar|osmrtnic|pogreb|nav[čc]ek|funeral/i,
+  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b|\bmku\b|obituar|osmrtnic|pogreb|nav[čc]ek|funeral/i,
   // Graves: cemetery indexes ("Pokopališče Kranj - Geneanet Cemeteries",
   // "Find a Grave® Index", BillionGraves) and burial registers. `SITE_BOOK_TYPE`
   // already pins the known grave sites by their URL; a title is all the
   // coverage pass and a pasted citation ever get, so it must say the same.
   burial: /pokopal|groblj|grobi[šs][čc]|cemeter|graveyard|\bgraves?\b|billiongraves|friedhof|begr[äa]bnis|sepult|burial|buried/i,
 };
+
+/**
+ * Every register type the text names. One book often holds two ("Krstna in
+ * mrliška knjiga"): which of them a *citation* belongs to nobody can say from
+ * the title (see {@link classifyBookType}), but what the book *covers* is all
+ * of them. Death and burial count once, as a death register (see below).
+ */
+export function bookTypesIn(texts: (string | undefined)[]): Exclude<BookType, "unknown">[] {
+  const joined = texts.filter(Boolean).join(" \n ");
+  if (!joined) return [];
+  const hits = (Object.keys(TYPE_KEYWORDS) as (keyof typeof TYPE_KEYWORDS)[]).filter((t) =>
+    TYPE_KEYWORDS[t].test(joined),
+  );
+  return hits.includes("death") ? hits.filter((t) => t !== "burial") : hits;
+}
 
 /** Classify a register's type from whatever text is available (source titles,
  *  quoted collection names, citation prefixes). Ambiguous → "unknown". */
@@ -338,6 +356,23 @@ export function prefersDoubledLinks(records: GedNode[]): boolean {
   return doubled > eventOnly;
 }
 
+/**
+ * What a page media's own title says of its book, over the proposal made from
+ * the address alone: a Matricula page is saved under the book's full name
+ * ("#095 - Krstna knjiga / Taufbuch - 00879 | Kranj - Šmartin | Nadškofijski
+ * arhiv Ljubljana | Slovenia | Matricula Online"), so the register, the parish
+ * as the archive writes it and the archive are on hand without a lookup.
+ */
+function namedByPageMedia(recognized: Recognized, mediaTitle: string | undefined): Recognized {
+  if (recognized.site !== "matricula" || !mediaTitle) return recognized;
+  const named = parseMatriculaTitle(mediaTitle.replace(/^#\d+\s*-\s*/, ""));
+  if (!named) return recognized;
+  return {
+    ...recognized,
+    proposed: { ...recognized.proposed, title: named.title, place: named.place ?? recognized.proposed.place, agency: named.agency ?? recognized.proposed.agency },
+  };
+}
+
 export function scanOccurrences(
   records: GedNode[],
   sites: ReadonlySet<ReshapeSite>,
@@ -375,8 +410,34 @@ export function scanOccurrences(
       // A SOUR record whose TITL *is* a site URL: rewrite the record in place.
       const titl = firstChild(rec, "TITL");
       const value = titl?.value ?? "";
-      for (const { url, recognized } of recognizedUrls(value, childText(rec, "ABBR"), sites)) {
+      const urlTitled = recognizedUrls(value, childText(rec, "ABBR"), sites);
+      for (const { url, recognized } of urlTitled) {
         hits.push({ rec, container: rec, node: titl!, shape: "sourTitle", url, recognized, typeText: childText(rec, "ABBR") });
+      }
+      // A SOUR record still under the title its link alone gave it ("Matricula
+      // 00879 | Kranj Smartin"): made before the book's page was read, and
+      // never revisited since — it was already a source, so nothing here
+      // looked at it again. One of its own page media names the book; the
+      // record is rewritten in place, the way a URL-titled one is.
+      if (titl && urlTitled.length === 0 && value.trim()) {
+        for (const link of childrenByTag(rec, "OBJE")) {
+          const xref = link.value?.trim();
+          const info = xref ? objeIndex.get(xref) : undefined;
+          if (!info?.url || (xref && privateObje.has(xref))) continue;
+          const recognized = recognize(info.url, info.title, sites);
+          if (!recognized || recognized.proposed.title !== value.trim()) continue;
+          // Only where the media has a better name to give: a source this
+          // tool itself made offline carries the same title, and with nothing
+          // more to say it must not be picked up again on every scan.
+          const named = namedByPageMedia(recognized, info.title);
+          if (named.proposed.title === value.trim()) continue;
+          hits.push({
+            rec, container: rec, node: titl, shape: "sourTitle", url: info.url,
+            recognized: named,
+            typeText: info.title ?? childText(rec, "ABBR"),
+          });
+          break;
+        }
       }
     }
   }

@@ -59,7 +59,8 @@ const HOUSE_ZOOM = 17;
  * nodes that survive solely as ancestors of a match are collected in
  * `autoOpen` so they can be expanded down to (but not past) the matching
  * entries. */
-function filterPlaceNode(node: PlaceNode, terms: string[], path: string, autoOpen: Set<string>): PlaceNode | null {
+function filterPlaceNode(node: PlaceNode, terms: string[], path: string, autoOpen: Set<string>, otherOnly = false): PlaceNode | null {
+  if (otherOnly) return filterByOtherNames(node, terms, path, autoOpen);
   if (matchesQuery(node.name, terms)) return node;
   // A place is found by its other names too — "Krainburg" finds Kranj.
   if (node.translations?.some((tr) => matchesQuery(tr.value, terms))) return node;
@@ -71,6 +72,29 @@ function filterPlaceNode(node: PlaceNode, terms: string[], path: string, autoOpe
   if (children.length === 0) return null;
   autoOpen.add(path);
   return { ...node, children, uses: [] };
+}
+
+/**
+ * The "other names" reading of the tree: only the places that carry one — one
+ * matching `terms`, when there is a query — and the places above them. A match
+ * keeps its own uses but not its whole subtree: a town with an old name has a
+ * hundred villages without one, and they are not what was asked for.
+ */
+function filterByOtherNames(node: PlaceNode, terms: string[], path: string, autoOpen: Set<string>): PlaceNode | null {
+  const own = !!node.translations?.some((tr) => terms.length === 0 || matchesQuery(tr.value, terms));
+  const children: PlaceNode[] = [];
+  for (const child of node.children) {
+    const kept = filterByOtherNames(child, terms, `${path}/${child.name}`, autoOpen);
+    if (kept) children.push(kept);
+  }
+  if (!own && children.length === 0) return null;
+  if (children.length) autoOpen.add(path);
+  return { ...node, children, uses: own ? node.uses : [] };
+}
+
+/** Whether any place in the tree carries another name. */
+function hasOtherNames(nodes: readonly PlaceNode[]): boolean {
+  return nodes.some((n) => !!n.translations?.length || hasOtherNames(n.children));
 }
 
 /**
@@ -162,6 +186,7 @@ export function PlacesPanel({
   const [tree, setTree] = useState<PlaceTree | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  const [otherNamesOnly, setOtherNamesOnly] = useState(false);
   // Which page is on screen: the containment tree, the geocoding worklist or
   // the naming report. The panel is told, rather than deciding — see the prop.
   const view = viewProp === "geocode" || viewProp === "register" ? viewProp : "tree";
@@ -230,17 +255,20 @@ export function PlacesPanel({
 
   const debouncedQuery = useDebounced(query);
   const terms = useQueryTerms(debouncedQuery);
-  const filtering = terms.length > 0;
+  // "Other names": only the places that have one, searched by those names.
+  const anyOtherNames = useMemo(() => !!tree && hasOtherNames(tree.roots), [tree]);
+  const otherOnly = otherNamesOnly && anyOtherNames;
+  const filtering = terms.length > 0 || otherOnly;
 
   const { roots, autoOpen } = useMemo(() => {
     const ao = new Set<string>();
     if (!tree) return { roots: [] as PlaceNode[], autoOpen: ao };
     if (!filtering) return { roots: tree.roots, autoOpen: ao };
     const r = tree.roots
-      .map((node) => filterPlaceNode(node, terms, node.name, ao))
+      .map((node) => filterPlaceNode(node, terms, node.name, ao, otherOnly))
       .filter((n): n is PlaceNode => n !== null);
     return { roots: r, autoOpen: ao };
-  }, [tree, filtering, terms]);
+  }, [tree, filtering, terms, otherOnly]);
 
   // Filtering expands ancestors down to (not past) the matches; the user expands further.
   const isOpen = (key: string) => autoOpen.has(key) || open.has(key);
@@ -453,6 +481,17 @@ export function PlacesPanel({
               <span className="tools-chip-count">{t("tools.places.geocodeChipAddr", { count: addressPending })}</span>
             )}
           </button>
+          {anyOtherNames && (
+            <button
+              type="button"
+              className={`tools-chip ${otherOnly ? "active" : ""}`}
+              aria-pressed={otherOnly}
+              title={t("tools.places.otherNamesHint")}
+              onClick={() => setOtherNamesOnly((on) => !on)}
+            >
+              {t("tools.places.otherNamesToggle")}
+            </button>
+          )}
         </div>
         <ToolSummary>
           {t("tools.places.summary", { countries: tree.countryCount, distinct: tree.distinctCount, uses: tree.totalUses })}

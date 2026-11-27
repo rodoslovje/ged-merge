@@ -893,6 +893,28 @@ ${variation}
     }
   });
 
+  it("converts a name type to 'other' under a word of the reader's own", () => {
+    for (const vers of ["5.5.1", "7.0"] as const) {
+      const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS ${vers}
+0 @I1@ INDI
+1 NAME Janez /Novak/
+1 NAME Janez /Mlinar/
+2 TYPE family
+0 TRLR`);
+      const res = applyBatchAction(ds, ["@I1@"], { kind: "convertNameType", fromType: "family", toType: "other", phrase: " hišno ime " }, vers);
+      expect(res.changed).toBe(1);
+      const type = ds.individuals.get("@I1@")!.raw.children.filter((c) => c.tag === "NAME")[1].children.find((c) => c.tag === "TYPE")!;
+      // 7.0 words its OTHER in a PHRASE; in 5.5.1 the type is the word.
+      expect([type.value, type.children.map((c) => `${c.tag} ${c.value}`)]).toEqual(
+        vers === "7.0" ? ["OTHER", ["PHRASE hišno ime"]] : ["hišno ime", []],
+      );
+      expect(ds.individuals.get("@I1@")!.names.slice(1).map(nameTypeKey)).toEqual(["hišno ime"]);
+      expect(validateConformance(ds).filter((i) => i.recordId === "@I1@")).toEqual([]);
+    }
+  });
+
   it("converts vendor events to a named EVEN, keeping the substructure", () => {
     const ds = dataset(`0 HEAD
 1 CHAR UTF-8

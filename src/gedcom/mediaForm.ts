@@ -79,7 +79,7 @@ export function relevelRecords(records: readonly GedNode[]): void {
  * user to settle. `form` reshapes a moved `FORM` value (7.0's media type).
  * Returns the lines moved or dropped, for the caller's report.
  */
-export function hangMediaLinesUnderFile(obje: GedNode, form?: (value: string) => string): GedNode[] {
+export function hangMediaLinesUnderFile(obje: GedNode, form?: (value: string) => string, leaveLinks = false): GedNode[] {
   const files = childrenByTag(obje, "FILE");
   if (!files.length) return [];
   const same = (a?: string, b?: string) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
@@ -103,9 +103,53 @@ export function hangMediaLinesUnderFile(obje: GedNode, form?: (value: string) =>
     }
   };
   for (const stray of childrenByTag(obje, "FORM")) settle(stray, files);
-  const titl = firstChild(obje, "TITL");
+  // A web link typed as the title is not one (see linkTitlesOf): the health
+  // check's own fix makes it a FILE, so its repair leaves it where it is.
+  const links = leaveLinks ? linkTitlesOf(obje) : [];
+  const titl = childrenByTag(obje, "TITL").find((t) => !links.includes(t));
   if (titl) settle(titl, [files[0]]);
   return done;
+}
+
+const foldValue = (v?: string) => (v ?? "").trim().toLowerCase();
+
+/**
+ * A media record's record-level `TITL` lines that hold a web link none of its
+ * `FILE` lines does: a link typed where the title goes. It is the record's
+ * data, not a second name for it — dropped with the misplaced title, the link
+ * would be gone from the file.
+ */
+export function linkTitlesOf(obje: GedNode): GedNode[] {
+  const held = new Set(childrenByTag(obje, "FILE").map((f) => foldValue(f.value)));
+  return childrenByTag(obje, "TITL").filter(
+    (t) => /^(?:https?:\/\/|www\.)\S+$/i.test((t.value ?? "").trim()) && !held.has(foldValue(t.value)),
+  );
+}
+
+/**
+ * Make each such link (see {@link linkTitlesOf}) a `FILE` of the record, with
+ * the `FORM` a web page takes — after the files it already has, or where the
+ * title stood when it has none. `mime` writes 7.0's media type. Returns the
+ * title lines it replaced.
+ */
+export function linkTitlesToFiles(obje: GedNode, mime: boolean): GedNode[] {
+  const links = linkTitlesOf(obje);
+  const made = new Set<string>();
+  for (const titl of links) {
+    const url = titl.value!.trim();
+    const at = obje.children.indexOf(titl);
+    obje.children.splice(at, 1);
+    if (made.has(foldValue(url))) continue; // the same link typed twice
+    made.add(foldValue(url));
+    const file: GedNode = {
+      level: obje.level + 1, tag: "FILE", value: url,
+      children: [{ level: obje.level + 2, tag: "FORM", value: fileFormOf(url, mime) ?? (mime ? "text/html" : "htm"), children: [] }],
+    };
+    let after = -1;
+    obje.children.forEach((c, i) => { if (c.tag === "FILE") after = i; });
+    obje.children.splice(after >= 0 ? after + 1 : at, 0, file);
+  }
+  return links;
 }
 
 /** Drop a media record's record-level `TITL` lines when its first `FILE` has
@@ -114,7 +158,9 @@ export function hangMediaLinesUnderFile(obje: GedNode, form?: (value: string) =>
 export function dropTitleBesideFileTitle(obje: GedNode): GedNode[] {
   const file = firstChild(obje, "FILE");
   if (!file || !firstChild(file, "TITL")) return [];
-  const dropped = childrenByTag(obje, "TITL");
+  // Not a link the record holds nowhere else: that one becomes a FILE.
+  const links = linkTitlesOf(obje);
+  const dropped = childrenByTag(obje, "TITL").filter((t) => !links.includes(t));
   if (dropped.length) obje.children = obje.children.filter((c) => !dropped.includes(c));
   return dropped;
 }

@@ -3,6 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { findMissingPageMedia, linkMissingPageMedia } from "./pageMediaCheck";
+import { validateConformance } from "./conformance/conformance";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -349,5 +350,130 @@ describe("linkMissingPageMedia", () => {
     const second = linkMissingPageMedia(first.records, new Set(["@S1@"]));
     expect(second.count).toBe(0);
     expect(findMissingPageMedia({ ...ds, records: first.records }, "event").total).toBe(0);
+  });
+
+  it("reports and aligns a page media title whose #N disagrees with its URL page", () => {
+    const ds = dataset(`0 HEAD
+1 SOUR TEST
+1 SUBM @U1@
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @U1@ SUBM
+1 NAME Test
+0 @I1@ INDI
+1 NAME Ursula /Sajovic/
+1 BIRT
+2 DATE 5 OCT 1711
+2 SOUR @S1@
+3 PAGE 18
+2 OBJE @M18@
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Šenčur
+1 OBJE @M18@
+0 @M18@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
+2 FORM url
+2 TITL #034 - Krstna knjiga / Taufbuch - 03164 | Šenčur | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online
+0 TRLR`);
+    const report = findMissingPageMedia(ds, "event");
+    expect(report.total).toBe(0);
+    expect(report.mismatched).toBe(1);
+    expect(report.groups).toHaveLength(1);
+    expect(report.groups[0].mismatched).toEqual([
+      {
+        objeXref: "@M18@",
+        titlePage: "34",
+        urlPage: "18",
+        currentTitle:
+          "#034 - Krstna knjiga / Taufbuch - 03164 | Šenčur | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online",
+        proposedTitle: "#18 - Krstna knjiga / Taufbuch - 03164 | Šenčur",
+        url: "https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18",
+      },
+    ]);
+
+    const first = linkMissingPageMedia(ds.records, new Set(["@S1@"]), "event");
+    expect(first.count).toBe(1);
+    expect(serializeGedcom(first.records)).toContain("2 TITL #18 - Krstna knjiga / Taufbuch - 03164 | Šenčur");
+    // Idempotent: a second scan and apply have nothing left to change.
+    expect(findMissingPageMedia({ ...ds, records: first.records }, "event").mismatched).toBe(0);
+    expect(linkMissingPageMedia(first.records, new Set(["@S1@"]), "event").count).toBe(0);
+    // Strict GEDCOM 5.5.1 and 7.0 conformance on the rewritten OBJE.
+    expect(validateConformance({ records: first.records })).toEqual([]);
+    const v7 = dataset(`0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Šenčur
+1 OBJE @M18@
+0 @M18@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
+2 FORM text/html
+2 TITL #034 - Krstna knjiga / Taufbuch - 03164 | Šenčur
+0 TRLR`);
+    const fixed7 = linkMissingPageMedia(v7.records, new Set(["@S1@"]), "source");
+    expect(fixed7.count).toBe(1);
+    expect(validateConformance({ records: fixed7.records })).toEqual([]);
+  });
+
+  it("ignores matching zero-padded titles, FamilySearch 0-based i= matches, and non-# titles", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03164 | Šenčur
+1 OBJE @M1@
+1 OBJE @M2@
+0 @M1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
+2 TITL #018 - Krstna knjiga - 03164 | Šenčur
+0 @M2@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=19
+2 TITL Krstna knjiga - 03164 | Šenčur
+0 @S2@ SOUR
+1 TITL Births (Rodeni) 1759-1812, Ravna Gora
+1 OBJE @M3@
+1 OBJE @M4@
+0 @M3@ OBJE
+1 FILE https://www.familysearch.org/ark:/61903/3:1:XYZ?i=36
+2 TITL #037 - Births (Rodeni) 1759-1812, Ravna Gora
+0 @M4@ OBJE
+1 FILE https://www.familysearch.org/ark:/61903/3:1:XYZ?i=36
+2 TITL #050 - Births (Rodeni) 1759-1812, Ravna Gora
+0 TRLR`);
+    const report = findMissingPageMedia(ds, "source");
+    expect(report.mismatched).toBe(1);
+    expect(report.groups).toHaveLength(1);
+    expect(report.groups[0].mismatched[0]).toMatchObject({
+      objeXref: "@M4@",
+      titlePage: "50",
+      urlPage: "37",
+      proposedTitle: "#37 - Births (Rodeni) 1759-1812, Ravna Gora",
+    });
+  });
+
+  it("fixes mismatched titles in source-only style without linking event pointers", () => {
+    const ds = dataset(`0 HEAD
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Kern/
+1 BIRT
+2 SOUR @S1@
+3 PAGE 18
+0 @S1@ SOUR
+1 TITL Krstna knjiga - 03164 | Šenčur
+1 OBJE @M18@
+0 @M18@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
+2 TITL #034 - Krstna knjiga - 03164 | Šenčur
+0 TRLR`);
+    const report = findMissingPageMedia(ds, "source");
+    expect(report.total).toBe(0);
+    expect(report.mismatched).toBe(1);
+    const { records, count } = linkMissingPageMedia(ds.records, new Set(["@S1@"]), "source");
+    expect(count).toBe(1);
+    const text = serializeGedcom(records);
+    expect(text).toContain("2 TITL #18 - Krstna knjiga - 03164 | Šenčur");
+    expect(text).not.toContain("2 OBJE @M18@");
   });
 });

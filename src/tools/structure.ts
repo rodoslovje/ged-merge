@@ -82,6 +82,8 @@ export interface StructIssue {
   /** Conformance `misplacedTag`: a media record's TITL/FORM beside its FILE,
    *  which the fix moves under it file-wide. */
   relocate?: boolean;
+  /** A media title that is a web link no `FILE` of the record holds. */
+  titleLink?: boolean;
   /** Conformance `misplacedTag`: a source's own AGNC, which the fix moves to
    *  DATA.AGNC file-wide. */
   agency?: boolean;
@@ -479,6 +481,9 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
     // not ours to audit. CONT/CONC are folded by the parser, so never appear here.
     if (tag.startsWith("_")) {
       tally(custom, tag, node, recordId, recordTag);
+      // The one extension read here: `_DATE` is a date GED Merge itself writes
+      // (see isDateTag), held to the form of any other.
+      if (tag === "_DATE") checkDate(node, recordId, recordTag, stamp);
       return;
     }
     if (!KNOWN_TAGS.has(tag)) {
@@ -491,7 +496,14 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
       else tally(unknown, tag, node, recordId, recordTag);
     }
 
-    if (tag === "DATE" && node.value && node.value.trim()) {
+    if (tag === "DATE") checkDate(node, recordId, recordTag, stamp);
+
+    for (const child of node.children) visit(child, recordId, recordTag, stamp || tag === "CHAN" || tag === "CREA");
+  };
+
+  /** The date findings on one `DATE`/`_DATE` line. */
+  function checkDate(node: GedNode, recordId: string | undefined, recordTag: string | undefined, stamp: boolean): void {
+    if (node.value && node.value.trim()) {
       const d = parseDate(node.value);
       // No date to read in it (see isUnparseable): a deliberate ".__.____"
       // placeholder and a "(date phrase)" are fine.
@@ -539,9 +551,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
         }
       }
     }
-
-    for (const child of node.children) visit(child, recordId, recordTag, stamp || tag === "CHAN" || tag === "CREA");
-  };
+  }
 
   for (const rec of ds.records) visit(rec, rec.xref, rec.tag);
 

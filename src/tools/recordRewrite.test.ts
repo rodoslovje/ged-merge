@@ -5,6 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { applyRecordPatches } from "../ui/historyTypes";
 import { validateConformance } from "./conformance/conformance";
 import { fixConformance } from "./fixConformance";
+import { recordsWithTag } from "./recordRewrite";
 
 function dataset(vers: "5.5.1" | "7.0", body: string) {
   const head = vers === "7.0"
@@ -91,5 +92,63 @@ describe("removing a custom tag", () => {
     const out = serializeGedcom(ds.records);
     expect(out).not.toContain("@P1@");
     expect(out).toContain("2 PLAC Ljubljana");
+  });
+});
+
+describe("removing a misplaced standard tag", () => {
+  for (const vers of ["5.5.1", "7.0"] as const) {
+    it(`${vers}: the lines go where they are misplaced, and nowhere else`, () => {
+      const ds = dataset(vers, `0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 BIRT
+2 DATE 1850
+0 @R1@ REPO
+1 NAME Matricula Online
+1 WWW https://example.org
+2 DATE 8 NOV 2026
+3 TIME 10:00
+0 @R2@ REPO
+1 NAME Arhiv
+1 WWW https://example.com`);
+      const original = serializeGedcom(ds.records);
+      const [finding] = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+      expect([finding.sample, finding.messageVars.parent]).toEqual(["DATE", "REPO.WWW"]);
+      const patches = fixConformance(ds, "customTags", { value: "DATE", parent: "REPO.WWW" });
+      expect(patches.map((p) => p.id)).toEqual(["@R1@"]);
+      expect(validateConformance(ds)).toEqual([]);
+      const text = serializeGedcom(ds.records);
+      expect(text).not.toContain("8 NOV 2026");
+      expect(text).not.toContain("TIME");
+      expect(text).toContain("2 DATE 1850");
+      applyRecordPatches(ds, patches, "undo");
+      expect(serializeGedcom(ds.records)).toBe(original);
+    });
+  }
+});
+
+describe("the records behind a finding that names a tag", () => {
+  it("lists each record with its count: under the finding's path, or anywhere for an extension", () => {
+    const ds = dataset("7.0", `0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 BIRT
+2 PLAC Kranj
+1 _FOO a
+0 @S1@ SOUR
+1 TITL Prva
+1 PLAC Kranj
+0 @S2@ SOUR
+1 TITL Druga
+1 DATA
+2 EVEN BIRT
+3 PLAC Kranj
+0 @S3@ SOUR
+1 TITL Tretja
+1 PLAC Kranj
+1 PLAC Naklo
+2 _FOO b
+1 _FOO c`);
+    // Only the place written on the source itself — not the one in its coverage, nor a person's.
+    expect(recordsWithTag(ds.records, "PLAC", "SOUR")).toEqual([{ id: "@S1@", count: 1 }, { id: "@S3@", count: 2 }]);
+    expect(recordsWithTag(ds.records, "_FOO")).toEqual([{ id: "@I1@", count: 1 }, { id: "@S3@", count: 2 }]);
   });
 });

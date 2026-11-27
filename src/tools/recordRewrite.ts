@@ -12,7 +12,10 @@ import { applyRecordPatches, type RecordPatch } from "../ui/historyTypes";
  *    they accept, unique in the file, and every line pointing at it follows;
  *  - {@link removeCustomTag}: every line of one extension tag goes, with what
  *    is beneath it — and a top-level record of that tag, with every line
- *    pointing at it.
+ *    pointing at it;
+ *  - {@link removeMisplacedTag}: every line of a standard tag standing where
+ *    the version has no place for it (a `DATE` under `REPO.WWW`) goes, with
+ *    what is beneath it — only there, the tag's rightful places are untouched.
  *
  * Records without an xref (HEAD) are left alone, as an undo patch is keyed by
  * xref. Both return the patches they applied, empty when nothing changed.
@@ -96,4 +99,52 @@ export function removeCustomTag(dataset: Dataset, tag: string): RecordPatch[] {
   patches.push(...editedPatches(dataset, gone, drops, strip));
   if (patches.length) applyRecordPatches(dataset, patches, "redo");
   return patches;
+}
+
+/** Remove every line tagged `tag` standing directly under `parent` — the
+ *  dotted tag path from the record, as a misplaced-tag finding names it
+ *  (`REPO.WWW`) — with what is beneath it; returns the patches applied. */
+export function removeMisplacedTag(dataset: Dataset, tag: string, parent: string): RecordPatch[] {
+  const [root, ...chain] = parent.split(".");
+  /** The lines at the end of the path under `node`, each handed to `visit`. */
+  const reach = (node: GedNode, depth: number, visit: (owner: GedNode) => void): void => {
+    if (depth === chain.length) return visit(node);
+    for (const c of node.children) if (c.tag === chain[depth]) reach(c, depth + 1, visit);
+  };
+  const patches: RecordPatch[] = [];
+  for (const rec of dataset.records) {
+    if (rec.tag !== root || !rec.xref) continue;
+    let found = false;
+    reach(rec, 0, (owner) => { found ||= owner.children.some((c) => c.tag === tag); });
+    if (!found) continue;
+    const after = cloneNode(rec);
+    reach(after, 0, (owner) => { owner.children = owner.children.filter((c) => c.tag !== tag); });
+    patches.push({ type: patchType(dataset, rec), id: rec.xref, before: cloneNode(rec), after });
+  }
+  if (patches.length) applyRecordPatches(dataset, patches, "redo");
+  return patches;
+}
+
+/**
+ * The records behind a finding that names a tag: each one holding a line
+ * tagged `tag`, with how many — directly under `parent` (the dotted path a
+ * misplaced-tag finding names, `SOUR`, `REPO.WWW`) when one is given, anywhere
+ * in the record otherwise (an extension tag). File order; records without an
+ * xref (HEAD) are left out, as nothing can open them.
+ */
+export function recordsWithTag(records: readonly GedNode[], tag: string, parent?: string): { id: string; count: number }[] {
+  const [root, ...chain] = parent ? parent.split(".") : [];
+  const under = (node: GedNode, depth: number): number =>
+    depth === chain.length
+      ? node.children.filter((c) => c.tag === tag).length
+      : node.children.reduce((n, c) => n + (c.tag === chain[depth] ? under(c, depth + 1) : 0), 0);
+  const anywhere = (node: GedNode): number =>
+    node.children.reduce((n, c) => n + (c.tag === tag ? 1 : 0) + anywhere(c), 0);
+  const out: { id: string; count: number }[] = [];
+  for (const rec of records) {
+    if (!rec.xref || (parent && rec.tag !== root)) continue;
+    const count = parent ? under(rec, 0) : anywhere(rec);
+    if (count > 0) out.push({ id: rec.xref, count });
+  }
+  return out;
 }

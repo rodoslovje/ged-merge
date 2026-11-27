@@ -665,3 +665,14 @@ function resolveDayMonth(
   if (month < 1 || month > 12 || day < 1 || day > 31) return undefined;
   return { day, month, year };
 }
+
+/**
+ * A line whose value is a GEDCOM date: the standard `DATE`, and the `_DATE`
+ * extension GED Merge itself writes where the standard has no date (a media
+ * record's, a flat source's). The health check's date findings, their fixes
+ * and Normalize's date pass read both — a date moved from `DATE` to `_DATE`
+ * is still a date, and is held to the same form.
+ */
+export function isDateTag(tag: string): boolean {
+  return tag === "DATE" || tag === "_DATE";
+}

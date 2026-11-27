@@ -34,7 +34,7 @@ import {
   SITE_BOOK_TYPE,
   sourcesHoldingPages,
 } from "./report";
-import { baptismTargetTag, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
+import { baptismTargetTag, bookTypesIn, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
 import { pageObjeTitle, parseMatriculaUrl, placeholderMediaTitle, recognizeSourceUrl, siteTitle } from "./urls";
 import {
   addObjeToSource, createSourceRecord, keepsSourceTag, settleSourceFields, sourceWriteVersion, SOUR_FIELD_TRAILING, writesIdAsCallNumber,
@@ -448,7 +448,10 @@ function coverageEventsFromTitle(
   baptismTag: "BIRT" | "BAPM",
 ): CoverageEvent[] {
   for (const seg of (title ?? "").split(" - ")) {
-    const parts = splitFsRegisters(seg.trim());
+    // The label alone, or with the place some titles close it with
+    // ("… Marriages 1800-1805, Ravna Gora").
+    const label = seg.trim();
+    const parts = [label, label.replace(/,\s*[^,\d]+$/, "")].map(splitFsRegisters).find((p) => p.length > 1) ?? [];
     if (parts.length > 1) {
       const events = parts.flatMap((part) => {
         const tag = coverageTagOf(classifyBookType([part]), baptismTag);
@@ -458,7 +461,38 @@ function coverageEventsFromTitle(
     }
   }
   const tag = coverageTagOf(classifyBookType([title, abbr]), baptismTag);
-  return tag ? [{ type: tag, date: dateRange, place }] : [];
+  if (tag) return [{ type: tag, date: dateRange, place }];
+  // One book of two registers ("Krstna in mrliška knjiga"): it covers both,
+  // over the same years and in the same place.
+  const tags = bookTypesIn([title, abbr]).map((t) => coverageTagOf(t, baptismTag)).filter((t): t is string => !!t);
+  if (tags.length > 1) return tags.map((type) => ({ type, date: dateRange, place }));
+  if (isCensusOf(title, dateRange)) return [{ type: "CENS", date: dateRange, place }];
+  // A register that does not say which ("Matricula 00879 | Kranj"): its place
+  // and years are still what it covers, and the standard's generic `EVEN`
+  // states exactly that much — events, of a kind the title leaves open.
+  return isRegisterTitle(title) ? [{ type: "EVEN", date: dateRange, place }] : [];
+}
+
+/** A title that says the source is a parish or civil register, whatever its
+ *  type: its flat place is the parish, never a publisher's. */
+function isRegisterTitle(title: string | undefined): boolean {
+  return /matri[ck]ul|mati[čc]n|kirchenbuch|parish regist|status animarum/i.test(title ?? "");
+}
+
+/**
+ * Whether a source is a census taken on (or over) `date`. The title has to say
+ * census, and the date has to be the census's own: a collection published
+ * decades later ("1940 United States Federal Census", 2010) carries its
+ * publisher's year on the record, and a coverage claim made of that would say
+ * the census was taken in 2010. So a title that names a year must name the
+ * date's; one that names none is taken at its word.
+ */
+function isCensusOf(title: string | undefined, date: string | undefined): boolean {
+  if (!title || !/census|popis prebival|popis stanov|volksz[äa]hlung|recensement/i.test(title)) return false;
+  const titleYears: string[] = title.match(/\b1[5-9]\d\d\b|\b20\d\d\b/g) ?? [];
+  if (titleYears.length === 0) return true;
+  const dateYears: string[] = (date ?? "").match(/\b\d{4}\b/g) ?? [];
+  return dateYears.length > 0 && dateYears.every((y) => titleYears.includes(y));
 }
 
 /**
@@ -544,6 +578,147 @@ export function toStandardCoverage(
       .join(" · "),
     title,
   };
+}
+
+/**
+ * Fold a source's flat `PLAC`/`DATE` into its `PUBL` — the standard's line for
+ * where and when the source was published — for the sources they are that for:
+ * a book, a newspaper issue, an online collection. Left alone (empty result):
+ * a source {@link toStandardCoverage} can restate, one already stating its
+ * coverage in `DATA > EVEN`, one whose title names a register (its place and
+ * years are the register's own), and a flat line carrying lines of its own (a
+ * place's coordinates have no home in a text). Returns the lines folded.
+ */
+export function flatFieldsToPublication(rec: GedNode, baptismTag: "BIRT" | "BAPM"): GedNode[] {
+  const lines = [firstChild(rec, "PLAC"), firstChild(rec, "DATE")].filter(
+    (n): n is GedNode => !!n?.value?.trim(),
+  );
+  if (!lines.length || lines.some((n) => n.children.length)) return [];
+  const data = firstChild(rec, "DATA");
+  if (data && childrenByTag(data, "EVEN").length) return [];
+  const title = sourceTitle(rec);
+  // A register — by its type, or one that only says it is one ("Matricula
+  // 00879 | Kranj"): its place is the parish, not a publisher's.
+  if (bookTypesIn([title, childText(rec, "ABBR")]).length) return [];
+  if (isRegisterTitle(title)) return [];
+  if (toStandardCoverage(cloneNode(rec), baptismTag)) return [];
+  const publ = firstChild(rec, "PUBL");
+  const held = (publ?.value ?? "").toLowerCase();
+  const fresh = lines.map((n) => n.value!.trim()).filter((v) => !held.includes(v.toLowerCase()));
+  if (fresh.length) {
+    const text = [publ?.value?.trim(), ...fresh].filter(Boolean).join(", ");
+    if (publ) publ.value = text;
+    else insertGrouped(rec, { level: rec.level + 1, tag: "PUBL", value: text, children: [] }, SOUR_FIELD_TRAILING);
+  }
+  for (const n of lines) spliceChild(rec, n);
+  return lines;
+}
+
+/** MacFamilyTree source-template fields with a standard field of their own
+ *  (see {@link templateFieldsToStandard}). */
+export const TEMPLATE_STANDARD_TAGS: ReadonlySet<string> = new Set(["TOWN", "COUN", "CENY", "ROLN", "LOCA"]);
+
+/**
+ * Move a source's MacFamilyTree template fields into the standard fields that
+ * say the same thing:
+ *
+ *  - `TOWN` + `COUN` (township, county) are the place, and `CENY` (census
+ *    year) the date, of what the source covers — stated as `DATA > EVEN`, so
+ *    only where the source's title names what that is (a census, a register);
+ *  - `ROLN` (microfilm roll number) is the repository link's `CALN`;
+ *  - `LOCA` (location of the source) is the repository itself where the link
+ *    names it, else the source's `DATA > AGNC`.
+ *
+ * A value the record already states in that field only goes; one whose field
+ * says something else stays, as does every field with no standard home.
+ * `repoNames` gives each repository record's name by xref. Returns the lines
+ * settled.
+ */
+export function templateFieldsToStandard(
+  rec: GedNode,
+  baptismTag: "BIRT" | "BAPM",
+  repoNames: ReadonlyMap<string, string>,
+): GedNode[] {
+  const fold = (v: string | undefined) => (v ?? "").trim().toLowerCase();
+  const field = (node: GedNode, tag: string) => {
+    const n = firstChild(node, tag);
+    return n?.value?.trim() ? n : undefined;
+  };
+  const covered = (node: GedNode, tag: "PLAC" | "DATE") => {
+    const data = firstChild(node, "DATA");
+    return [childText(node, tag), ...(data ? childrenByTag(data, "EVEN").map((e) => childText(e, tag)) : [])]
+      .filter((v): v is string => !!v);
+  };
+  /** The coverage half, on `node`: the lines it settled, and whether it wrote
+   *  a flat PLAC/DATE that {@link toStandardCoverage} must still restate. */
+  const cover = (node: GedNode): { settled: GedNode[]; flat: boolean } => {
+    const settled: GedNode[] = [];
+    let flat = false;
+    const parts = ["TOWN", "COUN"].map((t) => field(node, t)).filter((n): n is GedNode => !!n);
+    if (parts.length) {
+      const places = covered(node, "PLAC");
+      if (places.length === 0) {
+        const at = node.children.indexOf(parts[0]);
+        const plac: GedNode = { level: node.level + 1, tag: "PLAC", value: parts.map((p) => p.value!.trim()).join(", "), children: [] };
+        node.children.splice(at, 0, plac);
+        for (const p of parts) spliceChild(node, p);
+        settled.push(...parts);
+        flat = true;
+      } else {
+        const said = places.join("\n").toLowerCase();
+        for (const p of parts) if (said.includes(fold(p.value)) && spliceChild(node, p)) settled.push(p);
+      }
+    }
+    const year = field(node, "CENY");
+    if (year) {
+      const dates = covered(node, "DATE");
+      if (dates.length === 0) {
+        year.tag = "DATE";
+        settled.push(year);
+        flat = true;
+      } else if (dates.join(" ").includes(year.value!.trim()) && spliceChild(node, year)) {
+        settled.push(year);
+      }
+    }
+    return { settled, flat };
+  };
+
+  const settled: GedNode[] = [];
+  // Coverage needs an event type: tried on a copy, so a town is not left as a
+  // flat PLAC on a source whose title says nothing of what it records.
+  const trial = cloneNode(rec);
+  const tried = cover(trial);
+  if (tried.settled.length && (!tried.flat || toStandardCoverage(trial, baptismTag))) {
+    const done = cover(rec);
+    settled.push(...done.settled);
+    if (done.flat) toStandardCoverage(rec, baptismTag);
+  }
+
+  const repoLinks = childrenByTag(rec, "REPO").filter((l) => l.value?.trim());
+  const roll = field(rec, "ROLN");
+  if (roll && repoLinks.length) {
+    const link = repoLinks[0];
+    const caln = childText(link, "CALN");
+    if (!caln) link.children.push({ level: link.level + 1, tag: "CALN", value: roll.value!.trim(), children: [] });
+    if ((!caln || fold(caln) === fold(roll.value)) && spliceChild(rec, roll)) settled.push(roll);
+  }
+
+  const location = field(rec, "LOCA");
+  if (location) {
+    const held = repoLinks.some((l) => fold(repoNames.get(l.value!.trim())) === fold(location.value));
+    const data = firstChild(rec, "DATA");
+    const agency = (data && childText(data, "AGNC")) || childText(rec, "AGNC");
+    if (!held && !agency) {
+      let into = data;
+      if (!into) {
+        into = { level: rec.level + 1, tag: "DATA", children: [] };
+        insertGrouped(rec, into, SOUR_FIELD_TRAILING);
+      }
+      into.children.push({ level: into.level + 1, tag: "AGNC", value: location.value!.trim(), children: [] });
+    }
+    if ((held || !agency || fold(agency) === fold(location.value)) && spliceChild(rec, location)) settled.push(location);
+  }
+  return settled;
 }
 
 export function normalizeSourceCoverage(
@@ -1323,13 +1498,29 @@ export function reshapeSources(
       if (hit.shape !== "sourTitle") continue;
       hit.node.value = fields.title;
       fillField(hit.rec, "AUTH", fields.author);
+      // A record that already says where and when on itself (a source renamed
+      // from its link-only title) keeps its own words for them — unless the
+      // flat place is still the diacritic-less URL-slug guess ("Kranj Smartin"),
+      // which gives way to the real parish name ("Kranj - Šmartin"). The flat
+      // lines go once stated in coverage — written twice, the place would stand
+      // once where the standard has none.
+      const flatPlace = firstChild(hit.rec, "PLAC");
+      const flatDate = firstChild(hit.rec, "DATE");
+      const slugPlace = recognizeSourceUrl(hit.url)?.proposed.place;
+      const ownPlace = flatPlace?.value?.trim();
+      const effectivePlace = ownPlace && ownPlace !== slugPlace ? ownPlace : fields.place || ownPlace;
+      const hadCoverage = !!firstChild(hit.rec, "DATA") && childrenByTag(firstChild(hit.rec, "DATA")!, "EVEN").length > 0;
       const std =
         coverage === "standard" &&
         applyStandardCoverage(
           hit.rec,
-          coverageEvents(bookType, baptismTag, fields.place, fields.dateRange, extra?.book),
+          coverageEvents(bookType, baptismTag, effectivePlace, flatDate?.value?.trim() || fields.dateRange, extra?.book),
           fields.agency,
         );
+      if (std && !hadCoverage) {
+        if (flatPlace) spliceChild(hit.rec, flatPlace);
+        if (flatDate) spliceChild(hit.rec, flatDate);
+      }
       if (!std) {
         fillField(hit.rec, "AGNC", fields.agency);
         // A source's own AGNC is the vendor's flat field; the standard keeps
@@ -1337,11 +1528,14 @@ export function reshapeSources(
         // from, a strict target still gets it there rather than out of place.
         if (opts.standard) hangAgencyUnderData(hit.rec);
         if (keepFlat) {
-          fillField(hit.rec, "PLAC", fields.place);
+          if (flatPlace && ownPlace === slugPlace && fields.place) flatPlace.value = fields.place;
+          else fillField(hit.rec, "PLAC", fields.place);
           fillField(hit.rec, "DATE", fields.dateRange);
         }
       }
-      if (!filingNumberOf(hit.rec)) fillField(hit.rec, "FILN", fields.filingNumber);
+      // Not beside a call number the repository link already states.
+      const calledAt = childrenByTag(hit.rec, "REPO").some((l) => childText(l, "CALN"));
+      if (!filingNumberOf(hit.rec) && !calledAt) fillField(hit.rec, "FILN", fields.filingNumber);
       written.add(hit.rec);
       counts.citationsRewritten++;
     }

@@ -652,8 +652,10 @@ export type BatchActionSpec =
   /** Give every additional name of type `fromType` (a {@link nameTypeKey}) the
    *  type `toType`, spelled the way the target version writes it — a
    *  non-standard `variation` becomes the standard `aka`. People without such a
-   *  name are skipped. */
-  | { kind: "convertNameType"; fromType: string; toType: string };
+   *  name are skipped. `phrase` words an `other` target: 7.0's `OTHER` says
+   *  only "none of the six", and the word under it (`PHRASE house name`) is
+   *  what keeps one kind of other name apart from the next. */
+  | { kind: "convertNameType"; fromType: string; toType: string; phrase?: string };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
   "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "estimateMarriage", "addMarriedName", "convertEvent",
@@ -718,11 +720,12 @@ export function nameTypeKey(name: { type?: string; typePhrase?: string }): strin
 function convertNameTypeBatch(
   ds: Dataset,
   ids: string[],
-  action: { fromType: string; toType: string },
+  action: { fromType: string; toType: string; phrase?: string },
   version: "5.5.1" | "7.0",
 ): BatchApplyResult {
   const { fromType, toType } = action;
-  if (!fromType || !toType || fromType === toType.toLowerCase()) return { patches: [], changed: 0, skipped: ids.length };
+  const phrase = toType.toLowerCase() === "other" ? action.phrase?.trim() || undefined : undefined;
+  if (!fromType || !toType || (fromType === toType.toLowerCase() && !phrase)) return { patches: [], changed: 0, skipped: ids.length };
   const snap = snapshotRecords(ds, ids, []);
   let changed = 0;
   let skipped = 0;
@@ -734,7 +737,10 @@ function convertNameTypeBatch(
       skipped++;
       continue;
     }
-    for (const i of at) setAdditionalName(indi, i, { type: toType }, version);
+    for (const i of at) {
+      // 5.5.1's TYPE is free text: there the word is the type itself.
+      setAdditionalName(indi, i, { type: phrase && version !== "7.0" ? phrase : toType, phrase }, version);
+    }
     // The typed names follow the raw tree, or the panel's own `nameType`
     // filter still finds the person after the conversion.
     rebuildIndividual(ds, indi);

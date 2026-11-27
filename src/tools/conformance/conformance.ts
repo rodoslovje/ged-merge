@@ -1,4 +1,5 @@
 import type { Dataset, GedNode } from "../../gedcom/types";
+import { linkTitlesOf } from "../../gedcom/mediaForm";
 import { firstChild, nodesEqual } from "../../gedcom/node";
 import { fileFormOf } from "../../gedcom/mediaForm";
 import { nameType70 } from "../../gedcom/name";
@@ -72,6 +73,9 @@ export interface ConformanceIssue {
   /** Set on the media records' `TITL`/`FORM`-beside-`FILE` habit, which the
    *  fix moves under `FILE` in every media record at once. */
   relocate?: boolean;
+  /** Set on a media record's `TITL` beside its `FILE` that holds a web link
+   *  no `FILE` of the record does: the fix makes the link a `FILE`. */
+  titleLink?: boolean;
   /** Set on a source's own `AGNC`, which neither version allows on the record:
    *  the fix moves it to `DATA.AGNC` in every source at once. */
   agency?: boolean;
@@ -224,7 +228,8 @@ function checkRecord(rec: GedNode, ctx: Ctx): void {
       if (!childSpec) {
         if ((spec.universe.has(tag) || ctx.otherUniverse.has(tag)) && !vendorTagInfo(tag)) {
           indices.push(i);
-          tallyMisplaced(ctx, child, loc.where(), "misplaced", base, loc.path());
+          const titleLink = tag === "TITL" && node.tag === "OBJE" && !parent && linkTitlesOf(node).includes(child);
+          tallyMisplaced(ctx, child, loc.where(), titleLink ? "titleLink" : "misplaced", base, loc.path());
           indices.pop();
         }
         return;
@@ -333,13 +338,15 @@ interface Loc {
 }
 
 function tallyMisplaced(
-  ctx: Ctx, node: GedNode, parent: string, key: "misplaced" | "misplacedRoot",
+  ctx: Ctx, node: GedNode, parent: string, key: "misplaced" | "misplacedRoot" | "titleLink",
   base: { recordId?: string; recordTag?: string }, path: string,
 ): void {
   // Change and creation stamps below the record are one habit, whichever
   // event or attribute carries them: one row for all of them.
   const stamp = (node.tag === "CHAN" || node.tag === "CREA") && parent.includes(".");
-  const k = stamp ? "\0stamps" : `${node.tag}\0${parent}`;
+  // A link typed as a media title is its own row: it is moved, not dropped.
+  const titleLink = key === "titleLink";
+  const k = stamp ? "\0stamps" : titleLink ? "\0titleLink" : `${node.tag}\0${parent}`;
   const seen = ctx.misplaced.get(k);
   if (seen) {
     seen.count++;
@@ -356,7 +363,8 @@ function tallyMisplaced(
       sample: node.tag, tooltip: lineOf(node), path,
       // A media record's title and format beside its FILE (the 5.5 shape)
       // belong under it — a move the fix makes across the whole file.
-      relocate: (parent === "OBJE" && (node.tag === "TITL" || node.tag === "FORM")) || undefined,
+      relocate: (!titleLink && parent === "OBJE" && (node.tag === "TITL" || node.tag === "FORM")) || undefined,
+      titleLink: titleLink || undefined,
       // A source's own agency belongs under its DATA — the same move file-wide.
       agency: (parent === "SOUR" && node.tag === "AGNC") || undefined,
       stamps: stamp || undefined,
@@ -595,7 +603,7 @@ export function validateConformance(ds: Pick<Dataset, "records">): ConformanceIs
  *  line that belongs in its NOTE, media lines kept beside their FILE, or a
  *  source's agency on the record instead of under its DATA. */
 export function isFixable(issue: ConformanceIssue): boolean {
-  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch || !!issue.mediaInfo || !!issue.childPedi || !!issue.citationPage);
+  return !!issue.recordId && (issue.fix !== undefined || !!issue.repeat || !!issue.relocate || !!issue.titleLink || !!issue.agency || !!issue.stamps || !!issue.coverage || !!issue.assoDate || !!issue.smartMatch || !!issue.mediaInfo || !!issue.childPedi || !!issue.citationPage);
 }
 
 /** The findings in `records` that the fix would settle — for one record only

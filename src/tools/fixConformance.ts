@@ -1,16 +1,16 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { liftNestedStamps } from "../gedcom/chanCrea";
-import { toStandardCoverage } from "./sourceReshape/apply";
+import { flatFieldsToPublication, templateFieldsToStandard, TEMPLATE_STANDARD_TAGS, toStandardCoverage } from "./sourceReshape/apply";
 import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
-import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
+import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, linkTitlesToFiles, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, keepsSourceTag, rebuildFamily, rebuildIndividual, settleSourceFields } from "../gedcom/edit";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { untypedEvents, upgradeExtensions } from "../normalize/migrate";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
-import { removeCustomTag, renameXref } from "./recordRewrite";
+import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite";
 
 /**
  * The repairs the conformance check can make:
@@ -39,6 +39,10 @@ import { removeCustomTag, renameXref } from "./recordRewrite";
  *    user's word: where a media record has a title beside its `FILE` and a
  *    different one under it, the one under the `FILE` (which the app shows)
  *    is kept;
+ *  - **titleLinks** — a media record's title beside its `FILE` that is a web
+ *    link no `FILE` of the record holds: the link becomes a `FILE` of the
+ *    record, so the title fixes above never drop it. Run only on the user's
+ *    word, like **fileTitles**;
  *  - **agency** — a source's own `AGNC`, which no version allows on the
  *    record: moved to `DATA.AGNC` in every source at once;
  *  - **extensions** — an extension standing in for a 7.0 structure (`_UID`,
@@ -51,6 +55,14 @@ import { removeCustomTag, renameXref } from "./recordRewrite";
  *    spelling becomes the bare one;
  *  - **coverage** — a source's flat `PLAC`/`DATE`: restated as the standard's
  *    `DATA > EVEN` coverage in every source whose title names its register;
+ *  - **publication** — a source's flat `PLAC`/`DATE` that the coverage fix
+ *    cannot restate because the source is no register (a book, a newspaper
+ *    issue, an online collection): they say where and when it was published,
+ *    and are folded into its `PUBL`. Run only on the user's word;
+ *  - **templateFields** — MacFamilyTree source-template fields that a
+ *    standard field says as well (`TOWN`/`COUN`/`CENY` as the coverage's
+ *    place and date, `ROLN` as the repository's `CALN`, `LOCA` as the
+ *    repository or `DATA > AGNC`): moved there. Run only on the user's word;
  *  - **mediaInfo** — a media record's `DATE`/`PLAC`, which neither version
  *    has: kept as the `_DATE`/`_PLACE` extensions GED Merge reads and writes;
  *  - **childPedi** — a `PEDI` on a family's `CHIL` line: moved to the child's
@@ -74,10 +86,11 @@ import { removeCustomTag, renameXref } from "./recordRewrite";
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "titleLinks" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "publication" | "templateFields" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
 
 /** Repairs only ever run on the row that asks for them (see `recordRewrite`):
- *  **customTags** removes the tag a row names (`ref.value`), **xrefs** renames
+ *  **customTags** removes the tag a row names (`ref.value`) — everywhere, or,
+ *  for a misplaced standard tag, only under `ref.parent` — and **xrefs** renames
  *  the record a row names (`ref.id`) by the rules of `ref.value`'s version. */
 export type RowOnlyFixKind = "customTags" | "xrefs";
 
@@ -88,6 +101,9 @@ export interface ConformanceRef {
   path?: string;
   /** For the media forms: only the files this form fits. */
   value?: string;
+  /** For a tag removal: the dotted path the tag is misplaced under
+   *  (`REPO.WWW`) — only the lines standing there go. */
+  parent?: string;
   /** Every finding of one kind across the file: the same value on the same
    *  line, given the same fix (a row standing for all of them). */
   match?: { tag: string; parent: string; sample: string; fix: string };
@@ -266,7 +282,7 @@ function fillEventTypes(rec: GedNode, value: string | undefined, apply: boolean)
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.eventType ? "eventTypes" : issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.eventType ? "eventTypes" : issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.titleLink ? "titleLinks" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -280,10 +296,30 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
   if (kind === "fileTitles") {
     return issues.some((i) => i.relocate && i.sample === "TITL") ? dropTitleBesideFileTitle : undefined;
   }
+  const v7 = !!tableFor(records)?.version.startsWith("7");
+  if (kind === "titleLinks") {
+    return issues.some((i) => i.titleLink) ? (obje) => linkTitlesToFiles(obje, v7) : undefined;
+  }
   if (!issues.some((i) => i.relocate)) return undefined;
   // 7.0 writes a FORM as a media type, so a moved `jpg` arrives as one.
-  const form = tableFor(records)?.version.startsWith("7") ? mimeFormOf : undefined;
-  return (obje) => hangMediaLinesUnderFile(obje, form);
+  return (obje) => hangMediaLinesUnderFile(obje, v7 ? mimeFormOf : undefined, true);
+}
+
+/** The template-field pass over a source: skipped outright where the record
+ *  carries none of the fields, with the repositories' names read once. */
+function templateFieldPass(records: GedNode[]): MediaPass {
+  const baptism = baptismTargetTag(records);
+  let repoNames: Map<string, string> | undefined;
+  return (rec) => {
+    if (!rec.children.some((c) => TEMPLATE_STANDARD_TAGS.has(c.tag))) return [];
+    if (!repoNames) {
+      repoNames = new Map();
+      for (const r of records) {
+        if (r.tag === "REPO" && r.xref) repoNames.set(r.xref, r.children.find((c) => c.tag === "NAME")?.value?.trim() ?? "");
+      }
+    }
+    return templateFieldsToStandard(rec, baptism, repoNames);
+  };
 }
 
 /** How many findings of `kind` the fix would settle — the count on its button;
@@ -318,6 +354,15 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
     if (!fixable.some((i) => i.assoDate)) return 0;
     return dataset.records.reduce((n, r) => n + (r.xref ? assoDatesToNotes(r, false) : 0), 0);
   }
+  if (kind === "templateFields") {
+    const pass = templateFieldPass(dataset.records);
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && pass(cloneNode(r)).length > 0).length;
+  }
+  if (kind === "publication") {
+    if (!fixable.some((i) => i.coverage)) return 0;
+    const baptism = baptismTargetTag(dataset.records);
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && flatFieldsToPublication(cloneNode(r), baptism).length > 0).length;
+  }
   if (kind === "coverage") {
     if (!fixable.some((i) => i.coverage)) return 0;
     const baptism = baptismTargetTag(dataset.records);
@@ -332,7 +377,7 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
     if (!fixable.some((i) => i.agency)) return 0;
     return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && hangAgencyUnderData(cloneNode(r)).length > 0).length;
   }
-  const pass = kind === "relocate" || kind === "fileTitles" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
+  const pass = kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
   if (pass) return dataset.records.filter((r) => r.tag === "OBJE" && r.xref && pass(cloneNode(r)).length > 0).length;
   // A grouped row (the media forms) stands for as many lines as it counts.
   return fixable
@@ -349,11 +394,23 @@ export function fixConformance(
   only?: ConformanceRef,
   overrides?: Pick<FormatOverrides, "standard">,
 ): RecordPatch[] {
-  if (kind === "customTags") return only?.value ? removeCustomTag(dataset, only.value) : [];
+  if (kind === "customTags") {
+    if (!only?.value) return [];
+    return only.parent ? removeMisplacedTag(dataset, only.value, only.parent) : removeCustomTag(dataset, only.value);
+  }
   if (kind === "xrefs") return only?.id ? renameXref(dataset, only.id, only.value === "7.0") : [];
   if (kind === "sourceFields") {
     const pass = sourceFieldPass(dataset.records, overrides);
     return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
+  }
+  if (kind === "templateFields") {
+    const pass = templateFieldPass(dataset.records);
+    return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
+  }
+  if (kind === "publication") {
+    const baptism = baptismTargetTag(dataset.records);
+    return applyPassSafely(dataset, (journal) =>
+      mediaPassOver(dataset.records, (rec) => flatFieldsToPublication(rec, baptism), journal, "SOUR"));
   }
   if (kind === "extensions") {
     return applyPassSafely(dataset, (journal) => {
@@ -369,7 +426,7 @@ export function fixConformance(
     });
   }
   const scanned = fixableConformance(dataset.records, only?.id);
-  if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
+  if (kind === "fileTitles" || kind === "titleLinks") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
   const issues = scanned.filter(
     (i) => (!kind || kindOf(i) === kind) && (!only || only.path === undefined || i.path === only.path)
       && (!only?.match || (i.messageVars.tag === only.match.tag && i.messageVars.parent === only.match.parent
@@ -378,7 +435,7 @@ export function fixConformance(
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || issue.citationPage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
+    if (issue.relocate || issue.titleLink || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || issue.citationPage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
