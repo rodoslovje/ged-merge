@@ -797,8 +797,11 @@ describe("fixConformance", () => {
 1 TITL 1940 United States Federal Census
 1 DATE 2010
 1 PLAC Provo, UT, USA
+0 @S7@ SOUR
+1 TITL Matricula 00879 | Kranj Šmartin
+1 PLAC Kranj Šmartin
 0 TRLR`);
-    expect(countFixableConformance(ds, "coverage")).toBe(5); // not S6: 2010 is its publisher's year
+    expect(countFixableConformance(ds, "coverage")).toBe(6); // not S6: 2010 is its publisher's year
     fixConformance(ds, "coverage");
     const out = serializeGedcom(ds.records, ds);
     expect(out).toMatch(/0 @S1@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN (BIRT|BAPM)\n3 DATE FROM 1790 TO 1797\n3 PLAC Vojsko\n/);
@@ -810,6 +813,8 @@ describe("fixConformance", () => {
     expect(out).toMatch(/0 @S4@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN (BIRT|BAPM)\n3 DATE FROM 1759 TO 1812\n3 PLAC Ravna Gora\n2 EVEN MARR\n3 DATE FROM 1800 TO 1805\n3 PLAC Ravna Gora\n/);
     expect(out).toContain("0 @S5@ SOUR\n1 TITL United States, Census, 1930\n1 DATA\n2 EVEN CENS\n3 DATE 1930\n");
     expect(out).toContain("1 DATE 2010\n1 PLAC Provo, UT, USA\n");
+    // A register that does not say which: the generic event, in its parish.
+    expect(out).toContain("0 @S7@ SOUR\n1 TITL Matricula 00879 | Kranj Šmartin\n1 DATA\n2 EVEN EVEN\n3 PLAC Kranj Šmartin\n");
     expect(validateConformance(ds).filter((i) => i.recordId !== "@S6@")).toEqual([]);
   });
 
@@ -834,10 +839,11 @@ describe("fixConformance", () => {
 1 TITL Krstna knjiga / Taufbuch - 03164 | Šenčur
 1 PLAC Šenčur
 0 TRLR`);
-    // Not the registers: S4 names no type, S5 is the coverage fix's.
+    // Not the registers: S4 and S5 are the coverage fix's.
     expect(countFixableConformance(ds, "publication")).toBe(3);
-    // Only on the user's word: a run of every fix restates S5 and leaves these.
-    expect(fixConformance(ds).map((x) => x.id)).toEqual(["@S5@"]);
+    // Only on the user's word: a run of every fix restates the registers and
+    // leaves these.
+    expect(fixConformance(ds).map((x) => x.id)).toEqual(["@S4@", "@S5@"]);
     const before = serializeGedcom(ds.records, ds);
     const patches = fixConformance(ds, "publication");
     expect(patches.map((p) => p.id)).toEqual(["@S1@", "@S2@", "@S3@"]);
@@ -846,7 +852,7 @@ describe("fixConformance", () => {
     expect(out).toMatch(/0 @S2@ SOUR\n1 TITL [^\n]+\n1 PUBL 8 JUN 1978\n0 @S3@/);
     // Already said there: the flat line only goes.
     expect(out).toContain("1 PUBL Kranj, 2016\n0 @S4@");
-    expect(out).toContain("1 PLAC Kranj Šmartin\n");
+    expect(out).toContain("2 EVEN EVEN\n3 PLAC Kranj Šmartin\n");
     expect(validateConformance(ds).filter((i) => ["@S1@", "@S2@", "@S3@"].includes(i.recordId ?? ""))).toEqual([]);
 
     applyRecordPatches(ds, patches, "undo");

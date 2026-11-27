@@ -466,7 +466,17 @@ function coverageEventsFromTitle(
   // over the same years and in the same place.
   const tags = bookTypesIn([title, abbr]).map((t) => coverageTagOf(t, baptismTag)).filter((t): t is string => !!t);
   if (tags.length > 1) return tags.map((type) => ({ type, date: dateRange, place }));
-  return isCensusOf(title, dateRange) ? [{ type: "CENS", date: dateRange, place }] : [];
+  if (isCensusOf(title, dateRange)) return [{ type: "CENS", date: dateRange, place }];
+  // A register that does not say which ("Matricula 00879 | Kranj"): its place
+  // and years are still what it covers, and the standard's generic `EVEN`
+  // states exactly that much — events, of a kind the title leaves open.
+  return isRegisterTitle(title) ? [{ type: "EVEN", date: dateRange, place }] : [];
+}
+
+/** A title that says the source is a parish or civil register, whatever its
+ *  type: its flat place is the parish, never a publisher's. */
+function isRegisterTitle(title: string | undefined): boolean {
+  return /matri[ck]ul|mati[čc]n|kirchenbuch|parish regist|status animarum/i.test(title ?? "");
 }
 
 /**
@@ -590,7 +600,7 @@ export function flatFieldsToPublication(rec: GedNode, baptismTag: "BIRT" | "BAPM
   // A register — by its type, or one that only says it is one ("Matricula
   // 00879 | Kranj"): its place is the parish, not a publisher's.
   if (bookTypesIn([title, childText(rec, "ABBR")]).length) return [];
-  if (/matri[ck]ul|mati[čc]n|kirchenbuch|parish regist|status animarum/i.test(title ?? "")) return [];
+  if (isRegisterTitle(title)) return [];
   if (toStandardCoverage(cloneNode(rec), baptismTag)) return [];
   const publ = firstChild(rec, "PUBL");
   const held = (publ?.value ?? "").toLowerCase();
