@@ -85,6 +85,32 @@ describe("recountCandidates", () => {
     expect(imports(recounted)).toEqual(treeImports(recounted, main, compare, decisions));
   });
 
+  it("reaches the descendants of the person a parent was added to", () => {
+    // Peter has a son in both files: the grandson's line gains Jakob too.
+    const main = dataset(MAIN.replace("1 FAMC @F1@\n", "1 FAMC @F1@\n1 FAMS @F3@\n").replace("0 TRLR", "0 @I4@ INDI\n1 NAME Luka /Novak/\n1 SEX M\n1 FAMC @F3@\n0 @F3@ FAM\n1 HUSB @I3@\n1 CHIL @I4@\n0 TRLR"));
+    const compare = dataset(COMPARE.replace("1 DATE 1880\n1 FAMC @G1@\n", "1 DATE 1880\n1 FAMC @G1@\n1 FAMS @G3@\n").replace("0 TRLR", "0 @P6@ INDI\n1 NAME Luka /Novak/\n1 SEX M\n1 FAMC @G3@\n0 @G3@ FAM\n1 HUSB @P3@\n1 CHIL @P6@\n0 TRLR"));
+    const pairs: MatchResult = { individuals: [...PAIRS.individuals, { mainId: "@I4@", compareId: "@P6@" } as MatchCandidate] };
+    const listed = annotateCounts(pairs, main, compare, undefined).individuals;
+    expect(imports(listed)[3]).toEqual([1, 0]);
+
+    const before = new Map<string, CandidateDecision>();
+    const after = new Map(before).set(FATHER, { status: "confirmed", fields: {} });
+    const { decisions, patches } = materializeAdds(main, compare, pairs, before, after, tr);
+    const recounted = withCounts(listed, recountCandidates(listed, patches.map((p) => p.id), main, compare, decisions, undefined));
+    expect(imports(recounted)[3]).toEqual([0, 0]);
+    expect(imports(recounted)).toEqual(treeImports(recounted, main, compare, decisions));
+  });
+
+  it("counts from a changed family, on a list that carries no counts yet", () => {
+    // Janez's parents' family names a father the file has no record for.
+    const main = dataset(MAIN.replace("1 FAMS @F1@\n0 @I2@", "1 FAMS @F1@\n1 FAMC @F2@\n0 @I2@").replace("0 TRLR", "0 @F2@ FAM\n1 HUSB @I9@\n1 CHIL @I1@\n0 TRLR"));
+    const compare = dataset(COMPARE);
+    const counts = recountCandidates(PAIRS.individuals, ["@F1@", "@F2@", "@GONE@"], main, compare, new Map(), undefined);
+    const recounted = withCounts(PAIRS.individuals, counts);
+    expect(imports(recounted)).toEqual(imports(annotateCounts(PAIRS, main, compare, undefined).individuals));
+    expect(imports(recounted)).toEqual(treeImports(recounted, main, compare, new Map()));
+  });
+
   it("leaves every candidate away from the change as it was", () => {
     const main = dataset(MAIN);
     const compare = dataset(COMPARE);
