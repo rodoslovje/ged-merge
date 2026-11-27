@@ -634,12 +634,17 @@ export function ValidatePanel({
   };
   const rowFixOf = (row: IssueRow): RowFix | null =>
     row.kind === "record" ? recordRowFix(row.issue) : structRowFix(row.issue);
-  /** A row's fix when it repairs something: removing a custom tag is the
-   *  row's own button only — never counted as fixable, never picked in bulk. */
+  /** A row's fix when it repairs something: removing a custom tag is not a
+   *  repair — never counted as fixable, never swept up by "select all fixable"
+   *  on the other lists. */
   const repairOf = (row: IssueRow): RowFix | null => {
     const fix = rowFixOf(row);
     return fix && fix.kind !== "customTags" ? fix : null;
   };
+  /** What a row's checkbox stands for. On the custom-tags list the removals
+   *  themselves are what is picked: the reader came there to clear tags out,
+   *  and thirty of them one button at a time is thirty confirmations. */
+  const pickFixOf = (row: IssueRow): RowFix | null => (filter === "customTag" ? rowFixOf(row) : repairOf(row));
   const allRows = useMemo(
     () => buildRows("all", ""),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -650,7 +655,7 @@ export function ValidatePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication]);
 
-  const pickable = (row: IssueRow) => !!repairOf(row) && !fixedRows.has(rowKey(row.issue));
+  const pickable = (row: IssueRow) => !!pickFixOf(row) && !fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
     () => shown.filter(pickable),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -658,7 +663,7 @@ export function ValidatePanel({
   );
   // The checkbox column, on every row of a list where any row has a repair.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const pickColumn = useMemo(() => shown.some((r) => repairOf(r)), [shown]);
+  const pickColumn = useMemo(() => shown.some((r) => pickFixOf(r)), [shown]);
   const fixableTotal = useMemo(
     () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1313,7 +1318,9 @@ export function ValidatePanel({
   const batchMessage = batchPending
     ? [t("tools.validate.fixPickedIntro"), ...[...pickedByKind()].map(([kind, rows]) => {
         const count = wholeKind(kind, rows) ? (fixActions.find((a) => a.kind === kind)?.count ?? rows.length) : rows.length;
-        return `• ${t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}\n${t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}`;
+        // A removal names what goes: the hint alone says "these tags".
+        const tags = kind === "customTags" ? `\n${rows.flatMap((r) => (r.kind === "struct" && r.issue.sample ? [r.issue.sample] : [])).join(", ")}` : "";
+        return `• ${t(`tools.validate.fix${FIX_SUFFIX[kind]}`, { count })}\n${t(`tools.validate.fix${FIX_SUFFIX[kind]}Hint`)}${tags}`;
       })].join("\n\n")
     : "";
   return (
