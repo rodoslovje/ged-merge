@@ -109,9 +109,9 @@ export function NameVariantEditor({
       {typeOption === "other" && version === "7.0" && (
         <ClearableInput
           className="edit-input edit-name-variant-input"
-          wrapStyle={{ width: fieldWidth(phrase, t("tools.batch.namePhrasePlaceholder"), 12) }}
+          wrapStyle={{ width: fieldWidth(phrase, t("tools.batch.namePhraseShort"), 12) }}
           value={phrase}
-          placeholder={t("tools.batch.namePhrasePlaceholder")}
+          placeholder={t("tools.batch.namePhraseShort")}
           title={t("tools.batch.namePhrasePlaceholder")}
           onChange={(e) => setPhrase(e.target.value)}
           onBlur={() => commitPhrase(phrase)}

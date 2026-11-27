@@ -1103,6 +1103,7 @@ export const hr = {
   "tools.batch.eventTextPlaceholder": "Naziv sadrži… (npr. Partners)",
   "tools.batch.causePlaceholder": "Uzrok sadrži… (prazno: bilo koji)",
   "tools.batch.namePhrasePlaceholder": "Kakvo ime (npr. kućno ime)…",
+  "tools.batch.namePhraseShort": "Kakvo ime…",
   "tools.batch.typePlaceholder": "Naziv događaja…",
   "tools.batch.kinship.ancestor": "izravni predak",
   "tools.batch.kinship.descendant": "potomak",
