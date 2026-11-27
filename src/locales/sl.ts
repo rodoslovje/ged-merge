@@ -534,7 +534,7 @@ export const sl = {
   "tools.validate.fixOneAddHint": "Medijski datoteki se doda manjkajoča vrstica FORM, razbrana iz imena datoteke.",
   "tools.validate.fixOneAddTypeHint": "Manjkajoča vrstica TYPE s to vrsto se doda pri vseh dogodkih in dejstvih v datoteki, ki jim pripada ista vrsta.",
   "tools.validate.fixConformRelocate": "Premakni naslove medijev v FILE ({{count}})",
-  "tools.validate.fixConformRelocateHint": "Kjer sta naslov in vrsta medija zapisana ob vrstici FILE, kot je bilo v starejšem GEDCOM 5.5, se premakneta pod vrstico FILE, kamor sodita po GEDCOM 5.5.1 in 7.0. Če ima medij pod vrstico FILE že drug naslov, se naslov ob njej ne premakne; ta primer reši gumb »Druge naslove medijev ohrani kot opombe«.",
+  "tools.validate.fixConformRelocateHint": "Kjer sta naslov in vrsta medija zapisana ob vrstici FILE, kot je bilo v starejšem GEDCOM 5.5, se premakneta pod vrstico FILE, kamor sodita po GEDCOM 5.5.1 in 7.0. Če ima medij pod vrstico FILE že drug naslov, se naslov ob njej ne premakne; ta primer reši gumb »Ohrani naslove medijev v FILE«.",
   "tools.validate.fixConformRelocateDone_one": "Naslov je premaknjen pri {{count}} mediju.",
   "tools.validate.fixConformRelocateDone_two": "Naslova sta premaknjena pri {{count}} medijih.",
   "tools.validate.fixConformRelocateDone_few": "Naslovi so premaknjeni pri {{count}} medijih.",

@@ -510,7 +510,7 @@ export const hr = {
   "tools.validate.fixOneAddHint": "Medijskoj datoteci dodaje redak FORM koji nedostaje, očitan iz imena datoteke.",
   "tools.validate.fixOneAddTypeHint": "Redak TYPE koji nedostaje, s ovom vrstom, dodaje se svim događajima i činjenicama u datoteci kojima pripada ista vrsta.",
   "tools.validate.fixConformRelocate": "Premjesti naslove medija u FILE ({{count}})",
-  "tools.validate.fixConformRelocateHint": "Gdje su naslov i vrsta medija zapisani uz redak FILE, kao u starijem GEDCOM 5.5, premještaju se ispod retka FILE, kamo pripadaju prema GEDCOM 5.5.1 i 7.0. Ako medij ispod retka FILE već ima drugi naslov, naslov uz njega ne premješta se; taj slučaj rješava gumb „Druge naslove medija zadrži kao bilješke“.",
+  "tools.validate.fixConformRelocateHint": "Gdje su naslov i vrsta medija zapisani uz redak FILE, kao u starijem GEDCOM 5.5, premještaju se ispod retka FILE, kamo pripadaju prema GEDCOM 5.5.1 i 7.0. Ako medij ispod retka FILE već ima drugi naslov, naslov uz njega ne premješta se; taj slučaj rješava gumb „Zadrži naslove medija u FILE“.",
   "tools.validate.fixConformRelocateDone_one": "Naslov je premješten kod {{count}} medija.",
   "tools.validate.fixConformRelocateDone_few": "Naslovi su premješteni kod {{count}} medija.",
   "tools.validate.fixConformRelocateDone_other": "Naslovi su premješteni kod {{count}} medija.",

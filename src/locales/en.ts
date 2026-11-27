@@ -488,7 +488,7 @@ export const en = {
   "tools.validate.fixOneAddHint": "Adds this media file's missing FORM line, read off the file's name.",
   "tools.validate.fixOneAddTypeHint": "Adds the missing TYPE line with this type to every event and fact in the file that would get the same type.",
   "tools.validate.fixConformRelocate": "Move media titles into FILE ({{count}})",
-  "tools.validate.fixConformRelocateHint": "Where a media record keeps its title and format beside its FILE line, as GEDCOM 5.5 did, moves them under the FILE, where GEDCOM 5.5.1 and 7.0 put them. Where the FILE already has a different title, the one beside it is not moved; the “Keep second media titles as notes” button settles that case.",
+  "tools.validate.fixConformRelocateHint": "Where a media record keeps its title and format beside its FILE line, as GEDCOM 5.5 did, moves them under the FILE, where GEDCOM 5.5.1 and 7.0 put them. Where the FILE already has a different title, the one beside it is not moved; the “Keep the FILE's media titles” button settles that case.",
   "tools.validate.fixConformRelocateDone_one": "Moved the title in {{count}} media record.",
   "tools.validate.fixConformRelocateDone_other": "Moved titles in {{count}} media records.",
   "tools.validate.fixConformRelocateNone": "No media titles to move.",
