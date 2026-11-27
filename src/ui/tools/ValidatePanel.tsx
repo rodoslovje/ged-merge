@@ -523,6 +523,12 @@ export function ValidatePanel({
       : [0, 0]),
     [structure, dataset],
   );
+  // Sources whose flat PLAC/DATE the coverage fix would restate. Up here, with
+  // the other counts a row's own button reads (see structRowFix).
+  const fixableCoverage = useMemo(
+    () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "coverage") : 0),
+    [structure, dataset],
+  );
   // Media records whose title is a link the record's FILE lines do not hold.
   const fixableTitleLinks = useMemo(
     () => (structure?.issues.some((i) => i.titleLink) ? countFixableConformance(dataset, "titleLinks") : 0),
@@ -636,7 +642,7 @@ export function ValidatePanel({
   const shown = useMemo(
     () => (filter === "fixable" ? buildRows("all", q).filter((r) => repairOf(r)) : buildRows(filter, q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles]);
+    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage]);
 
   const pickable = (row: IssueRow) => !!repairOf(row) && !fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
@@ -650,7 +656,7 @@ export function ValidatePanel({
   const fixableTotal = useMemo(
     () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allRows, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles],
+    [allRows, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage],
   );
   function togglePick(row: IssueRow) {
     setPicked((prev) => {
@@ -1080,7 +1086,10 @@ export function ValidatePanel({
       };
     }
     // A source's flat place or date: restated as DATA > EVEN in every source.
-    if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage) {
+    // Only while a source is left that it can restate: the row counts every
+    // flat line in the file, and a source whose title names no register type
+    // has no coverage to state — a button there would do nothing.
+    if (issue.category === "misplacedTag" && issue.coverage && issue.recordId && !keptCoverage && fixableCoverage > 0) {
       return {
         label: t("tools.validate.fixOneCoverage"),
         hint: t("tools.validate.fixOneCoverageHint"),
@@ -1166,11 +1175,6 @@ export function ValidatePanel({
   // Dates on associations the fix would keep as notes.
   const fixableAssoDates = useMemo(
     () => (structure?.issues.some((i) => i.assoDate) ? countFixableConformance(dataset, "assoDates") : 0),
-    [structure, dataset],
-  );
-  // Sources whose flat PLAC/DATE the coverage fix would restate.
-  const fixableCoverage = useMemo(
-    () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "coverage") : 0),
     [structure, dataset],
   );
   // Records whose nested CHAN/CREA the stamps fix would lift.
