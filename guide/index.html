@@ -1518,9 +1518,16 @@
               <strong>About the tag</strong> link to a page that says which program writes it and what it means. A
               program's own tag without the underscore (MacFamilyTree's <code>RACE</code>, say) is in no GEDCOM version,
               and an extension that stands in for a structure the file's version has (<code>_UID</code> in a 7.0 file)
-              has a standard form, so both are reported as deviations. With <em>GEDCOM 7.0</em> the second kind has a
-              <strong>Write the standard way</strong> fix. Other extensions are valid GEDCOM and are listed for
-              information only. Every custom tag's row also has <strong>Remove tag</strong>, which removes each line
+              has a standard form, so both are reported as deviations. The second kind has a
+              <strong>Write the standard way</strong> fix on its row (<code>_UID</code> becomes <code>UID</code>, a
+              FamilySearch <code>_FID</code> an <code>EXID</code>), and so do a source's <code>FILN</code> and
+              <code>PERI</code>, which become the call number (<code>CALN</code>) and part of the title. A program's
+              tag the standard can say another way has <strong>Convert to …</strong>: an event or fact of the
+              program's own (<code>ILL</code>, <code>MISE</code>, <code>DEED</code>) becomes an <code>EVEN</code> or
+              <code>FACT</code> with a <code>TYPE</code> that names it, <code>PRIV</code> becomes <code>RESN</code>,
+              <code>SECG</code> joins the given name, a media record's <code>_DSCR</code> becomes a note and a source's
+              <code>EDTN</code> joins its publication line. Other extensions are valid GEDCOM and are listed for
+              information only. Every other custom tag's row has <strong>Remove tag</strong>, which removes each line
               of that tag in the file, with the lines beneath it.
             </p>
             <p>
