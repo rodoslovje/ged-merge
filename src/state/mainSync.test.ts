@@ -107,4 +107,23 @@ describe("main snapshot", () => {
       expect(copy.warnings, file).toEqual(ds.warnings);
     }
   });
+
+  // More records than one part holds: the worker reads the parts one after
+  // another and never has the file as one text.
+  for (const version of ["5.5.1", "7.0"]) {
+    it(`sends a large ${version} file in parts that read back as the same file`, () => {
+      const people = Array.from({ length: 4500 }, (_, i) =>
+        `0 @I${i}@ INDI\n1 NAME Črt${i} /Žagar/\n1 EMAIL crt${i}@@example.si\n1 NOTE Prva vrstica ${i}\n2 CONT druga ${"dolga ".repeat(60)}\n`,
+      ).join("");
+      const ds = dsOf(`0 HEAD\n1 GEDC\n2 VERS ${version}\n1 CHAR UTF-8\n${people}0 TRLR\n`);
+      const snap = mainSnapshot(ds);
+      expect(snap.parts.length).toBeGreaterThan(2);
+      const sent = snap.parts.map((p) => new TextDecoder().decode(p)).join("");
+      expect(sent).toBe(serializeGedcom(ds.records, { ...downloadOptions(ds), eol: "\n", finalNewline: true, bom: false }));
+      const copy = datasetFromSnapshot(structuredClone(snap));
+      expect(text(copy)).toBe(text(ds));
+      expect(copy.version).toBe(ds.version);
+      expect(copy.individuals.size).toBe(4500);
+    });
+  }
 });

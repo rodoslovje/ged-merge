@@ -42,6 +42,14 @@ export interface ParseOptions {
    * record must stay: the version is read from it at the end.
    */
   onSettled?: (records: GedNode[], settled: number) => void;
+  /**
+   * The file's text when it comes in parts: called each time the text in hand
+   * is used up, for the part that follows it (undefined after the last). A
+   * part holds whole lines, and the first one the header — so a file this app
+   * serialized can be read without ever being one string (see
+   * `serializeGedcomParts`).
+   */
+  more?: () => string | undefined;
 }
 
 /**
@@ -77,7 +85,8 @@ function nextLines(text: string, pos: number): [string[], number, boolean] {
 /** {@link parseGedcomText} as a stepped pass (see `steps.ts`), yielding after
  *  every {@link CHUNK_CHARS} of text — what the main thread runs in slices. */
 export function* parseGedcomSteps(decoded: DecodeResult, options?: ParseOptions): Steps<ParseResult> {
-  const { text, charset, warnings: decodeWarnings, bom } = decoded;
+  const { charset, warnings: decodeWarnings, bom } = decoded;
+  let text = decoded.text;
   const warnings: ParseWarning[] = [...decodeWarnings];
 
   // Remember the source's line-ending style and whether it ended with a newline
@@ -138,7 +147,12 @@ export function* parseGedcomSteps(decoded: DecodeResult, options?: ParseOptions)
 
   for (let i = 0; ; i++) {
     if (i - first >= lines.length) {
-      if (!more) break;
+      if (!more) {
+        const next = options?.more?.();
+        if (next === undefined) break;
+        text = next;
+        pos = 0;
+      }
       if (i) yield;
       first = i;
       [lines, pos, more] = nextLines(text, pos);

@@ -85,7 +85,7 @@ export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {})
   return opts.finalNewline === false ? text : text + eol;
 }
 
-/** Records serialized per part of {@link serializeGedcomBlob}: a part's text
+/** Records serialized per part of {@link serializeGedcomParts}: a part's text
  *  is a few hundred kilobytes, gone again before the next one is built. */
 const BLOB_CHUNK = 2000;
 
@@ -101,17 +101,28 @@ const BLOB_CHUNK = 2000;
  * joined by the line ending.
  */
 export function serializeGedcomBlob(records: GedNode[], opts: SerializeOptions = {}): Blob {
+  const parts: BlobPart[] = [];
+  // Each part becomes its own Blob at once, so its text can be collected
+  // before the next is built rather than all of them waiting for the end.
+  for (const text of serializeGedcomParts(records, opts)) parts.push(new Blob([text]));
+  return new Blob(parts, { type: "text/plain;charset=utf-8" });
+}
+
+/**
+ * The text of {@link serializeGedcom} a part at a time: joined, the parts are
+ * that text. Every part holds whole lines — a cut falls between two records,
+ * just before the line ending that parts them — so each can be encoded, or
+ * parsed (`ParseOptions.more`), on its own.
+ */
+export function* serializeGedcomParts(records: GedNode[], opts: SerializeOptions = {}): Generator<string> {
   const eol = opts.eol ?? "\n";
   const partOpts = { ...opts, bom: false, finalNewline: false };
-  const parts: BlobPart[] = opts.bom ? ["\uFEFF"] : [];
+  if (opts.bom) yield "\uFEFF";
   for (let i = 0; i < records.length; i += BLOB_CHUNK) {
     const text = serializeGedcom(records.slice(i, i + BLOB_CHUNK), partOpts);
-    // Each part becomes its own Blob at once, so its text can be collected
-    // before the next is built rather than all of them waiting for the end.
-    parts.push(new Blob([i ? eol + text : text]));
+    yield i ? eol + text : text;
   }
-  if (opts.finalNewline !== false) parts.push(eol);
-  return new Blob(parts, { type: "text/plain;charset=utf-8" });
+  if (opts.finalNewline !== false) yield eol;
 }
 
 /** Serialize a whole dataset, preserving its source line-ending conventions. */
