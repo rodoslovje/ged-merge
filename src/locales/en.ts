@@ -2243,6 +2243,7 @@ export const en = {
   "preview.badge.incomingHint": "Not in your file before — came in with a whole branch you brought from the Compare Tree",
   "preview.badge.edited": "Edited",
   "preview.badge.removed": "Removed",
+  "preview.field.recordId": "Record ID",
   "preview.nothing": "No changes to apply.",
   "preview.customTags": "Custom tags from incoming file",
   "preview.customTagsHint": "These non-standard tags would be copied in from the incoming file. Uncheck any you don't want included.",

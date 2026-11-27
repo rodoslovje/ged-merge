@@ -2348,6 +2348,7 @@ export const hr = {
   "preview.badge.incomingHint": "Ovog zapisa prije nije bilo u vašoj datoteci — došao je s cijelom granom koju ste prenijeli iz stabla usporedbe",
   "preview.badge.edited": "Promijenjeno",
   "preview.badge.removed": "Uklonjeno",
+  "preview.field.recordId": "ID zapisa",
   "preview.nothing": "Nema promjena za primjenu.",
   "preview.customTags": "Prilagođene oznake iz ulazne datoteke",
   "preview.customTagsHint": "Ove nestandardne oznake prenose se iz ulazne datoteke. Uklonite kvačicu kod onih koje ne želite uključiti.",

@@ -2505,6 +2505,7 @@ export const sl = {
   "preview.badge.incomingHint": "Tega zapisa v vaši datoteki prej ni bilo — prišel je s celotno linijo, ki ste jo prinesli iz primerjalnega drevesa",
   "preview.badge.edited": "Spremenjen",
   "preview.badge.removed": "Odstranjen",
+  "preview.field.recordId": "ID zapisa",
   "preview.nothing": "Ni sprememb za uveljavitev.",
   "preview.customTags": "Oznake po meri iz vhodne datoteke",
   "preview.customTagsHint": "Te nestandardne oznake se prenesejo iz vhodne datoteke. Odstranite kljukico pri tistih, ki jih ne želite vključiti.",
