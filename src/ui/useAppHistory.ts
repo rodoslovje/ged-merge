@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Mode } from "./useMode";
 import type { ChartKind } from "./ChartSettingsContext";
-import type { TreeMode } from "../chart/personTree";
+import type { ChartDirection } from "../chart/treeLayout";
 import { markFreshStart } from "../persist/idb";
 import { closeTopModal } from "../keyboard/useModalKeyboard";
 
@@ -10,7 +10,7 @@ import { closeTopModal } from "../keyboard/useModalKeyboard";
 export interface TreeView {
   mainId: string;
   compareId: string;
-  mode: TreeMode;
+  mode: ChartDirection;
 }
 
 /** The people the Charts hub has been drawn for since it opened, oldest
@@ -533,7 +533,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
 
   function openTree(mainId: string, compareId: string) {
     rememberSelection();
-    const view: TreeView = { mainId, compareId, mode: "ancestors" };
+    const view: TreeView = { mainId, compareId, mode: "both" };
     const trail: TreeTrail = { items: [{ mainId, compareId }], idx: 0 };
     pushEntry({ gedTree: view, gedTreeTrail: trail });
     setTreeView(view);
@@ -544,7 +544,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
   /** Draw the open Compare Tree for another pair in place — its one history
    *  entry rewritten, like the Charts hub's (see {@link showChartsAt}). */
   function showTreeAt(trail: TreeTrail) {
-    const view: TreeView = { ...trail.items[trail.idx], mode: treeView?.mode ?? "ancestors" };
+    const view: TreeView = { ...trail.items[trail.idx], mode: treeView?.mode ?? "both" };
     window.history.replaceState({ ...window.history.state, gedTree: view, gedTreeTrail: trail }, "");
     setTreeTrail(trail);
     setTreeView(view);
@@ -575,7 +575,7 @@ export function useAppHistory(opts: AppHistoryOptions) {
     setTreeView(null);
   }
 
-  function changeTreeMode(mode: TreeMode) {
+  function changeTreeMode(mode: ChartDirection) {
     setTreeView((cur) => {
       if (!cur) return cur;
       const next = { ...cur, mode };

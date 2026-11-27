@@ -80,7 +80,7 @@ test("C / R / D decide the selected pair on the compare tree", async ({ page }) 
   // With a pair selected, D defers it rather than switching the direction.
   await page.keyboard.press("d");
   await expect(decisions.nth(2)).toHaveClass(/active/);
-  await expect(page.getByRole("tab", { name: /Ancestors/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /Both/ })).toHaveAttribute("aria-selected", "true");
   // A rejected pair is no pair: the tree draws the two people apart.
   await page.keyboard.press("r");
   await expect(decisions).toHaveCount(0);
@@ -94,6 +94,27 @@ test("a marked branch shows its people as added in the match panel", async ({ pa
   const marko = page.locator(".compare-panel td.f-rel", { hasText: "Marko" });
   await expect(marko.getByTitle(/whole branch you marked/)).toBeVisible();
   await expect(marko.locator("button.choice.take")).toHaveCount(0);
+});
+
+test("the tree opens on both directions, and its root brings either branch", async ({ page }) => {
+  await openTree(page, false);
+  await expect(page.getByRole("tab", { name: /Both/ })).toHaveAttribute("aria-selected", "true");
+  // Ancestors and descendants are drawn around the one root.
+  for (const who of ["Tomaz", "Jakob", "Janez", "Marko", "Luka"]) {
+    await expect(page.locator("svg.tree-svg g.tree-node", { hasText: who })).toHaveCount(1);
+  }
+  // The root stands in both halves, so it offers both branches…
+  await page.locator("svg.tree-svg g.tree-node", { hasText: "Janez" }).click();
+  const offers = page.locator(".tree-import-btn");
+  await expect(offers).toHaveCount(2);
+  await offers.filter({ hasText: "ancestors" }).click();
+  await offers.filter({ hasText: "descendants" }).click();
+  await expect(page.locator(".tree-import-btn.active")).toHaveCount(2);
+  // …and anyone else the branch of their own half.
+  await page.locator("svg.tree-svg g.tree-node", { hasText: "Jakob" }).click();
+  await expect(offers).toHaveCount(1);
+  await expect(offers).toContainText("ncestors");
+  await expectSaved(page, ["Jakob", "Tomaz", "Marko", "Luka"]);
 });
 
 for (const confirm of [false, true]) {
