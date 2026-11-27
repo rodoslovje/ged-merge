@@ -763,6 +763,13 @@ describe("combineReports", () => {
     const a = mk({ deferred: [{ recordId: "@I1@", field: "f", reason: "r" }] });
     expect(combineReports(a, mk({})).deferred).toHaveLength(1);
   });
+
+  it("keeps the people a merge adds, so the preview can colour and date them", () => {
+    const added = dataset(wrap("0 @I9@ INDI\n1 NAME Filip /Grgurić/\n1 SEX M\n")).individuals.get("@I9@")!;
+    const merge = mk({ newIndividuals: { "@I9@": added } });
+
+    expect(combineReports(mk({}), merge).newIndividuals?.["@I9@"]?.sex).toBe("M");
+  });
 });
 
 describe("diffSharedRecordNodes", () => {
