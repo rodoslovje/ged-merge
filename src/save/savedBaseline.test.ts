@@ -11,7 +11,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import { decisionKey } from "../review/types";
 import { buildSavePreview, type SavePreviewInput } from "./buildSavePreview";
 import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./outputFile";
-import { savedBaseline } from "./savedBaseline";
+import { adoptSavedBaseline, savedBaseline } from "./savedBaseline";
 
 /**
  * After a confirmed save the live main is rebuilt in place from the records
@@ -128,5 +128,77 @@ describe("savedBaseline", () => {
     Object.assign(main, rebuilt);
     expect(main.individuals.get("@I1@")!.events.map((e) => e.tag)).toEqual(expect.arrayContaining(["BIRT", "DEAT"]));
     expect(serializeGedcom(main.records, downloadOptions(main))).toBe(text);
+  });
+});
+
+describe("adoptSavedBaseline", () => {
+  const MAIN = "0 HEAD\n1 GEDC\n2 VERS 5.5.1\n2 FORM LINEAGE-LINKED\n1 CHAR UTF-8\n1 SUBM @U1@\n0 @U1@ SUBM\n1 NAME Ana\n"
+    + "0 @I1@ INDI\n1 NAME Janez /Novak/\n1 SEX M\n1 BIRT\n2 DATE 1850\n1 FAMS @F1@\n"
+    + "0 @I2@ INDI\n1 NAME Ana /Kos/\n1 SEX F\n1 FAMS @F1@\n"
+    + "0 @F1@ FAM\n1 HUSB @I1@\n1 WIFE @I2@\n0 TRLR\n";
+  const tr = (key: string) => key;
+
+  /** An edit-only save of `main` with @I1@ edited, as handleConfirmSave runs it. */
+  function editSave(main: Dataset) {
+    const snapshot = cloneNode(main.individuals.get("@I1@")!.raw);
+    main.individuals.get("@I1@")!.raw.children.push({ level: 1, tag: "NOTE", value: "edited", children: [] });
+    const preview = buildSavePreview({
+      main, mainFileName: "a.ged", compare: undefined, decisions: new Map(), matches: null, importRequests: [],
+      confirmedCount: 0, importCount: 0,
+      changedPersonIds: new Set(["@I1@"]), changedFamilyIds: new Set(), changedRecordIds: new Set(),
+      loadedPersonIds: new Set(main.individuals.keys()), loadedFamilyIds: new Set(main.families.keys()),
+      baseline: captureBaseline(main, () => undefined, () => undefined),
+      personSnapshots: new Map([["@I1@", snapshot]]), familySnapshots: new Map(), recordSnapshots: new Map(),
+      isSortEligible: () => false, isSubstantive: () => true, now: NOW, t: tr,
+    } as SavePreviewInput)!;
+    return { records: preview.records, text: saveText(main, preview.records) };
+  }
+
+  it("leaves the open file equal to a fresh parse of what an edit-only save wrote", () => {
+    const main = parse(new TextEncoder().encode(MAIN));
+    const { records, text } = editSave(main);
+    adoptSavedBaseline(main, records);
+    expectSameAsFreshParse(main, text);
+  });
+
+  it("keeps the person built from a record the save did not copy, and builds the copied one anew", () => {
+    const main = parse(new TextEncoder().encode(MAIN));
+    const untouched = main.individuals.get("@I2@")!;
+    const family = main.families.get("@F1@")!;
+    const edited = main.individuals.get("@I1@")!;
+    const { records } = editSave(main);
+
+    adoptSavedBaseline(main, records);
+
+    expect(main.individuals.get("@I2@")).toBe(untouched);
+    expect(main.families.get("@F1@")).toBe(family);
+    expect(main.individuals.get("@I1@")).not.toBe(edited);
+    expect(main.individuals.get("@I1@")!.raw).toBe(records.find((r) => r.xref === "@I1@"));
+  });
+
+  it("empties the collections the file held before, whoever still points at them", () => {
+    const main = parse(new TextEncoder().encode(MAIN));
+    const before = { individuals: main.individuals, families: main.families, records: main.records };
+    const { records } = editSave(main);
+
+    adoptSavedBaseline(main, records);
+
+    expect(before.individuals.size).toBe(0);
+    expect(before.families.size).toBe(0);
+    expect(before.records).toHaveLength(0);
+    expect(main.individuals.size).toBe(2);
+    expect(main.records).toBe(records);
+  });
+
+  it("builds every person anew when the save wrote copies throughout", () => {
+    const main = parse(new TextEncoder().encode(MAIN));
+    const person = main.individuals.get("@I2@")!;
+    const records = main.records.map(cloneNode);
+    const text = saveText(main, records);
+
+    adoptSavedBaseline(main, records);
+
+    expect(main.individuals.get("@I2@")).not.toBe(person);
+    expectSameAsFreshParse(main, text);
   });
 });

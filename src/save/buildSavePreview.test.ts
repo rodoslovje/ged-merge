@@ -5,6 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 import { decisionKey, type CandidateDecision } from "../review/types";
 import { buildSavePreview, type SavePreviewInput } from "./buildSavePreview";
+import { ownRecords } from "../merge/editSaveRecords";
 import { cloneNode } from "../gedcom/node";
 import { captureBaseline } from "../gedcom/fingerprint";
 import { isItemizedChange, reportTotals } from "../merge/merge";
@@ -139,12 +140,27 @@ describe("edit-only save", () => {
     expect(serialize(ds)).toBe(before);
   });
 
-  it("returns records that share no node identity with the live dataset", () => {
+  it("copies the records the save writes to and shares the ones it only reads", () => {
     const ds = dataset(MAIN);
-    const out = buildSavePreview(editInput(ds))!;
-    for (let i = 0; i < out.records.length; i++) {
-      expect(out.records[i]).not.toBe(ds.records[i]);
+    const out = buildSavePreview(input(ds, { changedPersonIds: new Set(["@I1@"]) }))!;
+    const at = (records: GedNode[], key: string) => records.findIndex((r) => (r.xref ?? r.tag) === key);
+    // The edited person, the header and the trailer are the save's own…
+    for (const key of ["@I1@", "HEAD", "TRLR"]) {
+      expect(out.records[at(out.records, key)], key).not.toBe(ds.records[at(ds.records, key)]);
     }
+    // …the untouched person is the live record: no second copy of the file.
+    expect(out.records[at(out.records, "@I2@")]).toBe(ds.records[at(ds.records, "@I2@")]);
+  });
+
+  it("copies a record the audit finds changed, which the save will stamp", () => {
+    const ds = dataset(MAIN);
+    // The baseline says @I2@ read differently when the file arrived, and no
+    // edit was tracked for it: the audit reports it, and the save stamps it.
+    const baseline = captureBaseline(ds, () => undefined, () => undefined);
+    baseline.set("@I2@", { ...baseline.get("@I2@")!, hash: 1 });
+    const out = buildSavePreview(input(ds, { changedPersonIds: new Set(["@I1@"]), baseline }))!;
+    expect(out.stampRecordIds.has("@I2@")).toBe(true);
+    expect(out.records.find((r) => r.xref === "@I2@")).not.toBe(ds.individuals.get("@I2@")!.raw);
   });
 
   it("sorts an eligible person's events but leaves others alone", () => {
@@ -523,14 +539,24 @@ describe("the report", () => {
 });
 
 describe("record independence", () => {
-  it("lets the caller mutate the returned records without touching the dataset", () => {
+  const touch = (r: GedNode) => r.children.push({ level: 1, tag: "NOTE", value: "touched", children: [] });
+
+  it("lets the save write to the records it stamps without touching the dataset", () => {
     const ds = dataset(MAIN);
     const before = serialize(ds);
     const out = buildSavePreview(input(ds, { changedPersonIds: new Set(["@I1@"]) }))!;
     // Stands in for stampChanCrea / ensureUtf8Charset, applied on confirm.
-    for (const r of out.records) {
-      (r.children as GedNode[]).push({ level: 1, tag: "NOTE", value: "touched", children: [] });
-    }
+    for (const r of out.records) if (!r.xref || out.stampRecordIds.has(r.xref) || r.xref === "@I1@") touch(r);
+    expect(serialize(ds)).toBe(before);
+  });
+
+  it("lets a save that rewrites every record take them all over first", () => {
+    const ds = dataset(MAIN);
+    const before = serialize(ds);
+    const out = buildSavePreview(input(ds, { changedPersonIds: new Set(["@I1@"]) }))!;
+    // What a conversion to the other GEDCOM version does on confirm.
+    ownRecords(out.records, ds.records);
+    out.records.forEach(touch);
     expect(serialize(ds)).toBe(before);
   });
 });

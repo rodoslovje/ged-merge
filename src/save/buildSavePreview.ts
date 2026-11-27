@@ -5,7 +5,7 @@ import type { Dataset, GedNode } from "../gedcom/types";
 import type { Translate } from "../locales/i18n";
 import type { MatchResult } from "../match/types";
 import { sortEventsByDate } from "../merge/applyFields";
-import { buildEditSaveRecords } from "../merge/editSaveRecords";
+import { buildEditSaveRecords, ownRecords } from "../merge/editSaveRecords";
 import { mergeDecisions, type ChangeReport, type ImportBranchRequest, type WholeFileImport } from "../merge/merge";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { parseDecisionKey, type CandidateDecision } from "../review/types";
@@ -21,8 +21,8 @@ const MAX_WARNINGS = 8;
 
 /** Everything the preview needs that isn't derivable from the datasets. */
 export interface SavePreviewInput {
-  /** The live main dataset. Never mutated: the edit-only path clones, and the
-   *  merge path gets its clone from `mergeDecisions`. */
+  /** The live main dataset. Never mutated: the edit-only path clones what it
+   *  writes to, and the merge path gets its clone from `mergeDecisions`. */
   main: Dataset;
   /** Name of the loaded main file — the download stem is derived from it. */
   mainFileName: string;
@@ -79,7 +79,9 @@ export interface SavePreviewInput {
 
 /** The payload the save dialog renders and `handleConfirmSave` writes out. */
 export interface SavePreview {
-  /** The record forest to serialize. Always independent of `main.records`. */
+  /** The record forest to serialize. A record this save writes to is its own
+   *  copy; on an edit-only save the untouched ones are the live records, which
+   *  nothing may write to without taking them over first (`ownRecords`). */
   records: GedNode[];
   /** Each changed record as it stood before this session touched it, by xref —
    *  the other side of the preview's line diff (see {@link diffRecord}). A
@@ -168,7 +170,12 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
       if (r.tag === "INDI" && r.xref && isSortEligible(r.xref)) sortEventsByDate(r);
     }
   } else {
-    records = buildEditSaveRecords(main.records, isSortEligible);
+    // Only the edited records are copied; the rest are the live ones, read
+    // and never written (see buildEditSaveRecords).
+    records = buildEditSaveRecords(
+      main.records, isSortEligible,
+      (xref) => changedPersonIds.has(xref) || changedFamilyIds.has(xref) || changedRecordIds.has(xref),
+    );
     report = editReport!;
   }
 
@@ -185,7 +192,15 @@ export function buildSavePreview(input: SavePreviewInput): SavePreview | null {
   const dirtyIds = new Set([...changedPersonIds, ...changedFamilyIds, ...changedRecordIds]);
   const stampRecordIds = new Set(mergeTouchedIds);
   for (const id of dirtyIds) if (isSubstantive(id)) stampRecordIds.add(id);
-  for (const id of Object.keys(report.recordKinds)) if (!dirtyIds.has(id)) stampRecordIds.add(id);
+  const untracked = new Set<string>();
+  for (const id of Object.keys(report.recordKinds)) {
+    if (dirtyIds.has(id)) continue;
+    stampRecordIds.add(id);
+    untracked.add(id);
+  }
+  // A record the audit found changed is stamped like any other: the save
+  // writes to it, so it may no longer be the live one.
+  if (!isMerge && untracked.size > 0) ownRecords(records, main.records, untracked);
 
   return {
     records,

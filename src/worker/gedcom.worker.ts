@@ -147,6 +147,15 @@ function handle(req: WorkerRequest): void {
     });
     return;
   }
+  if (req.type === "releaseMain") {
+    // Only with no compare: one held here is matched against this main.
+    if (!compareRaw) {
+      mainDataset = undefined;
+      lastResult = undefined;
+      explain = undefined;
+    }
+    return;
+  }
   if (req.type === "clearCompare") {
     // Forget the incoming file so a later main reload/re-match doesn't resurrect
     // it. The start person stays set for a subsequent compare.

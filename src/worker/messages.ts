@@ -54,6 +54,13 @@ export interface ClearCompareRequest {
   type: "clearCompare";
 }
 
+/** Let go of the main while no incoming file is loaded: nothing reads it
+ *  until one is, and the app sends it again first. Ignored while a compare is
+ *  held. Emits no response. */
+export interface ReleaseMainRequest {
+  type: "releaseMain";
+}
+
 /** Ask for one match pair's score breakdown (the score badge's tooltip). The
  *  worker re-derives it from the two records; `generation` is echoed so an
  *  answer about an earlier match list can be told apart. */
@@ -86,7 +93,7 @@ export interface RematchRequest {
   type: "rematch";
 }
 
-export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | PatchMainRequest | ScoreDetailRequest | RematchRequest;
+export type WorkerRequest = ParseRequest | ParseCsvRequest | SetStartRequest | ClearCompareRequest | ReleaseMainRequest | PatchMainRequest | ScoreDetailRequest | RematchRequest;
 
 export interface ParseSuccess {
   type: "parsed";

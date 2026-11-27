@@ -22,6 +22,11 @@ All heavy work runs off the main thread in `src/worker/gedcom.worker.ts`. The wo
 
 The worker keeps its own copies of `mainDataset`, `compareNormalized`, and `lastResult` so any side can be (re)loaded in any order and the results stay consistent.
 
+**Memory: one resident copy of a large main.** Every isolate has its own heap limit (about 2 GB on an 8 GB machine), and a 220 MB file is ~1.6 GB as a dataset, so a copy is held only while something reads it:
+- the gedcom worker lets its main go (`releaseMain`) whenever no incoming file is loaded — after the main's load and after a save — and `loadFile` sends it again (`syncWorkerMain`) before the next incoming file;
+- the tools worker is terminated once its scans are done when the file is over `RESIDENT_MAX_RECORDS` (`useToolsScans`); the next scan sends a snapshot again;
+- an edit-only save copies only the records it writes to (`buildEditSaveRecords` with `touched`; `ownRecords` before anything writes to the rest), serializes to a `Blob` in parts (`serializeGedcomBlob`, never one string), and rebuilds the typed model reusing the people whose record node it did not copy (`adoptSavedBaseline`).
+
 ### Normalization
 
 When the compare file loads, `src/normalize/` reshapes it to match the main file's "house style" — date format (e.g. `DD.MM.YYYY` vs `JAN 1900`), place layout (`structured-addr` / `packed-plac` / …), and link languages (Matricula, Geneanet). The `NormalizationReport` summarizes what changed. Downstream matching compares like-for-like.
@@ -42,7 +47,7 @@ Key state:
 
 ### Save flow
 
-`handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. Where the browser has the File System Access API the dialog also offers to write the save to disk — into a picked folder or over the opened file (`ui/saveTarget.ts`: access is acquired inside the confirming click, a failed write falls back to a download). After confirming, the live `mainDataset` is rebuilt in-place from the saved records so the app reflects the new baseline without a reload.
+`handleSave` → `mergeDecisions` (merge) or `buildEditReport` (edit) → `SaveDialog` preview → `handleConfirmSave` → downloads `{base}.gedmerge.ged` + `{base}.gedmerge.report.txt`. Where the browser has the File System Access API the dialog also offers to write the save to disk — into a picked folder or over the opened file (`ui/saveTarget.ts`: access is acquired inside the confirming click, a failed write falls back to a download). After confirming, the live `mainDataset` is rebuilt in-place from the saved records (`adoptSavedBaseline`) so the app reflects the new baseline without a reload.
 
 ### Styling
 

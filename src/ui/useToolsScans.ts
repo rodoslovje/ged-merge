@@ -110,6 +110,10 @@ interface Pending {
  * fix followed by an immediate `refresh()` re-validates against the
  * just-fixed data. A replaced dataset (file load) is sent whole again.
  */
+/** Above this many records the worker is let go once its scans are done,
+ *  and the next scan sends the file again (see the worker's `onmessage`). */
+const RESIDENT_MAX_RECORDS = 100_000;
+
 export function useToolsScans(
   dataset: Dataset,
   editVersionRef: { readonly current: number },
@@ -239,6 +243,14 @@ export function useToolsScans(
           } else {
             p.onResult(res.data);
           }
+          // A large file's copy is not kept between scans: it is a whole
+          // second dataset (over a gigabyte on a 220 MB file) held for the
+          // sake of a faster next scan. Checked after the callbacks, which
+          // may have started the next one.
+          if (
+            workerRef.current === worker && pendingRef.current.size === 0
+            && datasetRef.current.records.length > RESIDENT_MAX_RECORDS
+          ) terminate();
         };
         // The worker died outside a request handler (uncaught throw) or a
         // message failed to (de)serialize — no per-request `error` response is

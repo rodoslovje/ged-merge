@@ -22,7 +22,7 @@ import { isTableFile } from "./csv/compareCsv";
 import { clearEventAuditStamps, noteCtx, rebuildNoteReferrers, pruneUnreferencedSource, setSourceRecordFields, setRepoRecordFields, setMediaInfo, bumpSourceCacheVersion, rebuildReferrers, type EditSourceFields, type SharedNoteCtx } from "./gedcom/edit";
 import { detectPrivacyStyle, isPrivateNode, setPrivateFlag } from "./gedcom/private";
 import { hasPendingAdds, pendingAddsSettled } from "./ui/source/pendingAdds";
-import { atEscapeFor, serializeGedcom } from "./gedcom/serialize";
+import { atEscapeFor, serializeGedcom, serializeGedcomBlob } from "./gedcom/serialize";
 import { outputOptions, ownVersion, prepareDownload, type OutputVersion } from "./save/outputFile";
 import { formatReport, INDI_HANDLED, mergePlaceFormat, type ImportBranchRequest, type WholeFileImport } from "./merge/merge";
 import { branchImportRecords } from "./merge/branchSize";
@@ -32,7 +32,8 @@ import { pendingBookLookups } from "./merge/linkPlacement";
 import { eventOrderSignature, stampConfirmedDecision } from "./merge/applyFields";
 import { individualFieldRows } from "./review/fields";
 import { buildSavePreview, type SavePreview } from "./save/buildSavePreview";
-import { savedBaseline } from "./save/savedBaseline";
+import { adoptSavedBaseline } from "./save/savedBaseline";
+import { ownRecords } from "./merge/editSaveRecords";
 import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./ui/edit/removeFromSave";
 import { defaultStartId, lifespanLabel } from "./match/relatives";
 import type { MatchCandidate, MatchResult } from "./match/types";
@@ -583,6 +584,8 @@ function AppContent() {
           // The worker built its main from the same bytes as this one: it
           // holds the edit version the load reset to (see loadFile).
           workerMainVersionRef.current = changeJournal.mark(editVersionRef.current);
+          // With no incoming file the worker has no use for its copy.
+          releaseWorkerMain();
           // Restore the cached start person as soon as the main is parsed —
           // matching (and `applyMatched`) only runs once a compare is also
           // loaded, so a main-only workspace would otherwise never restore it.
@@ -773,6 +776,12 @@ function AppContent() {
   // Counts a slot's loads, so a file still being read when the next one is
   // picked for the same slot does not post after it and win.
   const slotLoadGenRef = useRef({ main: 0, compare: 0 });
+  // Set from the moment an incoming file is picked until it is unloaded: the
+  // worker keeps its copy of the main for as long (see releaseWorkerMain).
+  const compareClaimedRef = useRef(false);
+  // The open main as of now, for a load that began before it was rendered.
+  const lastMainFileRef = useRef(lastMainFile);
+  lastMainFileRef.current = lastMainFile;
 
   async function loadFile(role: DatasetRole, file: File, handle?: FileSystemFileHandle) {
     // Also guards a reload triggered by the external-change check below: if
@@ -794,6 +803,7 @@ function AppContent() {
     persistence.pendingSessionRef.current = null;
     persistence.pendingEditStateRef.current = null;
     const loadGen = ++slotLoadGenRef.current[role];
+    if (role === "compare") compareClaimedRef.current = true;
 
     // macOS hands back filenames in decomposed (NFD) form, e.g. "Kovačič" as
     // c + combining caron. Our subset fonts don't carry the combining marks, so
@@ -860,7 +870,9 @@ function AppContent() {
     // cleanly on the new file. When nothing is matching there is nothing to abort,
     // so we keep the existing worker (and its cached datasets) and just re-parse.
     const otherLoaded = role === "main" ? compare.status === "loaded" : main.status === "loaded";
-    const keptMain = lastMainFile;
+    // Read now, not from the render this load began in: the worker may have
+    // let its main go since (releaseWorkerMain), and must be sent this one.
+    const keptMain = lastMainFileRef.current;
     if (matching && otherLoaded) {
       // The match in flight dies with the worker, whatever the new file does.
       if (role === "main") {
@@ -934,7 +946,7 @@ function AppContent() {
    *  main file, serialized) without touching this side's main file or the edit
    *  tracking bound to it, and restore the kinship ranking's start person.
    *  Records which edit version the worker now holds. */
-  async function refeedWorkerMain(text: string, fileName: string): Promise<void> {
+  async function refeedWorkerMain(text: string | Blob, fileName: string): Promise<void> {
     const mark = changeJournal.mark(editVersionRef.current);
     const mainBuf = await new Blob([text]).arrayBuffer();
     post(
@@ -943,6 +955,21 @@ function AppContent() {
     );
     if (startId) post({ type: "setStart", id: startId }); // restore kinship ranking
     workerMainVersionRef.current = mark;
+  }
+
+  /**
+   * Have the worker let go of its copy of the main while no incoming file is
+   * loaded — a whole second dataset (~1.4 GB on a 220 MB file) that only a
+   * match reads. The worker is sent the main again before the next incoming
+   * file (see `loadFile`, which finds no version recorded here). False when
+   * an incoming file is loaded, loading or expected from a restored session.
+   * Reads only refs: it is also called from the worker's message handler.
+   */
+  function releaseWorkerMain(): boolean {
+    if (compareClaimedRef.current || compareDatasetRef.current || persistence.expectCompareRef.current) return false;
+    post({ type: "releaseMain" });
+    workerMainVersionRef.current = undefined;
+    return true;
   }
 
   /** Re-parse the currently-loaded compare from its retained raw bytes — used to
@@ -970,6 +997,7 @@ function AppContent() {
     // A user-initiated unload supersedes any in-flight startup restore of the
     // compare, mirroring loadFile.
     persistence.expectCompareRef.current = false;
+    compareClaimedRef.current = false;
     persistence.compareBlobRef.current = null;
     if (persistence.persistEnabled) void deleteFile("compare");
     // Merge entries reference the now-gone incoming file; edits stay valid.
@@ -2363,6 +2391,9 @@ function AppContent() {
     // convertVersion) and the report lists what the conversion rewrote.
     const from = ownVersion(mainDataset);
     const author = submitterOf(settings);
+    // A conversion rewrites records all over the file, and an edit-only
+    // preview shares the untouched ones with the live file: take them over.
+    if (from !== version) ownRecords(preview.records, mainDataset.records);
     const { fixes, conversion } = prepareDownload(preview.records, mainDataset, version, undefined, author, true);
     for (const fix of fixes) fileNotes.push(t(`preview.fix.${fix}`, { name: submitterName(author) }));
     if (conversion) {
@@ -2370,10 +2401,12 @@ function AppContent() {
       for (const change of conversion) fileNotes.push(`  ${change}`);
     }
 
-    const text = serializeGedcom(preview.records, outputOptions(mainDataset, version));
+    // As a Blob built in parts: the file as one string is hundreds of megabytes
+    // of script heap on a large tree, at the moment the save can least spare it.
+    const saved = serializeGedcomBlob(preview.records, outputOptions(mainDataset, version));
     // Written before the session is reset below: a file that could not reach
     // the disk has by then been downloaded instead (see writeSave).
-    let written = await writeSave(dest, gedName, text, true);
+    let written = await writeSave(dest, gedName, saved, true);
     if (written && dest.kind === "file") {
       // The opened file now holds this save — which is what a later check of
       // it against the disk has to compare with, or it would report the save
@@ -2416,11 +2449,11 @@ function AppContent() {
     // the file's disk hash and handle, and reports a write that failed. A main
     // written on its own could land beside the pre-save session — and a reload
     // would then offer the decisions already baked into it a second time.
-    if (persistEnabled) persistence.savedMainBlobRef.current = new Blob([text]);
+    if (persistEnabled) persistence.savedMainBlobRef.current = saved;
 
     // The downloaded file is the new main baseline — rebuild the live dataset
-    // from the same records (see savedBaseline).
-    Object.assign(mainDataset, savedBaseline(mainDataset, preview.records, version));
+    // from the same records (see adoptSavedBaseline).
+    adoptSavedBaseline(mainDataset, preview.records, version);
     dirty.resetOnSave(mainDataset);
     sortEligiblePersonIdsRef.current = new Set();
 
@@ -2456,7 +2489,9 @@ function AppContent() {
     // later compare would report people this save just imported as new. Hand
     // it the saved text so its copy is the new baseline too. After the bump
     // above, so the version it records is the one the rebuilt dataset has.
-    void refeedWorkerMain(text, mainFileName);
+    // With no incoming file there is nothing to match: the worker lets its
+    // copy go instead, and is sent the main again when one is loaded.
+    if (!releaseWorkerMain()) void refeedWorkerMain(saved, mainFileName);
   }
 
   /** What the dirty tracking knows about a record "Remove from save" would

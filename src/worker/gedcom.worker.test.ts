@@ -332,3 +332,37 @@ describe("gedcom.worker pipeline", () => {
     }
   });
 });
+
+describe("gedcom.worker releaseMain", () => {
+  it("lets the main go while no compare is held: a compare then waits for the main to be sent again", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "releaseMain" });
+    expect(types()).toEqual(["parsed"]);
+
+    // As the app does before an incoming file: the main first, silently.
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN), silent: true });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    expect(types()).toEqual(["parsed", "parsed", "matching", "matched"]);
+    expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I1@", compareId: "@P1@" }]);
+  });
+
+  it("matches nothing against a main it has let go", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "releaseMain" });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    expect(types()).not.toContain("matched");
+  });
+
+  it("keeps the main while a compare is held", async () => {
+    const send = await freshWorker();
+    send({ type: "parse", role: "main", fileName: "a.ged", buffer: enc(MAIN) });
+    send({ type: "parse", role: "compare", fileName: "b.ged", buffer: enc(COMPARE) });
+    send({ type: "releaseMain" });
+    posted.length = 0;
+    send({ type: "rematch" });
+    expect(types()).toEqual(["matching", "matched"]);
+    expect(lastMatched()?.individuals).toMatchObject([{ mainId: "@I1@", compareId: "@P1@" }]);
+  });
+});

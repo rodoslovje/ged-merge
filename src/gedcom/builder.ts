@@ -60,9 +60,22 @@ export function emptyDataset(): Dataset {
   };
 }
 
+/**
+ * People and families already built, to be taken as they are wherever one
+ * was built from the very record node now being built again (`raw`).
+ *
+ * A save rebuilds the open file from the records it wrote, nearly all of them
+ * the nodes the file already held. Building those people a second time made
+ * a whole second projection beside the first — some 500 MB on a 220 MB file,
+ * at the save's peak — to arrive at objects equal to the ones in hand. Only
+ * the caller can vouch for that equality: the projection must be current with
+ * its nodes, as the open file's is kept by every edit.
+ */
+export type BuiltRecords = Pick<Dataset, "individuals" | "families">;
+
 /** Build the typed domain `Dataset` from a parsed line tree. */
-export function buildDataset(parsed: ParseResult): Dataset {
-  return runSteps(buildDatasetSteps(parsed));
+export function buildDataset(parsed: ParseResult, reuse?: BuiltRecords): Dataset {
+  return runSteps(buildDatasetSteps(parsed, reuse));
 }
 
 /** Records built between two yields of {@link buildDatasetSteps}. */
@@ -73,7 +86,7 @@ const XREFS_PER_STEP = 50_000;
 /** {@link buildDataset} as a stepped pass (see `steps.ts`), yielding between
  *  its whole-file indexes and every {@link RECORDS_PER_STEP} records — what
  *  the main thread runs in slices. */
-export function* buildDatasetSteps(parsed: ParseResult): Steps<Dataset> {
+export function* buildDatasetSteps(parsed: ParseResult, reuse?: BuiltRecords): Steps<Dataset> {
   const individuals = new Map<string, Individual>();
   const families = new Map<string, Family>();
   const records = parsed.records;
@@ -136,9 +149,11 @@ export function* buildDatasetSteps(parsed: ParseResult): Steps<Dataset> {
     if (i % RECORDS_PER_STEP === RECORDS_PER_STEP - 1) yield;
     const record = records[i];
     if (record.tag === "INDI" && record.xref) {
-      individuals.set(record.xref, buildIndividual(record, media, sourceCtx, notes));
+      const built = reuse?.individuals.get(record.xref);
+      individuals.set(record.xref, built?.raw === record ? built : buildIndividual(record, media, sourceCtx, notes));
     } else if (record.tag === "FAM" && record.xref) {
-      families.set(record.xref, buildFamily(record, media, sourceCtx, notes));
+      const built = reuse?.families.get(record.xref);
+      families.set(record.xref, built?.raw === record ? built : buildFamily(record, media, sourceCtx, notes));
     }
   }
 
