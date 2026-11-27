@@ -109,6 +109,7 @@ export type WorkspaceAction =
   | { type: "matchingStarted" }
   | { type: "matchingStopped" }
   | { type: "matched"; result: MatchResult }
+  | { type: "matchesRecounted"; result: MatchResult }
   | { type: "matchesCleared" }
   | { type: "setStart"; id: string | undefined }
   | { type: "decisionsSet"; decisions: Map<string, CandidateDecision> }
@@ -180,6 +181,11 @@ export function workspaceReducer(state: WorkspaceState, action: WorkspaceAction)
 
     case "matched":
       return { ...state, matches: action.result, matching: false };
+
+    case "matchesRecounted":
+      // The list held, with fresher counts (see recountCandidates) — not a
+      // result arriving, so a match in flight stays in flight.
+      return state.matches ? { ...state, matches: action.result } : state;
 
     case "matchesCleared":
       // Drop stale results on a file (re)load; the worker emits fresh matches

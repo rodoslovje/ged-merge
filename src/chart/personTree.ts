@@ -632,6 +632,10 @@ function childPairing(mainKids: Individual[], incomingKids: Individual[], maps: 
  * line {@link pathCount} says holds nobody incoming, which on a typical match
  * is nearly all of it; `memo` carries those counts across the candidates of
  * one match result.
+ *
+ * `isRejected` prunes as it does in the tree: a rejected pair keeps its main
+ * side only. The memo knows no rejection — its counts stay an upper bound, and
+ * a zero still means nobody.
  */
 export function countImportableRelatives(
   rootMain: Individual | undefined,
@@ -641,6 +645,7 @@ export function countImportableRelatives(
   maps: MatchMaps,
   mode: TreeMode,
   memo: ImportableMemo,
+  isRejected?: (mainId: string, compareId: string) => boolean,
 ): number {
   const expanded = new Set<string>();
   const expandedFams = new Set<string>();
@@ -651,6 +656,7 @@ export function countImportableRelatives(
     expand(m, i);
   };
   const expand = (m: Individual | undefined, i: Individual | undefined) => {
+    if (m && i && isRejected?.(m.id, i.id)) i = undefined;
     const key = nodeKey(m, i);
     if (expanded.has(key)) return;
     expanded.add(key);

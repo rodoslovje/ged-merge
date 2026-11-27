@@ -37,6 +37,7 @@ import { canRemoveFromSave, removeFromSave, type RevertTracking } from "./ui/edi
 import { defaultStartId, lifespanLabel } from "./match/relatives";
 import type { MatchCandidate, MatchResult } from "./match/types";
 import { rematchedCandidates } from "./state/rematch";
+import { recountCandidates, redecidedPeople, withCounts } from "./state/recount";
 import { connectScoreDetails, receiveScoreDetail, resetScoreDetails } from "./ui/scoreDetail";
 import { datesTooltipOf, lifespanApproxOf } from "./gedcom/lifespan";
 import type { DatasetRole, WorkerRequest, WorkerResponse } from "./worker/messages";
@@ -1134,6 +1135,42 @@ function AppContent() {
   );
   const { allSorted, visible, visibleMainOrder, current, visibleIndex, indexByMain, indexByCompare } =
     useMatchList({ matches, sort, filters, decisions, selectedId, kinLine });
+
+  // The list's counts follow the live main file and the decisions. The worker
+  // counts a list once, against its own copy of the main and knowing no
+  // decision; from there on every edit and decision recounts the candidates
+  // around it (see recountCandidates), so a row never offers people the
+  // compare tree no longer does. `list` is the worker list those counts were
+  // last brought up to date for — a new one starts from the worker's main.
+  const countedRef = useRef<{ list: MatchResult; mark: SyncMark; decisions: ReadonlyMap<string, CandidateDecision> } | null>(null);
+  useEffect(() => {
+    const mainDs = mainDatasetRef.current;
+    const compareDs = compareDatasetRef.current;
+    const list = matchListRef.current;
+    // While a match runs the list is about to be replaced: what changes
+    // meanwhile is counted once it has arrived.
+    if (matching || !matches || !list || !mainDs || !compareDs) return;
+    const counted = countedRef.current?.list === list ? countedRef.current : null;
+    const seeds = redecidedPeople(counted?.decisions ?? new Map(), decisions);
+    // A change no list names (a save's rebuild) is followed by its decisions.
+    for (const id of changeJournal.since(counted ? counted.mark : workerMainVersionRef.current) ?? []) seeds.add(id);
+    const counts = seeds.size
+      ? recountCandidates(matches.individuals, seeds, mainDs, compareDs, decisions, formatOverridesRef.current)
+      : undefined;
+    const mark = changeJournal.mark(editVersionRef.current);
+    if (!counts?.size) {
+      countedRef.current = { list, mark, decisions };
+      return;
+    }
+    // The worker's list is what a later re-rank orders, and the carried rows
+    // what a re-match keeps: both take the counts too.
+    const recounted = { ...list, individuals: withCounts(list.individuals, counts) };
+    matchListRef.current = recounted;
+    if (rematchRef.current) rematchRef.current.carried = withCounts(rematchRef.current.carried, counts);
+    countedRef.current = { list: recounted, mark, decisions };
+    dispatch({ type: "matchesRecounted", result: { ...matches, individuals: withCounts(matches.individuals, counts) } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, decisions, editVersion, matching]);
 
   // Refs used by the stable callbacks and the arrow-key effect so they don't
   // need to re-register whenever visible changes.
