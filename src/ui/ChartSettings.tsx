@@ -184,8 +184,9 @@ export function ChartSettings({
               })}
             </div>
           </div>
-          {/* Who the kinship labels are measured from — offered while they show. */}
-          {kinshipFrom && settings.showKinship && (
+          {/* Who the kinship labels are measured from — offered while they show,
+              which the radial fan / circle charts never do. */}
+          {kinshipFrom && settings.showKinship && effectiveType !== "fan" && (
             <div className="chart-settings-group">
               <span className="chart-settings-heading">{t("tree.settings.kinshipFrom")}</span>
               <div className="chart-settings-segmented">
