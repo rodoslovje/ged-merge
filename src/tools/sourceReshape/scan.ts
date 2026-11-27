@@ -21,18 +21,36 @@ import { isPrivateNode } from "../../gedcom/private";
 const TYPE_KEYWORDS: Record<Exclude<BookType, "unknown">, RegExp> = {
   // Baptism covers birth registers too — the same book under a civil name, and
   // Croatian/Slovenian collection titles say "Rođeni"/"Rojeni" for it.
-  baptism: /krst|tauf|baptiz|baptism|rojstn|rojen|rođen|rodjen|birth|\bkk\b/i,
-  marriage: /poro[čc]|vjen[čc]an|trauung|matrimon|copulat|marriage|\bpk\b/i,
+  // "Matična knjiga krščenih" says it with the participle, not the noun; MKK /
+  // MKP / MKU are the Slovenian archives' own shelf marks for the three
+  // registers (krščenih, poročenih, umrlih), RMK the civil birth register.
+  baptism: /krst|kr[sš][cč]en|tauf|baptiz|baptism|rojstn|rojen|rođen|rodjen|birth|\bkk\b|\bmkk\b|\brmk\b/i,
+  marriage: /poro[čc]|vjen[čc]an|trauung|matrimon|copulat|marriage|\bpk\b|\bmkp\b/i,
   // The tail (obituar|osmrtnic|pogreb|navc?ek|funeral) recognizes obituary and
   // funeral-announcement pages by their URLs/titles — funeral homes,
   // komunala pogreb notices, navcek.si.
-  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b|obituar|osmrtnic|pogreb|nav[čc]ek|funeral/i,
+  death: /mrli|sterbe|defunct|mortu|umrl|death|\bmk\b|\bmku\b|obituar|osmrtnic|pogreb|nav[čc]ek|funeral/i,
   // Graves: cemetery indexes ("Pokopališče Kranj - Geneanet Cemeteries",
   // "Find a Grave® Index", BillionGraves) and burial registers. `SITE_BOOK_TYPE`
   // already pins the known grave sites by their URL; a title is all the
   // coverage pass and a pasted citation ever get, so it must say the same.
   burial: /pokopal|groblj|grobi[šs][čc]|cemeter|graveyard|\bgraves?\b|billiongraves|friedhof|begr[äa]bnis|sepult|burial|buried/i,
 };
+
+/**
+ * Every register type the text names. One book often holds two ("Krstna in
+ * mrliška knjiga"): which of them a *citation* belongs to nobody can say from
+ * the title (see {@link classifyBookType}), but what the book *covers* is all
+ * of them. Death and burial count once, as a death register (see below).
+ */
+export function bookTypesIn(texts: (string | undefined)[]): Exclude<BookType, "unknown">[] {
+  const joined = texts.filter(Boolean).join(" \n ");
+  if (!joined) return [];
+  const hits = (Object.keys(TYPE_KEYWORDS) as (keyof typeof TYPE_KEYWORDS)[]).filter((t) =>
+    TYPE_KEYWORDS[t].test(joined),
+  );
+  return hits.includes("death") ? hits.filter((t) => t !== "burial") : hits;
+}
 
 /** Classify a register's type from whatever text is available (source titles,
  *  quoted collection names, citation prefixes). Ambiguous → "unknown". */

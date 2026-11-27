@@ -1,6 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { liftNestedStamps } from "../gedcom/chanCrea";
-import { toStandardCoverage } from "./sourceReshape/apply";
+import { flatFieldsToPublication, toStandardCoverage } from "./sourceReshape/apply";
 import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, linkTitlesToFiles, mimeFormOf } from "../gedcom/mediaForm";
@@ -55,6 +55,10 @@ import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite
  *    spelling becomes the bare one;
  *  - **coverage** — a source's flat `PLAC`/`DATE`: restated as the standard's
  *    `DATA > EVEN` coverage in every source whose title names its register;
+ *  - **publication** — a source's flat `PLAC`/`DATE` that the coverage fix
+ *    cannot restate because the source is no register (a book, a newspaper
+ *    issue, an online collection): they say where and when it was published,
+ *    and are folded into its `PUBL`. Run only on the user's word;
  *  - **mediaInfo** — a media record's `DATE`/`PLAC`, which neither version
  *    has: kept as the `_DATE`/`_PLACE` extensions GED Merge reads and writes;
  *  - **childPedi** — a `PEDI` on a family's `CHIL` line: moved to the child's
@@ -78,7 +82,7 @@ import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "titleLinks" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "titleLinks" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "publication" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
 
 /** Repairs only ever run on the row that asks for them (see `recordRewrite`):
  *  **customTags** removes the tag a row names (`ref.value`) — everywhere, or,
@@ -329,6 +333,11 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
     if (!fixable.some((i) => i.assoDate)) return 0;
     return dataset.records.reduce((n, r) => n + (r.xref ? assoDatesToNotes(r, false) : 0), 0);
   }
+  if (kind === "publication") {
+    if (!fixable.some((i) => i.coverage)) return 0;
+    const baptism = baptismTargetTag(dataset.records);
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && flatFieldsToPublication(cloneNode(r), baptism).length > 0).length;
+  }
   if (kind === "coverage") {
     if (!fixable.some((i) => i.coverage)) return 0;
     const baptism = baptismTargetTag(dataset.records);
@@ -368,6 +377,11 @@ export function fixConformance(
   if (kind === "sourceFields") {
     const pass = sourceFieldPass(dataset.records, overrides);
     return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
+  }
+  if (kind === "publication") {
+    const baptism = baptismTargetTag(dataset.records);
+    return applyPassSafely(dataset, (journal) =>
+      mediaPassOver(dataset.records, (rec) => flatFieldsToPublication(rec, baptism), journal, "SOUR"));
   }
   if (kind === "extensions") {
     return applyPassSafely(dataset, (journal) => {

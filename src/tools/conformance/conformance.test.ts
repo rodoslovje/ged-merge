@@ -773,6 +773,86 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("reads the register a title names in other words, and a census taken on its date, in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL Matična knjiga krščenih, zvezek I - ŠAK Ž Voj MKK 1 | Vojsko
+1 PLAC Vojsko
+1 DATE 1790-1797
+0 @S2@ SOUR
+1 TITL Krstna in Mrliška knjiga / Sterbebuch - 03175 | Šenčur
+1 PLAC Šenčur
+1 DATE 1655-1657
+0 @S3@ SOUR
+1 TITL Matricula ŠAK Ž Voj MKU 1 | Vojsko
+1 PLAC Vojsko
+0 @S4@ SOUR
+1 TITL Births (Rođeni) 1759-1812 Marriages (Vjenčani) 1800-1805, Ravna Gora
+1 PLAC Ravna Gora
+1 DATE 1759-1812
+0 @S5@ SOUR
+1 TITL United States, Census, 1930
+1 DATE 1930
+0 @S6@ SOUR
+1 TITL 1940 United States Federal Census
+1 DATE 2010
+1 PLAC Provo, UT, USA
+0 TRLR`);
+    expect(countFixableConformance(ds, "coverage")).toBe(5); // not S6: 2010 is its publisher's year
+    fixConformance(ds, "coverage");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toMatch(/0 @S1@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN (BIRT|BAPM)\n3 DATE FROM 1790 TO 1797\n3 PLAC Vojsko\n/);
+    // One book of two registers covers both.
+    expect(out).toMatch(/0 @S2@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN (BIRT|BAPM)\n3 DATE FROM 1655 TO 1657\n3 PLAC Šenčur\n2 EVEN DEAT\n3 DATE FROM 1655 TO 1657\n3 PLAC Šenčur\n/);
+    // The archive's shelf mark alone: MKU is a death register.
+    expect(out).toMatch(/0 @S3@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN DEAT\n3 PLAC Vojsko\n/);
+    // Each register of a label closed by its place keeps its own years.
+    expect(out).toMatch(/0 @S4@ SOUR\n1 TITL [^\n]+\n1 DATA\n2 EVEN (BIRT|BAPM)\n3 DATE FROM 1759 TO 1812\n3 PLAC Ravna Gora\n2 EVEN MARR\n3 DATE FROM 1800 TO 1805\n3 PLAC Ravna Gora\n/);
+    expect(out).toContain("0 @S5@ SOUR\n1 TITL United States, Census, 1930\n1 DATA\n2 EVEN CENS\n3 DATE 1930\n");
+    expect(out).toContain("1 DATE 2010\n1 PLAC Provo, UT, USA\n");
+    expect(validateConformance(ds).filter((i) => i.recordId !== "@S6@")).toEqual([]);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("folds the place and date of a source that is no register into its PUBL in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TITL 1940 United States Federal Census
+1 PUBL Ancestry.com Operations, Inc.
+1 DATE 2010
+1 PLAC Provo, UT, USA
+0 @S2@ SOUR
+1 TITL Dolenjski list, 08.06.1978, letnik 29, številka 23 - dLib.si
+1 DATE 8 JUN 1978
+0 @S3@ SOUR
+1 TITL Gorenjske družine v 18. stoletju
+1 PUBL Kranj, 2016
+1 DATE 2016
+0 @S4@ SOUR
+1 TITL Matricula 00879 | Kranj Šmartin
+1 PLAC Kranj Šmartin
+0 @S5@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Šenčur
+1 PLAC Šenčur
+0 TRLR`);
+    // Not the registers: S4 names no type, S5 is the coverage fix's.
+    expect(countFixableConformance(ds, "publication")).toBe(3);
+    // Only on the user's word: a run of every fix restates S5 and leaves these.
+    expect(fixConformance(ds).map((x) => x.id)).toEqual(["@S5@"]);
+    const before = serializeGedcom(ds.records, ds);
+    const patches = fixConformance(ds, "publication");
+    expect(patches.map((p) => p.id)).toEqual(["@S1@", "@S2@", "@S3@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL 1940 United States Federal Census\n1 PUBL Ancestry.com Operations, Inc., Provo, UT, USA, 2010\n0 @S2@");
+    expect(out).toMatch(/0 @S2@ SOUR\n1 TITL [^\n]+\n1 PUBL 8 JUN 1978\n0 @S3@/);
+    // Already said there: the flat line only goes.
+    expect(out).toContain("1 PUBL Kranj, 2016\n0 @S4@");
+    expect(out).toContain("1 PLAC Kranj Šmartin\n");
+    expect(validateConformance(ds).filter((i) => ["@S1@", "@S2@", "@S3@"].includes(i.recordId ?? ""))).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("fixes every finding a grouped row stands for, and only those", () => {
     const ds = dataset(`${HEAD_70}
 0 @I1@ INDI

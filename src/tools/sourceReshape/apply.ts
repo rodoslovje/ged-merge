@@ -34,7 +34,7 @@ import {
   SITE_BOOK_TYPE,
   sourcesHoldingPages,
 } from "./report";
-import { baptismTargetTag, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
+import { baptismTargetTag, bookTypesIn, classifyBookType, type ScanHit, scanOccurrences } from "./scan";
 import { pageObjeTitle, parseMatriculaUrl, placeholderMediaTitle, recognizeSourceUrl, siteTitle } from "./urls";
 import {
   addObjeToSource, createSourceRecord, keepsSourceTag, settleSourceFields, sourceWriteVersion, SOUR_FIELD_TRAILING, writesIdAsCallNumber,
@@ -448,7 +448,10 @@ function coverageEventsFromTitle(
   baptismTag: "BIRT" | "BAPM",
 ): CoverageEvent[] {
   for (const seg of (title ?? "").split(" - ")) {
-    const parts = splitFsRegisters(seg.trim());
+    // The label alone, or with the place some titles close it with
+    // ("… Marriages 1800-1805, Ravna Gora").
+    const label = seg.trim();
+    const parts = [label, label.replace(/,\s*[^,\d]+$/, "")].map(splitFsRegisters).find((p) => p.length > 1) ?? [];
     if (parts.length > 1) {
       const events = parts.flatMap((part) => {
         const tag = coverageTagOf(classifyBookType([part]), baptismTag);
@@ -458,7 +461,28 @@ function coverageEventsFromTitle(
     }
   }
   const tag = coverageTagOf(classifyBookType([title, abbr]), baptismTag);
-  return tag ? [{ type: tag, date: dateRange, place }] : [];
+  if (tag) return [{ type: tag, date: dateRange, place }];
+  // One book of two registers ("Krstna in mrliška knjiga"): it covers both,
+  // over the same years and in the same place.
+  const tags = bookTypesIn([title, abbr]).map((t) => coverageTagOf(t, baptismTag)).filter((t): t is string => !!t);
+  if (tags.length > 1) return tags.map((type) => ({ type, date: dateRange, place }));
+  return isCensusOf(title, dateRange) ? [{ type: "CENS", date: dateRange, place }] : [];
+}
+
+/**
+ * Whether a source is a census taken on (or over) `date`. The title has to say
+ * census, and the date has to be the census's own: a collection published
+ * decades later ("1940 United States Federal Census", 2010) carries its
+ * publisher's year on the record, and a coverage claim made of that would say
+ * the census was taken in 2010. So a title that names a year must name the
+ * date's; one that names none is taken at its word.
+ */
+function isCensusOf(title: string | undefined, date: string | undefined): boolean {
+  if (!title || !/census|popis prebival|popis stanov|volksz[äa]hlung|recensement/i.test(title)) return false;
+  const titleYears: string[] = title.match(/\b1[5-9]\d\d\b|\b20\d\d\b/g) ?? [];
+  if (titleYears.length === 0) return true;
+  const dateYears: string[] = (date ?? "").match(/\b\d{4}\b/g) ?? [];
+  return dateYears.length > 0 && dateYears.every((y) => titleYears.includes(y));
 }
 
 /**
@@ -544,6 +568,40 @@ export function toStandardCoverage(
       .join(" · "),
     title,
   };
+}
+
+/**
+ * Fold a source's flat `PLAC`/`DATE` into its `PUBL` — the standard's line for
+ * where and when the source was published — for the sources they are that for:
+ * a book, a newspaper issue, an online collection. Left alone (empty result):
+ * a source {@link toStandardCoverage} can restate, one already stating its
+ * coverage in `DATA > EVEN`, one whose title names a register (its place and
+ * years are the register's own), and a flat line carrying lines of its own (a
+ * place's coordinates have no home in a text). Returns the lines folded.
+ */
+export function flatFieldsToPublication(rec: GedNode, baptismTag: "BIRT" | "BAPM"): GedNode[] {
+  const lines = [firstChild(rec, "PLAC"), firstChild(rec, "DATE")].filter(
+    (n): n is GedNode => !!n?.value?.trim(),
+  );
+  if (!lines.length || lines.some((n) => n.children.length)) return [];
+  const data = firstChild(rec, "DATA");
+  if (data && childrenByTag(data, "EVEN").length) return [];
+  const title = sourceTitle(rec);
+  // A register — by its type, or one that only says it is one ("Matricula
+  // 00879 | Kranj"): its place is the parish, not a publisher's.
+  if (bookTypesIn([title, childText(rec, "ABBR")]).length) return [];
+  if (/matri[ck]ul|mati[čc]n|kirchenbuch|parish regist|status animarum/i.test(title ?? "")) return [];
+  if (toStandardCoverage(cloneNode(rec), baptismTag)) return [];
+  const publ = firstChild(rec, "PUBL");
+  const held = (publ?.value ?? "").toLowerCase();
+  const fresh = lines.map((n) => n.value!.trim()).filter((v) => !held.includes(v.toLowerCase()));
+  if (fresh.length) {
+    const text = [publ?.value?.trim(), ...fresh].filter(Boolean).join(", ");
+    if (publ) publ.value = text;
+    else insertGrouped(rec, { level: rec.level + 1, tag: "PUBL", value: text, children: [] }, SOUR_FIELD_TRAILING);
+  }
+  for (const n of lines) spliceChild(rec, n);
+  return lines;
 }
 
 export function normalizeSourceCoverage(
