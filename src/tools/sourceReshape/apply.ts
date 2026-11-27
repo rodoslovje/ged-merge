@@ -1499,17 +1499,22 @@ export function reshapeSources(
       hit.node.value = fields.title;
       fillField(hit.rec, "AUTH", fields.author);
       // A record that already says where and when on itself (a source renamed
-      // from its link-only title) keeps its own words for them: they are what
-      // the coverage states, and the flat lines go with it — written twice,
-      // the place would stand once where the standard has none.
+      // from its link-only title) keeps its own words for them — unless the
+      // flat place is still the diacritic-less URL-slug guess ("Kranj Smartin"),
+      // which gives way to the real parish name ("Kranj - Šmartin"). The flat
+      // lines go once stated in coverage — written twice, the place would stand
+      // once where the standard has none.
       const flatPlace = firstChild(hit.rec, "PLAC");
       const flatDate = firstChild(hit.rec, "DATE");
+      const slugPlace = recognizeSourceUrl(hit.url)?.proposed.place;
+      const ownPlace = flatPlace?.value?.trim();
+      const effectivePlace = ownPlace && ownPlace !== slugPlace ? ownPlace : fields.place || ownPlace;
       const hadCoverage = !!firstChild(hit.rec, "DATA") && childrenByTag(firstChild(hit.rec, "DATA")!, "EVEN").length > 0;
       const std =
         coverage === "standard" &&
         applyStandardCoverage(
           hit.rec,
-          coverageEvents(bookType, baptismTag, flatPlace?.value?.trim() || fields.place, flatDate?.value?.trim() || fields.dateRange, extra?.book),
+          coverageEvents(bookType, baptismTag, effectivePlace, flatDate?.value?.trim() || fields.dateRange, extra?.book),
           fields.agency,
         );
       if (std && !hadCoverage) {
@@ -1523,7 +1528,8 @@ export function reshapeSources(
         // from, a strict target still gets it there rather than out of place.
         if (opts.standard) hangAgencyUnderData(hit.rec);
         if (keepFlat) {
-          fillField(hit.rec, "PLAC", fields.place);
+          if (flatPlace && ownPlace === slugPlace && fields.place) flatPlace.value = fields.place;
+          else fillField(hit.rec, "PLAC", fields.place);
           fillField(hit.rec, "DATE", fields.dateRange);
         }
       }

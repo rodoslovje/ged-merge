@@ -1233,6 +1233,28 @@ ${shape}
     expect(findReshapableLinks(dataset(out)).groups).toEqual([]);
   });
 
+  it("upgrades a diacritic-less URL-slug PLAC when renaming a link-only Matricula source", () => {
+    const text = `0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @S1@ SOUR
+1 TITL Matricula 00879 | Kranj Smartin
+1 PLAC Kranj Smartin
+1 OBJE @O1@
+1 REPO @R1@
+2 CALN 00879
+0 @R1@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 @O1@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/kranj-smartin/00879/?pg=95
+2 FORM text/html
+2 TITL #095 - Krstna knjiga / Taufbuch - 00879 | Kranj - Šmartin | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online
+0 TRLR`;
+    const { text: out } = applyAll(text, { sourceCoverage: "standard" });
+    expect(out).toContain("3 PLAC Kranj - Šmartin");
+    expect(out).not.toContain("Kranj Smartin");
+  });
+
   it("fills the tree owner as AUTH when rewriting a URL-titled Geneanet tree SOUR", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8
