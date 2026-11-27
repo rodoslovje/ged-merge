@@ -57,7 +57,7 @@ const FIX_DONE_MS = 8000;
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "godparents" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", titleLinks: "ConformTitleLinks", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
 /** Fixes that settle only the rows that ask: picking every row of the kind
  *  still runs them one by one, never as a whole-file pass. */
 const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs"]);
@@ -158,7 +158,7 @@ const SEV_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
 
 /** The findings list's filter: a category, All, the rows with a repair, or
  *  one of the two chips carved out of a category. */
-type Filter = IssueCategory | StructCategory | "all" | "fixable" | "tranLang" | "eventText" | "nameType";
+type Filter = IssueCategory | StructCategory | "all" | "fixable" | "tranLang" | "eventText" | "nameType" | "titleLink";
 
 /** A row in the unified Health Check list — a record-level finding or a structural
  *  ("spec") one. Both carry a severity so they interleave by it in the "All" view. */
@@ -403,7 +403,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -440,6 +440,7 @@ export function ValidatePanel({
     if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
     if (filter === "eventText" && !structure?.issues.some(isEventText)) setFilter("all");
     if (filter === "nameType" && !structure?.issues.some(isNameType)) setFilter("all");
+    if (filter === "titleLink" && !structure?.issues.some((i) => i.titleLink)) setFilter("all");
   }, [filter, structure]);
 
   useEffect(() => {
@@ -522,6 +523,12 @@ export function ValidatePanel({
       : [0, 0]),
     [structure, dataset],
   );
+  // Media records whose title is a link the record's FILE lines do not hold.
+  const fixableTitleLinks = useMemo(
+    () => (structure?.issues.some((i) => i.titleLink) ? countFixableConformance(dataset, "titleLinks") : 0),
+    [structure, dataset],
+  );
+  const titleLinkCount = structure?.issues.filter((i) => i.titleLink).length ?? 0;
 
   // The rows for one filter and search; the "fixable" chip is the whole list
   // narrowed to the rows that carry a repair.
@@ -546,7 +553,8 @@ export function ValidatePanel({
       if (f === "tranLang" ? !isUntaggedTran(issue)
         : f === "eventText" ? !isEventText(issue)
         : f === "nameType" ? !isNameType(issue)
-        : f !== "all" && (issue.category !== f || isUntaggedTran(issue) || isEventText(issue) || isNameType(issue))) continue;
+        : f === "titleLink" ? !issue.titleLink
+        : f !== "all" && (issue.category !== f || isUntaggedTran(issue) || isEventText(issue) || isNameType(issue) || issue.titleLink)) continue;
       // Structural rows have no person subject; match the search on the tag/record.
       if (query && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(query)) continue;
       // A translation without a language is one row however often it occurs:
@@ -966,6 +974,15 @@ export function ValidatePanel({
         run: () => onFixConformance("forms", { value: issue.fix }),
       };
     }
+    // A link typed as a media title: made a FILE of the record, in every one.
+    if (issue.category === "misplacedTag" && issue.titleLink && issue.recordId) {
+      return {
+        label: t("tools.validate.fixOneTitleLinks"),
+        hint: t("tools.validate.fixConformTitleLinksHint"),
+        kind: "titleLinks",
+        run: () => onFixConformance("titleLinks"),
+      };
+    }
     // Media lines beside their FILE: one row for the whole habit, so its
     // button moves them in every media record.
     if (issue.category === "misplacedTag" && issue.relocate && issue.recordId) {
@@ -1103,7 +1120,7 @@ export function ValidatePanel({
     }
     // A standard tag where the version has no place for it, and no repair
     // above that knows where it belongs: the lines can go — there only.
-    const ownRepair = issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.mediaInfo || issue.childPedi || issue.citationPage;
+    const ownRepair = issue.relocate || issue.titleLink || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.mediaInfo || issue.childPedi || issue.citationPage;
     if (issue.category === "misplacedTag" && !ownRepair && issue.recordId && issue.sample && issue.messageVars?.parent) {
       const parent = String(issue.messageVars.parent);
       return {
@@ -1246,6 +1263,7 @@ export function ValidatePanel({
     .reduce((n, i) => n + (Number(i.messageVars?.count) || 1), 0) ?? 0;
   if (conformEventTypes > 0) fixActions.push({ kind: "eventTypes", count: conformEventTypes });
   if (fixableRelocate > 0) fixActions.push({ kind: "relocate", count: fixableRelocate });
+  if (fixableTitleLinks > 0) fixActions.push({ kind: "titleLinks", count: fixableTitleLinks });
   if (fixableFileTitles > 0) fixActions.push({ kind: "fileTitles", count: fixableFileTitles });
   if (fixableAgency > 0 && !keptCoverage) fixActions.push({ kind: "agency", count: fixableAgency });
   if (fixableSourceFields > 0) fixActions.push({ kind: "sourceFields", count: fixableSourceFields });
@@ -1442,7 +1460,8 @@ export function ValidatePanel({
               {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => {
                 const count = structure!.counts[c]
                   - (c === "missingLine" ? untaggedTranCount : 0)
-                  - (c === "enumValue" ? eventTextCount + nameTypeCount : 0);
+                  - (c === "enumValue" ? eventTextCount + nameTypeCount : 0)
+                  - (c === "misplacedTag" ? titleLinkCount : 0);
                 return count > 0 && (
                   <button
                     key={c}
@@ -1453,6 +1472,14 @@ export function ValidatePanel({
                   </button>
                 );
               })}
+              {group === "gedcom" && titleLinkCount > 0 && (
+                <button
+                  className={`tools-chip ${filter === "titleLink" ? "active" : ""}`}
+                  onClick={() => setFilter("titleLink")}
+                >
+                  {t("tools.validate.titleLink.title")} <span className="tools-chip-count">{titleLinkCount}</span>
+                </button>
+              )}
               {group === "gedcom" && nameTypeCount > 0 && (
                 <button
                   className={`tools-chip ${filter === "nameType" ? "active" : ""}`}

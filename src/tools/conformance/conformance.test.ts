@@ -588,6 +588,52 @@ describe("fixConformance", () => {
     expect(check551("0 @I1@ INDI\n1 EVEN Graduation\n1 FACT blue").filter((i) => i.messageVars.tag === "TYPE")).toEqual([]);
   });
 
+  it.each([["5.5.1", HEAD_551, "htm"], ["7.0", HEAD_70, "text/html"]])("a link typed as a media title is its own finding in %s, and becomes a FILE", (_v, head, form) => {
+    const ds = dataset(`${head}
+0 @O1@ OBJE
+1 FILE https://example.org/osmrtnica
+2 FORM ${form}
+2 TITL Alojz Naglič
+1 TITL https://example.org/osmrtnica
+0 @O2@ OBJE
+1 FILE https://example.org/knjiga
+2 FORM ${form}
+2 TITL Deaths 1858-1896
+1 TITL https://example.org/drugje
+0 @O3@ OBJE
+1 FILE c.jpg
+2 FORM ${form === "htm" ? "jpg" : "image/jpeg"}
+1 TITL https://example.org/slika
+0 TRLR`);
+    const before = serializeGedcom(ds.records, ds);
+    const rows = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+    // O1's title repeats its own FILE: an ordinary second title. O2's and
+    // O3's name a link the record holds nowhere else.
+    expect(rows.map((i) => [i.recordId, !!i.relocate, !!i.titleLink, i.messageVars.count])).toEqual([
+      ["@O1@", true, false, 1],
+      ["@O2@", false, true, 2],
+    ]);
+    // Neither title fix touches a link: moving it would name the file by a
+    // URL, dropping it would lose it.
+    expect(countFixableConformance(ds, "relocate")).toBe(0);
+    expect(countFixableConformance(ds, "fileTitles")).toBe(1);
+    expect(countFixableConformance(ds, "titleLinks")).toBe(2);
+    expect(fixConformance(ds)).toEqual([]); // only on the user's word
+
+    const patches = fixConformance(ds, "titleLinks");
+    expect(patches.map((p) => p.id)).toEqual(["@O2@", "@O3@"]);
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain(`2 TITL Deaths 1858-1896\n1 FILE https://example.org/drugje\n2 FORM ${form}\n0 @O3@`);
+    expect(out).toContain(`1 FILE https://example.org/slika\n2 FORM ${form}\n0 TRLR`);
+    expect(validateConformance(ds).filter((i) => i.titleLink)).toEqual([]);
+    fixConformance(ds, "fileTitles");
+    expect(validateConformance(ds)).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toContain("1 TITL https://example.org/drugje");
+    expect(before).toContain("1 TITL https://example.org/drugje");
+  });
+
   it("moves media titles and formats kept beside FILE under it, in every media record", () => {
     const ds = dataset(`${HEAD_551}
 0 @O1@ OBJE

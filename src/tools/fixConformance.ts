@@ -3,7 +3,7 @@ import { liftNestedStamps } from "../gedcom/chanCrea";
 import { toStandardCoverage } from "./sourceReshape/apply";
 import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
-import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, mimeFormOf } from "../gedcom/mediaForm";
+import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, linkTitlesToFiles, mimeFormOf } from "../gedcom/mediaForm";
 import { hangAgencyUnderData, keepsSourceTag, rebuildFamily, rebuildIndividual, settleSourceFields } from "../gedcom/edit";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { untypedEvents, upgradeExtensions } from "../normalize/migrate";
@@ -39,6 +39,10 @@ import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite
  *    user's word: where a media record has a title beside its `FILE` and a
  *    different one under it, the one under the `FILE` (which the app shows)
  *    is kept;
+ *  - **titleLinks** — a media record's title beside its `FILE` that is a web
+ *    link no `FILE` of the record holds: the link becomes a `FILE` of the
+ *    record, so the title fixes above never drop it. Run only on the user's
+ *    word, like **fileTitles**;
  *  - **agency** — a source's own `AGNC`, which no version allows on the
  *    record: moved to `DATA.AGNC` in every source at once;
  *  - **extensions** — an extension standing in for a 7.0 structure (`_UID`,
@@ -74,7 +78,7 @@ import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "titleLinks" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
 
 /** Repairs only ever run on the row that asks for them (see `recordRewrite`):
  *  **customTags** removes the tag a row names (`ref.value`) — everywhere, or,
@@ -270,7 +274,7 @@ function fillEventTypes(rec: GedNode, value: string | undefined, apply: boolean)
 }
 
 function kindOf(issue: ConformanceIssue): ConformanceFixKind {
-  return issue.eventType ? "eventTypes" : issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
+  return issue.eventType ? "eventTypes" : issue.citationPage ? "citationPage" : issue.childPedi ? "childPedi" : issue.mediaInfo ? "mediaInfo" : issue.smartMatch ? "smartMatch" : issue.assoDate ? "assoDates" : issue.coverage ? "coverage" : issue.stamps ? "stamps" : issue.agency ? "agency" : issue.titleLink ? "titleLinks" : issue.relocate ? "relocate" : issue.repeat ? "repeats" : issue.toNote ? "notes" : issue.category === "missingLine" ? "forms" : "values";
 }
 
 /** What a file-wide pass does to one media (or source) record; returns the
@@ -284,10 +288,13 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
   if (kind === "fileTitles") {
     return issues.some((i) => i.relocate && i.sample === "TITL") ? dropTitleBesideFileTitle : undefined;
   }
+  const v7 = !!tableFor(records)?.version.startsWith("7");
+  if (kind === "titleLinks") {
+    return issues.some((i) => i.titleLink) ? (obje) => linkTitlesToFiles(obje, v7) : undefined;
+  }
   if (!issues.some((i) => i.relocate)) return undefined;
   // 7.0 writes a FORM as a media type, so a moved `jpg` arrives as one.
-  const form = tableFor(records)?.version.startsWith("7") ? mimeFormOf : undefined;
-  return (obje) => hangMediaLinesUnderFile(obje, form);
+  return (obje) => hangMediaLinesUnderFile(obje, v7 ? mimeFormOf : undefined, true);
 }
 
 /** How many findings of `kind` the fix would settle — the count on its button;
@@ -336,7 +343,7 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
     if (!fixable.some((i) => i.agency)) return 0;
     return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && hangAgencyUnderData(cloneNode(r)).length > 0).length;
   }
-  const pass = kind === "relocate" || kind === "fileTitles" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
+  const pass = kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" ? mediaPassFor(dataset.records, kind, fixable) : undefined;
   if (pass) return dataset.records.filter((r) => r.tag === "OBJE" && r.xref && pass(cloneNode(r)).length > 0).length;
   // A grouped row (the media forms) stands for as many lines as it counts.
   return fixable
@@ -376,7 +383,7 @@ export function fixConformance(
     });
   }
   const scanned = fixableConformance(dataset.records, only?.id);
-  if (kind === "fileTitles") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
+  if (kind === "fileTitles" || kind === "titleLinks") return runMediaPass(dataset, mediaPassFor(dataset.records, kind, scanned));
   const issues = scanned.filter(
     (i) => (!kind || kindOf(i) === kind) && (!only || only.path === undefined || i.path === only.path)
       && (!only?.match || (i.messageVars.tag === only.match.tag && i.messageVars.parent === only.match.parent
@@ -385,7 +392,7 @@ export function fixConformance(
   const mediaPass = mediaPassFor(dataset.records, kind, issues);
   const byRecord = new Map<string, ConformanceIssue[]>();
   for (const issue of issues) {
-    if (issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || issue.citationPage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
+    if (issue.relocate || issue.titleLink || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.smartMatch || issue.mediaInfo || issue.childPedi || issue.citationPage || (issue.category === "missingLine" && issue.fix !== undefined)) continue;
     const list = byRecord.get(issue.recordId!);
     if (list) list.push(issue);
     else byRecord.set(issue.recordId!, [issue]);
