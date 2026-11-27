@@ -166,9 +166,22 @@ function groupRecords(
   for (const [key, recs] of buckets) {
     if (recs.length < 2) continue;
     const ranked = recs
-      .map((rec, i) => ({ rec, i, full: fullness(rec), rich: richness(rec), use: refs.get(rec.xref!) ?? 0 }))
+      .map((rec, i) => {
+        const info = kind === "media" ? objeInfoOf(rec) : undefined;
+        return {
+          rec,
+          i,
+          badTitle: info && pageTitleMismatch(info.url, info.title) ? 1 : 0,
+          full: fullness(rec),
+          rich: richness(rec),
+          use: refs.get(rec.xref!) ?? 0,
+        };
+      })
       .sort((a, b) =>
-        (citedFirst ? b.use - a.use || b.full - a.full : b.full - a.full || b.use - a.use) || b.rich - a.rich || a.i - b.i,
+        a.badTitle - b.badTitle ||
+        (citedFirst ? b.use - a.use || b.full - a.full : b.full - a.full || b.use - a.use) ||
+        b.rich - a.rich ||
+        a.i - b.i,
       );
     const members: DupMember[] = ranked.map(({ rec }, idx) => {
       const d = describe(rec);
@@ -223,16 +236,8 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
       return { title: info.title || (info.file ? basename(info.file) : rec.xref!), detail: info.url ?? info.file, url: info.url };
     },
     // Media records share only their `FILE`: a dropped one's title or notes
-    // would be lost, so the one saying the most leads before the most-cited —
-    // and one whose `#N` title disagrees with its URL's page yields to one that
-    // matches.
-    refs,
-    groups,
-    (rec) => {
-      const info = objeInfoOf(rec);
-      return richness(rec) - (pageTitleMismatch(info.url, info.title) ? 1 : 0);
-    },
-    false,
+    // would be lost, so the one saying the most leads before the most-cited.
+    refs, groups, richness, false,
   );
 
   // A source or repository saying less than one other of its title is keyed

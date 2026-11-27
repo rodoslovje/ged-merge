@@ -706,6 +706,9 @@ describe("findSourceDuplicates — sources that each add a line", () => {
 1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
 2 FORM url
 2 TITL #034 - Krstna knjiga / Taufbuch - 03164 | Šenčur
+1 CHAN
+2 DATE 1 JAN 2025
+3 TIME 12:00:00
 0 @M18@ OBJE
 1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
 2 FORM url
