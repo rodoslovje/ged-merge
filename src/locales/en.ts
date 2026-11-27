@@ -1012,6 +1012,7 @@ export const en = {
   "tools.batch.event.estimated": "has an estimated date for",
   "tools.batch.eventTextPlaceholder": "Name contains… (e.g. Partners)",
   "tools.batch.causePlaceholder": "Cause contains… (empty: any cause)",
+  "tools.batch.namePhrasePlaceholder": "What kind of name (e.g. house name)…",
   "tools.batch.typePlaceholder": "Event name…",
   "tools.batch.kinship.ancestor": "direct ancestor",
   "tools.batch.kinship.descendant": "descendant",

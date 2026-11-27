@@ -441,7 +441,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           : action.kind === "convertEvent"
             ? !!(action.fromTag && action.toTag && action.fromTag !== action.toTag)
             : action.kind === "convertNameType"
-              ? !!(action.fromType && action.toType && action.fromType !== action.toType)
+              ? !!(action.fromType && action.toType && (action.fromType !== action.toType || action.phrase?.trim()))
             : !!(action.xref || action.file?.trim()));
 
   function apply() {
@@ -1311,11 +1311,25 @@ function ActionEditor({
           <SelectMenu
             className="batch-select"
             value={action.toType}
-            onChange={(v) => onChange({ ...action, toType: v })}
-            options={nameTypeTargets
-              .filter((type) => type !== action.fromType)
-              .map((type) => ({ value: type, label: nameTypeMenuLabel(type, t) }))}
+            // "Other" opens on the word the names carry now, when it is one no
+            // version defines (`family`): kept unless the reader words it better.
+            onChange={(v) => onChange({
+              ...action,
+              toType: v,
+              phrase: v === "other" ? action.phrase ?? (nameTypeTargets.includes(action.fromType) ? "" : action.fromType) : undefined,
+            })}
+            options={nameTypeTargets.map((type) => ({ value: type, label: nameTypeMenuLabel(type, t) }))
+              .filter((o) => o.value !== action.fromType || o.value === "other")}
           />
+          {action.toType === "other" && (
+            <input
+              className="batch-input"
+              placeholder={t("tools.batch.namePhrasePlaceholder")}
+              aria-label={t("tools.batch.namePhrasePlaceholder")}
+              value={action.phrase ?? ""}
+              onChange={(e) => onChange({ ...action, phrase: e.target.value })}
+            />
+          )}
         </>
       )}
     </div>
