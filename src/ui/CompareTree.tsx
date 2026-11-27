@@ -32,13 +32,20 @@ import { useFanChart } from "./useFanChart";
 import { ChartZoom } from "./ChartZoom";
 import { FanChartBody } from "./FanChartBody";
 import {
+  ANCESTOR_KEY_PREFIX,
+  bowtieHalf,
   flatten,
+  flattenBowtie,
+  isBowtie,
   TEXT_X_PHOTO,
   TEXT_X_PLAIN,
   addressOverflows,
   layout,
+  layoutBowtie,
   layoutGrid,
   nodeHeight,
+  type BowtieLaid,
+  type ChartDirection,
   type Placed,
 } from "../chart/treeLayout";
 import { formatMarriage, modeSummary } from "../chart/nodeDisplay";
@@ -70,8 +77,9 @@ interface Props {
   matches: MatchResult;
   rootMainId?: string;
   rootCompareId?: string;
-  mode: TreeMode;
-  onModeChange: (mode: TreeMode) => void;
+  /** Ancestors, descendants, or both at once (the bowtie). */
+  mode: ChartDirection;
+  onModeChange: (mode: ChartDirection) => void;
   /** Re-root the tree on another person (clicked from a node's relative links). */
   onReroot: (mainId?: string, compareId?: string) => void;
   onBack: () => void;
@@ -133,7 +141,7 @@ export function CompareTree({
   matches,
   rootMainId,
   rootCompareId,
-  mode,
+  mode: direction,
   onModeChange,
   onReroot,
   onBack,
@@ -235,7 +243,14 @@ export function CompareTree({
   // are radial.
   const radial = settings.type === "fan";
   const isGrid = !radial && settings.treeLayout === "grid";
-  const variant = pedigreeVariant(settings);
+  // "Both" is the bowtie: the layered chart draws the ancestors before the
+  // root and the descendants after it; the radial chart shares one circle
+  // between the two. `mode` is the one direction the single-direction code
+  // paths still read.
+  const bowtie = direction === "both";
+  const mode: TreeMode = bowtie ? "ancestors" : direction;
+  // The radial bowtie is a full circle whatever the shape setting says.
+  const variant = bowtie && radial ? "circle" : pedigreeVariant(settings);
 
   // Both directions build once per root/dataset/decisions: they feed the
   // mode-button counts and the current direction's chart, layered or radial —
@@ -263,27 +278,43 @@ export function CompareTree({
     [trees, limit],
   );
   const tree = shown[mode];
-  // "4 of 9 generations" while the limit actually cuts this direction — shown on
+  // The trees on screen: both halves of a bowtie, else the direction's.
+  const drawn = useMemo(
+    () => (bowtie ? [shown.ancestors, shown.descendants] : [tree]),
+    [bowtie, shown, tree],
+  );
+  // How deep what is on screen goes: the bowtie's deeper half, else the
+  // direction's tree.
+  const shownDepth = bowtie ? Math.max(depths.ancestors, depths.descendants) : depths[mode];
+  // "4 of 9 generations" while the limit actually cuts the chart — shown on
   // the page and in the export header, so a partial chart never reads as whole.
   const genNote =
-    limit !== null && limit < depths[mode]
-      ? t("tree.gen.shown", { n: limit, of: depths[mode] })
+    limit !== null && limit < shownDepth
+      ? t("tree.gen.shown", { n: limit, of: shownDepth })
       : undefined;
-  // What the "+N" marker says: the direction decides who is missing, and the
+  // What the "+N" marker says: the half decides who is missing, and the
   // tooltip names the limit that hid them.
   // `atLimit` lets a chart that ran out of room of its own (the radial rings)
   // name its own cap instead of the generation setting's.
-  const hiddenTitle = useCallback(
-    (count: number, atLimit?: number) =>
-      t(mode === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
+  const hiddenTitleFor = useCallback(
+    (half: TreeMode, count: number, atLimit?: number) =>
+      t(half === "ancestors" ? "tree.node.hiddenAncestors" : "tree.node.hiddenDescendants", {
         count,
         limit: atLimit ?? limit ?? 0,
       }),
-    [t, mode, limit],
+    [t, limit],
   );
-  // The layered body hands its node along; this chart has no bowtie, so the
-  // node says nothing the direction doesn't.
-  const treeHiddenTitle = useCallback((count: number) => hiddenTitle(count), [hiddenTitle]);
+  // The radial body hands the segment's key along, the layered one its node:
+  // either says which half of a bowtie the marker is on.
+  const hiddenTitle = useCallback(
+    (count: number, atLimit?: number, key?: string) =>
+      hiddenTitleFor(bowtie && key ? bowtieHalf(key) : mode, count, atLimit),
+    [hiddenTitleFor, bowtie, mode],
+  );
+  const treeHiddenTitle = useCallback(
+    (count: number, node: Placed) => hiddenTitleFor(bowtie ? bowtieHalf(node.key) : mode, count),
+    [hiddenTitleFor, bowtie, mode],
+  );
 
   // Incoming-only people each direction could graft, shown on the mode buttons —
   // the same counts the Compare Tree button surfaces in Merge mode.
@@ -306,8 +337,8 @@ export function CompareTree({
   const kinshipOn = settings.showKinship && appSettings.showKinship && !!kinship;
   const kinshipDrawn = useMemo(
     // A redacted living person never shows a kinship row.
-    () => kinshipOn && someTreeNode(tree, (n) => !(settings.privacyLiving && n.living) && !!kinshipOf(n)),
-    [kinshipOn, settings.privacyLiving, tree, kinshipOf],
+    () => kinshipOn && drawn.some((root) => someTreeNode(root, (n) => !(settings.privacyLiving && n.living) && !!kinshipOf(n))),
+    [kinshipOn, settings.privacyLiving, drawn, kinshipOf],
   );
   // An address too long for one row gives every box a second one for it. A
   // chart drawing photos measures by the narrower row beside one.
@@ -318,16 +349,21 @@ export function CompareTree({
     if (!settings.showAddress) return 0;
     // A redacted living person shows no address.
     const shows = (n: TreeNode) => !!n.address && !(settings.privacyLiving && n.living);
-    if (someTreeNode(tree, (n) => shows(n) && addressOverflows(n.address, addressTextX))) return 2;
-    return someTreeNode(tree, shows) ? 1 : 0;
-  }, [settings.showAddress, settings.privacyLiving, addressTextX, tree]);
+    if (drawn.some((root) => someTreeNode(root, (n) => shows(n) && addressOverflows(n.address, addressTextX)))) return 2;
+    return drawn.some((root) => someTreeNode(root, shows)) ? 1 : 0;
+  }, [settings.showAddress, settings.privacyLiving, addressTextX, drawn]);
   const display = useMemo(() => ({ ...settings, showKinship: kinshipDrawn, addressLines }), [settings, kinshipDrawn, addressLines]);
   // Box height grows per enabled detail row (lifespan / place / kinship); thread it
   // through the layout, connectors, canvas centring, minimap, and the node boxes.
   const nodeH = nodeHeight(display);
-  const laid = useMemo(
-    () => (tree ? (isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)) : undefined),
-    [tree, alignment, isGrid, nodeH],
+  const laid = useMemo<BowtieLaid | ReturnType<typeof layout> | undefined>(
+    () =>
+      bowtie && shown.ancestors && shown.descendants
+        ? layoutBowtie(shown.ancestors, shown.descendants, alignment, nodeH, isGrid)
+        : tree
+          ? isGrid ? layoutGrid(tree, alignment, nodeH) : layout(tree, alignment, nodeH)
+          : undefined,
+    [bowtie, shown, tree, alignment, isGrid, nodeH],
   );
   const marriageLabel = useMemo(() => {
     if (!display.showMarriageDate && !display.showMarriagePlace) return undefined;
@@ -338,20 +374,23 @@ export function CompareTree({
   }, [display.showMarriageDate, display.showMarriagePlace, display.privacyLiving]);
   const flat = useMemo(
     () =>
-      laid
-        ? flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors")
-        : undefined,
+      !laid
+        ? undefined
+        : isBowtie(laid)
+          ? flattenBowtie(laid, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel)
+          : flatten(laid.root, alignment, isGrid ? "elbow" : "curve", nodeH, marriageLabel, mode === "ancestors"),
     [laid, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // What "print in sheets" splits: the layered charts only — a fan has no
-  // rectangular branches to cut. It re-lays the very same tree the canvas draws.
+  // rectangular branches to cut. It re-lays the very same tree the canvas
+  // draws; a bowtie hands over both its halves.
   const sheetSource = useMemo(
     () =>
-      !radial && tree
-        ? { tree, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
+      !radial && tree && (!bowtie || shown.descendants)
+        ? { tree, bowtie: bowtie ? shown.descendants : undefined, alignment, grid: isGrid, nodeH, marriageLabel, ancestors: mode === "ancestors" }
         : undefined,
-    [radial, tree, alignment, isGrid, nodeH, marriageLabel, mode],
+    [radial, bowtie, tree, shown, alignment, isGrid, nodeH, marriageLabel, mode],
   );
 
   // Radial (fan / circle) chart of the current direction — reuses the prebuilt
@@ -372,31 +411,45 @@ export function CompareTree({
   const { fan, nodes: fanNodes, laid: fanLaid } = useFanChart(
     radial ? tree : undefined,
     settings.fanShape,
-    { mode, hasPhoto, display, kinshipOf: fanKinshipOf },
+    { mode: bowtie ? "both" : mode, other: bowtie ? shown.descendants : undefined, hasPhoto, display, kinshipOf: fanKinshipOf },
   );
 
   const colorOf = useCallback((n: TreeNode) => STATUS_COLOR[n.status], []);
 
   // Keys of incoming-only nodes that an active "import ancestors/descendants"
   // branch would bring in as new records: a node is covered once it, or any of
-  // its render-tree ancestors, has its import toggled on for the current mode.
-  // The rendered tree is exactly the graft direction, so coverage = subtree.
+  // its render-tree ancestors, has its import toggled on for the tree's
+  // direction. A rendered tree is exactly the graft direction, so coverage =
+  // subtree; a bowtie covers each half in its own direction.
   const willImport = useMemo(() => {
     const set = new Set<string>();
-    if (!laid) return set;
-    const isAnchor = (n: Placed) => !!n.incoming && importBranches.has(importKey(mode, n.incoming.id));
-    (function walk(n: Placed, covered: boolean) {
-      const active = covered || isAnchor(n);
-      if (active && n.status === "incoming-only") set.add(n.key);
-      for (const p of n.partners) {
-        const pActive = active || isAnchor(p);
-        if (pActive && p.status === "incoming-only") set.add(p.key);
-        for (const c of p.children) walk(c, pActive);
-      }
-      for (const c of n.children) walk(c, active);
-    })(laid.root, false);
+    const cover = (root: TreeNode | undefined, dir: TreeMode, prefix: string) => {
+      if (!root) return;
+      const isAnchor = (n: TreeNode) => !!n.incoming && importBranches.has(importKey(dir, n.incoming.id));
+      (function walk(n: TreeNode, covered: boolean) {
+        const active = covered || isAnchor(n);
+        if (active && n.status === "incoming-only") set.add(prefix + n.key);
+        for (const p of n.partners) {
+          const pActive = active || isAnchor(p);
+          if (pActive && p.status === "incoming-only") set.add(prefix + p.key);
+          for (const c of p.children) walk(c, pActive);
+        }
+        for (const c of n.children) walk(c, active);
+      })(root, false);
+    };
+    if (!bowtie) {
+      cover(tree, mode, "");
+      return set;
+    }
+    cover(shown.descendants, "descendants", "");
+    // The layered bowtie's ancestor half carries prefixed keys; the fan's
+    // segments keep their tree node's own.
+    const prefix = radial ? "" : ANCESTOR_KEY_PREFIX;
+    cover(shown.ancestors, "ancestors", prefix);
+    // The root is drawn once, on the descendant side.
+    if (shown.ancestors && set.has(prefix + shown.ancestors.key)) set.add(shown.ancestors.key);
     return set;
-  }, [laid, importBranches, mode]);
+  }, [bowtie, radial, tree, shown, importBranches, mode]);
 
   // Incoming people the save will join to a record the main file already has
   // on the matcher's word alone — a relative a confirmed match takes, or a
@@ -482,7 +535,7 @@ export function CompareTree({
 
   // Viewport, grab-to-pan, zoom, root re-centring, and node selection.
   const { canvasRef, zoomLayerRef, viewport, panning, scrollTo, scrollBy, canvasProps, selectedKey, setSelectedKey, selectNode, revealNode, zoom, zoomIn, zoomOut, resetZoom, setZoomTo, fitToScreen } =
-    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${mode}:${variant}:${alignment}`);
+    useTreeCanvas(activeLaid, activeNodes, alignment, radial, nodeH, `${rootMainId ?? ""}:${rootCompareId ?? ""}:${direction}:${variant}:${alignment}`, bowtie);
 
   // Find-in-chart. A node here can draw a matched pair, so both sides are
   // searchable — the incoming spelling of a name finds the node just as well.
@@ -503,20 +556,36 @@ export function CompareTree({
   const find = useChartFind(findSources, mainDs.individuals, revealNode, rerootMain);
 
   // The direction row: each side's head-count, and how many of those people
-  // the incoming file brings.
-  const directions: SegmentedItem<TreeMode>[] = (["ancestors", "descendants"] as const).map((dir) => ({
-    key: dir,
-    title: modeSummary(t, peopleCounts[dir], depths[dir]),
-    label: (
-      <>
-        {t(`tree.${dir}`)}
-        <span className="tree-mode-count">{peopleCounts[dir]}</span>
-        {importCounts[dir] > 0 && (
-          <span className="tree-import-count">{dir === "ancestors" ? "▲" : "▼"}{importCounts[dir]}</span>
-        )}
-      </>
-    ),
-  }));
+  // the incoming file brings — then both sides at once.
+  const importCount = (dir: TreeMode) =>
+    importCounts[dir] > 0 && (
+      <span className="tree-import-count">{dir === "ancestors" ? "▲" : "▼"}{importCounts[dir]}</span>
+    );
+  const directions: SegmentedItem<ChartDirection>[] = [
+    ...(["ancestors", "descendants"] as const).map((dir) => ({
+      key: dir,
+      title: modeSummary(t, peopleCounts[dir], depths[dir]),
+      label: (
+        <>
+          {t(`tree.${dir}`)}
+          <span className="tree-mode-count">{peopleCounts[dir]}</span>
+          {importCount(dir)}
+        </>
+      ),
+    })),
+    {
+      key: "both",
+      title: t("tree.both.tooltip"),
+      label: (
+        <>
+          {t("tree.both")}
+          <span className="tree-mode-count">{peopleCounts.ancestors + peopleCounts.descendants}</span>
+          {importCount("ancestors")}
+          {importCount("descendants")}
+        </>
+      ),
+    },
+  ];
 
   // The selected person — a laid tree node or a fan segment's ancestor node;
   // both are `TreeNode`s, read identically by the detail panel.
@@ -547,6 +616,21 @@ export function CompareTree({
       ? (status) => onDecide(selectedMainId, selectedCompareId, status)
       : undefined,
   });
+  // The branches the selected person can bring: the one their tree draws —
+  // on a bowtie the half they stand in, and for its root both.
+  const selectedIncomingId = selected?.incoming?.id;
+  const selectedIsRoot = !!selectedKey && selectedKey === activeLaid?.root.key;
+  const selectedImports = useMemo<BranchImport[]>(() => {
+    if (!selected || !selectedIncomingId || !selectedKey) return [];
+    const entry = (dir: TreeMode, node: TreeNode): BranchImport => ({
+      direction: dir,
+      count: countImportable(node),
+      active: importBranches.has(importKey(dir, selectedIncomingId)),
+    });
+    if (!bowtie) return [entry(mode, selected)];
+    if (!selectedIsRoot) return [entry(bowtieHalf(selectedKey), selected)];
+    return [...(shown.ancestors ? [entry("ancestors", shown.ancestors)] : []), entry("descendants", selected)];
+  }, [selected, selectedIncomingId, selectedKey, selectedIsRoot, bowtie, mode, shown, importBranches]);
   const selectedCandidate = useMemo(
     () => selectedMainId && selectedCompareId
       ? matches.individuals.find((c) => c.mainId === selectedMainId && c.compareId === selectedCompareId)
@@ -585,10 +669,10 @@ export function CompareTree({
           {/* No Color axis here: this chart paints every node by what the
               merge found — main, incoming, conflict — and that is the whole
               point of looking at it. */}
-          <ChartSettings availableGenerations={depths[mode]} colorAxes="none" />
+          <ChartSettings availableGenerations={shownDepth} colorAxes="none" />
           <ChartExportMenu
             disabled={!activeLaid}
-            slug={chartSlug(rootName, t(`tree.${mode}`))}
+            slug={chartSlug(rootName, t(bowtie ? "tree.bowtie" : `tree.${mode}`))}
             title={compareTreeTitle}
             canvasRef={canvasRef}
             sheets={sheetSource}
@@ -602,8 +686,8 @@ export function CompareTree({
             value={settings.type}
             onChange={(k) => setType(k as PedigreeType)}
           />
-          <PedigreeVariantTabs />
-          <Segmented label={t("tree.direction")} value={mode} onChange={onModeChange} items={directions} />
+          <PedigreeVariantTabs hideShape={bowtie} />
+          <Segmented label={t("tree.direction")} value={direction} onChange={onModeChange} items={directions} />
         </>
       }
       controlsRight={
@@ -696,8 +780,7 @@ export function CompareTree({
             mainDs={mainDs}
             compareDs={compareDs}
             maps={maps}
-            mode={mode}
-            importActive={!!selected.incoming && importBranches.has(importKey(mode, selected.incoming.id))}
+            imports={selectedImports}
             onToggleImport={onToggleImport}
             onReroot={onReroot}
             onClose={() => setSelectedKey(null)}
@@ -826,6 +909,15 @@ function TreeLegend({
   );
 }
 
+/** One "bring this person's branch" offer of the detail panel. */
+interface BranchImport {
+  direction: ImportDirection;
+  /** Incoming-only people the branch would add as new records. */
+  count: number;
+  /** The branch is marked to come in on save. */
+  active: boolean;
+}
+
 /** Floating Main↔Incoming field table for the selected person (top-right). */
 function NodeCompare({
   node,
@@ -833,8 +925,7 @@ function NodeCompare({
   mainDs,
   compareDs,
   maps,
-  mode,
-  importActive,
+  imports,
   onToggleImport,
   onReroot,
   onClose,
@@ -852,8 +943,9 @@ function NodeCompare({
   mainDs: Dataset;
   compareDs: Dataset;
   maps: MatchMaps;
-  mode: TreeMode;
-  importActive: boolean;
+  /** The branches this person can bring, in the direction(s) the chart draws
+   *  from them. */
+  imports: BranchImport[];
   onToggleImport: (direction: ImportDirection, incomingId: string) => void;
   onReroot: (mainId?: string, compareId?: string) => void;
   onClose: () => void;
@@ -868,12 +960,11 @@ function NodeCompare({
   // Both sides present → an actionable match the user can confirm/reject/defer.
   const decidable = !!node.main && !!node.incoming;
   const status = decision?.status ?? "undecided";
-  // Anything with an incoming side has a subtree we can graft in the current
-  // tree direction (ancestors or descendants of this person). The subtree shown
-  // under this node *is* what the import would bring, so count its incoming-only
-  // people up front — the number a "bring …" import would add as new records.
+  // Anything with an incoming side has a subtree we can graft in the tree's
+  // direction (ancestors or descendants of this person). The subtree shown
+  // under this node *is* what the import would bring, so `imports` counts its
+  // incoming-only people — the number a "bring …" import would add as new records.
   const importableId = node.incoming?.id;
-  const importCount = useMemo(() => countImportable(node), [node]);
   const rows = useMemo(
     () => individualFieldRows(t, node.main, node.incoming, mainDs, compareDs),
     [t, node, mainDs, compareDs],
@@ -915,15 +1006,18 @@ function NodeCompare({
 
   const controls = (
     <>
-      {importableId && (importCount > 0 || importActive) && (
+      {importableId && imports.some((i) => i.count > 0 || i.active) && (
         <div className="tree-compare-import">
-          <button
-            className={`tree-import-btn${importActive ? " active" : ""}`}
-            onClick={() => onToggleImport(mode, importableId)}
-            title={t(`tree.import.${mode}.title`)}
-          >
-            {t(`tree.import.${mode}${importActive ? ".active" : ""}`)} ({importCount})
-          </button>
+          {imports.filter((i) => i.count > 0 || i.active).map((i) => (
+            <button
+              key={i.direction}
+              className={`tree-import-btn${i.active ? " active" : ""}`}
+              onClick={() => onToggleImport(i.direction, importableId)}
+              title={t(`tree.import.${i.direction}.title`)}
+            >
+              {t(`tree.import.${i.direction}${i.active ? ".active" : ""}`)} ({i.count})
+            </button>
+          ))}
         </div>
       )}
     </>

@@ -418,7 +418,7 @@ describe("useAppHistory: overlays", () => {
   it("the Compare Tree: one entry, re-roots on its trail, mode kept, Back leaves it", async () => {
     const app = await mount({ mode: "merge", current: { mainId: "@I1@", compareId: "@X1@" } });
     app.api.openTree("@I1@", "@X1@");
-    expect(app.api.treeView).toEqual({ mainId: "@I1@", compareId: "@X1@", mode: "ancestors" });
+    expect(app.api.treeView).toEqual({ mainId: "@I1@", compareId: "@X1@", mode: "both" });
     const entries = history.entries.length;
     app.api.changeTreeMode("descendants" as never);
     app.api.rerootTree("@I2@", "@X2@");
