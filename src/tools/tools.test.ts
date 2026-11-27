@@ -1386,6 +1386,39 @@ describe("validateStructure", () => {
     expect(validateStructure(ds).counts.nonStandardDate).toBe(0);
   });
 
+  it("holds a _DATE to the same form as a DATE: reported, and fixed by the same passes", () => {
+    // A media record's date is kept as `_DATE` (the standard has none there),
+    // so a date moved off `DATE` must not drop out of the date checks.
+    const ds = dataset(`0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 BIRT
+2 DATE 5 MAR 1850
+1 DEAT
+2 DATE 2 FEB 1910
+0 @O1@ OBJE
+1 FILE a.jpg
+2 FORM image/jpeg
+1 _DATE 5.3.1910
+0 @O2@ OBJE
+1 FILE b.jpg
+2 FORM image/jpeg
+1 _DATE spomladi nekoč
+0 TRLR`);
+    const report = validateStructure(ds);
+    expect(report.issues.filter((i) => i.category === "nonStandardDate").map((i) => [i.recordId, i.sample, i.fix]))
+      .toEqual([["@O1@", "5.3.1910", "5 MAR 1910"]]);
+    expect(report.issues.filter((i) => i.category === "badDate").map((i) => [i.recordId, i.sample]))
+      .toEqual([["@O2@", "spomladi nekoč"]]);
+    // Still listed among the file's extension tags.
+    expect(report.issues.some((i) => i.category === "customTag" && i.sample === "_DATE")).toBe(true);
+    fixNonStandardDates(ds);
+    const media = ds.records.filter((r) => r.tag === "OBJE").map((r) => r.children.find((c) => c.tag === "_DATE")?.value);
+    expect(media).toEqual(["5 MAR 1910", "spomladi nekoč"]);
+    expect(validateStructure(ds).counts.nonStandardDate).toBe(0);
+  });
+
   it("does not flag a date that names its calendar or its era", () => {
     // These are valid dates the standard defines; reporting them as broken sent
     // the user hunting for damage in correct data.

@@ -2,6 +2,7 @@ import { buildDataset, LINK_TAGS, looksLikeUrl } from "../gedcom/builder";
 import type { Dataset, GedNode, ParseResult } from "../gedcom/types";
 import { cloneNode, firstChild } from "../gedcom/node";
 import { readAddressParts } from "../gedcom/address";
+import { isDateTag } from "../gedcom/date";
 import { dropPlaceholderDates, normalizeDateString } from "./date";
 import { dropPlaceholderPlaces, normalizePlaceString } from "./place";
 import { reshapeRecordLinks, rewriteLinkLang } from "./links";
@@ -178,7 +179,7 @@ export function normalizeDataset(
     // CHAN/CREA change stamps hold the program's own exact dates: never restyle them.
     if (node.tag === "CHAN" || node.tag === "CREA") return false;
     if (node.value === undefined) return;
-    if (node.tag === "DATE") {
+    if (isDateTag(node.tag)) {
       if (!options.dates) return;
       const next = normalizeDateString(node.value, profile.date, sourceOrder);
       if (next !== node.value) {
