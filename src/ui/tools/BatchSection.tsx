@@ -225,6 +225,14 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
 
   const results = useMemo(() => rows.filter((r) => matchesBatch(r, criteria, ctx)), [rows, criteria, ctx]);
   const targets = useMemo(() => results.filter((r) => !excluded.has(r.id)), [results, excluded]);
+  /** The name types the people the action will run on actually carry: what a
+   *  conversion can start from. Offering every type in the file let the reader
+   *  pick one none of them has — and the action then changed nobody. */
+  const targetNameTypes = useMemo(() => {
+    const present = new Set<string>();
+    for (const r of targets) for (const type of r.nameTypes) present.add(type);
+    return present.size ? [...present].sort() : nameTypeOptions;
+  }, [targets, nameTypeOptions]);
   const savedCounts = useMemo(
     () => saved.map((f) => rows.filter((r) => matchesBatch(r, f.criteria, ctx)).length),
     [saved, rows, ctx],
@@ -591,7 +599,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           sourceOptions={sourceOptions}
           vendorEventOptions={vendorEventOptions}
           familyVendorOptions={familyVendorOptions}
-          nameTypeOptions={nameTypeOptions}
+          nameTypeOptions={targetNameTypes}
           filteredNameType={criteria.flatMap((c) => (c.kind === "nameType" && c.mode === "has" ? [c.type] : []))[0]}
           onChange={changeAction}
         />
