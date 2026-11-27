@@ -131,6 +131,18 @@ function samePage(a: string, b: string): boolean {
   return a.replace(/^0+(?=\d)/, "") === b.replace(/^0+(?=\d)/, "");
 }
 
+/** Whether a media record's leading `#N` title disagrees with its URL's page
+ *  number — shared with duplicate ranking so a matching title wins survivor. */
+export function pageTitleMismatch(url: string | undefined, title: string | undefined): boolean {
+  if (!url || !title) return false;
+  const titlePage = titlePageOf(title);
+  if (!titlePage) return false;
+  const rec = recognizeSourceUrl(url);
+  const rawUrlPage = rec?.page ?? pageParamOf(url);
+  const urlPage = rawUrlPage && /^\d+$/.test(rawUrlPage) ? rawUrlPage : undefined;
+  return !!urlPage && !samePage(titlePage, urlPage);
+}
+
 /**
  * Whether a page media record's `#N` title prefix disagrees with the page
  * number in its URL, and the Add Source title that aligns them. Titles without

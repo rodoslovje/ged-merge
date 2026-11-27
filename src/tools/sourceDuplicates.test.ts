@@ -694,4 +694,28 @@ describe("findSourceDuplicates — sources that each add a line", () => {
     );
     expect(ofKind(twoFilms, "source")).toHaveLength(0);
   });
+
+  it("prefers a media duplicate whose #N title matches its URL page as survivor", () => {
+    const text = `0 HEAD
+1 CHAR UTF-8
+0 @S1@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03164 | Šenčur
+1 OBJE @M34@
+1 OBJE @M18@
+0 @M34@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
+2 FORM url
+2 TITL #034 - Krstna knjiga / Taufbuch - 03164 | Šenčur
+0 @M18@ OBJE
+1 FILE https://data.matricula-online.eu/sl/slovenia/ljubljana/sencur/03164/?pg=18
+2 FORM url
+2 TITL #018 - Krstna knjiga / Taufbuch - 03164 | Šenčur
+0 TRLR`;
+    const groups = ofKind(text, "media");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].members.map((m) => [m.xref, m.survivor])).toEqual([
+      ["@M18@", true],
+      ["@M34@", false],
+    ]);
+  });
 });

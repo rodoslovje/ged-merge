@@ -16,6 +16,7 @@ import {
   type SourceKeyOptions,
 } from "../gedcom/source";
 import { linkKey } from "../normalize/links";
+import { pageTitleMismatch } from "./pageMediaCheck";
 
 /**
  * Within-file duplicate finder for the supporting records (`OBJE`, `SOUR`,
@@ -222,8 +223,16 @@ export function findSourceDuplicates(ds: Dataset): DuplicateReport {
       return { title: info.title || (info.file ? basename(info.file) : rec.xref!), detail: info.url ?? info.file, url: info.url };
     },
     // Media records share only their `FILE`: a dropped one's title or notes
-    // would be lost, so the one saying the most leads before the most-cited.
-    refs, groups, richness, false,
+    // would be lost, so the one saying the most leads before the most-cited —
+    // and one whose `#N` title disagrees with its URL's page yields to one that
+    // matches.
+    refs,
+    groups,
+    (rec) => {
+      const info = objeInfoOf(rec);
+      return richness(rec) - (pageTitleMismatch(info.url, info.title) ? 1 : 0);
+    },
+    false,
   );
 
   // A source or repository saying less than one other of its title is keyed
