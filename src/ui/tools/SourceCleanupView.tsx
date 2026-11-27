@@ -342,7 +342,11 @@ export function SourceCleanupView({
   const visiblePageMediaGroups = useMemo(
     () =>
       pageMediaReport.groups.filter((g) =>
-        matches([...g.missing, ...g.unfiled].map((m) => m.recordXref), g.title),
+        matches(
+          [...g.missing, ...g.unfiled].map((m) => m.recordXref),
+          g.title,
+          ...g.mismatched.flatMap((m) => [m.currentTitle, m.proposedTitle]),
+        ),
       ),
     [pageMediaReport, matches],
   );
@@ -634,7 +638,7 @@ export function SourceCleanupView({
         links: selectedGroups.length,
         dups: selectedDupGroups.length,
         repos: selectedRegroupGroups.length,
-        pages: selectedPageMediaGroups.reduce((n, g) => n + g.missing.length + g.unfiled.length, 0),
+        pages: selectedPageMediaGroups.reduce((n, g) => n + g.missing.length + g.unfiled.length + g.mismatched.length, 0),
       }[activeTab];
   const applyAction = (
     <button data-busy-cursor className="nav-btn primary tools-run" onClick={apply} disabled={applyCount === 0}>
@@ -676,8 +680,10 @@ export function SourceCleanupView({
               }),
             hasDups && t("tools.sources.dupFound", { count: dupReport.groups.length }),
             hasRegroup && t("tools.sources.regroupFound", { count: regroupReport.total }),
-            hasPageMedia && t("tools.sources.pageMediaFound", { count: pageMediaReport.total }),
+            pageMediaReport.total > 0 && t("tools.sources.pageMediaFound", { count: pageMediaReport.total }),
             pageMediaReport.unfiled > 0 && t("tools.sources.pageUnfiledFound", { count: pageMediaReport.unfiled }),
+            pageMediaReport.mismatched > 0 &&
+              t("tools.sources.pageTitleMismatchFound", { count: pageMediaReport.mismatched }),
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -1700,41 +1706,45 @@ function PageMediaRow({
             the same number twice, and where the rows are of two kinds the group
             itself separates them, each under its own line. */}
         <RowEdit xref={group.sourceXref} kind="source" onEditRecord={onEditRecord} t={t} />
-        <span className="tools-chip-count">{group.missing.length + group.unfiled.length}</span>
+        <span className="tools-chip-count">
+          {group.missing.length + group.unfiled.length + group.mismatched.length}
+        </span>
       </div>
       {open && (
         <div className="tools-tree-children">
-          <ul className="tools-dup-members">
-            {group.missing.map((m, i) => {
-              // A family's citation links through its spouses, as everywhere
-              // else on this page — Edit navigates to persons, not families.
-              const famSpouses = dataset.families.has(m.recordXref) ? familySpouses(dataset, m.recordXref) : [];
-              return (
-                <li key={`${m.recordXref}-${m.eventTag ?? ""}-${m.objeXref}-${i}`} className="tools-dup-member">
-                  {famSpouses.length > 0 ? (
-                    <span>
-                      {famSpouses.map((p, j) => (
-                        <span key={p.id}>
-                          {j > 0 && <span className="tools-usage-amp">&amp;</span>}
-                          <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
-                        </span>
-                      ))}
+          {group.missing.length > 0 && (
+            <ul className="tools-dup-members">
+              {group.missing.map((m, i) => {
+                // A family's citation links through its spouses, as everywhere
+                // else on this page — Edit navigates to persons, not families.
+                const famSpouses = dataset.families.has(m.recordXref) ? familySpouses(dataset, m.recordXref) : [];
+                return (
+                  <li key={`${m.recordXref}-${m.eventTag ?? ""}-${m.objeXref}-${i}`} className="tools-dup-member">
+                    {famSpouses.length > 0 ? (
+                      <span>
+                        {famSpouses.map((p, j) => (
+                          <span key={p.id}>
+                            {j > 0 && <span className="tools-usage-amp">&amp;</span>}
+                            <PersonLink dataset={dataset} id={p.id} fallback={p.label} onNavigate={onNavigate} />
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <PersonLink dataset={dataset} id={m.recordXref} fallback={m.recordXref} onNavigate={onNavigate} />
+                    )}
+                    <span className="tools-tree-meta">
+                      {m.eventTag ?? t("tools.sources.pageMediaRecord")}
+                      {m.page && ` · ${t("tools.sources.pageMediaPage", { page: m.page })}`}
+                      {/* Which image would be hung here. A citation that names no
+                          page says nothing about that on its own, and the whole
+                          row is about that one image. */}
+                      {m.objeTitle && ` · ${t("tools.sources.pageMediaImage", { title: m.objeTitle })}`}
                     </span>
-                  ) : (
-                    <PersonLink dataset={dataset} id={m.recordXref} fallback={m.recordXref} onNavigate={onNavigate} />
-                  )}
-                  <span className="tools-tree-meta">
-                    {m.eventTag ?? t("tools.sources.pageMediaRecord")}
-                    {m.page && ` · ${t("tools.sources.pageMediaPage", { page: m.page })}`}
-                    {/* Which image would be hung here. A citation that names no
-                        page says nothing about that on its own, and the whole
-                        row is about that one image. */}
-                    {m.objeTitle && ` · ${t("tools.sources.pageMediaImage", { title: m.objeTitle })}`}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           {group.unfiled.length > 0 && (
             <>
               <p className="tools-fix-hint">{t("tools.sources.pageUnfiledHint")}</p>
@@ -1762,6 +1772,22 @@ function PageMediaRow({
                     </li>
                   );
                 })}
+              </ul>
+            </>
+          )}
+          {group.mismatched.length > 0 && (
+            <>
+              <p className="tools-fix-hint">{t("tools.sources.pageTitleMismatchHint")}</p>
+              <ul className="tools-dup-members">
+                {group.mismatched.map((m) => (
+                  <li key={`m-${m.objeXref}`} className="tools-dup-member">
+                    <span className="tools-dup-title" title={m.currentTitle}>
+                      {m.currentTitle}
+                    </span>
+                    <span className="tools-tree-meta">→ {m.proposedTitle}</span>
+                    <RowLink url={m.url} t={t} />
+                  </li>
+                ))}
               </ul>
             </>
           )}

@@ -1548,6 +1548,10 @@ export const en = {
   "tools.sources.pageUnfiledFound_other": "{{count}} pages not filed under their book",
   "tools.sources.pageUnfiledHint":
     "These pages sit beside a citation of this source, but the source record does not hold them — so it cannot answer for the citations that are missing theirs. They are filed under the book by the same run.",
+  "tools.sources.pageTitleMismatchFound_one": "{{count}} page title does not match its link",
+  "tools.sources.pageTitleMismatchFound_other": "{{count}} page titles do not match their links",
+  "tools.sources.pageTitleMismatchHint":
+    "The page number in these media titles disagrees with the page in their link. Applying updates each title to match its link.",
   "tools.sources.pageMediaPage": "page {{page}}",
   "tools.sources.pageMediaImage": "image: {{title}}",
   "tools.sources.pageMediaRecord": "on the record itself",

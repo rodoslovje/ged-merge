@@ -1774,6 +1774,12 @@ export const sl = {
   "tools.sources.pageUnfiledFound_other": "Ni pri svoji knjigi: {{count}} strani",
   "tools.sources.pageUnfiledHint":
     "Te slike strani so pripete ob navedbi tega vira, zapis vira pa jih ne vodi — zato pri drugih navedbah te knjige ni mogoče ugotoviti, katera slika jim pripada. Isti zagon jih uvrsti k zapisu vira.",
+  "tools.sources.pageTitleMismatchFound_one": "Neujemanje naslova in povezave: {{count}} stran",
+  "tools.sources.pageTitleMismatchFound_two": "Neujemanje naslova in povezave: {{count}} strani",
+  "tools.sources.pageTitleMismatchFound_few": "Neujemanje naslova in povezave: {{count}} strani",
+  "tools.sources.pageTitleMismatchFound_other": "Neujemanje naslova in povezave: {{count}} strani",
+  "tools.sources.pageTitleMismatchHint":
+    "Številka strani v naslovu teh medijskih zapisov se ne ujema s stranjo v njihovi povezavi. Isti zagon uskladi vsak naslov s povezavo.",
   "tools.sources.pageMediaPage": "stran {{page}}",
   "tools.sources.pageMediaImage": "slika: {{title}}",
   "tools.sources.pageMediaRecord": "pri samem zapisu",
