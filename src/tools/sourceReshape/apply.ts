@@ -651,8 +651,10 @@ export function templateFieldsToStandard(
   };
   /** The coverage half, on `node`: the lines it settled, and whether it wrote
    *  a flat PLAC/DATE that {@link toStandardCoverage} must still restate. A
-   *  source already stating its coverage (its date restated by an earlier
-   *  fix) takes the missing half straight into those `DATA > EVEN` blocks. */
+   *  source already stating its coverage takes the half its `DATA > EVEN`
+   *  blocks lack straight into them — as the flat line that says it in full
+   *  (`DATE 31 Mar 1931` for a census year of 1931) where there is one, else
+   *  as the template field's own value. */
   const cover = (node: GedNode): { settled: GedNode[]; flat: boolean } => {
     const settled: GedNode[] = [];
     let flat = false;
@@ -666,11 +668,21 @@ export function templateFieldsToStandard(
         else even.children.push(line);
       }
     };
+    /** Give the stated coverage the `tag` none of its blocks has: the flat
+     *  line where it says every one of `values`, else `values` themselves. */
+    const fill = (tag: "PLAC" | "DATE", values: string[]): boolean => {
+      if (!stated.length || stated.some((even) => childText(even, tag))) return false;
+      const own = field(node, tag);
+      const full = own && !own.children.length && values.every((v) => fold(own.value).includes(fold(v))) ? own : undefined;
+      const text = full ? full.value!.trim() : values.join(", ");
+      state(tag, (tag === "DATE" && coveragePeriod(text)) || text);
+      if (full) spliceChild(node, full);
+      return true;
+    };
     const parts = ["TOWN", "COUN"].map((t) => field(node, t)).filter((n): n is GedNode => !!n);
     if (parts.length) {
       const places = covered(node, "PLAC");
-      if (places.length === 0 && stated.length) {
-        state("PLAC", parts.map((p) => p.value!.trim()).join(", "));
+      if (fill("PLAC", parts.map((p) => p.value!.trim()))) {
         for (const p of parts) spliceChild(node, p);
         settled.push(...parts);
       } else if (places.length === 0) {
@@ -688,8 +700,7 @@ export function templateFieldsToStandard(
     const year = field(node, "CENY");
     if (year) {
       const dates = covered(node, "DATE");
-      if (dates.length === 0 && stated.length) {
-        state("DATE", year.value!.trim());
+      if (fill("DATE", [year.value!.trim()])) {
         if (spliceChild(node, year)) settled.push(year);
       } else if (dates.length === 0) {
         year.tag = "DATE";
