@@ -34,6 +34,9 @@ export function NameVariantEditor({
   const name = person.names[index + 1];
   const [given, setGiven] = useState(name?.given ?? "");
   const [surname, setSurname] = useState(name?.surname ?? "");
+  // The word for an "other" name (7.0's `TYPE OTHER` + `PHRASE`): the standard
+  // has no type for a house name, and this is what tells it from the next.
+  const [phrase, setPhrase] = useState(name?.typePhrase ?? "");
   // The menu's options are lower case; a 7.0 file writes the same types upper
   // case. A type the standard does not define stays listed for this name only,
   // so the menu shows what the file says until another type is picked.
@@ -48,6 +51,11 @@ export function NameVariantEditor({
     const current = person.names[index + 1];
     if (nextGiven === (current?.given ?? "") && nextSurname === (current?.surname ?? "")) return;
     commit((indi) => setAdditionalName(indi, index, { given: nextGiven, surname: nextSurname }, version));
+  }
+
+  function commitPhrase(next: string) {
+    if (next.trim() === (person.names[index + 1]?.typePhrase ?? "")) return;
+    commit((indi) => setAdditionalName(indi, index, { phrase: next }, version));
   }
 
   const ref = useRef<HTMLSpanElement>(null);
@@ -98,6 +106,18 @@ export function NameVariantEditor({
           label: nameTypeLabel(opt, t, opt === typeOption ? name?.typePhrase : undefined),
         }))}
       />
+      {typeOption === "other" && version === "7.0" && (
+        <ClearableInput
+          className="edit-input edit-name-variant-input"
+          wrapStyle={{ width: fieldWidth(phrase, t("tools.batch.namePhrasePlaceholder"), 12) }}
+          value={phrase}
+          placeholder={t("tools.batch.namePhrasePlaceholder")}
+          title={t("tools.batch.namePhrasePlaceholder")}
+          onChange={(e) => setPhrase(e.target.value)}
+          onBlur={() => commitPhrase(phrase)}
+          onClear={() => { setPhrase(""); commitPhrase(""); }}
+        />
+      )}
       <button
         type="button"
         className="edit-link-remove"

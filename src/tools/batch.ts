@@ -739,11 +739,7 @@ function convertNameTypeBatch(
     }
     for (const i of at) {
       // 5.5.1's TYPE is free text: there the word is the type itself.
-      setAdditionalName(indi, i, { type: phrase && version !== "7.0" ? phrase : toType }, version);
-      if (phrase && version === "7.0") {
-        const type = childrenByTag(indi.raw, "NAME")[i + 1]?.children.find((c) => c.tag === "TYPE");
-        if (type) type.children = [{ level: type.level + 1, tag: "PHRASE", value: phrase, children: [] }];
-      }
+      setAdditionalName(indi, i, { type: phrase && version !== "7.0" ? phrase : toType, phrase }, version);
     }
     // The typed names follow the raw tree, or the panel's own `nameType`
     // filter still finds the person after the conversion.

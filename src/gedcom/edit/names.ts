@@ -80,6 +80,10 @@ export interface NameVariantUpdate {
   surname?: string;
   /** `2 TYPE` value (e.g. "married", "maiden", "aka"). */
   type?: string;
+  /** The word for a GEDCOM 7 `OTHER` type (`3 PHRASE house name`); empty
+   *  removes it. Written only in a 7.0 file and only under a `TYPE` — 5.5.1's
+   *  type is free text and has no line for it. */
+  phrase?: string;
 }
 
 /**
@@ -109,6 +113,14 @@ export function setAdditionalName(
     // "Klostername"); a different type is no longer what it words.
     const after = node.children.find((c) => c.tag === "TYPE");
     if (changed && after) after.children = after.children.filter((c) => c.tag !== "PHRASE");
+  }
+  if (update.phrase !== undefined && version === "7.0") {
+    const typeNode = node.children.find((c) => c.tag === "TYPE");
+    if (typeNode) {
+      const phrase = update.phrase.trim();
+      typeNode.children = typeNode.children.filter((c) => c.tag !== "PHRASE");
+      if (phrase) typeNode.children.unshift({ level: typeNode.level + 1, tag: "PHRASE", value: phrase, children: [] });
+    }
   }
 }
 
