@@ -346,3 +346,28 @@ describe("isCountryName", () => {
     expect(isCountryName(undefined)).toBe(false);
   });
 });
+
+describe("parsePlace part lists", () => {
+  it("shares one list between places read from the same value", () => {
+    const a = parsePlace("Kranj, Gorenjska, Slovenija");
+    const b = parsePlace("Kranj, Gorenjska, Slovenija");
+    expect(a).not.toBe(b); // each event still has a place of its own
+    expect(a.parts).toBe(b.parts);
+    expect(a.parts).toEqual(["Kranj", "Gorenjska", "Slovenija"]);
+  });
+
+  it("freezes the shared list, so no place can change another's parts", () => {
+    const place = parsePlace("Bled, Gorenjska");
+    expect(Object.isFrozen(place.parts)).toBe(true);
+    expect(() => place.parts.push("Slovenija")).toThrow(TypeError);
+    expect(parsePlace("Bled, Gorenjska").parts).toEqual(["Bled", "Gorenjska"]);
+  });
+
+  it("keeps a place's own fields off the shared list", () => {
+    const a = parsePlace("Zgornje Bitnje 52, Kranj");
+    const b = parsePlace("Zgornje Bitnje 52, Kranj");
+    a.form = "village, town";
+    expect(b.form).toBeUndefined();
+    expect(b.detail).toBe("52");
+  });
+});

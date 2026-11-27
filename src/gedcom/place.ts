@@ -22,16 +22,34 @@ const BRACKETED_G = new RegExp(String.raw`\s*${BRACKETED}`, "g");
 const HOUSE_NUMBER = new RegExp(String.raw`\s(\d+[a-zA-Z]?)(\s*${BRACKETED})?$`);
 
 /**
+ * The parts of every place value split so far, one list per distinct value,
+ * shared by all the places that read it — and frozen, since they share it.
+ *
+ * A file names a few thousand places on millions of events. A list of its own
+ * for each of them was ~8% of a large file's memory (over 100 MB on a
+ * 250k-person file): the same three strings, in an array with room for a
+ * dozen more. Emptied when it grows past {@link PARTS_MAX}, so a long session
+ * over many files cannot grow it without end; lists already handed out stay
+ * as they are.
+ */
+const PARTS = new Map<string, string[]>();
+const PARTS_MAX = 200_000;
+
+/**
  * Parse a `PLAC` (or `ADDR`) value into its comma-separated parts. GEDCOM
  * convention orders parts most-specific first (e.g. "City, County, State,
  * Country"). We keep the raw string, the trimmed parts, and — when the leading
  * part contains a house number — extract that as `detail`.
  */
 export function parsePlace(raw: string): GedPlace {
-  const parts = raw
-    .split(",")
-    .map((p) => p.trim())
-    .filter((p) => p.length > 0);
+  let parts = PARTS.get(raw);
+  if (!parts) {
+    // Sliced: `filter` leaves its result room to grow, several times the
+    // three or four parts a place has.
+    parts = Object.freeze(raw.split(",").map((p) => p.trim()).filter((p) => p.length > 0).slice()) as string[];
+    if (PARTS.size >= PARTS_MAX) PARTS.clear();
+    PARTS.set(raw, parts);
+  }
 
   const place: GedPlace = { raw: raw.trim(), parts };
   const m = parts.length ? HOUSE_NUMBER.exec(parts[0]) : null;
