@@ -48,6 +48,27 @@ export function placeTranslationSets(
 }
 
 /**
+ * Every other name the sets hold between them, once each (a name with its
+ * language), in the order of the most-written list and then of the rest. What
+ * the editor opens on when the places disagree: writing gives every place one
+ * list, so a name left out of the draft is a name removed — it has to be on
+ * show to be kept, or struck out on purpose.
+ */
+export function allTranslations(sets: readonly { list: Translation[] }[]): Translation[] {
+  const seen = new Set<string>();
+  const out: Translation[] = [];
+  for (const { list } of sets) {
+    for (const tr of list) {
+      const key = signature([tr]);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(tr);
+    }
+  }
+  return out;
+}
+
+/**
  * Give every `PLAC` with one of `values` exactly `list` as its translations,
  * each with its `LANG` (`und` where none was chosen). The new lines stand where
  * the first old one stood, else after the place's own FORM/LANG. Mutates the

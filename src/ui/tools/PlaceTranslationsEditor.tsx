@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dataset, Translation } from "../../gedcom/types";
 import { suggestLanguage, UNDETERMINED } from "../../tools/fixTranslationLang";
-import { placeTranslationSets } from "../../tools/placeTranslations";
+import { allTranslations, placeTranslationSets } from "../../tools/placeTranslations";
 import { PickerMenu } from "../PickerMenu";
 import { useLanguageItems } from "./languageItems";
 
@@ -36,7 +36,9 @@ export function PlaceTranslationsEditor({
   // Read once as the box opens: what the places carry now, most-written first.
   const sets = useMemo(() => placeTranslationSets(dataset, values), [dataset, values]);
   const total = sets.reduce((n, s) => n + s.n, 0);
-  const start = sets.find((s) => s.list.length)?.list ?? [];
+  // Every name any of them carries — the same names the tree's row lists: the
+  // write gives all the places one list, so a name not in the draft would go.
+  const start = allTranslations(sets);
   const [draft, setDraft] = useState<DraftLine[]>(() =>
     start.map((tr) => ({ value: tr.value, lang: tr.lang ?? UNDETERMINED, picked: true })),
   );

@@ -4,7 +4,7 @@ import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
 import { applyRecordPatches } from "../ui/historyTypes";
 import { buildPlaceTree, type PlaceNode } from "./places";
-import { placeTranslationSets, setPlaceTranslations } from "./placeTranslations";
+import { allTranslations, placeTranslationSets, setPlaceTranslations } from "./placeTranslations";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -51,6 +51,23 @@ describe("a place's other names", () => {
     expect(placeTranslationSets(ds, new Set(["Kranj, Slovenija"]))).toEqual([
       { list: [{ value: "Krainburg", lang: "de" }], n: 1 },
       { list: [], n: 1 },
+    ]);
+  });
+
+  it("opens the editor on every name the places carry between them, each once", () => {
+    // Writing gives all the places one list: a name only some of them carry
+    // must be in the draft, or the write would remove it unseen.
+    const sets = [
+      { list: [{ value: "Krainburg", lang: "de" }], n: 5 },
+      { list: [], n: 3 },
+      { list: [{ value: "Krainburg", lang: "de" }, { value: "St. Margarethen", lang: "de" }], n: 2 },
+      { list: [{ value: "Freithof" }, { value: "Krainburg" }], n: 1 },
+    ];
+    expect(allTranslations(sets)).toEqual([
+      { value: "Krainburg", lang: "de" },
+      { value: "St. Margarethen", lang: "de" },
+      { value: "Freithof" },
+      { value: "Krainburg" }, // no language: not the same line as the German one
     ]);
   });
 
