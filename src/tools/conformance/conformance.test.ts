@@ -895,6 +895,57 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("adds template fields to a coverage the source already states in %s", (_v, head) => {
+    // The date was restated first (the coverage fix): the town and county
+    // join it, the year it already says goes.
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 TOWN Ljubljana
+1 COUN Slovenija
+1 CENY 1931
+1 TITL Popis prebivalstva Ljubljana, Sredina - Stari trg
+1 DATA
+2 EVEN CENS
+3 DATE 31 MAR 1931
+0 @S2@ SOUR
+1 TOWN Kranj
+1 CENY 1900
+1 TITL Popis prebivalstva Kranj
+1 DATA
+2 EVEN CENS
+0 @S3@ SOUR
+1 TOWN Ljubljana
+1 COUN Slovenija
+1 CENY 1931
+1 DATE 31 MAR 1931
+1 TITL Popis prebivalstva Ljubljana, Sredina - Stari trg
+1 DATA
+2 EVEN CENS
+0 @S4@ SOUR
+1 CENY 1940
+1 DATE 2010
+1 TITL 1940 United States Federal Census
+1 DATA
+2 EVEN CENS
+0 TRLR`);
+    const before = serializeGedcom(ds.records, ds);
+    expect(countFixableConformance(ds, "templateFields")).toBe(4);
+    const patches = fixConformance(ds, "templateFields");
+    const out = serializeGedcom(ds.records, ds);
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Popis prebivalstva Ljubljana, Sredina - Stari trg\n1 DATA\n2 EVEN CENS\n3 DATE 31 MAR 1931\n3 PLAC Ljubljana, Slovenija\n0 @S2@");
+    expect(out).toContain("0 @S2@ SOUR\n1 TITL Popis prebivalstva Kranj\n1 DATA\n2 EVEN CENS\n3 DATE 1900\n3 PLAC Kranj\n0 @S3@");
+    // The coverage has no date, and the flat one says the census year in
+    // full: it becomes the coverage's, not lost with the year.
+    expect(out).toContain("0 @S3@ SOUR\n1 TITL Popis prebivalstva Ljubljana, Sredina - Stari trg\n1 DATA\n2 EVEN CENS\n3 DATE 31 MAR 1931\n3 PLAC Ljubljana, Slovenija\n0 @S4@");
+    // A flat date of another year (the publisher's) stays; the census year
+    // is the coverage's.
+    expect(out).toContain("0 @S4@ SOUR\n1 DATE 2010\n1 TITL 1940 United States Federal Census\n1 DATA\n2 EVEN CENS\n3 DATE 1940\n0 TRLR");
+    expect(validateConformance(ds).filter((i) => ["@S1@", "@S2@", "@S3@"].includes(i.recordId ?? ""))).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("fixes every finding a grouped row stands for, and only those", () => {
     const ds = dataset(`${HEAD_70}
 0 @I1@ INDI
