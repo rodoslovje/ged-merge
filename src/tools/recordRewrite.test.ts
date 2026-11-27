@@ -5,6 +5,7 @@ import { serializeGedcom } from "../gedcom/serialize";
 import { applyRecordPatches } from "../ui/historyTypes";
 import { validateConformance } from "./conformance/conformance";
 import { fixConformance } from "./fixConformance";
+import { recordsWithTag } from "./recordRewrite";
 
 function dataset(vers: "5.5.1" | "7.0", body: string) {
   const head = vers === "7.0"
@@ -123,4 +124,31 @@ describe("removing a misplaced standard tag", () => {
       expect(serializeGedcom(ds.records)).toBe(original);
     });
   }
+});
+
+describe("the records behind a finding that names a tag", () => {
+  it("lists each record with its count: under the finding's path, or anywhere for an extension", () => {
+    const ds = dataset("7.0", `0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 BIRT
+2 PLAC Kranj
+1 _FOO a
+0 @S1@ SOUR
+1 TITL Prva
+1 PLAC Kranj
+0 @S2@ SOUR
+1 TITL Druga
+1 DATA
+2 EVEN BIRT
+3 PLAC Kranj
+0 @S3@ SOUR
+1 TITL Tretja
+1 PLAC Kranj
+1 PLAC Naklo
+2 _FOO b
+1 _FOO c`);
+    // Only the place written on the source itself — not the one in its coverage, nor a person's.
+    expect(recordsWithTag(ds.records, "PLAC", "SOUR")).toEqual([{ id: "@S1@", count: 1 }, { id: "@S3@", count: 2 }]);
+    expect(recordsWithTag(ds.records, "_FOO")).toEqual([{ id: "@I1@", count: 1 }, { id: "@S3@", count: 2 }]);
+  });
 });

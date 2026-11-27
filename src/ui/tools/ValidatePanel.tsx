@@ -23,6 +23,7 @@ import { spouseSlotFor, type BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
+import { recordsWithTag } from "../../tools/recordRewrite";
 import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { recordCitedBy } from "../../tools/sources";
@@ -282,6 +283,8 @@ export function ValidatePanel({
   // up; after a batch of several kinds, how many fixes it made.
   const [picked, setPicked] = useState<Map<string, IssueRow>>(() => new Map());
   const [batchPending, setBatchPending] = useState(false);
+  /** The grouped finding whose records the list is showing (see drillRows). */
+  const [drill, setDrill] = useState<StructIssue | null>(null);
   // A detached branch's (or a disconnected person's) removal, asked about: who
   // goes and the message counting everything that goes with them.
   const [removeAsk, setRemoveAsk] = useState<{ issues: ValidationIssue[]; branch: boolean; ids: string[]; message: string } | null>(null);
@@ -440,8 +443,13 @@ export function ValidatePanel({
     if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
     if (filter === "eventText" && !structure?.issues.some(isEventText)) setFilter("all");
     if (filter === "nameType" && !structure?.issues.some(isNameType)) setFilter("all");
+    // Its last record settled: back to the findings.
+    if (drill && drillRecords(dataset, drill).length === 0) setDrill(null);
     if (filter === "titleLink" && !structure?.issues.some((i) => i.titleLink)) setFilter("all");
-  }, [filter, structure]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, structure, drill]);
+  // Another list is another question: the opened finding closes.
+  useEffect(() => { setDrill(null); }, [filter, group]);
 
   useEffect(() => {
     lastRef.current = null;
@@ -644,16 +652,31 @@ export function ValidatePanel({
   /** What a row's checkbox stands for. On the custom-tags list the removals
    *  themselves are what is picked: the reader came there to clear tags out,
    *  and thirty of them one button at a time is thirty confirmations. */
-  const pickFixOf = (row: IssueRow): RowFix | null => (filter === "customTag" ? rowFixOf(row) : repairOf(row));
+  const pickFixOf = (row: IssueRow): RowFix | null =>
+    drill ? null : filter === "customTag" ? rowFixOf(row) : repairOf(row);
   const allRows = useMemo(
     () => buildRows("all", ""),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, group],
   );
-  const shown = useMemo(
+  const listed = useMemo(
     () => (filter === "fixable" ? buildRows("all", q).filter((r) => repairOf(r)) : buildRows(filter, q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication]);
+  // One finding opened into its records: a row per record, each opening the
+  // record itself. A row that counts 116 sources names none of them, and the
+  // ones a fix cannot settle have to be found to be settled by hand.
+  const drillRows = useMemo((): IssueRow[] | null => {
+    if (!drill) return null;
+    const records = drillRecords(dataset, drill);
+    return records.map(({ id, count }) => {
+      const issue: StructIssue = { ...drill, recordId: id, groupCount: undefined, messageVars: { ...drill.messageVars, count } };
+      PER_RECORD.add(issue);
+      return { kind: "struct", severity: issue.severity, issue };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drill, dataset, structure]);
+  const shown = drillRows ?? listed;
 
   const pickable = (row: IssueRow) => !!pickFixOf(row) && !fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
@@ -1588,6 +1611,14 @@ export function ValidatePanel({
               </button>
             </div>
           )}
+          {drill && (
+            <div className="tools-pick-bar">
+              <button className="tools-issue-link" onClick={() => setDrill(null)}>{t("tools.validate.drillBack")}</button>
+              <span className="tools-issue-msg">
+                {t(drill.messageKey, drill.messageVars)}
+              </span>
+            </div>
+          )}
           {shown.length === 0 ? (
             <p className="tools-clean">{t("tools.search.noMatch")}</p>
           ) : (
@@ -1655,7 +1686,9 @@ export function ValidatePanel({
                     current={current}
                     dataset={dataset}
                     onNavigate={onNavigate}
-                    fix={structRowFix(row.issue)}
+                    // A record of an opened finding is there to be edited: the
+                    // finding's own fix is file-wide, and stays on its row.
+                    fix={drill ? null : structRowFix(row.issue)}
                     done={fixedRows.has(rowKey(row.issue))}
                     onRun={(run) => runRowFix(row.issue, run)}
                     headSour={headSour}
@@ -1665,9 +1698,12 @@ export function ValidatePanel({
                         ? { label: t("mediaLink.title"), run: () => setEditMedia(mediaLinkOf(row.issue)!) }
                         // A source's own finding with no fix (a reversed range, …) is
                         // settled in its editor: say so on the row, not only on the title.
-                        : row.issue.recordTag === "SOUR" && row.issue.recordId && !isGrouped(row.issue) && !structRowFix(row.issue)
+                        : row.issue.recordTag === "SOUR" && row.issue.recordId && !isGrouped(row.issue) && (drill || !structRowFix(row.issue))
                           ? { label: t("tools.validate.editSourceOpen"), run: () => setEditSrc(row.issue.recordId!) }
-                          : undefined}
+                          // A row standing for several records: which ones.
+                          : !drill && isGrouped(row.issue) && canDrill(row.issue)
+                            ? { label: t("tools.validate.drillOpen"), run: () => setDrill(row.issue) }
+                            : undefined}
                   />
                 );
               })}
@@ -1815,7 +1851,24 @@ const GROUPED_KEYS = new Set([
   "tools.validate.struct.issue.danglingXref",
 ]);
 function isGrouped(i: StructIssue): boolean {
+  if (PER_RECORD.has(i)) return false;
   return (GROUPED_KEYS.has(i.messageKey) && Number(i.messageVars?.count) > 1) || (i.groupCount ?? 0) > 1;
+}
+
+/** The rows of an opened finding: each stands for one record, whatever it counts. */
+const PER_RECORD = new WeakSet<StructIssue>();
+
+/** Whether a grouped finding can be opened into its records: one that names
+ *  the tag it is about — misplaced under a path, or an extension anywhere.
+ *  Not the change stamps, which are one row for every record in the file. */
+function canDrill(i: StructIssue): boolean {
+  if (!i.sample || i.stamps) return false;
+  return i.category === "customTag" || (i.category === "misplacedTag" && !!i.messageVars?.parent);
+}
+
+function drillRecords(dataset: Dataset, i: StructIssue): { id: string; count: number }[] {
+  if (!canDrill(i)) return [];
+  return recordsWithTag(dataset.records, i.sample!, i.category === "misplacedTag" ? String(i.messageVars!.parent) : undefined);
 }
 
 /** A value the fix rewrites in place: a mis-spelt enumeration value, or a

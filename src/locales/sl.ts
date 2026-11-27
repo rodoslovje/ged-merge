@@ -618,6 +618,8 @@ export const sl = {
   "tools.validate.fixConformFileTitlesDone_other": "Drugi naslov je odstranjen pri {{count}} medijih.",
   "tools.validate.fixConformFileTitlesNone": "Noben medij nima drugega naslova.",
   "tools.validate.fixOneFileTitles": "Ohrani naslov v FILE",
+  "tools.validate.drillOpen": "Pokaži zapise",
+  "tools.validate.drillBack": "← Vse najdbe",
   "tools.validate.editSourceOpen": "Uredi vir",
   "tools.validate.fixable": "Popravljivo",
   "tools.validate.pickAll": "Izberi vse popravljive ({{count}})",

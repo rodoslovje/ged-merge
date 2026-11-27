@@ -124,3 +124,27 @@ export function removeMisplacedTag(dataset: Dataset, tag: string, parent: string
   if (patches.length) applyRecordPatches(dataset, patches, "redo");
   return patches;
 }
+
+/**
+ * The records behind a finding that names a tag: each one holding a line
+ * tagged `tag`, with how many — directly under `parent` (the dotted path a
+ * misplaced-tag finding names, `SOUR`, `REPO.WWW`) when one is given, anywhere
+ * in the record otherwise (an extension tag). File order; records without an
+ * xref (HEAD) are left out, as nothing can open them.
+ */
+export function recordsWithTag(records: readonly GedNode[], tag: string, parent?: string): { id: string; count: number }[] {
+  const [root, ...chain] = parent ? parent.split(".") : [];
+  const under = (node: GedNode, depth: number): number =>
+    depth === chain.length
+      ? node.children.filter((c) => c.tag === tag).length
+      : node.children.reduce((n, c) => n + (c.tag === chain[depth] ? under(c, depth + 1) : 0), 0);
+  const anywhere = (node: GedNode): number =>
+    node.children.reduce((n, c) => n + (c.tag === tag ? 1 : 0) + anywhere(c), 0);
+  const out: { id: string; count: number }[] = [];
+  for (const rec of records) {
+    if (!rec.xref || (parent && rec.tag !== root)) continue;
+    const count = parent ? under(rec, 0) : anywhere(rec);
+    if (count > 0) out.push({ id: rec.xref, count });
+  }
+  return out;
+}
