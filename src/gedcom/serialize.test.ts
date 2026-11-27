@@ -702,7 +702,9 @@ describe("serializeGedcomBlob", () => {
     ]) {
       // As bytes: reading a Blob back as text would drop the byte-order mark.
       const bytes = new Uint8Array(await serializeGedcomBlob(records, opts).arrayBuffer());
-      expect(bytes, JSON.stringify(opts)).toEqual(new TextEncoder().encode(serializeGedcom(records, opts)));
+      // Compared as buffers: `toEqual` walks a typed array element by element.
+      const want = new TextEncoder().encode(serializeGedcom(records, opts));
+      expect(Buffer.from(bytes).equals(Buffer.from(want)), JSON.stringify(opts)).toBe(true);
     }
   });
 

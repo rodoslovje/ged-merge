@@ -1,6 +1,6 @@
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcomText } from "../gedcom/parser";
-import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
+import { downloadOptions, serializeGedcomParts } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
 
 /**
@@ -75,9 +75,12 @@ export interface MainMeta {
 /** The whole main, for a worker that holds no copy (or a copy it lost). */
 export interface MainSnapshot {
   meta: MainMeta;
-  /** The records serialized — a third of the cost of cloning them, and a
-   *  string crosses the boundary as one copy. */
-  text: string;
+  /** The records serialized — a third of the cost of cloning them — as UTF-8
+   *  bytes, a few thousand records to a part. Never one string: a large
+   *  file's whole text is hundreds of megabytes of script heap on each side
+   *  of the boundary (two bytes a character), where a part's text is gone
+   *  before the next is made and its bytes are handed over, not copied. */
+  parts: Uint8Array[];
 }
 
 /** Changed records and the order to place them in. */
@@ -110,8 +113,17 @@ function metaOf(ds: Dataset): MainMeta {
 export function mainSnapshot(ds: Dataset): MainSnapshot {
   // With the download's wrapping, so the file's own CONC breaks are written
   // back where they were and the copy saves to the same text.
-  const text = serializeGedcom(ds.records, { ...downloadOptions(ds), eol: "\n", finalNewline: true, bom: false });
-  return { meta: metaOf(ds), text };
+  const encoder = new TextEncoder();
+  const parts: Uint8Array[] = [];
+  for (const text of serializeGedcomParts(ds.records, { ...downloadOptions(ds), eol: "\n", finalNewline: true, bom: false })) {
+    parts.push(encoder.encode(text));
+  }
+  return { meta: metaOf(ds), parts };
+}
+
+/** What to hand over with a {@link MainSnapshot} posted to a worker. */
+export function snapshotTransfer(snap: MainSnapshot): Transferable[] {
+  return snap.parts.map((p) => p.buffer);
 }
 
 /**
@@ -143,7 +155,10 @@ function buildWithMeta(records: GedNode[], meta: MainMeta): Dataset {
 
 /** A worker's copy of the main from a {@link MainSnapshot}. */
 export function datasetFromSnapshot(snap: MainSnapshot): Dataset {
-  const { records } = parseGedcomText({ text: snap.text, charset: snap.meta.charset, warnings: [] });
+  const decoder = new TextDecoder();
+  let i = 0;
+  const next = () => (i < snap.parts.length ? decoder.decode(snap.parts[i++]) : undefined);
+  const { records } = parseGedcomText({ text: next() ?? "", charset: snap.meta.charset, warnings: [] }, { more: next });
   return buildWithMeta(records, snap.meta);
 }
 

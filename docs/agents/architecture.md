@@ -22,9 +22,9 @@ All heavy work runs off the main thread in `src/worker/gedcom.worker.ts`. The wo
 
 The worker keeps its own copies of `mainDataset`, `compareNormalized`, and `lastResult` so any side can be (re)loaded in any order and the results stay consistent.
 
-**Memory: one resident copy of a large main.** Every isolate has its own heap limit (about 2 GB on an 8 GB machine), and a 220 MB file is ~1.6 GB as a dataset, so a copy is held only while something reads it:
+**Memory: one resident copy of a large main.** Every isolate has its own heap limit (about 2 GB on an 8 GB machine), and a 220 MB file is ~1.1 GB as a dataset, so a copy is held only while something reads it:
 - the gedcom worker lets its main go (`releaseMain`) whenever no incoming file is loaded — after the main's load and after a save — and `loadFile` sends it again (`syncWorkerMain`) before the next incoming file;
-- the tools worker is terminated once its scans are done when the file is over `RESIDENT_MAX_RECORDS` (`useToolsScans`); the next scan sends a snapshot again;
+- the tools worker is terminated once its scans are done when the file is over `RESIDENT_MAX_RECORDS` (`useToolsScans`); the next scan sends a snapshot again — as UTF-8 byte parts the worker parses one after another (`serializeGedcomParts`, `ParseOptions.more`), so neither side ever holds the file as one string;
 - an edit-only save copies only the records it writes to (`buildEditSaveRecords` with `touched`; `ownRecords` before anything writes to the rest), serializes to a `Blob` in parts (`serializeGedcomBlob`, never one string), and rebuilds the typed model reusing the people whose record node it did not copy (`adoptSavedBaseline`).
 
 ### Normalization

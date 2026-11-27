@@ -118,12 +118,14 @@ function toRecord(indi: GedNode, primary: GedNode, spec: VariantSpec, typeValue:
     addRecord(indi, spec.slot, text, typeValue);
     changes.push({ before: `${tagChild.tag} ${tagChild.value!.trim()}`, after: `${recordValue(spec.slot, text)} (${typeValue})` });
   }
-  // Existing records of this kind → recase/unify the TYPE token to the main's.
+  // Existing records of this kind → recase the TYPE token to the main's. Only
+  // the same word: `birth` and `maiden` are both the standard's, and a man's
+  // birth name is no maiden name.
   for (const rec of indi.children) {
     if (rec === primary || rec.tag !== "NAME") continue;
     const typeNode = firstChild(rec, "TYPE");
     const tv = typeNode?.value?.trim();
-    if (!tv || !spec.types.includes(tv.toLowerCase()) || tv === typeValue) continue;
+    if (!tv || tv.toLowerCase() !== typeValue.toLowerCase() || tv === typeValue) continue;
     changes.push({ before: `(${tv})`, after: `(${typeValue})` });
     typeNode!.value = typeValue;
   }

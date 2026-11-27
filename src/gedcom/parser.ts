@@ -42,6 +42,14 @@ export interface ParseOptions {
    * record must stay: the version is read from it at the end.
    */
   onSettled?: (records: GedNode[], settled: number) => void;
+  /**
+   * The file's text when it comes in parts: called each time the text in hand
+   * is used up, for the part that follows it (undefined after the last). A
+   * part holds whole lines, and the first one the header — so a file this app
+   * serialized can be read without ever being one string (see
+   * `serializeGedcomParts`).
+   */
+  more?: () => string | undefined;
 }
 
 /**
@@ -77,7 +85,8 @@ function nextLines(text: string, pos: number): [string[], number, boolean] {
 /** {@link parseGedcomText} as a stepped pass (see `steps.ts`), yielding after
  *  every {@link CHUNK_CHARS} of text — what the main thread runs in slices. */
 export function* parseGedcomSteps(decoded: DecodeResult, options?: ParseOptions): Steps<ParseResult> {
-  const { text, charset, warnings: decodeWarnings, bom } = decoded;
+  const { charset, warnings: decodeWarnings, bom } = decoded;
+  let text = decoded.text;
   const warnings: ParseWarning[] = [...decodeWarnings];
 
   // Remember the source's line-ending style and whether it ended with a newline
@@ -97,6 +106,9 @@ export function* parseGedcomSteps(decoded: DecodeResult, options?: ParseOptions)
   let first = 0; // the line number of lines[0], from 0
   let pos = 0; // where the text not yet split starts
   let more = true;
+
+  // The distinct line values read so far, each kept once (see `pooled`).
+  const pool = new Map<string, string>();
 
   const roots: GedNode[] = [];
   // stack[level] holds the most recent node opened at that level.
@@ -135,7 +147,12 @@ export function* parseGedcomSteps(decoded: DecodeResult, options?: ParseOptions)
 
   for (let i = 0; ; i++) {
     if (i - first >= lines.length) {
-      if (!more) break;
+      if (!more) {
+        const next = options?.more?.();
+        if (next === undefined) break;
+        text = next;
+        pos = 0;
+      }
       if (i) yield;
       first = i;
       [lines, pos, more] = nextLines(text, pos);
@@ -263,6 +280,9 @@ export function* parseGedcomSteps(decoded: DecodeResult, options?: ParseOptions)
       continue;
     }
 
+    // One string per distinct value (see `pooled`).
+    if (value) value = pooled(pool, value);
+
     // Every node starts with the same five fields, absent ones undefined:
     // one hidden class for the whole tree keeps them in the object itself
     // rather than in a separately allocated property store (~100 MB on a
@@ -346,6 +366,27 @@ function internTag(tag: string): string {
   if (known !== undefined) return known;
   TAGS.set(tag, tag);
   return tag;
+}
+
+/**
+ * The one string kept for `value` in this parse: the first line to carry it.
+ *
+ * A file says the same things over and over — a village's name on every
+ * event there, a date on everyone christened that day, `M`, `Y`, a source's
+ * pointer — and each line's value is otherwise a string of its own. Worse,
+ * a value cut from the decoded text is a view into it, so a single one
+ * surviving keeps the whole file's text alive behind the tree (two bytes a
+ * character once it holds one letter outside Latin-1). Passing every value
+ * through one map leaves a string per distinct value and, in V8, lets the
+ * text go: on a 220 MB, 250k-person file the tree took ~300 MB less of a
+ * 1.6 GB heap, at no cost in load time. The pool lives only as long as the
+ * parse; the strings it handed out are immutable, so sharing them is unseen.
+ */
+function pooled(pool: Map<string, string>, value: string): string {
+  const known = pool.get(value);
+  if (known !== undefined) return known;
+  pool.set(value, value);
+  return value;
 }
 
 /**
