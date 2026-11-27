@@ -1388,6 +1388,9 @@ export function combineReports(a: ChangeReport, b: ChangeReport): ChangeReport {
     recordLabels: { ...a.recordLabels, ...b.recordLabels },
     recordKinds: { ...a.recordKinds, ...b.recordKinds },
     familySpouses: { ...a.familySpouses, ...b.familySpouses },
+    // The incoming records the merge copied new people from: the preview reads
+    // their sex, years and facts here, having no other place to find them.
+    newIndividuals: { ...a.newIndividuals, ...b.newIndividuals },
     customTags: { ...a.customTags, ...b.customTags },
   };
 }
