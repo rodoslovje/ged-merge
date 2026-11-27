@@ -1183,6 +1183,56 @@ ${shape}
     expect(text).toContain("2 SOUR @S1@"); // citation untouched
   });
 
+  it("picks up a source still under the title its link alone gave it, and names it from its page media", () => {
+    // Made before the book's page was read ("Matricula 04406 | Vodice"), and
+    // already a source — so nothing looked at it again. Its own page media
+    // carries the book's full name.
+    const text = `0 HEAD
+1 GEDC
+2 VERS 7.0
+0 @I1@ INDI
+1 BIRT
+2 SOUR @S1@
+3 PAGE 6
+0 @S1@ SOUR
+1 TITL Matricula 04406 | Vodice
+1 PLAC Vodice, Slovenija
+1 OBJE @O1@
+1 REPO @R1@
+2 CALN 04406
+0 @S2@ SOUR
+1 TITL Krstna knjiga / Taufbuch - 03869 | Šentjur pri Celju
+1 DATA
+2 EVEN BIRT
+3 PLAC Šentjur
+1 OBJE @O2@
+0 @R1@ REPO
+1 NAME Nadškofijski arhiv Ljubljana
+0 @O1@ OBJE
+1 FILE ${BOOK2}/?pg=6
+2 FORM text/html
+2 TITL #006 - Krstna knjiga / Taufbuch - 04406 | Vodice | Nadškofijski arhiv Ljubljana | Slovenia | Matricula Online
+0 @O2@ OBJE
+1 FILE ${BOOK}/?pg=3
+2 FORM text/html
+2 TITL #003 - Krstna knjiga / Taufbuch - 03869 | Šentjur pri Celju | Nadškofijski arhiv Maribor | Slovenia | Matricula Online
+0 TRLR`;
+    const { text: out, counts, report } = applyAll(text, { sourceCoverage: "standard" });
+    // Only the placeholder: a title someone wrote, or a lookup filled, is theirs.
+    expect(report.groups.map((g) => g.existingSourceXref)).toEqual(["@S1@"]);
+    expect(report.groups[0].proposed.title).toBe("Krstna knjiga / Taufbuch - 04406 | Vodice");
+    expect(counts.sourcesCreated).toBe(0);
+    expect(counts.mediaCreated).toBe(0);
+    // The file states coverage the standard's way (S2), so this one does too:
+    // its own place is what the coverage says, and no longer stands flat. No
+    // FILN is written beside the call number it already has.
+    expect(out).toContain("0 @S1@ SOUR\n1 TITL Krstna knjiga / Taufbuch - 04406 | Vodice\n1 DATA\n2 EVEN BIRT\n3 PLAC Vodice, Slovenija\n2 AGNC Nadškofijski arhiv Ljubljana\n1 OBJE @O1@\n1 REPO @R1@\n2 CALN 04406\n0 @S2@");
+    expect(out).toContain("2 SOUR @S1@\n3 PAGE 6"); // the citation is untouched
+    expect(out).toContain("1 TITL Krstna knjiga / Taufbuch - 03869 | Šentjur pri Celju\n1 DATA\n2 EVEN BIRT\n3 PLAC Šentjur\n1 OBJE @O2@\n");
+    // Named once: nothing left to pick up.
+    expect(findReshapableLinks(dataset(out)).groups).toEqual([]);
+  });
+
   it("fills the tree owner as AUTH when rewriting a URL-titled Geneanet tree SOUR", () => {
     const { text, counts } = applyAll(`0 HEAD
 1 CHAR UTF-8

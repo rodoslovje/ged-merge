@@ -1498,13 +1498,24 @@ export function reshapeSources(
       if (hit.shape !== "sourTitle") continue;
       hit.node.value = fields.title;
       fillField(hit.rec, "AUTH", fields.author);
+      // A record that already says where and when on itself (a source renamed
+      // from its link-only title) keeps its own words for them: they are what
+      // the coverage states, and the flat lines go with it — written twice,
+      // the place would stand once where the standard has none.
+      const flatPlace = firstChild(hit.rec, "PLAC");
+      const flatDate = firstChild(hit.rec, "DATE");
+      const hadCoverage = !!firstChild(hit.rec, "DATA") && childrenByTag(firstChild(hit.rec, "DATA")!, "EVEN").length > 0;
       const std =
         coverage === "standard" &&
         applyStandardCoverage(
           hit.rec,
-          coverageEvents(bookType, baptismTag, fields.place, fields.dateRange, extra?.book),
+          coverageEvents(bookType, baptismTag, flatPlace?.value?.trim() || fields.place, flatDate?.value?.trim() || fields.dateRange, extra?.book),
           fields.agency,
         );
+      if (std && !hadCoverage) {
+        if (flatPlace) spliceChild(hit.rec, flatPlace);
+        if (flatDate) spliceChild(hit.rec, flatDate);
+      }
       if (!std) {
         fillField(hit.rec, "AGNC", fields.agency);
         // A source's own AGNC is the vendor's flat field; the standard keeps
@@ -1516,7 +1527,9 @@ export function reshapeSources(
           fillField(hit.rec, "DATE", fields.dateRange);
         }
       }
-      if (!filingNumberOf(hit.rec)) fillField(hit.rec, "FILN", fields.filingNumber);
+      // Not beside a call number the repository link already states.
+      const calledAt = childrenByTag(hit.rec, "REPO").some((l) => childText(l, "CALN"));
+      if (!filingNumberOf(hit.rec) && !calledAt) fillField(hit.rec, "FILN", fields.filingNumber);
       written.add(hit.rec);
       counts.citationsRewritten++;
     }

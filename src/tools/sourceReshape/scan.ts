@@ -8,7 +8,7 @@ import {
 import type { GedNode } from "../../gedcom/types";
 import { memoOnContent } from "../../gedcom/edit/cache";
 import { childrenByTag, childText, firstChild } from "../../gedcom/node";
-import { cleanUrl, recognize, type Recognized } from "./urls";
+import { cleanUrl, parseMatriculaTitle, recognize, type Recognized } from "./urls";
 import { URL_RE } from "../../gedcom/builder";
 import { linkKey } from "../../normalize/links";
 import { buildObjeIndex, isPointer, looksLikeUrl, sourceTitle } from "../../gedcom/source";
@@ -356,6 +356,23 @@ export function prefersDoubledLinks(records: GedNode[]): boolean {
   return doubled > eventOnly;
 }
 
+/**
+ * What a page media's own title says of its book, over the proposal made from
+ * the address alone: a Matricula page is saved under the book's full name
+ * ("#095 - Krstna knjiga / Taufbuch - 00879 | Kranj - Šmartin | Nadškofijski
+ * arhiv Ljubljana | Slovenia | Matricula Online"), so the register, the parish
+ * as the archive writes it and the archive are on hand without a lookup.
+ */
+function namedByPageMedia(recognized: Recognized, mediaTitle: string | undefined): Recognized {
+  if (recognized.site !== "matricula" || !mediaTitle) return recognized;
+  const named = parseMatriculaTitle(mediaTitle.replace(/^#\d+\s*-\s*/, ""));
+  if (!named) return recognized;
+  return {
+    ...recognized,
+    proposed: { ...recognized.proposed, title: named.title, place: named.place ?? recognized.proposed.place, agency: named.agency ?? recognized.proposed.agency },
+  };
+}
+
 export function scanOccurrences(
   records: GedNode[],
   sites: ReadonlySet<ReshapeSite>,
@@ -393,8 +410,34 @@ export function scanOccurrences(
       // A SOUR record whose TITL *is* a site URL: rewrite the record in place.
       const titl = firstChild(rec, "TITL");
       const value = titl?.value ?? "";
-      for (const { url, recognized } of recognizedUrls(value, childText(rec, "ABBR"), sites)) {
+      const urlTitled = recognizedUrls(value, childText(rec, "ABBR"), sites);
+      for (const { url, recognized } of urlTitled) {
         hits.push({ rec, container: rec, node: titl!, shape: "sourTitle", url, recognized, typeText: childText(rec, "ABBR") });
+      }
+      // A SOUR record still under the title its link alone gave it ("Matricula
+      // 00879 | Kranj Smartin"): made before the book's page was read, and
+      // never revisited since — it was already a source, so nothing here
+      // looked at it again. One of its own page media names the book; the
+      // record is rewritten in place, the way a URL-titled one is.
+      if (titl && urlTitled.length === 0 && value.trim()) {
+        for (const link of childrenByTag(rec, "OBJE")) {
+          const xref = link.value?.trim();
+          const info = xref ? objeIndex.get(xref) : undefined;
+          if (!info?.url || (xref && privateObje.has(xref))) continue;
+          const recognized = recognize(info.url, info.title, sites);
+          if (!recognized || recognized.proposed.title !== value.trim()) continue;
+          // Only where the media has a better name to give: a source this
+          // tool itself made offline carries the same title, and with nothing
+          // more to say it must not be picked up again on every scan.
+          const named = namedByPageMedia(recognized, info.title);
+          if (named.proposed.title === value.trim()) continue;
+          hits.push({
+            rec, container: rec, node: titl, shape: "sourTitle", url: info.url,
+            recognized: named,
+            typeText: info.title ?? childText(rec, "ABBR"),
+          });
+          break;
+        }
       }
     }
   }
