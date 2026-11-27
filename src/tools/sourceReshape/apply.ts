@@ -650,14 +650,30 @@ export function templateFieldsToStandard(
       .filter((v): v is string => !!v);
   };
   /** The coverage half, on `node`: the lines it settled, and whether it wrote
-   *  a flat PLAC/DATE that {@link toStandardCoverage} must still restate. */
+   *  a flat PLAC/DATE that {@link toStandardCoverage} must still restate. A
+   *  source already stating its coverage (its date restated by an earlier
+   *  fix) takes the missing half straight into those `DATA > EVEN` blocks. */
   const cover = (node: GedNode): { settled: GedNode[]; flat: boolean } => {
     const settled: GedNode[] = [];
     let flat = false;
+    const data = firstChild(node, "DATA");
+    const stated = data ? childrenByTag(data, "EVEN") : [];
+    const state = (tag: "PLAC" | "DATE", value: string) => {
+      for (const even of stated) {
+        const line: GedNode = { level: even.level + 1, tag, value, children: [] };
+        // The standard's order: the period, then the place.
+        if (tag === "DATE") even.children.unshift(line);
+        else even.children.push(line);
+      }
+    };
     const parts = ["TOWN", "COUN"].map((t) => field(node, t)).filter((n): n is GedNode => !!n);
     if (parts.length) {
       const places = covered(node, "PLAC");
-      if (places.length === 0) {
+      if (places.length === 0 && stated.length) {
+        state("PLAC", parts.map((p) => p.value!.trim()).join(", "));
+        for (const p of parts) spliceChild(node, p);
+        settled.push(...parts);
+      } else if (places.length === 0) {
         const at = node.children.indexOf(parts[0]);
         const plac: GedNode = { level: node.level + 1, tag: "PLAC", value: parts.map((p) => p.value!.trim()).join(", "), children: [] };
         node.children.splice(at, 0, plac);
@@ -672,7 +688,10 @@ export function templateFieldsToStandard(
     const year = field(node, "CENY");
     if (year) {
       const dates = covered(node, "DATE");
-      if (dates.length === 0) {
+      if (dates.length === 0 && stated.length) {
+        state("DATE", year.value!.trim());
+        if (spliceChild(node, year)) settled.push(year);
+      } else if (dates.length === 0) {
         year.tag = "DATE";
         settled.push(year);
         flat = true;
