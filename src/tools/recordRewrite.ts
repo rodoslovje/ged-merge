@@ -12,7 +12,10 @@ import { applyRecordPatches, type RecordPatch } from "../ui/historyTypes";
  *    they accept, unique in the file, and every line pointing at it follows;
  *  - {@link removeCustomTag}: every line of one extension tag goes, with what
  *    is beneath it — and a top-level record of that tag, with every line
- *    pointing at it.
+ *    pointing at it;
+ *  - {@link removeMisplacedTag}: every line of a standard tag standing where
+ *    the version has no place for it (a `DATE` under `REPO.WWW`) goes, with
+ *    what is beneath it — only there, the tag's rightful places are untouched.
  *
  * Records without an xref (HEAD) are left alone, as an undo patch is keyed by
  * xref. Both return the patches they applied, empty when nothing changed.
@@ -94,6 +97,30 @@ export function removeCustomTag(dataset: Dataset, tag: string): RecordPatch[] {
     for (const c of node.children) strip(c);
   };
   patches.push(...editedPatches(dataset, gone, drops, strip));
+  if (patches.length) applyRecordPatches(dataset, patches, "redo");
+  return patches;
+}
+
+/** Remove every line tagged `tag` standing directly under `parent` — the
+ *  dotted tag path from the record, as a misplaced-tag finding names it
+ *  (`REPO.WWW`) — with what is beneath it; returns the patches applied. */
+export function removeMisplacedTag(dataset: Dataset, tag: string, parent: string): RecordPatch[] {
+  const [root, ...chain] = parent.split(".");
+  /** The lines at the end of the path under `node`, each handed to `visit`. */
+  const reach = (node: GedNode, depth: number, visit: (owner: GedNode) => void): void => {
+    if (depth === chain.length) return visit(node);
+    for (const c of node.children) if (c.tag === chain[depth]) reach(c, depth + 1, visit);
+  };
+  const patches: RecordPatch[] = [];
+  for (const rec of dataset.records) {
+    if (rec.tag !== root || !rec.xref) continue;
+    let found = false;
+    reach(rec, 0, (owner) => { found ||= owner.children.some((c) => c.tag === tag); });
+    if (!found) continue;
+    const after = cloneNode(rec);
+    reach(after, 0, (owner) => { owner.children = owner.children.filter((c) => c.tag !== tag); });
+    patches.push({ type: patchType(dataset, rec), id: rec.xref, before: cloneNode(rec), after });
+  }
   if (patches.length) applyRecordPatches(dataset, patches, "redo");
   return patches;
 }

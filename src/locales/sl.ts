@@ -648,6 +648,7 @@ export const sl = {
   "tools.validate.fixConformXrefsHint": "Vsak zapis dobi identifikator, ki ga standard dovoljuje in ga v datoteki nima noben drug zapis. Vsi kazalci na zapis se posodobijo.",
   "tools.validate.fixOneRemoveTag": "Odstrani oznako",
   "tools.validate.fixOneRemoveTagHint": "Iz datoteke se odstranijo vse vrstice {{tag}} ({{count}}×) skupaj z vrsticami pod njimi.",
+  "tools.validate.fixOneRemoveMisplacedHint": "Odstranijo se vse vrstice {{tag}} pod {{parent}} ({{count}}×) skupaj z vrsticami pod njimi. Vrstice {{tag}} drugod ostanejo.",
   "tools.validate.fixConformCustomTags": "Odstrani oznake ({{count}})",
   "tools.validate.fixConformCustomTagsHint": "Iz datoteke se odstranijo vse vrstice teh oznak skupaj z vrsticami pod njimi.",
   "tools.validate.fixOneAgencyHint": "Pri vseh virih, ki imajo ustanovo (AGNC) zapisano na samem zapisu, se ustanova premakne pod vrstico DATA.",

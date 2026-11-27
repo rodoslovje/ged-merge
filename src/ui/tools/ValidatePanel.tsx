@@ -46,7 +46,6 @@ import { ToolsError, ToolsLoading, TreeSearch, UsageList, useDebounced, ToolsInt
 import { useTranslationLang } from "./TranslationLangSection";
 import { MediaLinkDialog } from "../MediaLinkDialog";
 import { nodeAtPath } from "../../tools/conformance/conformance";
-import { keptHabits } from "../../tools/normalizeRepairs";
 
 /** Message vars that hold a date as GEDCOM text (years travel as numbers). */
 const DATE_VARS = ["birth", "marriage", "date", "death"] as const;
@@ -237,19 +236,16 @@ export function ValidatePanel({
   const group: HealthGroup = view === "gedcom" ? "gedcom" : "data";
   const setGroup = (g: HealthGroup) => onViewChange(g === "gedcom" ? "gedcom" : "tree");
   // A file kept in its own format reads the GEDCOM half as information.
-  const { target, dialect, formatOverrides } = useTargetFormat();
-  // A file kept with its variations keeps its program's flat source fields
-  // (PLAC/DATE/AGNC on the source itself): the row says whose habit it is, and
-  // offers no fix — Normalize would write them straight back. Its event
-  // stamps are a habit Normalize keeps too, but nothing restores them once
-  // lifted, so their fix is always on offer: a reader may want to settle that
-  // one variation and keep the rest.
-  const scanned = scans.validate.status === "done" ? scans.validate.result : null;
-  const { coverage: keptCoverage } = useMemo(
-    () => keptHabits(dataset, formatOverrides, dialect),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dataset, formatOverrides, dialect, scanned],
-  );
+  const { target, formatOverrides } = useTargetFormat();
+  // The habits of a file kept with its variations — flat source fields
+  // (PLAC/DATE/AGNC on the source itself), stamps on its events — are ones
+  // Normalize leaves alone, but their fixes are on offer all the same: a
+  // reader may want to settle one variation and keep the rest. Once the
+  // sources are restated, the file's own majority is the standard shape, and
+  // Normalize follows it. The one exception is a reader who chose the flat
+  // source fields in Settings: there Normalize would write them straight
+  // back, so the row offers no fix.
+  const keptCoverage = !formatOverrides?.standard && formatOverrides?.sourceCoverage === "vendor";
   /** Message vars with a GEDCOM event tag turned into its display name —
    *  validate.ts is pure and can't localize, so tags travel raw — plus the sex
    *  the wording agrees with as the i18next context, so Slovenian says "Umrla"
@@ -1100,6 +1096,19 @@ export function ValidatePanel({
         removes: true,
         kind: "customTags",
         run: () => onFixConformance("customTags", { value: issue.sample }),
+      };
+    }
+    // A standard tag where the version has no place for it, and no repair
+    // above that knows where it belongs: the lines can go — there only.
+    const ownRepair = issue.relocate || issue.agency || issue.stamps || issue.coverage || issue.assoDate || issue.mediaInfo || issue.childPedi || issue.citationPage;
+    if (issue.category === "misplacedTag" && !ownRepair && issue.recordId && issue.sample && issue.messageVars?.parent) {
+      const parent = String(issue.messageVars.parent);
+      return {
+        label: t("tools.validate.fixOneRemoveTag"),
+        hint: t("tools.validate.fixOneRemoveMisplacedHint", { tag: issue.sample, parent, count: Number(issue.messageVars?.count) || 1 }),
+        removes: true,
+        kind: "customTags",
+        run: () => onFixConformance("customTags", { value: issue.sample, parent }),
       };
     }
     return null;

@@ -10,7 +10,7 @@ import { untypedEvents, upgradeExtensions } from "../normalize/migrate";
 import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
-import { removeCustomTag, renameXref } from "./recordRewrite";
+import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite";
 
 /**
  * The repairs the conformance check can make:
@@ -77,7 +77,8 @@ import { removeCustomTag, renameXref } from "./recordRewrite";
 export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
 
 /** Repairs only ever run on the row that asks for them (see `recordRewrite`):
- *  **customTags** removes the tag a row names (`ref.value`), **xrefs** renames
+ *  **customTags** removes the tag a row names (`ref.value`) — everywhere, or,
+ *  for a misplaced standard tag, only under `ref.parent` — and **xrefs** renames
  *  the record a row names (`ref.id`) by the rules of `ref.value`'s version. */
 export type RowOnlyFixKind = "customTags" | "xrefs";
 
@@ -88,6 +89,9 @@ export interface ConformanceRef {
   path?: string;
   /** For the media forms: only the files this form fits. */
   value?: string;
+  /** For a tag removal: the dotted path the tag is misplaced under
+   *  (`REPO.WWW`) — only the lines standing there go. */
+  parent?: string;
   /** Every finding of one kind across the file: the same value on the same
    *  line, given the same fix (a row standing for all of them). */
   match?: { tag: string; parent: string; sample: string; fix: string };
@@ -349,7 +353,10 @@ export function fixConformance(
   only?: ConformanceRef,
   overrides?: Pick<FormatOverrides, "standard">,
 ): RecordPatch[] {
-  if (kind === "customTags") return only?.value ? removeCustomTag(dataset, only.value) : [];
+  if (kind === "customTags") {
+    if (!only?.value) return [];
+    return only.parent ? removeMisplacedTag(dataset, only.value, only.parent) : removeCustomTag(dataset, only.value);
+  }
   if (kind === "xrefs") return only?.id ? renameXref(dataset, only.id, only.value === "7.0") : [];
   if (kind === "sourceFields") {
     const pass = sourceFieldPass(dataset.records, overrides);

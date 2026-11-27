@@ -612,6 +612,7 @@ export const hr = {
   "tools.validate.fixConformXrefsHint": "Svaki zapis dobiva identifikator koji standard dopušta i koji u datoteci nema nijedan drugi zapis. Svi pokazivači na zapis ažuriraju se.",
   "tools.validate.fixOneRemoveTag": "Ukloni oznaku",
   "tools.validate.fixOneRemoveTagHint": "Iz datoteke se uklanjaju svi retci {{tag}} ({{count}}×) zajedno s retcima ispod njih.",
+  "tools.validate.fixOneRemoveMisplacedHint": "Uklanjaju se svi retci {{tag}} ispod {{parent}} ({{count}}×) zajedno s retcima ispod njih. Retci {{tag}} drugdje ostaju.",
   "tools.validate.fixConformCustomTags": "Ukloni oznake ({{count}})",
   "tools.validate.fixConformCustomTagsHint": "Iz datoteke se uklanjaju svi retci tih oznaka zajedno s retcima ispod njih.",
   "tools.validate.fixOneAgencyHint": "Kod svih izvora koji imaju ustanovu (AGNC) zapisanu na samom zapisu ustanova se premješta ispod retka DATA.",

@@ -33,9 +33,8 @@ export const NORMALIZE_REPAIRS: readonly NormalizeRepairKind[] = [
 
 /**
  * The program habits a file kept with its variations keeps, which Normalize
- * leaves alone. The health check reports `coverage` without a fix (Normalize
- * would write it back); the `stamps` fix it offers regardless, for a reader
- * settling that one variation by hand:
+ * leaves alone. The health check offers their fixes regardless, for a reader
+ * settling one variation by hand (see `ValidatePanel`):
  *
  *  - `coverage` — a source's own `PLAC`/`DATE`/`AGNC`, where the file's
  *    source coverage (the Settings choice, else its own majority) is the

@@ -93,3 +93,34 @@ describe("removing a custom tag", () => {
     expect(out).toContain("2 PLAC Ljubljana");
   });
 });
+
+describe("removing a misplaced standard tag", () => {
+  for (const vers of ["5.5.1", "7.0"] as const) {
+    it(`${vers}: the lines go where they are misplaced, and nowhere else`, () => {
+      const ds = dataset(vers, `0 @I1@ INDI
+1 NAME Bo /Horvat/
+1 BIRT
+2 DATE 1850
+0 @R1@ REPO
+1 NAME Matricula Online
+1 WWW https://example.org
+2 DATE 8 NOV 2026
+3 TIME 10:00
+0 @R2@ REPO
+1 NAME Arhiv
+1 WWW https://example.com`);
+      const original = serializeGedcom(ds.records);
+      const [finding] = validateConformance(ds).filter((i) => i.category === "misplacedTag");
+      expect([finding.sample, finding.messageVars.parent]).toEqual(["DATE", "REPO.WWW"]);
+      const patches = fixConformance(ds, "customTags", { value: "DATE", parent: "REPO.WWW" });
+      expect(patches.map((p) => p.id)).toEqual(["@R1@"]);
+      expect(validateConformance(ds)).toEqual([]);
+      const text = serializeGedcom(ds.records);
+      expect(text).not.toContain("8 NOV 2026");
+      expect(text).not.toContain("TIME");
+      expect(text).toContain("2 DATE 1850");
+      applyRecordPatches(ds, patches, "undo");
+      expect(serializeGedcom(ds.records)).toBe(original);
+    });
+  }
+});

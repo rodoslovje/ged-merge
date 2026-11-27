@@ -578,6 +578,7 @@ export const en = {
   "tools.validate.fixConformXrefsHint": "Gives each record an ID that the standard accepts and no other record in the file holds; every reference to the record follows it.",
   "tools.validate.fixOneRemoveTag": "Remove tag",
   "tools.validate.fixOneRemoveTagHint": "Removes every {{tag}} line in the file ({{count}}×), together with the lines beneath it.",
+  "tools.validate.fixOneRemoveMisplacedHint": "Removes every {{tag}} line under {{parent}} ({{count}}×), together with the lines beneath it. {{tag}} lines elsewhere stay.",
   "tools.validate.fixConformCustomTags": "Remove tags ({{count}})",
   "tools.validate.fixConformCustomTagsHint": "Removes every line of the tag in the file, together with the lines beneath it.",
   "tools.validate.fixOneAgencyHint": "Moves the agency (AGNC) under the DATA line in every source that keeps it on the record itself.",
