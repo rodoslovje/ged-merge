@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { declaredVersion, NOT_GEDCOM, parseGedcom } from "./parser";
+import { declaredVersion, NOT_GEDCOM, parseGedcom, parseGedcomText } from "./parser";
 import { buildDataset } from "./builder";
 import { cloneNode } from "./node";
 import { downloadOptions, serializeGedcom } from "./serialize";
@@ -494,4 +494,27 @@ describe("parseGedcom on a file split in pieces", () => {
     // Three multi-megabyte files parsed and written: on a machine busy with
     // other suites this outlasts the 5 s default without anything being wrong.
   }, 60_000);
+});
+
+describe("parseGedcomText on text that comes in parts", () => {
+  const whole = [
+    "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+    "0 @I1@ INDI", "1 NAME Janez /Novak/", "1 NOTE prva", "2 CONT druga @@ tretja", "2 CONC  četrta",
+    "0 @I2@ INDI", "1 NAME Ana /Kos/", "1 FAMS @F1@",
+    "0 @F1@ FAM", "1 WIFE @I2@",
+    "0 TRLR",
+  ];
+  const decoded = (text: string) => ({ text, charset: "UTF-8" as const, warnings: [] });
+
+  it("reads the same records as from one text, wherever a part ends between two lines", () => {
+    const one = parseGedcomText(decoded(whole.join("\n") + "\n"));
+    for (let cut = 4; cut < whole.length; cut++) {
+      // As the app's own parts are cut: the line ending opens the next part.
+      const rest = ["\n" + whole.slice(cut).join("\n"), "\n"];
+      const parts = parseGedcomText(decoded(whole.slice(0, cut).join("\n")), { more: () => rest.shift() });
+      expect(parts.records, `cut before line ${cut}`).toEqual(one.records);
+      expect(parts.version).toBe(one.version);
+      expect(parts.warnings).toEqual([]);
+    }
+  });
 });

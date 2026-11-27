@@ -9,7 +9,7 @@ import type { DuplicateReport } from "../tools/sourceDuplicates";
 import type { ReshapeReport } from "../tools/sourceReshape";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "../worker/toolsMessages";
-import { mainSnapshot, recordsPatch, type ChangeJournal, type SyncMark } from "../state/mainSync";
+import { mainSnapshot, recordsPatch, snapshotTransfer, type ChangeJournal, type SyncMark } from "../state/mainSync";
 import { afterPaint, holdBusyCursor } from "./busyCursor";
 
 /** Lifecycle of one whole-file scan. */
@@ -204,9 +204,11 @@ export function useToolsScans(
       const changed = !whole && up?.seq === seq ? changes.since(up.mark) : null;
       if (!changed || changed.size) {
         const patch = changed && recordsPatch(datasetRef.current, changed);
-        worker.postMessage(
-          patch ? { type: "patchMain", patch } : { type: "setMain", snapshot: mainSnapshot(datasetRef.current) },
-        );
+        if (patch) worker.postMessage({ type: "patchMain", patch });
+        else {
+          const snapshot = mainSnapshot(datasetRef.current);
+          worker.postMessage({ type: "setMain", snapshot }, snapshotTransfer(snapshot));
+        }
       }
       uploadedRef.current = { seq, mark: changes.mark(version) };
       uploadedKeyRef.current = `${seq}:${version}`;
