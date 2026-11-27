@@ -970,11 +970,12 @@ export function ValidatePanel({
     // button moves them in every media record.
     if (issue.category === "misplacedTag" && issue.relocate && issue.recordId) {
       // Once nothing is left to move, a title that differs from the FILE's own
-      // is settled by keeping the FILE's, the other as a note on the record.
+      // is settled by keeping the FILE's — the removal, on the user's word.
       if (issue.sample === "TITL" && fixableRelocate === 0 && fixableFileTitles > 0) {
         return {
           label: t("tools.validate.fixOneFileTitles"),
           hint: t("tools.validate.fixConformFileTitlesHint"),
+          removes: true,
           kind: "fileTitles",
           run: () => onFixConformance("fileTitles"),
         };
