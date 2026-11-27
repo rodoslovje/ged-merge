@@ -6,7 +6,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { downloadOptions, serializeGedcom } from "../gedcom/serialize";
 import type { Dataset, GedNode } from "../gedcom/types";
-import { applyRecordsPatch, ChangeJournal, datasetFromSnapshot, mainSnapshot, recordsPatch } from "./mainSync";
+import { applyRecordsPatch, ChangeJournal, datasetFromSnapshot, mainSnapshot, recordsPatch, snapshotTransfer } from "./mainSync";
 
 const enc = (text: string): ArrayBuffer => new TextEncoder().encode(text).buffer as ArrayBuffer;
 const dsOf = (text: string): Dataset => buildDataset(parseGedcom(enc(text)));
@@ -120,7 +120,9 @@ describe("main snapshot", () => {
       expect(snap.parts.length).toBeGreaterThan(2);
       const sent = snap.parts.map((p) => new TextDecoder().decode(p)).join("");
       expect(sent).toBe(serializeGedcom(ds.records, { ...downloadOptions(ds), eol: "\n", finalNewline: true, bom: false }));
-      const copy = datasetFromSnapshot(structuredClone(snap));
+      // Handed over as a worker gets it: the bytes move, the sender's are gone.
+      const copy = datasetFromSnapshot(structuredClone(snap, { transfer: snapshotTransfer(snap) }));
+      expect(snap.parts.every((p) => p.byteLength === 0)).toBe(true);
       expect(text(copy)).toBe(text(ds));
       expect(copy.version).toBe(ds.version);
       expect(copy.individuals.size).toBe(4500);
