@@ -239,10 +239,13 @@ export function ValidatePanel({
   // A file kept in its own format reads the GEDCOM half as information.
   const { target, dialect, formatOverrides } = useTargetFormat();
   // A file kept with its variations keeps its program's flat source fields
-  // (PLAC/DATE/AGNC on the source itself) and its event stamps: the row says
-  // whose habit it is, and offers no fix. Normalize keeps the same ones.
+  // (PLAC/DATE/AGNC on the source itself): the row says whose habit it is, and
+  // offers no fix — Normalize would write them straight back. Its event
+  // stamps are a habit Normalize keeps too, but nothing restores them once
+  // lifted, so their fix is always on offer: a reader may want to settle that
+  // one variation and keep the rest.
   const scanned = scans.validate.status === "done" ? scans.validate.result : null;
-  const { coverage: keptCoverage, stamps: keptStamps } = useMemo(
+  const { coverage: keptCoverage } = useMemo(
     () => keptHabits(dataset, formatOverrides, dialect),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataset, formatOverrides, dialect, scanned],
@@ -626,7 +629,7 @@ export function ValidatePanel({
   const shown = useMemo(
     () => (filter === "fixable" ? buildRows("all", q).filter((r) => repairOf(r)) : buildRows(filter, q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles]);
+    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles]);
 
   const pickable = (row: IssueRow) => !!repairOf(row) && !fixedRows.has(rowKey(row.issue));
   const shownPickable = useMemo(
@@ -640,7 +643,7 @@ export function ValidatePanel({
   const fixableTotal = useMemo(
     () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allRows, inferableSex, swappedRoles, keptCoverage, keptStamps, fixableRelocate, fixableFileTitles],
+    [allRows, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles],
   );
   function togglePick(row: IssueRow) {
     setPicked((prev) => {
@@ -1070,7 +1073,7 @@ export function ValidatePanel({
       };
     }
     // Change and creation stamps below the records: one row, every record.
-    if (issue.category === "misplacedTag" && issue.stamps && issue.recordId && !keptStamps) {
+    if (issue.category === "misplacedTag" && issue.stamps && issue.recordId) {
       return {
         label: t("tools.validate.fixOneStamps"),
         hint: t("tools.validate.fixOneStampsHint"),
@@ -1240,7 +1243,7 @@ export function ValidatePanel({
   if (fixableSmartMatch > 0) fixActions.push({ kind: "smartMatch", count: fixableSmartMatch });
   if (fixableAssoDates > 0) fixActions.push({ kind: "assoDates", count: fixableAssoDates });
   if (fixableCoverage > 0 && !keptCoverage) fixActions.push({ kind: "coverage", count: fixableCoverage });
-  if (fixableStamps > 0 && !keptStamps) fixActions.push({ kind: "stamps", count: fixableStamps });
+  if (fixableStamps > 0) fixActions.push({ kind: "stamps", count: fixableStamps });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
   // and coming back would otherwise still show the old findings. Say so, and
