@@ -859,6 +859,42 @@ describe("fixConformance", () => {
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("moves a source's MacFamilyTree template fields into standard fields in %s", (_v, head) => {
+    const ds = dataset(`${head}
+0 @S1@ SOUR
+1 LOCA Zgodovinski arhiv Ljubljana
+1 TOWN Ljubljana
+1 COUN Slovenija
+1 CENY 1931
+1 DATE 31 MAR 1931
+1 ROLN SI_ZAL_LJU/0504 336
+1 REPO @R1@
+1 TITL Popis prebivalstva Ljubljana, Sredina - Stari trg
+0 @S2@ SOUR
+1 TITL Naše korenine
+1 TOWN Kranj
+1 LOCA Mestna knjižnica Kranj
+0 @R1@ REPO
+1 NAME Zgodovinski arhiv Ljubljana
+0 TRLR`);
+    const before = serializeGedcom(ds.records, ds);
+    expect(countFixableConformance(ds, "templateFields")).toBe(2);
+    const patches = fixConformance(ds, "templateFields");
+    expect(patches.map((p) => p.id)).toEqual(["@S1@", "@S2@"]);
+    const out = serializeGedcom(ds.records, ds);
+    // The census: its town and county are the place, its date the census's;
+    // the year the date already says goes, the roll is the call number, and
+    // the location is the repository the source already points at.
+    expect(out).toContain("0 @S1@ SOUR\n1 REPO @R1@\n2 CALN SI_ZAL_LJU/0504 336\n1 TITL Popis prebivalstva Ljubljana, Sredina - Stari trg\n1 DATA\n2 EVEN CENS\n3 DATE 31 MAR 1931\n3 PLAC Ljubljana, Slovenija\n0 @S2@");
+    // A book: no coverage to state, so its town stays; its location has no
+    // repository to be, and becomes the agency.
+    expect(out).toContain("0 @S2@ SOUR\n1 TITL Naše korenine\n1 TOWN Kranj\n1 DATA\n2 AGNC Mestna knjižnica Kranj\n0 @R1@");
+    expect(validateConformance(ds).filter((i) => i.recordId === "@S1@")).toEqual([]);
+
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
   it("fixes every finding a grouped row stands for, and only those", () => {
     const ds = dataset(`${HEAD_70}
 0 @I1@ INDI

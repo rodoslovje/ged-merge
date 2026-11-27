@@ -1,6 +1,6 @@
 import type { Dataset, GedNode } from "../gedcom/types";
 import { liftNestedStamps } from "../gedcom/chanCrea";
-import { flatFieldsToPublication, toStandardCoverage } from "./sourceReshape/apply";
+import { flatFieldsToPublication, templateFieldsToStandard, TEMPLATE_STANDARD_TAGS, toStandardCoverage } from "./sourceReshape/apply";
 import { baptismTargetTag } from "./sourceReshape/scan";
 import { cloneNode, nodesEqual } from "../gedcom/node";
 import { dropTitleBesideFileTitle, fileFormOf, hangMediaLinesUnderFile, linkTitlesToFiles, mimeFormOf } from "../gedcom/mediaForm";
@@ -59,6 +59,10 @@ import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite
  *    cannot restate because the source is no register (a book, a newspaper
  *    issue, an online collection): they say where and when it was published,
  *    and are folded into its `PUBL`. Run only on the user's word;
+ *  - **templateFields** — MacFamilyTree source-template fields that a
+ *    standard field says as well (`TOWN`/`COUN`/`CENY` as the coverage's
+ *    place and date, `ROLN` as the repository's `CALN`, `LOCA` as the
+ *    repository or `DATA > AGNC`): moved there. Run only on the user's word;
  *  - **mediaInfo** — a media record's `DATE`/`PLAC`, which neither version
  *    has: kept as the `_DATE`/`_PLACE` extensions GED Merge reads and writes;
  *  - **childPedi** — a `PEDI` on a family's `CHIL` line: moved to the child's
@@ -82,7 +86,7 @@ import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite
  *
  * Mutates the dataset in place and returns `RecordPatch[]` for the undo stack.
  */
-export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "titleLinks" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "publication" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
+export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "relocate" | "fileTitles" | "titleLinks" | "agency" | "sourceFields" | "extensions" | "stamps" | "coverage" | "publication" | "templateFields" | "assoDates" | "smartMatch" | "mediaInfo" | "childPedi" | "citationPage" | "eventTypes" | RowOnlyFixKind;
 
 /** Repairs only ever run on the row that asks for them (see `recordRewrite`):
  *  **customTags** removes the tag a row names (`ref.value`) — everywhere, or,
@@ -301,6 +305,23 @@ function mediaPassFor(records: GedNode[], kind: ConformanceFixKind | undefined, 
   return (obje) => hangMediaLinesUnderFile(obje, v7 ? mimeFormOf : undefined, true);
 }
 
+/** The template-field pass over a source: skipped outright where the record
+ *  carries none of the fields, with the repositories' names read once. */
+function templateFieldPass(records: GedNode[]): MediaPass {
+  const baptism = baptismTargetTag(records);
+  let repoNames: Map<string, string> | undefined;
+  return (rec) => {
+    if (!rec.children.some((c) => TEMPLATE_STANDARD_TAGS.has(c.tag))) return [];
+    if (!repoNames) {
+      repoNames = new Map();
+      for (const r of records) {
+        if (r.tag === "REPO" && r.xref) repoNames.set(r.xref, r.children.find((c) => c.tag === "NAME")?.value?.trim() ?? "");
+      }
+    }
+    return templateFieldsToStandard(rec, baptism, repoNames);
+  };
+}
+
 /** How many findings of `kind` the fix would settle — the count on its button;
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind, overrides?: Pick<FormatOverrides, "standard">): number {
@@ -332,6 +353,10 @@ export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKi
   if (kind === "assoDates") {
     if (!fixable.some((i) => i.assoDate)) return 0;
     return dataset.records.reduce((n, r) => n + (r.xref ? assoDatesToNotes(r, false) : 0), 0);
+  }
+  if (kind === "templateFields") {
+    const pass = templateFieldPass(dataset.records);
+    return dataset.records.filter((r) => r.tag === "SOUR" && r.xref && pass(cloneNode(r)).length > 0).length;
   }
   if (kind === "publication") {
     if (!fixable.some((i) => i.coverage)) return 0;
@@ -376,6 +401,10 @@ export function fixConformance(
   if (kind === "xrefs") return only?.id ? renameXref(dataset, only.id, only.value === "7.0") : [];
   if (kind === "sourceFields") {
     const pass = sourceFieldPass(dataset.records, overrides);
+    return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
+  }
+  if (kind === "templateFields") {
+    const pass = templateFieldPass(dataset.records);
     return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
   }
   if (kind === "publication") {

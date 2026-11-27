@@ -614,6 +614,113 @@ export function flatFieldsToPublication(rec: GedNode, baptismTag: "BIRT" | "BAPM
   return lines;
 }
 
+/** MacFamilyTree source-template fields with a standard field of their own
+ *  (see {@link templateFieldsToStandard}). */
+export const TEMPLATE_STANDARD_TAGS: ReadonlySet<string> = new Set(["TOWN", "COUN", "CENY", "ROLN", "LOCA"]);
+
+/**
+ * Move a source's MacFamilyTree template fields into the standard fields that
+ * say the same thing:
+ *
+ *  - `TOWN` + `COUN` (township, county) are the place, and `CENY` (census
+ *    year) the date, of what the source covers — stated as `DATA > EVEN`, so
+ *    only where the source's title names what that is (a census, a register);
+ *  - `ROLN` (microfilm roll number) is the repository link's `CALN`;
+ *  - `LOCA` (location of the source) is the repository itself where the link
+ *    names it, else the source's `DATA > AGNC`.
+ *
+ * A value the record already states in that field only goes; one whose field
+ * says something else stays, as does every field with no standard home.
+ * `repoNames` gives each repository record's name by xref. Returns the lines
+ * settled.
+ */
+export function templateFieldsToStandard(
+  rec: GedNode,
+  baptismTag: "BIRT" | "BAPM",
+  repoNames: ReadonlyMap<string, string>,
+): GedNode[] {
+  const fold = (v: string | undefined) => (v ?? "").trim().toLowerCase();
+  const field = (node: GedNode, tag: string) => {
+    const n = firstChild(node, tag);
+    return n?.value?.trim() ? n : undefined;
+  };
+  const covered = (node: GedNode, tag: "PLAC" | "DATE") => {
+    const data = firstChild(node, "DATA");
+    return [childText(node, tag), ...(data ? childrenByTag(data, "EVEN").map((e) => childText(e, tag)) : [])]
+      .filter((v): v is string => !!v);
+  };
+  /** The coverage half, on `node`: the lines it settled, and whether it wrote
+   *  a flat PLAC/DATE that {@link toStandardCoverage} must still restate. */
+  const cover = (node: GedNode): { settled: GedNode[]; flat: boolean } => {
+    const settled: GedNode[] = [];
+    let flat = false;
+    const parts = ["TOWN", "COUN"].map((t) => field(node, t)).filter((n): n is GedNode => !!n);
+    if (parts.length) {
+      const places = covered(node, "PLAC");
+      if (places.length === 0) {
+        const at = node.children.indexOf(parts[0]);
+        const plac: GedNode = { level: node.level + 1, tag: "PLAC", value: parts.map((p) => p.value!.trim()).join(", "), children: [] };
+        node.children.splice(at, 0, plac);
+        for (const p of parts) spliceChild(node, p);
+        settled.push(...parts);
+        flat = true;
+      } else {
+        const said = places.join("\n").toLowerCase();
+        for (const p of parts) if (said.includes(fold(p.value)) && spliceChild(node, p)) settled.push(p);
+      }
+    }
+    const year = field(node, "CENY");
+    if (year) {
+      const dates = covered(node, "DATE");
+      if (dates.length === 0) {
+        year.tag = "DATE";
+        settled.push(year);
+        flat = true;
+      } else if (dates.join(" ").includes(year.value!.trim()) && spliceChild(node, year)) {
+        settled.push(year);
+      }
+    }
+    return { settled, flat };
+  };
+
+  const settled: GedNode[] = [];
+  // Coverage needs an event type: tried on a copy, so a town is not left as a
+  // flat PLAC on a source whose title says nothing of what it records.
+  const trial = cloneNode(rec);
+  const tried = cover(trial);
+  if (tried.settled.length && (!tried.flat || toStandardCoverage(trial, baptismTag))) {
+    const done = cover(rec);
+    settled.push(...done.settled);
+    if (done.flat) toStandardCoverage(rec, baptismTag);
+  }
+
+  const repoLinks = childrenByTag(rec, "REPO").filter((l) => l.value?.trim());
+  const roll = field(rec, "ROLN");
+  if (roll && repoLinks.length) {
+    const link = repoLinks[0];
+    const caln = childText(link, "CALN");
+    if (!caln) link.children.push({ level: link.level + 1, tag: "CALN", value: roll.value!.trim(), children: [] });
+    if ((!caln || fold(caln) === fold(roll.value)) && spliceChild(rec, roll)) settled.push(roll);
+  }
+
+  const location = field(rec, "LOCA");
+  if (location) {
+    const held = repoLinks.some((l) => fold(repoNames.get(l.value!.trim())) === fold(location.value));
+    const data = firstChild(rec, "DATA");
+    const agency = (data && childText(data, "AGNC")) || childText(rec, "AGNC");
+    if (!held && !agency) {
+      let into = data;
+      if (!into) {
+        into = { level: rec.level + 1, tag: "DATA", children: [] };
+        insertGrouped(rec, into, SOUR_FIELD_TRAILING);
+      }
+      into.children.push({ level: into.level + 1, tag: "AGNC", value: location.value!.trim(), children: [] });
+    }
+    if ((held || !agency || fold(agency) === fold(location.value)) && spliceChild(rec, location)) settled.push(location);
+  }
+  return settled;
+}
+
 export function normalizeSourceCoverage(
   records: GedNode[],
   target: "vendor" | "standard",

@@ -24,6 +24,7 @@ import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
 import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
 import { recordsWithTag } from "../../tools/recordRewrite";
+import { TEMPLATE_STANDARD_TAGS } from "../../tools/sourceReshape/apply";
 import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
 import { recordCitedBy } from "../../tools/sources";
@@ -58,7 +59,7 @@ const FIX_DONE_MS = 8000;
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "godparents" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", titleLinks: "ConformTitleLinks", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", publication: "ConformPublication", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", titleLinks: "ConformTitleLinks", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", publication: "ConformPublication", templateFields: "ConformTemplateFields", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
 /** Fixes that settle only the rows that ask: picking every row of the kind
  *  still runs them one by one, never as a whole-file pass. */
 const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs"]);
@@ -406,7 +407,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "publication" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "publication" || kind === "templateFields" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -543,6 +544,11 @@ export function ValidatePanel({
     () => (structure?.issues.some((i) => i.coverage) ? countFixableConformance(dataset, "publication") : 0),
     [structure, dataset],
   );
+  // Sources whose MacFamilyTree template fields a standard field says as well.
+  const fixableTemplateFields = useMemo(
+    () => (structure?.issues.some(isTemplateField) ? countFixableConformance(dataset, "templateFields") : 0),
+    [structure, dataset],
+  );
   // Media records whose title is a link the record's FILE lines do not hold.
   const fixableTitleLinks = useMemo(
     () => (structure?.issues.some((i) => i.titleLink) ? countFixableConformance(dataset, "titleLinks") : 0),
@@ -662,7 +668,7 @@ export function ValidatePanel({
   const listed = useMemo(
     () => (filter === "fixable" ? buildRows("all", q).filter((r) => repairOf(r)) : buildRows(filter, q)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication]);
+    [report, structure, filter, q, group, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication, fixableTemplateFields]);
   // One finding opened into its records: a row per record, each opening the
   // record itself. A row that counts 116 sources names none of them, and the
   // ones a fix cannot settle have to be found to be settled by hand.
@@ -690,7 +696,7 @@ export function ValidatePanel({
   const fixableTotal = useMemo(
     () => allRows.filter((r) => repairOf(r)).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allRows, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication],
+    [allRows, inferableSex, swappedRoles, keptCoverage, fixableRelocate, fixableFileTitles, fixableCoverage, fixablePublication, fixableTemplateFields],
   );
   function togglePick(row: IssueRow) {
     setPicked((prev) => {
@@ -1161,6 +1167,15 @@ export function ValidatePanel({
         run: () => onFixConformance("xrefs", { id: issue.recordId, value: String(issue.messageVars?.version ?? "") }),
       };
     }
+    // A source-template field with a standard field of its own: moved there.
+    if (isTemplateField(issue) && fixableTemplateFields > 0) {
+      return {
+        label: t("tools.validate.fixOneTemplateFields"),
+        hint: t("tools.validate.fixConformTemplateFieldsHint"),
+        kind: "templateFields",
+        run: () => onFixConformance("templateFields"),
+      };
+    }
     // An extension tag: every line of it can go, wherever it stands.
     if (issue.category === "customTag" && issue.sample) {
       return {
@@ -1323,6 +1338,7 @@ export function ValidatePanel({
   if (fixableAssoDates > 0) fixActions.push({ kind: "assoDates", count: fixableAssoDates });
   if (fixableCoverage > 0 && !keptCoverage) fixActions.push({ kind: "coverage", count: fixableCoverage });
   if (fixablePublication > 0 && !keptCoverage) fixActions.push({ kind: "publication", count: fixablePublication });
+  if (fixableTemplateFields > 0) fixActions.push({ kind: "templateFields", count: fixableTemplateFields });
   if (fixableStamps > 0) fixActions.push({ kind: "stamps", count: fixableStamps });
   const showMediaCheck = !!folderName && mediaFiles.length > 0 && mediaMissing === null;
   // The check runs once per file, not on every visit: fixing a record in Edit
@@ -1886,6 +1902,14 @@ function isEventText(i: StructIssue): boolean {
  *  case than it writes. */
 function isNameType(i: StructIssue): boolean {
   return i.category === "enumValue" && String(i.messageVars?.parent).endsWith(".NAME.TYPE");
+}
+
+/** A MacFamilyTree source-template field on a source, which a standard field
+ *  says as well — reported as the program's tag, or as an unknown one once
+ *  the file no longer carries the template that declared it. */
+function isTemplateField(i: StructIssue): boolean {
+  return (i.category === "customTag" || i.category === "unknownTag") && i.recordTag === "SOUR"
+    && !!i.sample && TEMPLATE_STANDARD_TAGS.has(i.sample);
 }
 
 /** A translation the standard wants a language on, written without one. */
