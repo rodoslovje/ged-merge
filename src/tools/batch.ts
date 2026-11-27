@@ -26,8 +26,8 @@ import {
   createMediaRecord,
   findSharedMediaByFile,
 } from "../gedcom/edit/media";
-import { EVENT_CHILD_ORDER, INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref, removeRecordsByXref } from "../gedcom/edit/shared";
-import { carriesLineValue, isNonStandardTag, isOccurrenceFlag } from "../gedcom/eventTags";
+import { INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref, removeRecordsByXref, retagEvent } from "../gedcom/edit/shared";
+import { isNonStandardTag } from "../gedcom/eventTags";
 import { marriedSurnamesOf } from "../match/relatives";
 import { foldSearch, matchesTerms, queryTerms, startSearchIndex, type SearchRow } from "../ui/globalSearch";
 import { finish, sliced, type BuildSteps, type SlicedBuild } from "./sliced";
@@ -771,21 +771,7 @@ function convertEventBatch(
   const snap = snapshotRecords(ds, ids, famIds);
   const type = action.type?.trim();
   const convert = (node: GedNode) => {
-    node.tag = toTag;
-    if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
-      node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
-    }
-    // A target with no line value of its own (a burial) cannot hold the
-    // text the old tag carried there (`1 _INTE Žale`), so it becomes the
-    // event's note instead of being lost. The bare `Y` flag says only that
-    // the event happened, which the event now says by itself.
-    const value = node.value?.trim();
-    if (value && !carriesLineValue(toTag)) {
-      if (!isOccurrenceFlag(value)) {
-        insertOrdered(node, { level: node.level + 1, tag: "NOTE", value, children: [] }, EVENT_CHILD_ORDER);
-      }
-      node.value = undefined;
-    }
+    retagEvent(node, toTag, type);
     markEventTouched(node, "changed");
   };
   const doneFams = new Set<string>();
