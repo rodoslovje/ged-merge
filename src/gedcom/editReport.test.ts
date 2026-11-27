@@ -808,6 +808,20 @@ describe("diffSharedRecordNodes", () => {
       ["0 @S1@ SOUR", "1 DATA", "2 EVEN BIRT", "3 DATE FROM 1759 TO 1812", "2 EVEN DEAT", "3 DATE 1800"],
     )).toEqual(["DATA.EVEN.DATE: 1759-1812→FROM 1759 TO 1812"]);
   });
+
+  it("removing one OBJE pointer from a source reports only that removal, not a cascade", () => {
+    expect(rows(
+      ["0 @S1@ SOUR", "1 TITL Book", "1 OBJE @M34@", "1 OBJE @M18@", "1 OBJE @M08@", "1 OBJE @M41@"],
+      ["0 @S1@ SOUR", "1 TITL Book", "1 OBJE @M18@", "1 OBJE @M08@", "1 OBJE @M41@"],
+    )).toEqual(["OBJE: @M34@→"]);
+  });
+
+  it("swapping a single REPO pointer still pairs old → new", () => {
+    expect(rows(
+      ["0 @S1@ SOUR", "1 TITL Book", "1 REPO @R1@"],
+      ["0 @S1@ SOUR", "1 TITL Book", "1 REPO @R2@"],
+    )).toEqual(["REPO: @R1@→@R2@"]);
+  });
 });
 
 describe("removeRecordFromReport", () => {

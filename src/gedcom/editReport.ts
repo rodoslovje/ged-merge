@@ -1133,15 +1133,34 @@ export function diffSharedRecordNodes(
   const show = (value: string) =>
     labelFor && POINTER.test(value) ? labelFor(value) ?? value : value;
   type Line = { key: string; path: string; value: string };
+  // For a repeated list of childless pointer links (e.g. a SOUR's page `OBJE`
+  // pointers), pair by pointer value rather than by position: removing one
+  // duplicate `OBJE` would otherwise shift every later pointer by one slot and
+  // report dozens of bogus rewrites. Single-entry tags (e.g. swapping one
+  // `REPO` for another) stay positional so they still read as `old → new`.
+  const countByTag = (node: GedNode) => {
+    const counts = new Map<string, number>();
+    for (const c of node.children) counts.set(c.tag, (counts.get(c.tag) ?? 0) + 1);
+    return counts;
+  };
+  const beforeCounts = countByTag(before);
+  const afterCounts = countByTag(after);
+  const pairByPointer = (keyPrefix: string, child: GedNode, value: string | undefined): boolean =>
+    keyPrefix === "" &&
+    child.children.length === 0 &&
+    !!value &&
+    POINTER.test(value) &&
+    ((beforeCounts.get(child.tag) ?? 0) > 1 || (afterCounts.get(child.tag) ?? 0) > 1);
   // Every valued line in document order, keyed by its place in the tree.
   const flatten = (node: GedNode, keyPrefix: string, pathPrefix: string, out: Line[]) => {
     const seen = new Map<string, number>();
     for (const child of node.children) {
-      const nth = seen.get(child.tag) ?? 0;
-      seen.set(child.tag, nth + 1);
-      const key = `${keyPrefix}/${child.tag}#${nth}`;
-      const path = pathPrefix ? `${pathPrefix}.${child.tag}` : child.tag;
       const value = child.value?.trim();
+      const slot = pairByPointer(keyPrefix, child, value) ? `${child.tag}=${value}` : child.tag;
+      const nth = seen.get(slot) ?? 0;
+      seen.set(slot, nth + 1);
+      const key = `${keyPrefix}/${slot}#${nth}`;
+      const path = pathPrefix ? `${pathPrefix}.${child.tag}` : child.tag;
       if (value) out.push({ key, path, value });
       flatten(child, key, path, out);
     }
