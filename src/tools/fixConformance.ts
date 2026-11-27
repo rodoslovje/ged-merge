@@ -446,7 +446,8 @@ export function fixConformance(
     });
   }
   if (kind === "sourceFields") {
-    const pass = sourceFieldPass(dataset.records, overrides);
+    // Asked for on a row (`only`), the lines go even from a file that keeps them.
+    const pass = sourceFieldPass(dataset.records, only ? { standard: isV7Table(dataset.records) ? "7.0" : "5.5.1" } : overrides);
     return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
   }
   if (kind === "templateFields") {

@@ -1,5 +1,5 @@
 import { AddSourceDialog } from "../AddSourceDialog";
-import { keepsSourceTag, sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
+import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
 import { LinkedTags } from "../TagLinks";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
@@ -394,9 +394,14 @@ export function ValidatePanel({
     scans.refresh("validate");
   }
 
+  /** A source's FILN/PERI restated, asked for on a row: in a Master file, which
+   *  keeps those lines otherwise, the row's own ask is what moves them. */
+  const fixSourceFields = () => onFixConformance("sourceFields", formatOverrides.standard ? undefined : {});
+
   /** One whole-file fix, as a batch runs it when every row of its kind is
    *  picked; returns how many records it changed. */
   function runKind(kind: FixKind): number {
+    if (kind === "sourceFields") return fixSourceFields();
     return kind === "links" ? onFixBrokenLinks()
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
@@ -408,7 +413,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "publication" || kind === "templateFields" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "publication" || kind === "templateFields" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -954,12 +959,6 @@ export function ValidatePanel({
   }
 
   /** The same, for a structural finding. */
-  /** Whether a source's FILN/PERI line is the fix's to restate: always for
-   *  the `_` spelling, and for the bare one where the file does not keep it. */
-  function sourceFieldFixable(tag: string | undefined): boolean {
-    if (!tag) return false;
-    return tag.startsWith("_") || !keepsSourceTag(dataset.records, tag as "FILN" | "PERI", formatOverrides);
-  }
 
   function structRowFix(issue: StructIssue): RowFix | null {
     if (issue.category === "badDate" && issue.fix && issue.recordId) {
@@ -1078,17 +1077,19 @@ export function ValidatePanel({
     }
     // A source's filing number or periodical: the standard's call number and
     // title, in every source — unless the file keeps its own bare lines.
-    if (issue.sourceField && issue.recordId && sourceFieldFixable(issue.sample)) {
+    // A file that keeps them (a Master file) still offers it on the row.
+    if (issue.sourceField && issue.recordId) {
       return {
         label: t("tools.validate.fixOneSourceFields"),
         hint: t("tools.validate.fixOneSourceFieldsHint"),
         kind: "sourceFields",
-        run: () => onFixConformance("sourceFields"),
+        run: fixSourceFields,
       };
     }
     // An extension standing in for a 7.0 structure: that structure, in every
-    // record — in a strict 7.0 target; a file kept with its variations keeps it.
-    if (issue.standardForm && issue.recordId && formatOverrides.standard === "7.0") {
+    // record. The finding is a 7.0 file's, so the row offers it in a Master
+    // file too; only "fix all" waits for a strict 7.0 target.
+    if (issue.standardForm && issue.recordId && formatOverrides.standard !== "5.5.1") {
       return {
         label: t("tools.validate.fixOneSourceFields"),
         hint: t("tools.validate.fixOneExtensionsHint"),
