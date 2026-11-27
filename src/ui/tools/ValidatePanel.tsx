@@ -158,7 +158,7 @@ const SEV_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
 
 /** The findings list's filter: a category, All, the rows with a repair, or
  *  one of the two chips carved out of a category. */
-type Filter = IssueCategory | StructCategory | "all" | "fixable" | "tranLang" | "eventText";
+type Filter = IssueCategory | StructCategory | "all" | "fixable" | "tranLang" | "eventText" | "nameType";
 
 /** A row in the unified Health Check list — a record-level finding or a structural
  *  ("spec") one. Both carry a severity so they interleave by it in the "All" view. */
@@ -439,6 +439,7 @@ export function ValidatePanel({
   useEffect(() => {
     if (filter === "tranLang" && !structure?.issues.some(isUntaggedTran)) setFilter("all");
     if (filter === "eventText" && !structure?.issues.some(isEventText)) setFilter("all");
+    if (filter === "nameType" && !structure?.issues.some(isNameType)) setFilter("all");
   }, [filter, structure]);
 
   useEffect(() => {
@@ -540,10 +541,12 @@ export function ValidatePanel({
       if (structGroup(issue.category) !== group) continue;
       if (f === "all" && NOTED_ONLY.has(issue.category)) continue;
       // Translations without a language are a chip of their own, carved out
-      // of the missing lines they technically are.
+      // of the missing lines they technically are; so are a name's types,
+      // which would otherwise bury the other non-standard values.
       if (f === "tranLang" ? !isUntaggedTran(issue)
         : f === "eventText" ? !isEventText(issue)
-        : f !== "all" && (issue.category !== f || isUntaggedTran(issue) || isEventText(issue))) continue;
+        : f === "nameType" ? !isNameType(issue)
+        : f !== "all" && (issue.category !== f || isUntaggedTran(issue) || isEventText(issue) || isNameType(issue))) continue;
       // Structural rows have no person subject; match the search on the tag/record.
       if (query && !`${issue.sample ?? ""} ${issue.recordId ?? ""}`.toLowerCase().includes(query)) continue;
       // A translation without a language is one row however often it occurs:
@@ -1184,6 +1187,7 @@ export function ValidatePanel({
   // worklist below re-reads those lines on the main thread, so only then.
   const untaggedTranCount = structure?.issues.filter(isUntaggedTran).length ?? 0;
   const eventTextCount = structure?.issues.filter(isEventText).length ?? 0;
+  const nameTypeCount = structure?.issues.filter(isNameType).length ?? 0;
   const hasUntaggedTran = untaggedTranCount > 0;
   const tranLang = useTranslationLang({
     dataset,
@@ -1438,7 +1442,7 @@ export function ValidatePanel({
               {STRUCT_CATEGORIES.filter((c) => structGroup(c) === group && (structure?.counts[c] ?? 0) > 0).map((c) => {
                 const count = structure!.counts[c]
                   - (c === "missingLine" ? untaggedTranCount : 0)
-                  - (c === "enumValue" ? eventTextCount : 0);
+                  - (c === "enumValue" ? eventTextCount + nameTypeCount : 0);
                 return count > 0 && (
                   <button
                     key={c}
@@ -1449,6 +1453,14 @@ export function ValidatePanel({
                   </button>
                 );
               })}
+              {group === "gedcom" && nameTypeCount > 0 && (
+                <button
+                  className={`tools-chip ${filter === "nameType" ? "active" : ""}`}
+                  onClick={() => setFilter("nameType")}
+                >
+                  {t("tools.validate.nameType.title")} <span className="tools-chip-count">{nameTypeCount}</span>
+                </button>
+              )}
               {group === "gedcom" && hasUntaggedTran && (
                 <button
                   className={`tools-chip ${filter === "tranLang" ? "active" : ""}`}
@@ -1760,6 +1772,12 @@ function isValueFix(i: StructIssue): boolean {
 /** Text on an event line (`DEAT 1.5y old`), which the fix moves into a note. */
 function isEventText(i: StructIssue): boolean {
   return i.messageKey === "tools.validate.struct.issue.badY" && !!i.toNote;
+}
+
+/** A name's type (`NAME > TYPE`) outside the version's list, or in another
+ *  case than it writes. */
+function isNameType(i: StructIssue): boolean {
+  return i.category === "enumValue" && String(i.messageVars?.parent).endsWith(".NAME.TYPE");
 }
 
 /** A translation the standard wants a language on, written without one. */

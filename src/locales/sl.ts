@@ -940,6 +940,7 @@ export const sl = {
   "tools.validate.coordConflict.applied_two": "Poenoteno — posodobljena {{count}} zapisa.",
   "tools.validate.coordConflict.applied_few": "Poenoteno — posodobljeni {{count}} zapisi.",
   "tools.validate.coordConflict.applied_other": "Poenoteno — posodobljenih {{count}} zapisov.",
+  "tools.validate.nameType.title": "Nestandardne vrste imen",
   "tools.validate.eventText.title": "Besedilo v oznaki dogodka",
   "tools.validate.tranLang.open": "Izberi jezike",
   "tools.validate.tranLang.title": "Prevodi brez jezika",

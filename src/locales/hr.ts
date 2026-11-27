@@ -885,6 +885,7 @@ export const hr = {
   "tools.validate.coordConflict.applied_one": "Ujednačeno — ažuriran je {{count}} zapis.",
   "tools.validate.coordConflict.applied_few": "Ujednačeno — ažurirana su {{count}} zapisa.",
   "tools.validate.coordConflict.applied_other": "Ujednačeno — ažurirano je {{count}} zapisa.",
+  "tools.validate.nameType.title": "Nestandardne vrste imena",
   "tools.validate.eventText.title": "Tekst u retku događaja",
   "tools.validate.tranLang.open": "Odaberi jezike",
   "tools.validate.tranLang.title": "Prijevodi bez jezika",

@@ -818,6 +818,7 @@ export const en = {
   "tools.validate.coordConflict.apply": "Settle coordinates ({{count}})",
   "tools.validate.coordConflict.applied_one": "Settled — {{count}} record updated.",
   "tools.validate.coordConflict.applied_other": "Settled — {{count}} records updated.",
+  "tools.validate.nameType.title": "Non-standard name types",
   "tools.validate.eventText.title": "Text on event lines",
   "tools.validate.tranLang.open": "Choose languages",
   "tools.validate.tranLang.title": "Translations without a language",
