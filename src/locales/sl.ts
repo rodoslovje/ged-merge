@@ -1857,6 +1857,8 @@ export const sl = {
   "tools.places.rename.apply": "Preimenuj",
   "tools.places.rename.merge": "Združi",
   "tools.places.rename.delete": "Odstrani nivo",
+  "tools.places.otherNamesToggle": "Druga imena",
+  "tools.places.otherNamesHint": "Prikaže samo kraje z drugimi imeni. Iskanje takrat išče le po teh imenih.",
   "tools.places.tran.title": "Druga imena (prevodi)",
   "tools.places.tran.scope_one": "pri {{count}} dogodku",
   "tools.places.tran.scope_two": "pri {{count}} dogodkih",

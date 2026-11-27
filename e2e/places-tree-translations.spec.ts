@@ -37,6 +37,22 @@ test("a place's other names: shown, searched and written on every event", async 
   await expect(page.locator(".tools-tree-row").filter({ hasText: "Ljubljana" })).toHaveCount(0);
   await expect(kranj).toBeVisible();
 
+  // "Other names" narrows the tree to the places that have one, and the
+  // search to those names: the place's own name no longer finds it.
+  const search = page.locator(".tools-search-input").first();
+  const otherNames = page.getByRole("button", { name: "Other names", exact: true });
+  await search.fill("");
+  await expect(page.locator(".tools-tree-row").filter({ hasText: "Ljubljana" })).toBeVisible();
+  await otherNames.click();
+  await expect(page.locator(".tools-tree-row").filter({ hasText: "Ljubljana" })).toHaveCount(0);
+  await expect(kranj).toBeVisible();
+  await search.fill("Kranj");
+  await expect(page.locator(".tools-tree-row").filter({ hasText: "Kranj" })).toHaveCount(0);
+  await search.fill("Krainb");
+  await expect(kranj).toBeVisible();
+  await otherNames.click();
+  await search.fill("Krainburg");
+
   await kranj.hover();
   await kranj.locator(".tools-place-edit-btn").first().click();
   const editor = page.locator(".tools-place-tran");

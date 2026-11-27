@@ -1713,6 +1713,8 @@ export const hr = {
   "tools.places.rename.apply": "Preimenuj",
   "tools.places.rename.merge": "Spoji",
   "tools.places.rename.delete": "Ukloni razinu",
+  "tools.places.otherNamesToggle": "Druga imena",
+  "tools.places.otherNamesHint": "Prikazuje samo mjesta s drugim imenima. Pretraživanje tada traži samo po tim imenima.",
   "tools.places.tran.title": "Drugi nazivi (prijevodi)",
   "tools.places.tran.scope_one": "za {{count}} događaj",
   "tools.places.tran.scope_few": "za {{count}} događaja",

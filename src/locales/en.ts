@@ -1621,6 +1621,8 @@ export const en = {
   "tools.places.rename.apply": "Rename",
   "tools.places.rename.merge": "Merge",
   "tools.places.rename.delete": "Delete level",
+  "tools.places.otherNamesToggle": "Other names",
+  "tools.places.otherNamesHint": "Show only the places that have other names. The search then looks in those names only.",
   "tools.places.tran.title": "Other names (translations)",
   "tools.places.tran.scope_one": "on {{count}} event",
   "tools.places.tran.scope_other": "on {{count}} events",
