@@ -1,4 +1,4 @@
-import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER } from "../eventTags";
+import { FAM_EVENT_TAG_ORDER, INDI_EVENT_TAG_ORDER, carriesLineValue, isOccurrenceFlag } from "../eventTags";
 import { firstChild, removeChildren } from "../node";
 import type { GedNode } from "../types";
 
@@ -388,4 +388,26 @@ export function insertRecordAt(
   const at = trlrIndex === -1 ? index : Math.min(index, trlrIndex);
   records.splice(at, 0, record);
   if (trlr) trlr.at = trlrIndex === -1 ? -1 : trlrIndex + 1;
+}
+
+/**
+ * Re-tag an event line to `toTag`, keeping everything beneath it. A generic
+ * `EVEN`/`FACT` target is named by `type` (unless the line has a `TYPE`
+ * already). A target with no line value of its own (a burial) cannot hold the
+ * text the old tag carried there (`1 _INTE Žale`), so that becomes the event's
+ * note instead of being lost; the bare `Y` flag says only that the event
+ * happened, which the event now says by itself.
+ */
+export function retagEvent(node: GedNode, toTag: string, type: string | undefined): void {
+  node.tag = toTag;
+  if (type && (toTag === "EVEN" || toTag === "FACT") && !node.children.some((c) => c.tag === "TYPE")) {
+    node.children.unshift({ level: node.level + 1, tag: "TYPE", value: type, children: [] });
+  }
+  const value = node.value?.trim();
+  if (value && !carriesLineValue(toTag)) {
+    if (!isOccurrenceFlag(value)) {
+      insertOrdered(node, { level: node.level + 1, tag: "NOTE", value, children: [] }, EVENT_CHILD_ORDER);
+    }
+    node.value = undefined;
+  }
 }

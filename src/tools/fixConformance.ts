@@ -11,6 +11,7 @@ import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
 import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite";
+import { vendorTagToStandard } from "./vendorToStandard";
 
 /**
  * The repairs the conformance check can make:
@@ -90,9 +91,12 @@ export type ConformanceFixKind = "values" | "repeats" | "forms" | "notes" | "rel
 
 /** Repairs only ever run on the row that asks for them (see `recordRewrite`):
  *  **customTags** removes the tag a row names (`ref.value`) — everywhere, or,
- *  for a misplaced standard tag, only under `ref.parent` — and **xrefs** renames
- *  the record a row names (`ref.id`) by the rules of `ref.value`'s version. */
-export type RowOnlyFixKind = "customTags" | "xrefs";
+ *  for a misplaced standard tag, only under `ref.parent` — **xrefs** renames
+ *  the record a row names (`ref.id`) by the rules of `ref.value`'s version,
+ *  and **toStandard** restates the program's tag a row names (`ref.value`) as
+ *  the standard structure that says the same (see `vendorToStandard`), named
+ *  by `ref.label` where the tag itself was the meaning. */
+export type RowOnlyFixKind = "customTags" | "xrefs" | "toStandard";
 
 /** One finding's own fix: its record, and the path of the line inside it. */
 export interface ConformanceRef {
@@ -101,6 +105,9 @@ export interface ConformanceRef {
   path?: string;
   /** For the media forms: only the files this form fits. */
   value?: string;
+  /** For a tag restated as a standard structure: the word that names it there
+   *  (an event's `TYPE`), in the reader's language. */
+  label?: string;
   /** For a tag removal: the dotted path the tag is misplaced under
    *  (`REPO.WWW`) — only the lines standing there go. */
   parent?: string;
@@ -322,6 +329,29 @@ function templateFieldPass(records: GedNode[]): MediaPass {
   };
 }
 
+/** Whether a line tagged `tag` stands anywhere beneath `node`. */
+function holdsTag(node: GedNode, tag: string): boolean {
+  return node.children.some((c) => c.tag === tag || holdsTag(c, tag));
+}
+
+/** For each of `tags`, how many of its lines the **toStandard** fix would
+ *  restate (see `vendorToStandard`) — a row offers the fix while any is left.
+ *  One walk of the file for all of them. */
+export function countVendorToStandard(dataset: Dataset, tags: ReadonlyMap<string, string | undefined>): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!tags.size) return counts;
+  const version = isV7Table(dataset.records) ? "7.0" : "5.5.1";
+  for (const rec of dataset.records) {
+    if (!rec.xref) continue;
+    for (const [tag, label] of tags) {
+      if (!holdsTag(rec, tag)) continue;
+      const n = vendorTagToStandard(cloneNode(rec), tag, version, label);
+      if (n) counts.set(tag, (counts.get(tag) ?? 0) + n);
+    }
+  }
+  return counts;
+}
+
 /** How many findings of `kind` the fix would settle — the count on its button;
  *  for the media passes, the media records they would change. */
 export function countFixableConformance(dataset: Dataset, kind: ConformanceFixKind, overrides?: Pick<FormatOverrides, "standard">): number {
@@ -399,8 +429,25 @@ export function fixConformance(
     return only.parent ? removeMisplacedTag(dataset, only.value, only.parent) : removeCustomTag(dataset, only.value);
   }
   if (kind === "xrefs") return only?.id ? renameXref(dataset, only.id, only.value === "7.0") : [];
+  if (kind === "toStandard") {
+    const tag = only?.value;
+    if (!tag) return [];
+    const version = isV7Table(dataset.records) ? "7.0" : "5.5.1";
+    return applyPassSafely(dataset, (journal) => {
+      const patches: RecordPatch[] = [];
+      for (const rec of dataset.records) {
+        if (!rec.xref || !holdsTag(rec, tag) || vendorTagToStandard(cloneNode(rec), tag, version, only.label) === 0) continue;
+        const before = cloneNode(rec);
+        journal.keep(rec.xref, before);
+        vendorTagToStandard(rec, tag, version, only.label);
+        patches.push(recordPatch(dataset, rec.xref, rec, before));
+      }
+      return patches;
+    });
+  }
   if (kind === "sourceFields") {
-    const pass = sourceFieldPass(dataset.records, overrides);
+    // Asked for on a row (`only`), the lines go even from a file that keeps them.
+    const pass = sourceFieldPass(dataset.records, only ? { standard: isV7Table(dataset.records) ? "7.0" : "5.5.1" } : overrides);
     return applyPassSafely(dataset, (journal) => mediaPassOver(dataset.records, pass, journal, "SOUR"));
   }
   if (kind === "templateFields") {

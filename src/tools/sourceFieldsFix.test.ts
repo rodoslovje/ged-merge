@@ -74,6 +74,22 @@ describe("the health check's source-fields repair", () => {
     );
   });
 
+  it("restates them in a file kept with its variations when a row asks for it", () => {
+    const ds = file("7.0", SOURCES);
+    const before = serializeGedcom(ds.records);
+    const patches = fixConformance(ds, "sourceFields", {});
+    expect(sources(ds.records)).toBe(
+      [
+        "0 @S1@ SOUR\n1 TITL Obituary, Slovenec\n1 REPO @R1@\n2 CALN 123",
+        "0 @S2@ SOUR\n1 TITL Register\n1 REPO @VOID@\n2 CALN 9",
+        "0 @S3@ SOUR\n1 TITL Domoljub",
+      ].join("\n"),
+    );
+    expect(fixConformance(ds, "sourceFields", {})).toEqual([]);
+    applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records)).toBe(before);
+  });
+
   it("marks the rows it repairs", () => {
     const rows = validateStructure(file("5.5.1", SOURCES)).issues.filter((i) => i.sourceField);
     expect(rows.map((i) => i.sample).sort()).toEqual(["FILN", "PERI", "_FILN", "_PERI"]);

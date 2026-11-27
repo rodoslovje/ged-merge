@@ -8,7 +8,7 @@ import type { GedNode } from "../../gedcom/types";
 import { serializeGedcom } from "../../gedcom/serialize";
 import { applyRecordPatches } from "../../ui/historyTypes";
 import { validateStructure } from "../structure";
-import { countFixableConformance, fixConformance } from "../fixConformance";
+import { countFixableConformance, countVendorToStandard, fixConformance } from "../fixConformance";
 import { fixableConformance, nodeAtPath, tableFor, validateConformance, type ConformanceIssue } from "./conformance";
 import { SPEC_55, SPEC_551, SPEC_555 } from "./spec551";
 import { SPEC_70 } from "./spec70";
@@ -943,6 +943,67 @@ describe("fixConformance", () => {
     expect(validateConformance(ds).filter((i) => ["@S1@", "@S2@", "@S3@"].includes(i.recordId ?? ""))).toEqual([]);
 
     applyRecordPatches(ds, patches, "undo");
+    expect(serializeGedcom(ds.records, ds)).toBe(before);
+  });
+
+  it.each([["5.5.1", HEAD_551], ["7.0", HEAD_70]])("restates a program's tags as standard structures in %s", (v, head) => {
+    const ds = dataset(`${head}
+0 @I1@ INDI
+1 NAME Milan Ivan /Miklič/
+2 GIVN Milan
+2 SURN Miklič
+2 SECG Ivan
+1 ILL prometna nesreča
+2 DATE 22 JUN 1966
+1 MISE
+2 DATE 17 APR 1919
+1 LATR Pogodba o vzdrževanju
+2 TYPE Pogodba
+1 PRIV
+0 @I2@ INDI
+1 NAME Jakob Filip /Dolinar/
+2 SECG Filip
+1 NAME Jaka /Dolinar/
+2 SECG Franc
+0 @S1@ SOUR
+1 TITL Goranska prezimena
+1 EDTN 2nd
+0 @S2@ SOUR
+1 TITL Genealogie
+1 PUBL Wien, 1902
+1 EDTN 1
+0 @O1@ OBJE
+1 FILE portraits/a.jpg
+2 FORM ${v === "7.0" ? "image/jpeg" : "jpg"}
+1 _DSCR Jernej Demšar (1920)
+0 TRLR`);
+    const before = serializeGedcom(ds.records, ds);
+    const labels = new Map([["ILL", "Illness"], ["MISE", "Military service"], ["LATR", "Legal transaction"], ["EDTN", "Edition"]]);
+    const tags = ["ILL", "MISE", "LATR", "PRIV", "SECG", "EDTN", "_DSCR"];
+    expect(Object.fromEntries(countVendorToStandard(ds, new Map(tags.map((t) => [t, labels.get(t)])))))
+      .toEqual({ ILL: 1, MISE: 1, LATR: 1, PRIV: 1, SECG: 2, EDTN: 2, _DSCR: 1 });
+    const patches = tags.flatMap((tag) => fixConformance(ds, "toStandard", { value: tag, label: labels.get(tag) }));
+    const out = serializeGedcom(ds.records, ds);
+    // The second given name joins GIVN; one the name line itself says only
+    // goes; one nothing says, with no GIVN to join, stays.
+    expect(out).toContain("1 NAME Milan Ivan /Miklič/\n2 GIVN Milan Ivan\n2 SURN Miklič\n1 FACT");
+    expect(out).toContain("1 NAME Jakob Filip /Dolinar/\n1 NAME Jaka /Dolinar/\n2 SECG Franc\n");
+    // A state of the person is a FACT, a happening an EVEN — one without text
+    // too; each named by the tag's own name unless it has a TYPE already.
+    expect(out).toContain("1 FACT prometna nesreča\n2 TYPE Illness\n2 DATE 22 JUN 1966\n");
+    expect(out).toContain("1 EVEN\n2 TYPE Military service\n2 DATE 17 APR 1919\n");
+    expect(out).toContain("1 EVEN Pogodba o vzdrževanju\n2 TYPE Pogodba\n");
+    expect(out).toContain(`1 RESN ${v === "7.0" ? "PRIVACY" : "privacy"}\n`);
+    expect(out).toContain("1 TITL Goranska prezimena\n1 PUBL Edition: 2nd\n");
+    expect(out).toContain("1 PUBL Wien, 1902, Edition: 1\n0 @O1@");
+    expect(out).toContain("1 NOTE Jernej Demšar (1920)\n");
+    // Only the name nothing could place is left to report.
+    expect(validateStructure(ds).issues.filter((i) => i.category === "customTag").map((i) => i.sample)).toEqual(["SECG"]);
+    expect(validateConformance(ds)).toEqual([]);
+    // A second run finds nothing to do.
+    expect(tags.flatMap((tag) => fixConformance(ds, "toStandard", { value: tag, label: labels.get(tag) }))).toEqual([]);
+
+    applyRecordPatches(ds, patches.reverse(), "undo");
     expect(serializeGedcom(ds.records, ds)).toBe(before);
   });
 

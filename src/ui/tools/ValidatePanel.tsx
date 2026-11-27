@@ -1,10 +1,10 @@
 import { AddSourceDialog } from "../AddSourceDialog";
-import { keepsSourceTag, sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
+import { sourceRecordEditFields, type EditSourceFields } from "../../gedcom/edit";
 import { LinkedTags } from "../TagLinks";
 import { useTargetFormat } from "../TargetFormatContext";
 import type { ToolView } from "../ToolsView";
 import { tabIndexFor, tablistKeyDown } from "../../keyboard/tablist";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isEditableTarget, isModalOpen } from "../../keyboard/shortcuts";
 import { handleListKey, useListFocusKeeper } from "../../keyboard/useListKeyboard";
 import { useTranslation } from "react-i18next";
@@ -22,7 +22,8 @@ import { countSwappedRoles, swappedRoleTargets } from "../../tools/fixRoleSwap";
 import { spouseSlotFor, type BrokenLinkRef } from "../../tools/fixLinks";
 import { countFixableDates, type BadDateRef } from "../../tools/fixDates";
 import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs";
-import { countFixableConformance, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
+import { countFixableConformance, countVendorToStandard, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
+import { eventNameTag, standardHomeOf, standardTargetTag } from "../../tools/vendorToStandard";
 import { recordsWithTag } from "../../tools/recordRewrite";
 import { TEMPLATE_STANDARD_TAGS } from "../../tools/sourceReshape/apply";
 import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
@@ -59,10 +60,10 @@ const FIX_DONE_MS = 8000;
 /** One-button repair flows; the suffix is the i18n key segment (`fix<Suffix>`),
  *  shared with Normalize, which runs some of them. */
 type FixKind = "links" | "sex" | "roles" | "godparents" | "deceased" | "births" | "marriageDates" | "dates" | "nonStandard" | "dups" | "families" | "dangling" | ConformanceFixKind;
-export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", titleLinks: "ConformTitleLinks", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", publication: "ConformPublication", templateFields: "ConformTemplateFields", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs" };
+export const FIX_SUFFIX: Record<FixKind, string> = { links: "Links", sex: "Sex", roles: "Roles", godparents: "Godparents", deceased: "Deceased", births: "BirthEstimates", marriageDates: "MarriageDates", dates: "Dates", nonStandard: "NonStandardDates", dups: "DupPointers", families: "DupFamilies", dangling: "Dangling", values: "ConformValues", repeats: "ConformRepeats", forms: "ConformForms", relocate: "ConformRelocate", fileTitles: "ConformFileTitles", titleLinks: "ConformTitleLinks", agency: "ConformAgency", sourceFields: "ConformSourceFields", extensions: "ConformExtensions", stamps: "ConformStamps", coverage: "ConformCoverage", publication: "ConformPublication", templateFields: "ConformTemplateFields", assoDates: "ConformAssoDates", smartMatch: "ConformSmartMatch", mediaInfo: "ConformMediaInfo", childPedi: "ConformChildPedi", citationPage: "ConformCitationPage", eventTypes: "ConformEventTypes", notes: "ConformNotes", customTags: "ConformCustomTags", xrefs: "ConformXrefs", toStandard: "ConformToStandard" };
 /** Fixes that settle only the rows that ask: picking every row of the kind
  *  still runs them one by one, never as a whole-file pass. */
-const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs"]);
+const ROW_ONLY_KINDS: ReadonlySet<FixKind> = new Set(["customTags", "xrefs", "toStandard"]);
 
 const CATEGORIES: IssueCategory[] = [
   "brokenLink",
@@ -393,9 +394,14 @@ export function ValidatePanel({
     scans.refresh("validate");
   }
 
+  /** A source's FILN/PERI restated, asked for on a row: in a Master file, which
+   *  keeps those lines otherwise, the row's own ask is what moves them. */
+  const fixSourceFields = () => onFixConformance("sourceFields", formatOverrides.standard ? undefined : {});
+
   /** One whole-file fix, as a batch runs it when every row of its kind is
    *  picked; returns how many records it changed. */
   function runKind(kind: FixKind): number {
+    if (kind === "sourceFields") return fixSourceFields();
     return kind === "links" ? onFixBrokenLinks()
       : kind === "sex" ? onFixSexFromRole()
       : kind === "roles" ? onFixSwappedRoles()
@@ -407,7 +413,7 @@ export function ValidatePanel({
       : kind === "nonStandard" ? onFixNonStandardDates()
       : kind === "dangling" ? onFixDanglingRefs()
       : kind === "families" ? onFixDuplicateFamilies()
-      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "sourceFields" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "publication" || kind === "templateFields" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
+      : kind === "values" || kind === "repeats" || kind === "forms" || kind === "notes" || kind === "relocate" || kind === "fileTitles" || kind === "titleLinks" || kind === "agency" || kind === "extensions" || kind === "stamps" || kind === "coverage" || kind === "publication" || kind === "templateFields" || kind === "assoDates" || kind === "smartMatch" || kind === "mediaInfo" || kind === "childPedi" || kind === "citationPage" || kind === "eventTypes" ? onFixConformance(kind)
       : onFixDuplicatePointers();
   }
 
@@ -549,6 +555,21 @@ export function ValidatePanel({
     () => (structure?.issues.some(isTemplateField) ? countFixableConformance(dataset, "templateFields") : 0),
     [structure, dataset],
   );
+  /** The word a program's tag is named by once it is a standard structure: an
+   *  event's own name for its `TYPE`, "Edition" in a source's `PUBL`. */
+  const standardLabelOf = useCallback((tag: string): string | undefined => {
+    const home = standardHomeOf(tag);
+    if (home === "event") return t(`event.${eventNameTag(tag)}`, { defaultValue: "" }) || undefined;
+    return home === "publication" ? t("tools.validate.editionLabel") : undefined;
+  }, [t]);
+  // Per program's tag with a standard home, the lines the fix would restate.
+  const standardCounts = useMemo(() => {
+    const tags = new Map<string, string | undefined>();
+    for (const i of structure?.issues ?? []) {
+      if (i.category === "customTag" && i.sample && standardHomeOf(i.sample)) tags.set(i.sample, standardLabelOf(i.sample));
+    }
+    return countVendorToStandard(dataset, tags);
+  }, [structure, dataset, standardLabelOf]);
   // Media records whose title is a link the record's FILE lines do not hold.
   const fixableTitleLinks = useMemo(
     () => (structure?.issues.some((i) => i.titleLink) ? countFixableConformance(dataset, "titleLinks") : 0),
@@ -938,12 +959,6 @@ export function ValidatePanel({
   }
 
   /** The same, for a structural finding. */
-  /** Whether a source's FILN/PERI line is the fix's to restate: always for
-   *  the `_` spelling, and for the bare one where the file does not keep it. */
-  function sourceFieldFixable(tag: string | undefined): boolean {
-    if (!tag) return false;
-    return tag.startsWith("_") || !keepsSourceTag(dataset.records, tag as "FILN" | "PERI", formatOverrides);
-  }
 
   function structRowFix(issue: StructIssue): RowFix | null {
     if (issue.category === "badDate" && issue.fix && issue.recordId) {
@@ -1062,17 +1077,19 @@ export function ValidatePanel({
     }
     // A source's filing number or periodical: the standard's call number and
     // title, in every source — unless the file keeps its own bare lines.
-    if (issue.sourceField && issue.recordId && sourceFieldFixable(issue.sample)) {
+    // A file that keeps them (a Master file) still offers it on the row.
+    if (issue.sourceField && issue.recordId) {
       return {
         label: t("tools.validate.fixOneSourceFields"),
         hint: t("tools.validate.fixOneSourceFieldsHint"),
         kind: "sourceFields",
-        run: () => onFixConformance("sourceFields"),
+        run: fixSourceFields,
       };
     }
     // An extension standing in for a 7.0 structure: that structure, in every
-    // record — in a strict 7.0 target; a file kept with its variations keeps it.
-    if (issue.standardForm && issue.recordId && formatOverrides.standard === "7.0") {
+    // record. The finding is a 7.0 file's, so the row offers it in a Master
+    // file too; only "fix all" waits for a strict 7.0 target.
+    if (issue.standardForm && issue.recordId && formatOverrides.standard !== "5.5.1") {
       return {
         label: t("tools.validate.fixOneSourceFields"),
         hint: t("tools.validate.fixOneExtensionsHint"),
@@ -1174,6 +1191,21 @@ export function ValidatePanel({
         hint: t("tools.validate.fixConformTemplateFieldsHint"),
         kind: "templateFields",
         run: () => onFixConformance("templateFields"),
+      };
+    }
+    // A program's tag the standard has a structure for: restated as that.
+    if (issue.category === "customTag" && issue.sample && (standardCounts.get(issue.sample) ?? 0) > 0) {
+      const tag = issue.sample;
+      const label = standardLabelOf(tag);
+      const target = standardTargetTag(tag, String(issue.messageVars?.version).startsWith("7") ? "7.0" : "5.5.1") ?? "";
+      return {
+        label: t("tools.validate.fixOneToStandard", { tag: target }),
+        hint: t(
+          standardHomeOf(tag) === "event" && label ? "tools.validate.fixOneToStandardEventHint" : "tools.validate.fixOneToStandardHint",
+          { tag, target, type: label, count: standardCounts.get(tag) },
+        ),
+        kind: "toStandard",
+        run: () => onFixConformance("toStandard", { value: tag, label }),
       };
     }
     // An extension tag: every line of it can go, wherever it stands.

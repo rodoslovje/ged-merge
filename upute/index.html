@@ -1523,10 +1523,17 @@
               <strong>O oznaci</strong> na stranicu koja kaže koji je program zapisuje i što znači. Vlastita oznaka
               programa bez podvlake (primjerice <code>RACE</code> iz programa MacFamilyTree) ne postoji ni u jednoj verziji GEDCOM-a,
               a proširenje koje zamjenjuje strukturu koju verzija datoteke ima (<code>_UID</code> u datoteci 7.0)
-              ima standardni oblik, pa se obje vrste prijavljuju kao odstupanja. Uz <em>GEDCOM 7.0</em> druga vrsta ima
-              ispravak <strong>Zapiši prema standardu</strong>. Ostala su proširenja valjan GEDCOM i navode se samo
-              informativno. Redak svake prilagođene oznake ima i gumb <strong>Ukloni oznaku</strong>, koji iz datoteke uklanja sve retke
-              te oznake zajedno s retcima ispod njih.
+              ima standardni oblik, pa se obje vrste prijavljuju kao odstupanja. Druga vrsta u svojem retku ima
+              ispravak <strong>Zapiši prema standardu</strong> (<code>_UID</code> postaje <code>UID</code>, a
+              <code>_FID</code> programa FamilySearch <code>EXID</code>), kao i oznake izvora <code>FILN</code> i
+              <code>PERI</code>, koje postaju signatura (<code>CALN</code>) i dio naslova. Oznaka programa koju
+              standard zapisuje drukčije ima gumb <strong>Pretvori u …</strong>: događaj ili činjenica koju poznaje
+              samo program (<code>ILL</code>, <code>MISE</code>, <code>DEED</code>) postaje <code>EVEN</code> ili
+              <code>FACT</code> s vrstom (<code>TYPE</code>) koja ga imenuje, <code>PRIV</code> postaje
+              <code>RESN</code>, <code>SECG</code> se pridružuje imenu, <code>_DSCR</code> uz medij postaje bilješka, a
+              <code>EDTN</code> uz izvor pridružuje se retku o objavi. Ostala su proširenja valjan GEDCOM i navode se
+              samo informativno. Redak svake druge prilagođene oznake ima gumb <strong>Ukloni oznaku</strong>, koji iz
+              datoteke uklanja sve retke te oznake zajedno s retcima ispod njih.
             </p>
             <p>
               Nalaz o izvoru navodi naziv izvora. Kliknite naziv ili gumb <strong>Uredi izvor</strong> u retku

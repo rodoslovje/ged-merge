@@ -1543,10 +1543,18 @@
               <strong>O oznaki</strong> na stran, ki pove, kateri program oznako piše in kaj pomeni. Oznaka programa brez
               podčrtaja (na primer <code>RACE</code> iz programa MacFamilyTree) ne obstaja v nobeni različici GEDCOM.
               Razširitev, ki nadomešča strukturo, ki jo različica datoteke pozna sama (na primer <code>_UID</code> v
-              datoteki 7.0), ima standardno obliko. Obe vrsti sta zato navedeni kot odstopanji, za drugo pa je pri
-              možnosti »GEDCOM 7.0« na voljo popravek »Zapiši po standardu«. Druge razširitve so veljaven GEDCOM in so
-              navedene le v vednost. Vrstica vsake oznake po meri ima tudi gumb <strong>Odstrani oznako</strong>, ki iz
-              datoteke odstrani vse vrstice te oznake skupaj z vrsticami pod njimi.
+              datoteki 7.0), ima standardno obliko. Obe vrsti sta zato navedeni kot odstopanji. Druga ima v svoji
+              vrstici popravek <strong>Zapiši po standardu</strong> (<code>_UID</code> postane <code>UID</code>,
+              <code>_FID</code> programa FamilySearch pa <code>EXID</code>). Enak popravek imata oznaki vira
+              <code>FILN</code> in <code>PERI</code>, ki postaneta signatura (<code>CALN</code>) in del naslova.
+              Oznaka programa, ki jo standard zapiše drugače, ima gumb <strong>Spremeni v …</strong>: dogodek ali
+              dejstvo, ki ga pozna le program (<code>ILL</code>, <code>MISE</code>, <code>DEED</code>), postane
+              <code>EVEN</code> ali <code>FACT</code> z vrsto (<code>TYPE</code>), ki ga poimenuje,
+              <code>PRIV</code> postane <code>RESN</code>, <code>SECG</code> se pridruži imenu, <code>_DSCR</code>
+              pri mediju postane opomba, <code>EDTN</code> pri viru pa se pridruži vrstici o objavi. Druge razširitve
+              so veljaven GEDCOM in so navedene le v vednost. Vrstica vsake druge oznake po meri ima gumb
+              <strong>Odstrani oznako</strong>, ki iz datoteke odstrani vse vrstice te oznake skupaj z vrsticami pod
+              njimi.
             </p>
             <p>
               Ugotovitev o viru navede ime vira. S klikom na ime ali na gumb <strong>Uredi vir</strong> na vrstici odprete
