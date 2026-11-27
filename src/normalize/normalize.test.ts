@@ -662,7 +662,7 @@ describe("normalizeDataset (name-variant reshaping)", () => {
     expect(names[1].type).toBe("aka");
   });
 
-  it("recases and unifies TYPE tokens to the main's spelling (MARRIED→married, maiden→birth)", () => {
+  it("recases TYPE tokens to the main's spelling (MARRIED→married), a maiden name staying one beside the main's birth names", () => {
     const compare = dataset(`0 HEAD
 1 CHAR UTF-8
 0 @I1@ INDI
@@ -676,8 +676,8 @@ describe("normalizeDataset (name-variant reshaping)", () => {
     const { dataset: out, report } = normalizeDataset(compare, inferMainProfile(recordMain));
     const names = out.individuals.get("@I1@")!.names;
     expect(names[1].type).toBe("married");
-    expect(names[2].type).toBe("birth");
-    expect(report.nameVariantsReshaped).toBe(2);
+    expect(names[2].type).toBe("maiden");
+    expect(report.nameVariantsReshaped).toBe(1);
   });
 
   it("converts a NICK sub-tag into a TYPE nick record when the main uses records", () => {
