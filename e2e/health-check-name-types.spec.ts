@@ -4,7 +4,7 @@ import path from "path";
 import { tmpdir } from "./tmpdir";
 
 // A name's types are a chip of their own: a married-names file has thousands
-// of them, and under "Non-standard values" they buried everything else.
+// of them, and under "Values" they buried everything else.
 const FILE = path.join(tmpdir(), "health-check-name-types.ged");
 
 writeFileSync(FILE, [
@@ -26,14 +26,14 @@ test("name types stand apart from the other non-standard values", async ({ page 
   await page.getByText("Health check", { exact: true }).first().click();
   await page.getByRole("tab", { name: /GEDCOM .* compliance/ }).click();
 
-  await expect(chip(page, "Non-standard name types").locator(".tools-chip-count")).toHaveText("1");
-  await expect(chip(page, "Non-standard values").locator(".tools-chip-count")).toHaveText("1");
+  await expect(chip(page, "Name types").locator(".tools-chip-count")).toHaveText("1");
+  await expect(chip(page, "Values").locator(".tools-chip-count")).toHaveText("1");
 
-  await chip(page, "Non-standard values").click();
+  await chip(page, "Values").click();
   await expect(page.locator(".tools-issue")).toHaveCount(1);
   await expect(page.locator(".tools-issue")).toContainText("QUAY");
 
-  await chip(page, "Non-standard name types").click();
+  await chip(page, "Name types").click();
   await expect(page.locator(".tools-issue")).toHaveCount(1);
   await expect(page.locator(".tools-issue")).toContainText("MARRIED");
 });
