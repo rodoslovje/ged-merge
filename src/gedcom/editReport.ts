@@ -9,6 +9,7 @@ import { parseName } from "./name";
 import { placeNodeCoord } from "./place";
 import { ADDRESS_CONTACT_TAGS, ADDRESS_PART_TAGS } from "./address";
 import { isPrivateNode } from "./private";
+import { exidTypeLabel, readExid } from "./exid";
 import { buildObjeIndex, isPointer, objeInfoOf, sourceTitle } from "./source";
 import { xrefLabel } from "./nameDisplay";
 import { EDITABLE_LINK_TAGS } from "./edit/shared";
@@ -86,6 +87,13 @@ function additionalNameSummaries(node: GedNode, t: Translate): string[] {
       const type = subTags.get("TYPE");
       return type ? `${nameTypeLabel(type, t)}: ${label}` : label;
     });
+}
+
+/** An external id as the report shows it: the id with the authority its TYPE
+ *  names (`94TH-MVL (familysearch.org/tree/person)`). */
+function exidText(value: string, node: GedNode): string {
+  const type = exidTypeLabel(readExid(node)?.type);
+  return type ? `${value} (${type})` : value;
 }
 
 function diffAdditionalNames(id: string, before: GedNode, after: GedNode, t: Translate): FieldChange[] {
@@ -385,7 +393,7 @@ function diffStringSet(
   isPrivate: (node: GedNode) => boolean = isPrivateNode,
   /** How a stored value reads in the report — see {@link makeNoteTextResolver}.
    *  Identity for every caller but the NOTE one. */
-  display: (value: string) => string = (v) => v,
+  display: (value: string, node: GedNode) => string = (v) => v,
 ): FieldChange[] {
   const diffs: FieldChange[] = [];
   // Kept as node/value pairs rather than bare strings: a NOTE may be flagged
@@ -397,7 +405,7 @@ function diffStringSet(
         const value = c.value?.trim() ?? "";
         // Matching stays on the stored value (a pointer is only "the same note"
         // as the same pointer); only what the row *shows* is resolved.
-        return { value, text: display(value), private: isPrivate(c) || undefined };
+        return { value, text: display(value, c), private: isPrivate(c) || undefined };
       })
       .filter((v) => v.value);
   const beforeVals = valuesOf(before);
@@ -562,7 +570,7 @@ function diffIndividualNodes(id: string, before: GedNode, after: GedNode, t: Tra
   diffs.push(...diffEventSet(id, before, after, evTags, (tag) => eventDisplayLabel(tag, t), resolveSource, nameMedia));
   diffs.push(...diffStringSet(id, before, after, (tag) => NOTE_TAGS.includes(tag), t("field.notes"), false, notePrivate, noteText));
   diffs.push(...diffStringSet(id, before, after, (tag) => tag === "_FID" || tag === "_FSFTID", t("field.fsid")));
-  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "EXID", t("field.exid")));
+  diffs.push(...diffStringSet(id, before, after, (tag) => tag === "EXID", t("field.exid"), false, undefined, exidText));
   diffs.push(...diffStringSet(id, before, after, (tag) => NO_TAGS.includes(tag), t("field.noEvents"), false, undefined, (v) => eventDisplayLabel(v, t)));
   diffs.push(...diffStringSet(id, before, after, (tag) => RECORD_LINK_TAGS.has(tag), t("field.sources"), true));
   diffs.push(...diffSourceCitations(id, before, after, t("field.sources"), resolveSource));
