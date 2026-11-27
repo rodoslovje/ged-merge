@@ -445,17 +445,6 @@ export function PlacesPanel({
       <div className="tools-filter-row">
         <TreeSearch value={query} onChange={setQuery} />
         <div className="tools-chip-group">
-          {anyOtherNames && (
-            <button
-              type="button"
-              className={`tools-chip ${otherOnly ? "active" : ""}`}
-              aria-pressed={otherOnly}
-              title={t("tools.places.otherNamesHint")}
-              onClick={() => setOtherNamesOnly((on) => !on)}
-            >
-              {t("tools.places.otherNamesToggle")}
-            </button>
-          )}
           {/* Compliance leads, and beside geocoding rather than inside it: this
               reads the whole file and says what disagrees with the registers,
               while geocoding is a worklist of what is left to place. Checking
@@ -492,6 +481,17 @@ export function PlacesPanel({
               <span className="tools-chip-count">{t("tools.places.geocodeChipAddr", { count: addressPending })}</span>
             )}
           </button>
+          {anyOtherNames && (
+            <button
+              type="button"
+              className={`tools-chip ${otherOnly ? "active" : ""}`}
+              aria-pressed={otherOnly}
+              title={t("tools.places.otherNamesHint")}
+              onClick={() => setOtherNamesOnly((on) => !on)}
+            >
+              {t("tools.places.otherNamesToggle")}
+            </button>
+          )}
         </div>
         <ToolSummary>
           {t("tools.places.summary", { countries: tree.countryCount, distinct: tree.distinctCount, uses: tree.totalUses })}
