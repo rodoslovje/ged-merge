@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { serializeGedcom } from "../gedcom/serialize";
-import { buildEditSaveRecords } from "./editSaveRecords";
+import { buildEditSaveRecords, ownRecords } from "./editSaveRecords";
 
 function dataset(text: string) {
   return buildDataset(parseGedcom(new TextEncoder().encode(text).buffer));
@@ -87,5 +87,59 @@ describe("buildEditSaveRecords", () => {
 
   it("handles an empty record list", () => {
     expect(buildEditSaveRecords([], all)).toEqual([]);
+  });
+});
+
+describe("buildEditSaveRecords with the records the save touches named", () => {
+  const index = (records: { xref?: string; tag: string }[], key: string) => records.findIndex((r) => (r.xref ?? r.tag) === key);
+
+  it("shares an untouched record and copies a touched one, the header and the trailer", () => {
+    const ds = dataset(MAIN);
+    const out = buildEditSaveRecords(ds.records, none, (xref) => xref === "@I1@");
+
+    expect(out).toHaveLength(ds.records.length);
+    expect(out[index(out, "@I2@")]).toBe(ds.records[index(ds.records, "@I2@")]);
+    for (const key of ["@I1@", "HEAD", "TRLR"]) expect(out[index(out, key)], key).not.toBe(ds.records[index(ds.records, key)]);
+  });
+
+  it("copies a record whose events it sorts, touched or not, and leaves the live one unsorted", () => {
+    const ds = dataset(MAIN);
+    const out = buildEditSaveRecords(ds.records, (xref) => xref === "@I2@", none);
+
+    expect(eventTags(out[index(out, "@I2@")])).toEqual(["BIRT", "DEAT"]);
+    expect(eventTags(ds.individuals.get("@I2@")!.raw)).toEqual(["DEAT", "BIRT"]);
+    expect(out[index(out, "@I1@")]).toBe(ds.individuals.get("@I1@")!.raw);
+  });
+
+  it("copies a submitter record, which the save may complete", () => {
+    const ds = dataset(wrap("0 @U1@ SUBM\n1 NAME Ana\n0 @I1@ INDI\n1 NAME Janez /Novak/\n"));
+    const out = buildEditSaveRecords(ds.records, none, none);
+    expect(out[index(out, "@U1@")]).not.toBe(ds.records[index(ds.records, "@U1@")]);
+    expect(out[index(out, "@I1@")]).toBe(ds.records[index(ds.records, "@I1@")]);
+  });
+});
+
+describe("ownRecords", () => {
+  it("replaces every record still shared with the live file by an equal copy", () => {
+    const ds = dataset(MAIN);
+    const out = buildEditSaveRecords(ds.records, none, none);
+    const own = out.find((r) => r.tag === "HEAD")!;
+
+    ownRecords(out, ds.records);
+
+    out.forEach((r, i) => expect(r, r.xref ?? r.tag).not.toBe(ds.records[i]));
+    expect(out.find((r) => r.tag === "HEAD")).toBe(own); // already the save's: left as it is
+    const opts = { eol: ds.eol, finalNewline: ds.finalNewline };
+    expect(serializeGedcom(out, opts)).toBe(serializeGedcom(ds.records, opts));
+  });
+
+  it("takes over only the records named", () => {
+    const ds = dataset(MAIN);
+    const out = buildEditSaveRecords(ds.records, none, none);
+
+    ownRecords(out, ds.records, new Set(["@I2@"]));
+
+    expect(out.find((r) => r.xref === "@I2@")).not.toBe(ds.individuals.get("@I2@")!.raw);
+    expect(out.find((r) => r.xref === "@I1@")).toBe(ds.individuals.get("@I1@")!.raw);
   });
 });

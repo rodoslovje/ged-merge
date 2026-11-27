@@ -85,6 +85,35 @@ export function serializeGedcom(records: GedNode[], opts: SerializeOptions = {})
   return opts.finalNewline === false ? text : text + eol;
 }
 
+/** Records serialized per part of {@link serializeGedcomBlob}: a part's text
+ *  is a few hundred kilobytes, gone again before the next one is built. */
+const BLOB_CHUNK = 2000;
+
+/**
+ * {@link serializeGedcom} as a `Blob` holding the same bytes, built a few
+ * thousand records at a time.
+ *
+ * The whole file as one string costs a large file dearly at the worst moment:
+ * every line as its own string, then all of them joined — two bytes a
+ * character once a single letter is outside Latin-1 — and a third copy when
+ * that text becomes the download. A Blob's bytes live outside the script
+ * heap, and serialization is record-local, so the file is the parts' text
+ * joined by the line ending.
+ */
+export function serializeGedcomBlob(records: GedNode[], opts: SerializeOptions = {}): Blob {
+  const eol = opts.eol ?? "\n";
+  const partOpts = { ...opts, bom: false, finalNewline: false };
+  const parts: BlobPart[] = opts.bom ? ["\uFEFF"] : [];
+  for (let i = 0; i < records.length; i += BLOB_CHUNK) {
+    const text = serializeGedcom(records.slice(i, i + BLOB_CHUNK), partOpts);
+    // Each part becomes its own Blob at once, so its text can be collected
+    // before the next is built rather than all of them waiting for the end.
+    parts.push(new Blob([i ? eol + text : text]));
+  }
+  if (opts.finalNewline !== false) parts.push(eol);
+  return new Blob(parts, { type: "text/plain;charset=utf-8" });
+}
+
 /** Serialize a whole dataset, preserving its source line-ending conventions. */
 export function serializeDataset(ds: Dataset): string {
   return serializeGedcom(ds.records, { eol: ds.eol, finalNewline: ds.finalNewline, atEscape: atEscapeFor(ds.version) });

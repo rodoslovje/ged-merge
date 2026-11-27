@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildDataset } from "./builder";
 import { setEventField } from "./edit";
 import { parseGedcom } from "./parser";
-import { downloadOptions, ensureUtf8Charset, LINE_LIMIT_551, serializeGedcom, stampHeadSource } from "./serialize";
+import { downloadOptions, ensureUtf8Charset, LINE_LIMIT_551, serializeGedcom, serializeGedcomBlob, stampHeadSource } from "./serialize";
 import type { GedNode } from "./types";
 import { cloneNode } from "./node";
 
@@ -678,5 +678,40 @@ describe("archive-source shapes round-trip", () => {
     expect(calns[0].children[0]).toMatchObject({ tag: "MEDI", value: "microfilm" });
     const obje = parsed.records.find((r) => r.xref === "@O1@")!;
     expect(obje.children.filter((c) => c.tag === "FILE")).toHaveLength(2);
+  });
+});
+
+describe("serializeGedcomBlob", () => {
+  // More records than one part holds, so the joins between parts are covered.
+  const many = (n: number): GedNode[] => [
+    { level: 0, tag: "HEAD", children: [{ level: 1, tag: "CHAR", value: "UTF-8", children: [] }] },
+    ...Array.from({ length: n }, (_, i): GedNode => ({
+      level: 0, xref: `@I${i}@`, tag: "INDI",
+      children: [{ level: 1, tag: "NAME", value: `Črt${i} /Žagar/`, children: [] }],
+    })),
+    { level: 0, tag: "TRLR", children: [] },
+  ];
+
+  it("holds the bytes of the text serializeGedcom writes, whatever the options", async () => {
+    const records = many(4500);
+    for (const opts of [
+      {},
+      { eol: "\r\n", bom: true },
+      { eol: "\r\n", finalNewline: false },
+      { maxLineLength: LINE_LIMIT_551, atEscape: "all" as const },
+    ]) {
+      // As bytes: reading a Blob back as text would drop the byte-order mark.
+      const bytes = new Uint8Array(await serializeGedcomBlob(records, opts).arrayBuffer());
+      expect(bytes, JSON.stringify(opts)).toEqual(new TextEncoder().encode(serializeGedcom(records, opts)));
+    }
+  });
+
+  it("writes the byte-order mark once, as bytes", async () => {
+    const bytes = new Uint8Array(await serializeGedcomBlob(many(2), { bom: true }).arrayBuffer());
+    expect([...bytes.slice(0, 4)]).toEqual([0xef, 0xbb, 0xbf, 0x30]);
+  });
+
+  it("writes a file with no records as serializeGedcom does", async () => {
+    expect(await serializeGedcomBlob([]).text()).toBe(serializeGedcom([]));
   });
 });

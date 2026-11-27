@@ -96,9 +96,9 @@ export async function targetNames(target: SaveTarget, files: string[], now = new
   return files;
 }
 
-async function writeHandle(handle: FileSystemFileHandle, text: string): Promise<void> {
+async function writeHandle(handle: FileSystemFileHandle, content: string | Blob): Promise<void> {
   const writable = await handle.createWritable();
-  await writable.write(new Blob([text], { type: "text/plain;charset=utf-8" }));
+  await writable.write(new Blob([content], { type: "text/plain;charset=utf-8" }));
   // The bytes reach the file only here: until the close, the browser writes
   // to a temporary file, so a failed write leaves the old file whole.
   await writable.close();
@@ -107,20 +107,20 @@ async function writeHandle(handle: FileSystemFileHandle, text: string): Promise<
 /** Write one file of a save to `target`. Only the GEDCOM (`main`) replaces the
  *  opened file; its report is downloaded. A write that fails falls back to a
  *  download, so the save is never lost — the result is false then. */
-export async function writeSave(target: SaveTarget, name: string, text: string, main: boolean): Promise<boolean> {
+export async function writeSave(target: SaveTarget, name: string, content: string | Blob, main: boolean): Promise<boolean> {
   try {
     if (target.kind === "folder") {
-      await writeHandle(await target.dir.getFileHandle(name, { create: true }), text);
+      await writeHandle(await target.dir.getFileHandle(name, { create: true }), content);
       return true;
     }
     if (target.kind === "file" && main) {
-      await writeHandle(target.handle, text);
+      await writeHandle(target.handle, content);
       return true;
     }
   } catch {
-    downloadText(name, text);
+    downloadText(name, content);
     return false;
   }
-  downloadText(name, text);
+  downloadText(name, content);
   return true;
 }

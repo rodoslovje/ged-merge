@@ -78,7 +78,8 @@ export function downloadBlob(fileName: string, blob: Blob): void {
   else setTimeout(() => triggerDownload(fileName, blob), at - now);
 }
 
-/** Trigger a client-side download of a text file. */
-export function downloadText(fileName: string, text: string, mime = "text/plain;charset=utf-8"): void {
+/** Trigger a client-side download of a text file — its text, or a Blob
+ *  already holding it (a large GEDCOM is never built as one string). */
+export function downloadText(fileName: string, text: string | Blob, mime = "text/plain;charset=utf-8"): void {
   downloadBlob(fileName, new Blob([text], { type: mime }));
 }

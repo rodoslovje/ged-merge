@@ -15,7 +15,10 @@ import type { ToolsRequest, ToolsResponse, ToolsResultMap } from "./toolsMessage
  * separate from the gedcom worker: a running scan must not delay a parse or
  * match. The main arrives once via `setMain` and stays cached, kept up to
  * date by the edited records (`patchMain`) — the price of one resident copy
- * buys scans that start without re-sending a possibly huge file. The main thread may terminate this worker at any time
+ * buys scans that start without re-sending the file. Not for a large file,
+ * though: there the main thread terminates this worker as soon as its scans
+ * are done, and the copy with it (see `RESIDENT_MAX_RECORDS`). It may also
+ * terminate this worker at any time
  * to cancel (a synchronous scan can't be interrupted any other way); it is
  * respawned and re-fed lazily on the next run.
  */
