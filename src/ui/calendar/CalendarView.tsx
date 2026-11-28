@@ -76,8 +76,10 @@ const MEMORIALS: MemorialMode[] = ["off", "lifetime", 1, 2];
 const PHOTO_CHOICES = 8;
 /** How many people a group photo's own caption names before it stops. */
 const GROUP_NAMES = 4;
-/** Generations each way on the cover's fan. */
-const FAN_GENERATIONS = 4;
+/** Generations each way on the calendar's charts: the choices, and the one a
+ *  new calendar starts with. */
+const CHART_GENERATIONS = [3, 4, 5, 6];
+const DEFAULT_GENERATIONS = 4;
 /** Steps: settings, cover, twelve months, review. */
 const MONTH_STEP0 = 2;
 const BACK_STEP = MONTH_STEP0 + 12;
@@ -132,6 +134,8 @@ interface CalendarWork {
   /** What the charts write under a name: the years, the place. */
   chartYears: boolean;
   chartPlaces: boolean;
+  /** Generations each way on a chart. */
+  chartGenerations: number;
   /** What a person's fill on a chart says. */
   chartColor: ColorAxis;
   /** The cover's title; empty for the calendar's own ("Family calendar"). */
@@ -166,6 +170,7 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     chartYears: true,
     chartPlaces: false,
     chartColor: "plain",
+    chartGenerations: DEFAULT_GENERATIONS,
     title: "",
     cover: { kind: "fan" },
     dedication: "",
@@ -224,6 +229,7 @@ function mergeWork(base: CalendarWork, saved: Record<string, unknown>, thisYear:
     chartYears: pick("chartYears", bool),
     chartPlaces: pick("chartPlaces", bool),
     chartColor: pick("chartColor", one(CHART_COLORS)),
+    chartGenerations: pick("chartGenerations", one(CHART_GENERATIONS)),
     title: typeof saved.title === "string" ? saved.title : "",
     opts: {
       // A calendar kept in an earlier year: its year is no longer on offer.
@@ -484,7 +490,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
 
   // The cover's fan: the recipient's ancestors above, descendants below, and
   // their brothers and sisters at the sides.
-  const trees = useBloodTrees(mainDs, rootId, FAN_GENERATIONS);
+  const trees = useBloodTrees(mainDs, rootId, work.chartGenerations);
   const siblings = useMemo(() => (root ? buildSiblingRow(t, root, mainDs, nameOf) : undefined), [t, root, mainDs, nameOf]);
   const { settings } = useChartSettings();
   const { chartYears, chartPlaces, chartColor } = work;
@@ -501,6 +507,14 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           value={chartColor}
           onChange={(v) => patch({ chartColor: v as ColorAxis })}
           options={CHART_COLORS.map((a) => ({ value: a, label: t(`chartColor.axis.${a}`) }))}
+        />
+      </label>
+      <label className="cal-field">
+        <span>{t("calendar.chart.generations")}</span>
+        <SelectMenu
+          value={String(work.chartGenerations)}
+          onChange={(v) => patch({ chartGenerations: Number(v) })}
+          options={CHART_GENERATIONS.map((n) => ({ value: String(n), label: String(n) }))}
         />
       </label>
       <label className="cal-check">

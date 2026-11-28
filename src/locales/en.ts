@@ -4158,6 +4158,7 @@ export const en = {
   "calendar.saints": "Saints' names on every day",
   "calendar.nameCalendar": "Calendar of names",
   "calendar.chart.color": "What the charts' colors show",
+  "calendar.chart.generations": "Generations on the charts",
   "calendar.chart.years": "Years on the charts",
   "calendar.chart.places": "Places on the charts",
   "calendar.legend.nameday": "name day",

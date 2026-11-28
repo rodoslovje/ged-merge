@@ -4649,6 +4649,7 @@ export const sl = {
   "calendar.saints": "Imena svetnikov ob vsakem dnevu",
   "calendar.nameCalendar": "Koledar godov",
   "calendar.chart.color": "Kaj kažejo barve na diagramih",
+  "calendar.chart.generations": "Število rodov na diagramih",
   "calendar.chart.years": "Letnice na diagramih",
   "calendar.chart.places": "Kraji na diagramih",
   "calendar.legend.nameday": "god",

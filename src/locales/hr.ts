@@ -4373,6 +4373,7 @@ export const hr = {
   "calendar.saints": "Imena svetaca uz svaki dan",
   "calendar.nameCalendar": "Kalendar imendana",
   "calendar.chart.color": "Što pokazuju boje na dijagramima",
+  "calendar.chart.generations": "Broj generacija na dijagramima",
   "calendar.chart.years": "Godine na dijagramima",
   "calendar.chart.places": "Mjesta na dijagramima",
   "calendar.legend.nameday": "imendan",
