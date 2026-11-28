@@ -10,7 +10,7 @@ import type { GovResult } from "./gov";
 import type { NominatimResult } from "./nominatim";
 import type { RnResult, StreetResult } from "./rn";
 import { formerNameLabel } from "./formerStreets";
-import { addressRegisterId } from "./addressRegister";
+import { addressRegisterId, sameStreet } from "./addressRegister";
 
 // Turning a register hit into a place the *file* would have written.
 //
@@ -449,4 +449,34 @@ function adminsOf(admins: readonly (string | undefined)[], country: string | und
  *  same village answered by GURS and by OpenStreetMap is one offer. */
 export function proposalKey(p: PlaceProposal): string {
   return `${placeCompareKey(p.plac)} ${(p.addr ?? "").trim().toLowerCase()}`;
+}
+
+/** An address line as the street (or settlement) it names and whatever follows
+ *  from the house number on: "Ulica Moše Pijade 3" is the street and "3". */
+function streetAndNumber(line: string): [street: string, number: string] {
+  const m = /^(.*?)\s+(\d.*)$/.exec(line.trim());
+  return m ? [m[1], m[2]] : [line.trim(), ""];
+}
+
+/**
+ * Whether an offered address merely completes the one typed, so that picking
+ * the offer finishes the user's own wording rather than replacing it —
+ * "Zrinjskega" picked as "Zrinjskega cesta". A renamed street is offered under
+ * both its names ("Zoisova ulica / Ulica Moše Pijade 3"), and completing either
+ * of them takes the pair. A street typed short of its kind word, before the
+ * name as readily as after it, is completed too: "Moše Pijade 3" is the
+ * offer's "Ulica Moše Pijade 3", the house number being the same.
+ */
+export function completesAddress(typed: string, offered: string | undefined): boolean {
+  const own = typed.trim().toLowerCase();
+  if (!own || !offered) return false;
+  const [ownStreet, ownNumber] = streetAndNumber(own);
+  return offered
+    .toLowerCase()
+    .split(" / ")
+    .some((name) => {
+      if (name === own || name.startsWith(`${own} `)) return true;
+      const [street, number] = streetAndNumber(name);
+      return number === ownNumber && sameStreet(ownStreet, street);
+    });
 }

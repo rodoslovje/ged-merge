@@ -15,7 +15,8 @@ import { canonicalPlaceToken } from "../../match/place";
 import { placeLookupLanguage, searchInAnswerLanguage } from "../../geo/lookupLanguage";
 import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeLevels";
 import { searchNominatim } from "../../geo/nominatim";
-import { rnQueriesFrom, searchAddresses, searchStreet, streetQueryFrom } from "../../geo/rn";
+import { useLocalRegisters } from "../useLocalRegisters";
+import { isOfflineQuery, rnQueriesFrom, searchAddresses, searchStreet, streetQueryFrom } from "../../geo/rn";
 import {
   placeDepthsOf,
   proposalFromGazEntry,
@@ -52,14 +53,18 @@ export interface PlaceLookup {
    * place: "21" or "Hafnarjeva pot 21" means nothing on its own, and the house
    * the address register finds may well turn out to belong to a neighbouring
    * settlement — so an offer carries the place it really is in, not the one that
-   * was typed. Only the online registers hold house numbers; an imported
-   * gazetteer stops at settlements.
+   * was typed. Only the address registers hold house numbers; an imported
+   * gazetteer stops at settlements. With online lookups off, a register this
+   * browser has downloaded still answers — that asks nobody.
    */
   searchAddress: (place: string, address: string) => Promise<PlaceProposal[]>;
   /** Whether the online registers may be queried at all (Settings → online
    *  lookups). When off, only an imported gazetteer answers — and the panel
    *  says so instead of silently returning less. */
   online: boolean;
+  /** Whether an address can be looked up at all: online, or in an address
+   *  register downloaded to this browser. */
+  addressLookup: boolean;
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -155,6 +160,7 @@ export function usePlaceLookupValue(
 ): PlaceLookup {
   const settings = useSettingsSlice(SETTINGS_KEYS);
   const online = settings.allowLinkFetch;
+  const registers = useLocalRegisters();
   const fileStyle = usePlaceStyle(dataset, placeSuggestions);
   // An explicit depth pins every proposal to it, so the per-country habit must
   // not out-vote the pin.
@@ -245,9 +251,10 @@ export function usePlaceLookupValue(
 
     const searchAddress = async (place: string, address: string): Promise<PlaceProposal[]> => {
       const text = address.trim();
-      // House numbers live only in the online registers, so with the opt-in off
-      // there is nothing to ask (the caller doesn't offer the search then).
-      if (!text || !online) return [];
+      // House numbers live only in the address registers, so with the opt-in
+      // off and none downloaded there is nothing to ask (the caller doesn't
+      // offer the search then).
+      if (!text || (!online && !registers.size)) return [];
 
       const { out, add } = collector();
       // The register reads the number against the event's place: which
@@ -262,15 +269,20 @@ export function usePlaceLookupValue(
       const langSource = decomposePlace(place).country ? place : text;
       // An address naming a street and no house on it is asked for the street.
       const streetQuery = rnQueries.length ? undefined : streetQueryFrom(place || undefined, text);
+      // With online lookups off, only a register held in this browser is
+      // asked: nothing leaves the device.
+      const mayAsk = (queries: Parameters<typeof isOfflineQuery>[0]) => online || isOfflineQuery(queries, registers);
       const [rn, streets, osm] = await Promise.allSettled([
-        rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
-        streetQuery ? searchStreet(streetQuery) : Promise.resolve([]),
+        rnQueries.length && mayAsk(rnQueries) ? searchAddresses(rnQueries) : Promise.resolve([]),
+        streetQuery && mayAsk([streetQuery]) ? searchStreet(streetQuery) : Promise.resolve([]),
         // Address first, then the place — the order Nominatim reads best, in
         // the language the event's place is written in.
-        osmSearch(
-          [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
-          placeLookupLanguage(langSource, style.language, style.fmt.countryPreferred),
-        ),
+        online
+          ? osmSearch(
+              [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
+              placeLookupLanguage(langSource, style.language, style.fmt.countryPreferred),
+            )
+          : Promise.resolve([]),
       ]);
       if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
       if (streets.status === "fulfilled") for (const s of streets.value) add(proposalFromStreet(s, style));
@@ -281,8 +293,8 @@ export function usePlaceLookupValue(
       return out.slice(0, MAX_RESULTS);
     };
 
-    return { search, searchAddress, online };
-  }, [style, placeSuggestions, online]);
+    return { search, searchAddress, online, addressLookup: online || registers.size > 0 };
+  }, [style, placeSuggestions, online, registers]);
 }
 
 /** The parent level read off this file's places and the directories loaded,

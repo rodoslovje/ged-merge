@@ -21,7 +21,7 @@ import { ResearchRefs } from "./ResearchSection";
 import { EventAssociates } from "./EventAssociates";
 import { SuggestInput } from "./SuggestInput";
 import { usePlaceLookup } from "./PlaceLookupContext";
-import type { PlaceProposal } from "../../geo/placeProposal";
+import { completesAddress, type PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { useSettingsSlice } from "../SettingsContext";
@@ -434,15 +434,9 @@ export function EventFieldsRow({
     // An offer that merely completes what was typed is the user's own wording
     // finished, not replaced — "Zrinjskega" picked as "Zrinjskega cesta". A
     // renamed street is offered under both its names ("Ulica Janeza Pavla II. /
-    // Zrinjskega cesta"), and completing either of them takes the pair.
-    const typed = addrField.value.trim().toLowerCase();
-    const completes =
-      !!typed &&
-      !!proposal.addr
-        ?.toLowerCase()
-        .split(" / ")
-        .some((name) => name === typed || name.startsWith(`${typed} `));
-    const addr = completes ? proposal.addr : adopt(addrField.value, proposal.addr);
+    // Zrinjskega cesta"), and completing either of them takes the pair
+    // (completesAddress).
+    const addr = completesAddress(addrField.value, proposal.addr) ? proposal.addr : adopt(addrField.value, proposal.addr);
     if (place) placeField.set(place);
     if (addr) addrField.set(addr);
     commitAll({
@@ -1203,12 +1197,13 @@ export function EventFieldsRow({
           onPickCombo: pickCombo,
           commit: (val) => commitAll({ address: val, ...coordUpdate(placeField.value, val) }),
           lookup: {
-            // An address is looked up inside the event's place — and only online:
-            // house numbers are in the address registers, never in an imported
-            // gazetteer, so with the opt-in off the row says why instead of
+            // An address is looked up inside the event's place — online, or in
+            // an address register downloaded to this browser: house numbers are
+            // in the address registers, never in an imported gazetteer, so with
+            // the opt-in off and no register here the row says why instead of
             // offering a search that could not answer.
-            onLookup: lookup?.online ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
-            lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
+            onLookup: lookup?.addressLookup ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
+            lookupNote: lookup && !lookup.addressLookup ? t("tools.geocode.downloadNeedsOptIn") : undefined,
             onPickProposal: pickAddrProposal,
           },
           // The address's labelled lines and contact details, folded away

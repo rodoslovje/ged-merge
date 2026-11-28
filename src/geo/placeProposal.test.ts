@@ -4,6 +4,7 @@ import { buildGazetteerIndex, type GazEntry } from "./gazetteer";
 import { inferPlaceParentLevels } from "./placeLevels";
 import type { RnResult } from "./rn";
 import {
+  completesAddress,
   countryNameOf,
   placeDepthOf,
   placeDepthsOf,
@@ -635,5 +636,24 @@ describe("proposalKey", () => {
       style(),
     )!;
     expect(proposalKey(house)).not.toBe(proposalKey(settlement));
+  });
+});
+
+describe("completesAddress", () => {
+  it("takes an offer that finishes what was typed, under either name of a renamed street", () => {
+    expect(completesAddress("Zrinjskega", "Zrinjskega cesta")).toBe(true);
+    expect(completesAddress("Zrinjskega", "Ulica Janeza Pavla II. / Zrinjskega cesta")).toBe(true);
+    expect(completesAddress("Ulica Moše Pijade 3", "Zoisova ulica / Ulica Moše Pijade 3")).toBe(true);
+  });
+
+  it("takes it for a street typed without its kind word", () => {
+    expect(completesAddress("Moše Pijade 3", "Zoisova ulica / Ulica Moše Pijade 3")).toBe(true);
+    expect(completesAddress("Moše Pijade", "Zoisova ulica / Ulica Moše Pijade")).toBe(true);
+  });
+
+  it("leaves the user's own wording where the offer says something else", () => {
+    expect(completesAddress("Moše Pijade 5", "Zoisova ulica / Ulica Moše Pijade 3")).toBe(false);
+    expect(completesAddress("Olševek 1 / 2 (pd Pilar)", "Olševek 1")).toBe(false);
+    expect(completesAddress("", "Olševek 1")).toBe(false);
   });
 });
