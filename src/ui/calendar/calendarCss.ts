@@ -139,6 +139,10 @@ export const CALENDAR_CSS = `
 .cal-cover-year { font-size: 2em; color: var(--muted); }
 .cal-cover-name { font-size: 1.4em; margin: 0.6em 0 0.8em; }
 .cal-dedication { font-size: 1.15em; font-style: italic; color: var(--muted); margin: -0.3em 0 1em; white-space: pre-line; max-width: 80%; }
+/* The givers' formatted words: their paragraphs and lists sit as plain lines. */
+.cal-cover-title p, .cal-dedication p { margin: 0; }
+.cal-cover-title ul, .cal-cover-title ol, .cal-dedication ul, .cal-dedication ol { margin: 0; padding: 0; list-style-position: inside; }
+.cal-cover-title a, .cal-dedication a { color: inherit; }
 .cal-cover .cal-picture { flex: 1 1 auto; width: 100%; }
 .cal-chart { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .cal-chart svg { width: 100%; height: 100%; }

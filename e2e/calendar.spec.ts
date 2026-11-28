@@ -36,6 +36,10 @@ test("the family calendar walks from settings to a review of every page", async 
   await expect(page.locator(".cal-preview .cal-cover-title")).toHaveText("Family calendar");
   await page.getByLabel("Title", { exact: true }).fill("The Novak year");
   await expect(page.locator(".cal-preview .cal-cover-title")).toHaveText("The Novak year");
+  // Both are formatted as a note is: the whole title set in italics.
+  await page.getByLabel("Title", { exact: true }).press("ControlOrMeta+a");
+  await page.locator(".cal-panel .note-tool--i").first().click();
+  await expect(page.locator(".cal-preview .cal-cover-title i, .cal-preview .cal-cover-title em")).toHaveText("The Novak year");
 
   // March: the recipient's own birthday, and her mother's as a relative's line.
   for (let i = 0; i < 3; i++) await next.click();
@@ -114,7 +118,7 @@ test("the calendar's work is kept while the workspace is", async ({ page }) => {
   await page.getByRole("tab", { name: "Calendar" }).click();
   await expect(page.getByRole("radio", { name: /Sea/ })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page.getByLabel("Dedication")).toHaveValue("For Ana");
+  await expect(page.getByLabel("Dedication")).toHaveText("For Ana");
 });
 
 test("without a kept workspace the wizard says how to keep the work", async ({ page }) => {

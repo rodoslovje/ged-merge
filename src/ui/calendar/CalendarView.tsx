@@ -5,6 +5,8 @@ import { reducedName } from "../../gedcom/nameDisplay";
 import { buildCalendar, byDay, factKey, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
 import { NAME_CALENDARS, type NameCalendar } from "../../calendar/nameDays";
+import { noteToText } from "../../gedcom/noteHtml";
+import { RichNoteInput } from "../edit/RichNoteInput";
 import { LIVING_NAMES, nameAndKinship, factDate, factSentence, monthName, yearsAgo, type LivingNames, type PersonWords } from "../../calendar/text";
 import { createKinshipResolver } from "../../match/kinship";
 import { primaryName } from "../../match/relatives";
@@ -317,7 +319,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     () => buildCalendar(mainDs, rootId, { ...opts, nameDays: nameDays ? nameCalendar : undefined }, thisYear),
     [mainDs, rootId, opts, nameDays, nameCalendar, thisYear],
   );
-  const title = work.title.trim() || t("calendar.cover.title");
+  const title = noteToText(work.title).trim() ? work.title : t("calendar.cover.title");
   const holidays = useMemo(() => (country === "none" ? [] : holidaysFor(country, opts.year)), [country, opts.year]);
 
 
@@ -693,7 +695,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       await embedImages(clone, images);
       return `<div class="cal-leaf">${clone.outerHTML}</div>`;
     }));
-    const docTitle = `${title} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
+    const docTitle = `${noteToText(title).replace(/\s+/g, " ").trim()} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
     return (`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title>
 <style>${CALENDAR_CSS}${calendarPrintCss(printGeometry(format, paper))}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
   };
@@ -866,25 +868,33 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   } else if (step === 1) {
     panel = (
       <>
-        <label className="cal-field">
+        {/* Formatted as a note is: bold, italic, a link. */}
+        <div className="cal-field">
           <span>{t("calendar.title")}</span>
-          <input
-            className="settings-text-input"
-            value={work.title}
+          <RichNoteInput
+            text={work.title}
+            onInput={(title) => patch({ title })}
+            onBlur={() => {}}
+            onClear={() => patch({ title: "" })}
+            className="edit-input"
             placeholder={t("calendar.cover.title")}
-            onChange={(e) => patch({ title: e.target.value })}
+            title={t("calendar.title")}
+            t={t}
           />
-        </label>
-        <label className="cal-field">
+        </div>
+        <div className="cal-field">
           <span>{t("calendar.dedication")}</span>
-          <textarea
-            className="settings-text-input"
-            rows={2}
-            value={dedication}
+          <RichNoteInput
+            text={dedication}
+            onInput={setDedication}
+            onBlur={() => {}}
+            onClear={() => setDedication("")}
+            className="edit-input"
             placeholder={t("calendar.dedication.placeholder")}
-            onChange={(e) => setDedication(e.target.value)}
+            title={t("calendar.dedication")}
+            t={t}
           />
-        </label>
+        </div>
         <PicturePicker people={coverPeople} value={cover} onChange={setCover} personPhoto={personPhoto} words={words} />
       </>
     );

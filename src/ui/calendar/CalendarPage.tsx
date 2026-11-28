@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { factKey, isRoundAnniversary, monthWeeks, type CalendarMonth, type DayEntry, type Fact } from "../../calendar/model";
 import type { Holiday } from "../../calendar/holidays";
 import { saintsOf, type NameCalendar } from "../../calendar/nameDays";
+import { noteToDoc, noteToText, serializeNoteHtml } from "../../gedcom/noteHtml";
 import { schemeVars, type CalendarScheme } from "./schemes";
 import { BADGE_BG, LOGO_BADGE_MARKUP } from "../exportSvg";
 import { paperMm, type Orientation, type PaperName, type PaperSize } from "../../chart/sheets";
@@ -67,28 +68,31 @@ function livingFirst(entries: DayEntry[]): DayEntry[] {
   return [...entries.filter((e) => e.kind !== "memorial"), ...entries.filter((e) => e.kind === "memorial")];
 }
 
+/** The givers' own words — plain, or formatted as a note is — as clean markup. */
+const noteMarkup = (text: string) => serializeNoteHtml(noteToDoc(text));
+
 interface CoverProps {
   format: CalendarFormat;
   scheme: CalendarScheme;
   year: number;
-  /** The calendar's name, as the givers call it. */
+  /** The calendar's name, as the givers call it — plain or formatted. */
   title: string;
   name: string;
   /** The picture: photos, a collage or a chart (the view builds it). */
   picture: ReactNode;
   /** The family website's address, for the footer. */
   site?: string;
-  /** A few words from the givers, under the name. */
+  /** A few words from the givers, under the name — plain or formatted. */
   dedication?: string;
 }
 
 export function CoverPage({ format, scheme, year, title, name, picture, site, dedication }: CoverProps) {
   return (
     <div className="cal-page cal-cover" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
-      <div className="cal-cover-title">{title}</div>
+      <div className="cal-cover-title" dangerouslySetInnerHTML={{ __html: noteMarkup(title) }} />
       <div className="cal-cover-year">{year}</div>
       <div className="cal-cover-name">{name}</div>
-      {dedication?.trim() && <div className="cal-dedication">{dedication.trim()}</div>}
+      {dedication && noteToText(dedication).trim() && <div className="cal-dedication" dangerouslySetInnerHTML={{ __html: noteMarkup(dedication) }} />}
       <div className="cal-picture">{picture}</div>
       <PageFooter site={site} />
     </div>
