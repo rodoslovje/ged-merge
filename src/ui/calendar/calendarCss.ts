@@ -151,21 +151,24 @@ export const CALENDAR_CSS = `
    page's own flags over it — a pole from the place up to a label. */
 .cal-map { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 0.3em; background: var(--tint); }
 .cal-map > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.cal-flag { position: absolute; height: 2.4em; transform: translateY(-100%); border-left: 0.12em solid var(--accent); }
-.cal-flag::after { content: ""; position: absolute; left: -0.3em; bottom: -0.24em; width: 0.48em; height: 0.48em;
-  border-radius: 50%; background: var(--accent); border: 0.08em solid var(--paper); box-sizing: border-box; }
-.cal-flag-body { display: flex; flex-direction: column; width: max-content; max-width: 13em; padding: 0.2em 0.5em;
+/* A place's dot, the line from it, and its box in the column at the map's edge. */
+.cal-map-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.cal-map-lines line { stroke: var(--accent); stroke-width: 0.07em; vector-effect: non-scaling-stroke; }
+.cal-map-dot { position: absolute; width: 0.5em; height: 0.5em; margin: -0.25em 0 0 -0.25em; border-radius: 50%;
+  background: var(--accent); border: 0.08em solid var(--paper); box-sizing: border-box; }
+.cal-flag { position: absolute; left: 0.5em; width: 9em; }
+.cal-flag.cal-flag-right { left: auto; right: 0.5em; }
+.cal-flag-body { display: flex; flex-direction: column; padding: 0.2em 0.5em;
   font-size: 0.7em; line-height: 1.25; text-align: left; color: var(--ink); background: var(--paper);
-  border: 0.1em solid var(--accent); border-left: 0; box-shadow: 0 0.1em 0.4em rgba(0,0,0,0.25); }
+  border: 0.1em solid var(--accent); box-shadow: 0 0.1em 0.4em rgba(0,0,0,0.25); }
 .cal-flag-body b { color: var(--accent); }
-.cal-flag-body span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-flag.cal-flag-left { transform: translate(-100%, -100%); border-left: 0; border-right: 0.12em solid var(--accent); }
-.cal-flag.cal-flag-left::after { left: auto; right: -0.3em; }
-.cal-flag-left .cal-flag-body { border-left: 0.1em solid var(--accent); border-right: 0; text-align: right; }
-/* The far-off places the map is not stretched to: a note in its corner. */
-.cal-map-away { position: absolute; left: 0.6em; bottom: 0.6em; display: flex; flex-direction: column; gap: 0.25em; align-items: flex-start; }
-.cal-map-away > i { font-size: 0.6em; color: var(--muted); background: color-mix(in srgb, var(--paper) 80%, transparent); padding: 0 0.3em; }
-.cal-map-away .cal-flag-body { border-left: 0.1em solid var(--accent); }
+.cal-flag-body b, .cal-flag-body span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-flag-body b > i { font-weight: 400; font-style: normal; color: var(--muted); }
+/* The far-off places the map is not stretched to: a line along its foot. */
+.cal-map-away { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.3em 0.8em 1.1em; font-size: 0.7em; line-height: 1.25;
+  text-align: left; color: var(--ink); background: color-mix(in srgb, var(--paper) 85%, transparent); }
+.cal-map-away i { color: var(--muted); }
+.cal-map-away b { color: var(--accent); }
 .cal-map-credit { position: absolute; right: 0; bottom: 0; padding: 0.1em 0.5em; font-family: "IBM Plex Sans", system-ui, sans-serif;
   font-size: 0.42em; color: var(--muted); background: color-mix(in srgb, var(--paper) 75%, transparent); }
 .cal-back-body > .cal-map { flex: 1 1 auto; }

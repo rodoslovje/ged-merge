@@ -29,6 +29,8 @@ const WIDTH = 800;
 const PIXEL_RATIO = 3.5;
 /** The longest side a drawing may have, in device pixels. */
 const MAX_PIXELS = 4000;
+/** The share of the width each side keeps clear of places, for the boxes. */
+const SIDE = 0.24;
 /** The closest a map of one town zooms in. */
 const MAX_ZOOM = 11;
 /** How long the tiles may take before the map is given up on. */
@@ -78,9 +80,9 @@ async function draw(coords: GeoCoord[], aspect: number): Promise<Basemap> {
     // The picture is read back off the canvas once it is drawn.
     canvasContextAttributes: { preserveDrawingBuffer: true },
     bounds: [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
-    // A flag rises above its place: more room at the top than at the foot.
+    // The places keep to the middle: a column of boxes stands down each side.
     fitBoundsOptions: {
-      padding: { top: height * 0.24, bottom: height * 0.1, left: WIDTH * 0.14, right: WIDTH * 0.14 },
+      padding: { top: height * 0.1, bottom: height * 0.12, left: WIDTH * SIDE, right: WIDTH * SIDE },
       maxZoom: MAX_ZOOM,
     },
   });

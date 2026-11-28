@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { framePins, mapFlags, residencePins, type MapPin } from "./mapPins";
+import { CALLOUT, framePins, layoutCallouts, mapFlags, residencePins, type MapPin } from "./mapPins";
 
 const resi = (year: number, place: string, lat?: string, lon?: string) => [
   "1 RESI", `2 DATE ${year}`, `2 PLAC ${place}`,
@@ -70,5 +70,50 @@ describe("framePins", () => {
   it("holds a family split between two countries whole", () => {
     const { away } = framePins([pin("Kranj", 46.24, 14.36, 6), pin("Windsor", 42.3, -83.0, 5)]);
     expect(away).toEqual([]);
+  });
+});
+
+describe("layoutCallouts", () => {
+  const flag = (place: string, x: number, y: number, people = 1) =>
+    ({ place, x, y, ids: Array.from({ length: people }, (_, i) => `${place}${i}`) });
+  const byPlace = (list: ReturnType<typeof layoutCallouts>) => Object.fromEntries(list.map((c) => [c.place, c]));
+
+  it("puts a box on the side its place is nearer, beside it", () => {
+    const c = byPlace(layoutCallouts([flag("West", 0.3, 0.5), flag("East", 0.7, 0.2)], 40, 30));
+    expect(c.West.side).toBe("left");
+    expect(c.East.side).toBe("right");
+    expect(c.East.top).toBeLessThan(c.West.top);
+  });
+
+  it("pushes boxes of one side apart, and keeps them on the map", () => {
+    const list = layoutCallouts([flag("A", 0.3, 0.5, 3), flag("B", 0.35, 0.5, 3), flag("C", 0.3, 0.99, 3)], 40, 30, 1);
+    const left = list.sort((a, b) => a.top - b.top);
+    for (let i = 1; i < left.length; i++) expect((left[i].top - left[i - 1].top) * 30).toBeGreaterThanOrEqual(4 * CALLOUT.line + CALLOUT.pad);
+    expect(left[2].top * 30 + 4 * CALLOUT.line + CALLOUT.pad).toBeLessThanOrEqual(29);
+  });
+
+  it("writes out fewer names when a side has more boxes than room", () => {
+    const many = Array.from({ length: 12 }, (_, i) => flag(`P${i}`, 0.3, i / 12, 6));
+    expect(layoutCallouts(many, 40, 80)[0].names).toBe(CALLOUT.names);
+    expect(layoutCallouts(many, 40, 20)[0].names).toBeLessThan(2);
+  });
+
+  it("lets two neighbours change places rather than cross their lines", () => {
+    // A coast and its hinterland: places at one height but far apart across
+    // the map, with boxes pushed well below them by the ones above.
+    const W = 40, H = 30;
+    const flags = [flag("Top", 0.3, 0.3, 4), flag("Mid", 0.32, 0.34, 4), flag("Inland", 0.46, 0.4), flag("Coast", 0.25, 0.42), flag("South", 0.4, 0.44)];
+    const list = layoutCallouts(flags, W, H);
+    const inner = 0.5 + CALLOUT.width;
+    const turn = (p: number[], q: number[], r: number[]) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const line = (c: (typeof list)[number]) => [[c.x * W, c.y * H], [inner, c.tie * H]];
+    for (const a of list) {
+      for (const b of list) {
+        if (a === b) continue;
+        const [p, q] = line(a);
+        const [r, s] = line(b);
+        expect(turn(p, q, r) !== turn(p, q, s) && turn(r, s, p) !== turn(r, s, q), `${a.place} × ${b.place}`).toBe(false);
+      }
+    }
   });
 });
