@@ -1,8 +1,8 @@
 // The family calendar's map: where the people it celebrates live — each one's
-// present residence that carries coordinates. Pure; the map and its flags are the
+// last residence that carries coordinates. Pure; the map and its flags are the
 // view's.
 
-import type { Dataset, GedEvent, GeoCoord, Individual } from "../gedcom/types";
+import type { Dataset, GeoCoord } from "../gedcom/types";
 import { lastResidence } from "../chart/nodeDisplay";
 
 export interface MapPin {
@@ -16,23 +16,13 @@ export interface MapPin {
 /** Two residences closer than this (about a hundred metres) are one pin. */
 const SAME_PLACE = 3;
 
-/**
- * Where a living person lives now, among the residences that carry
- * coordinates: the one written without a date — a file dates the homes a
- * person has left and leaves the present one open — and only for want of one
- * the latest dated.
- */
-function currentResidence(indi: Individual): GedEvent | undefined {
-  return lastResidence(indi, (e) => e.place?.coord && e.date?.year === undefined) ?? lastResidence(indi, (e) => e.place?.coord);
-}
-
 /** One pin per place the given people live at, the fullest first. A person
  *  with no residence that carries coordinates has none. */
 export function residencePins(ds: Dataset, ids: Iterable<string>): MapPin[] {
   const pins = new Map<string, MapPin>();
   for (const id of new Set(ids)) {
     const indi = ds.individuals.get(id);
-    const place = indi && currentResidence(indi)?.place;
+    const place = indi && lastResidence(indi, (e) => e.place?.coord)?.place;
     if (!place?.coord) continue;
     const key = `${place.coord.lat.toFixed(SAME_PLACE)},${place.coord.lon.toFixed(SAME_PLACE)}`;
     const pin = pins.get(key) ?? { coord: place.coord, place: place.parts[0] || place.raw, ids: [] };

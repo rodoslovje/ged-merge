@@ -129,15 +129,17 @@ export function modeSummary(t: Translate, people: number, generations: number): 
 }
 
 /** The residence the person was last recorded at, among those `has` accepts:
- *  the latest dated one, else the last one written. */
+ *  the one written without a date — a file dates the homes a person has left
+ *  and leaves the last one open — and for want of one the latest dated. Among
+ *  equals the later written wins. */
 export function lastResidence(indi: Individual, has: (e: GedEvent) => unknown = (e) => e.place || e.address): GedEvent | undefined {
   let last: GedEvent | undefined;
   for (const e of indi.events) {
     if (e.tag !== "RESI" || !has(e)) continue;
     const year = e.date?.year;
     const lastYear = last?.date?.year;
-    // A dated residence outranks an undated one; among equals the later written wins.
-    if (lastYear === undefined || (year !== undefined && year >= lastYear)) last = e;
+    // An undated residence outranks a dated one, a later year an earlier.
+    if (!last || year === undefined || (lastYear !== undefined && year >= lastYear)) last = e;
   }
   return last;
 }
