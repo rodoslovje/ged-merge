@@ -614,6 +614,7 @@ export const hr = {
   "tools.validate.fixConformXrefsHint": "Svaki zapis dobiva identifikator koji standard dopušta i koji u datoteci nema nijedan drugi zapis. Svi pokazivači na zapis ažuriraju se.",
   "tools.validate.fixOneRemoveTag": "Ukloni oznaku",
   "tools.validate.fixOneRemoveTagHint": "Iz datoteke se uklanjaju svi retci {{tag}} ({{count}}×) zajedno s retcima ispod njih.",
+  "tools.validate.fixOneRemoveTagPlacedHint": "Uklanjaju se retci {{tag}} koje broji ovaj nalaz ({{count}}×), zajedno s retcima ispod njih. Ostali retci {{tag}} ostaju.",
   "tools.validate.fixOneRemoveMisplacedHint": "Uklanjaju se svi retci {{tag}} ispod {{parent}} ({{count}}×) zajedno s retcima ispod njih. Retci {{tag}} drugdje ostaju.",
   "tools.validate.fixOneToStandard": "Pretvori u {{tag}}",
   "tools.validate.fixOneToStandardHint": "Svi retci {{tag}} u datoteci ({{count}}×) zapisuju se kao standardni retci {{target}}. Redak ostaje nepromijenjen kada {{target}} već sadrži drukčiji podatak.",

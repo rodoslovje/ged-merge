@@ -72,9 +72,18 @@ export function detectPrivacyStyle(records: GedNode[]): PrivacyTagStyle {
  * note, a media link or a source. A line below an event is not asked about:
  * nothing there takes it.
  */
-function takesResn(node: Pick<GedNode, "level" | "tag">, version: "5.5.1" | "7.0"): boolean {
+export function takesResn(node: Pick<GedNode, "level" | "tag">, version: "5.5.1" | "7.0"): boolean {
   if (node.level === 0) return allowsChild(version, [node.tag], "RESN");
   return node.level === 1 && (allowsChild(version, ["INDI", node.tag], "RESN") || allowsChild(version, ["FAM", node.tag], "RESN"));
+}
+
+/** Where a privacy extension (`_PRIV`) stands: where the version has `RESN`
+ *  to say the same (`standard`), or where it has nothing (`extension`). */
+export type PrivacyTagPlace = "standard" | "extension";
+
+/** Whether a line's owner is a `place` of `version` (see {@link PrivacyTagPlace}). */
+export function privacyPlaceTest(place: PrivacyTagPlace, version: "5.5.1" | "7.0"): (owner: GedNode) => boolean {
+  return (owner) => takesResn(owner, version) === (place === "standard");
 }
 
 /**

@@ -650,6 +650,7 @@ export const sl = {
   "tools.validate.fixConformXrefsHint": "Vsak zapis dobi identifikator, ki ga standard dovoljuje in ga v datoteki nima noben drug zapis. Vsi kazalci na zapis se posodobijo.",
   "tools.validate.fixOneRemoveTag": "Odstrani oznako",
   "tools.validate.fixOneRemoveTagHint": "Iz datoteke se odstranijo vse vrstice {{tag}} ({{count}}×) skupaj z vrsticami pod njimi.",
+  "tools.validate.fixOneRemoveTagPlacedHint": "Odstranijo se vrstice {{tag}}, ki jih šteje ta ugotovitev ({{count}}×), skupaj z vrsticami pod njimi. Druge vrstice {{tag}} ostanejo.",
   "tools.validate.fixOneRemoveMisplacedHint": "Odstranijo se vse vrstice {{tag}} pod {{parent}} ({{count}}×) skupaj z vrsticami pod njimi. Vrstice {{tag}} drugod ostanejo.",
   "tools.validate.fixOneToStandard": "Spremeni v {{tag}}",
   "tools.validate.fixOneToStandardHint": "Vse vrstice {{tag}} v datoteki ({{count}}×) se zapišejo kot standardne vrstice {{target}}. Vrstica ostane nespremenjena, kadar {{target}} že vsebuje drugačen podatek.",

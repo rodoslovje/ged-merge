@@ -1,7 +1,8 @@
 import type { Dataset, GedDate, GedNode, ParseWarning } from "../gedcom/types";
 import { parseDate } from "../gedcom/date";
 import { vendorTagInfo } from "../gedcom/vendorTags";
-import { standardFormIn } from "../gedcom/extensionTerms";
+import { standardFormIn, standardFormIsPlaced } from "../gedcom/extensionTerms";
+import { takesResn, type PrivacyTagPlace } from "../gedcom/private";
 import { isVoidPointer } from "../gedcom/uri";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { dateFixContext, dateStyleContext, isUnparseable, nonStandardDate, proposeDateFix } from "./fixDates";
@@ -96,6 +97,10 @@ export interface StructIssue {
   /** `customTag`: an extension standing in for a 7.0 structure, which the fix
    *  restates as that structure file-wide (see `upgradeExtensions`). */
   standardForm?: boolean;
+  /** `customTag`: the finding counts only the tag's lines in one kind of
+   *  place — where the version has a structure for them, or where it has
+   *  none (`_PRIV` on a person against `_PRIV` on a note). */
+  tagPlace?: PrivacyTagPlace;
   /** Conformance `misplacedTag`: a source's flat PLAC/DATE, which the fix
    *  restates as DATA > EVEN file-wide. */
   coverage?: boolean;
@@ -457,6 +462,10 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
   // inventory so the user can see what non-standard tags a file carries, rather
   // than the validator silently ignoring them.
   const custom = new Map<string, TagTally>();
+  // The lines of an extension whose standard form holds only in some places
+  // (`_PRIV`, which is `RESN` on a person and nothing on a note), standing
+  // where the version has no structure for them: a finding of their own.
+  const customElsewhere = new Map<string, TagTally>();
 
   // Field tags the file's own MacFamilyTree source templates declare — the
   // file's vocabulary, so classified custom rather than unknown.
@@ -471,7 +480,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
 
   // `stamp`: inside a CHAN/CREA change stamp, whose date the program writes
   // for itself — its format is the program's, not a style the user keeps.
-  const visit = (node: GedNode, recordId?: string, recordTag?: string, stamp = false) => {
+  const visit = (node: GedNode, recordId?: string, recordTag?: string, stamp = false, owner?: GedNode) => {
     const tag = node.tag;
     // A vendor extension (`_FOO`) marks the root of a vendor-defined subtree: record
     // the outermost one in the inventory and skip the whole subtree from any further
@@ -480,7 +489,8 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
     // (MacFamilyTree's `_STF` source templates, `_STO` storage, `_LABL` labels, …),
     // not ours to audit. CONT/CONC are folded by the parser, so never appear here.
     if (tag.startsWith("_")) {
-      tally(custom, tag, node, recordId, recordTag);
+      const elsewhere = owner !== undefined && standardFormIsPlaced(tag) && !takesResn(owner, version);
+      tally(elsewhere ? customElsewhere : custom, tag, node, recordId, recordTag);
       // The one extension read here: `_DATE` is a date GED Merge itself writes
       // (see isDateTag), held to the form of any other.
       if (tag === "_DATE") checkDate(node, recordId, recordTag, stamp);
@@ -498,7 +508,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
 
     if (tag === "DATE") checkDate(node, recordId, recordTag, stamp);
 
-    for (const child of node.children) visit(child, recordId, recordTag, stamp || tag === "CHAN" || tag === "CREA");
+    for (const child of node.children) visit(child, recordId, recordTag, stamp || tag === "CHAN" || tag === "CREA", node);
   };
 
   /** The date findings on one `DATE`/`_DATE` line. */
@@ -599,7 +609,11 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
     });
   }
 
-  for (const [tag, { count, recordId, recordTag, tooltip }] of custom) {
+  const customFindings = [
+    ...[...custom].map(([tag, seen]) => ({ tag, seen, elsewhere: false })),
+    ...[...customElsewhere].map(([tag, seen]) => ({ tag, seen, elsewhere: true })),
+  ];
+  for (const { tag, seen: { count, recordId, recordTag, tooltip }, elsewhere } of customFindings) {
     // A tag the vendor-extension registry knows gets a classified message
     // ("MyHeritage — last-updated timestamp") instead of the opaque inventory
     // line. Both language variants of the meaning travel as interpolation vars
@@ -616,7 +630,9 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
     // inventory line. One standing in for a structure the version has, and a
     // program's bare tag (in no version), are deviations.
     const bare = !tag.startsWith("_");
-    const standard = bare ? undefined : standardFormIn(tag, version);
+    // Nor is one standing where its standard form does not reach.
+    const standard = bare || elsewhere ? undefined : standardFormIn(tag, version);
+    const placed = !bare && standardFormIsPlaced(tag) && standardFormIn(tag, version) !== undefined;
     const sourceField = (recordTag === "SOUR" && SOURCE_FIELD_TAGS.has(tag)) || undefined;
     const known: Record<string, string> = info ? { software: info.software, meaningEn: info.meaning.en, meaningSl: info.meaning.sl, meaningHr: info.meaning.hr } : {};
     push({
@@ -634,6 +650,7 @@ export function validateStructure(ds: Dataset, overrides?: FormatOverrides): Str
       messageVars: { tag, count, version, ...known, ...(standard ? { form: standard.form } : {}) },
       sourceField,
       standardForm: standard?.fixable || undefined,
+      ...(placed ? { tagPlace: elsewhere ? "extension" as const : "standard" as const } : {}),
     });
   }
 

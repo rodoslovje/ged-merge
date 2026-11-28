@@ -580,6 +580,7 @@ export const en = {
   "tools.validate.fixConformXrefsHint": "Gives each record an ID that the standard accepts and no other record in the file holds; every reference to the record follows it.",
   "tools.validate.fixOneRemoveTag": "Remove tag",
   "tools.validate.fixOneRemoveTagHint": "Removes every {{tag}} line in the file ({{count}}×), together with the lines beneath it.",
+  "tools.validate.fixOneRemoveTagPlacedHint": "Removes the {{tag}} lines this finding counts ({{count}}×), together with the lines beneath them. Other {{tag}} lines stay.",
   "tools.validate.fixOneRemoveMisplacedHint": "Removes every {{tag}} line under {{parent}} ({{count}}×), together with the lines beneath it. {{tag}} lines elsewhere stay.",
   "tools.validate.fixOneToStandard": "Convert to {{tag}}",
   "tools.validate.fixOneToStandardHint": "Writes every {{tag}} line in the file ({{count}}×) as the standard {{target}} line. A line stays as it is where {{target}} already says something else.",

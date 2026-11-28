@@ -11,6 +11,7 @@ import { type RecordPatch } from "../ui/historyTypes";
 import { fixableConformance, isSmartMatchEven, isStrayCitationPage, nodeAtPath, tableFor, type ConformanceIssue } from "./conformance/conformance";
 import { applyPassSafely, type PassJournal } from "./passSafety";
 import { removeCustomTag, removeMisplacedTag, renameXref } from "./recordRewrite";
+import { privacyPlaceTest, type PrivacyTagPlace } from "../gedcom/private";
 import { vendorTagToStandard } from "./vendorToStandard";
 
 /**
@@ -111,6 +112,9 @@ export interface ConformanceRef {
   /** For a tag removal: the dotted path the tag is misplaced under
    *  (`REPO.WWW`) — only the lines standing there go. */
   parent?: string;
+  /** For a tag removal: only the lines in the kind of place the row counts
+   *  (see `StructIssue.tagPlace`). */
+  place?: PrivacyTagPlace;
   /** Every finding of one kind across the file: the same value on the same
    *  line, given the same fix (a row standing for all of them). */
   match?: { tag: string; parent: string; sample: string; fix: string };
@@ -426,7 +430,9 @@ export function fixConformance(
 ): RecordPatch[] {
   if (kind === "customTags") {
     if (!only?.value) return [];
-    return only.parent ? removeMisplacedTag(dataset, only.value, only.parent) : removeCustomTag(dataset, only.value);
+    if (only.parent) return removeMisplacedTag(dataset, only.value, only.parent);
+    const under = only.place ? privacyPlaceTest(only.place, dataset.version === "7.0" ? "7.0" : "5.5.1") : undefined;
+    return removeCustomTag(dataset, only.value, under);
   }
   if (kind === "xrefs") return only?.id ? renameXref(dataset, only.id, only.value === "7.0") : [];
   if (kind === "toStandard") {
