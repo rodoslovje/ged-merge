@@ -83,3 +83,64 @@ test("a loaded table of former street names finds the house under today's name",
     .setInputFiles(FILE);
   await expect(page.locator(".tools-geo-source-error")).toContainText("not a table of former street names");
 });
+
+test("the address field proposes a former street typed short, and picking it writes the name out", async ({ page }) => {
+  const file = path.join(tmpdir(), "former-street-names-field.ged");
+  writeFileSync(
+    file,
+    [
+      "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
+      "0 @I1@ INDI", "1 NAME Ana /Kos/",
+      "1 RESI", "2 PLAC Ljubljana, Ljubljana, Slovenija", "2 ADDR Aleksandrova",
+      "0 @I2@ INDI", "1 NAME Bo /Kos/",
+      "1 BIRT", "2 PLAC Kranj, Kranj, Slovenija", "3 MAP", "4 LATI N46.2389", "4 LONG E14.3556",
+      "0 TRLR", "",
+    ].join("\n"),
+    "utf-8",
+  );
+  // The lookup is offered with online lookups on; the one service it would
+  // reach beside the stored register answers nothing here.
+  await page.addInitScript(() => {
+    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: true }));
+  });
+  await page.route("**/nominatim.openstreetmap.org/**", (route) => route.fulfill({ json: [] }));
+
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(file);
+  await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
+
+  await page.evaluate(async () => {
+    const load = (file: string) => import(/* @vite-ignore */ file);
+    const { AddressCollector } = await load("/src/geo/addressRegister.ts");
+    const { putAddressRegister, putFormerStreets } = await load("/src/persist/geoDb.ts");
+    const { invalidateAddressRegisters } = await load("/src/geo/addressLookup.ts");
+    const { invalidateFormerStreets } = await load("/src/geo/formerStreets.ts");
+    const collector = new AddressCollector("SI");
+    collector.add({
+      settlementId: "1", settlement: "Ljubljana", municipality: "Ljubljana", street: "Cankarjeva cesta",
+      post: "1000 Ljubljana", number: 5, ext: "", ext2: 0, lat: 46.0525, lon: 14.5005,
+    });
+    await putAddressRegister(collector.index(Date.now()), collector.buckets());
+    await putFormerStreets({
+      entries: [{ settlement: "Ljubljana", former: "Aleksandrova cesta", from: 1919, current: "Cankarjeva cesta" }],
+      importedAt: Date.now(),
+    });
+    invalidateAddressRegisters();
+    invalidateFormerStreets();
+  });
+
+  const address = page.getByRole("textbox", { name: "Residence address" });
+  await address.click();
+  await page.getByRole("button", { name: "Look this place up in the directories" }).click();
+
+  // The offer keeps the old name and says, in the row itself, what it is today.
+  const offer = page.locator(".suggest-item--register");
+  await expect(offer).toHaveCount(1);
+  await expect(offer).toContainText("Aleksandrova cesta");
+  await expect(offer.locator(".suggest-item-today")).toHaveText("→ today Cankarjeva cesta");
+
+  // Picked, it finishes what was typed and places the event.
+  await offer.dispatchEvent("mousedown");
+  await expect(address).toHaveValue("Aleksandrova cesta");
+  await expect(page.getByRole("button", { name: "Coordinates for Residence" })).not.toHaveClass(/edit-event-coord--empty/);
+});

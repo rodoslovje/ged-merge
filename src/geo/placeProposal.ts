@@ -47,6 +47,10 @@ export interface PlaceProposal {
   detail?: string;
   /** GOV id of the place, written back as `PLAC._GOV` when it has one. */
   govId?: string;
+  /** For an offer found under a former street name: what the register calls
+   *  that address today ("Cankarjeva cesta 5"). The offer's own text keeps the
+   *  former name, so this is shown beside it. */
+  today?: string;
 }
 
 /** How this file writes places, plus what the UI language can name. */
@@ -341,7 +345,14 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
     style,
   );
   if (!shaped) return undefined;
-  return { ...shaped, coord: result.coord, source: addressRegisterId("SI"), official: true, detail: result.label };
+  return {
+    ...shaped,
+    coord: result.coord,
+    source: addressRegisterId("SI"),
+    official: true,
+    detail: result.label,
+    ...(result.former ? { today: result.address } : {}),
+  };
 }
 
 /**
@@ -363,7 +374,14 @@ export function proposalFromStreet(result: StreetResult, style: PlaceStyle): Pla
   if (!shaped) return undefined;
   const detail =
     `${result.street}, ${result.settlement}` + (result.former ? ` ← ${formerNameLabel(result.former)}` : "");
-  return { ...shaped, coord: result.coord, source: addressRegisterId("SI"), official: true, detail };
+  return {
+    ...shaped,
+    coord: result.coord,
+    source: addressRegisterId("SI"),
+    official: true,
+    detail,
+    ...(result.former ? { today: result.street } : {}),
+  };
 }
 
 /** A GOV object. GOV names no country, so the chain stops at the parent — for

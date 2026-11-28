@@ -370,6 +370,11 @@ export function SuggestInput({
                 s.place
               )}
               {s.addr && <span className="addr-muted"> · {s.addr}</span>}
+              {/* Found under a former street name: the name it has today is
+                  the half of the offer the text above does not show. */}
+              {s.proposal?.today && (
+                <span className="suggest-item-today">{t("event.place.proposalToday", { name: s.proposal.today })}</span>
+              )}
               {s.proposal && (
                 <span className={`tools-reshape-badge ${s.proposal.official ? "official" : "reuse"}`}>
                   {s.proposal.source}

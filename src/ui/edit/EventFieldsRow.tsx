@@ -419,9 +419,10 @@ export function EventFieldsRow({
    * already holds is the user's own wording — "Olševek 1 / 2 (pd Pilar)" names
    * two houses and the farm on them, which no register line will ever say — so
    * it survives being placed, and so does a place that is already written.
-   * Text is filled only where the field is empty, or replaced where the two
+   * Text is filled only where the field is empty, replaced where the two
    * differ by nothing but spelling (the register's diacritics are worth
-   * having). The coordinate always comes along: it is what the offer was
+   * having), or completed where the offer begins with what was typed. The
+   * coordinate always comes along: it is what the offer was
    * picked for. A place kept as the file writes it keeps its own id and FORM
    * too — those describe the chain that stayed, not the one that was offered.
    */
@@ -430,7 +431,11 @@ export function EventFieldsRow({
     const adopt = (own: string, offered: string | undefined) =>
       !own.trim() || (offered && placeCollator.compare(own.trim(), offered) === 0) ? offered : undefined;
     const place = adopt(placeField.value, proposal.plac);
-    const addr = adopt(addrField.value, proposal.addr);
+    // An offer that merely completes what was typed — "Zrinjskega" picked as
+    // "Zrinjskega cesta" — is the user's own wording finished, not replaced.
+    const typed = addrField.value.trim().toLowerCase();
+    const completes = !!typed && !!proposal.addr?.toLowerCase().startsWith(`${typed} `);
+    const addr = completes ? proposal.addr : adopt(addrField.value, proposal.addr);
     if (place) placeField.set(place);
     if (addr) addrField.set(addr);
     commitAll({
