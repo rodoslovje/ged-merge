@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPointer, isWebAddress, looksLikeUrl } from "./uri";
+import { isPointer, isWebAddress, looksLikeUrl, splitUrls } from "./uri";
 
 // These two predicates gate URL-vs-file decisions in objeInfoOf, the builder's
 // link harvest, the edit layer's "never clobber a local scan" rule and
@@ -60,5 +60,15 @@ describe("isWebAddress", () => {
     [undefined, false],
   ])("%j → %s", (value, expected) => {
     expect(isWebAddress(value)).toBe(expected);
+  });
+});
+
+describe("splitUrls", () => {
+  it("cuts prose at its web addresses, trailing punctuation left as text", () => {
+    expect(splitUrls("Glej https://a.si/x?y=1, in (http://b.si/p).")).toEqual([
+      "Glej ", { url: "https://a.si/x?y=1" }, ", in (", { url: "http://b.si/p" }, ").",
+    ]);
+    expect(splitUrls("https://a.si")).toEqual([{ url: "https://a.si" }]);
+    expect(splitUrls("no address")).toEqual(["no address"]);
   });
 });

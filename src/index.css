@@ -12850,7 +12850,7 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .note-text b { font-weight: 700; }
 /* Inside a note the view sets in italics, the note's own italics stand upright. */
 .report-note .note-text i { font-style: normal; }
-.note-text a { color: var(--accent); text-decoration: underline; }
+.note-text a { color: var(--accent); text-decoration: underline; overflow-wrap: anywhere; }
 .note-block { display: inline; }
 .note-block + .note-block,
 .note-list + .note-block,

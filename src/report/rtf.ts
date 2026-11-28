@@ -8,6 +8,7 @@
 
 import type { Translate } from "../locales/i18n";
 import { isHtmlNote, parseNoteHtml, type NoteInline } from "../gedcom/noteHtml";
+import { splitUrls } from "../gedcom/uri";
 import { generationHeading, sourceLabel, tocRows, truncationNote, type ReportData, type ReportEntry, type SourceLine } from "./model";
 import { childrenOfLabel, entryNum, factText, reportName, type ReportTextOptions } from "./text";
 import { citationMark } from "./narrativeText";
@@ -156,7 +157,7 @@ function genBookmark(gen: number, direction: string): string {
 
 /** An italic note paragraph (notes may span several lines → \line breaks). */
 function notePara(note: string, indent: number, rich?: string, mark?: string): string {
-  const text = rich && isHtmlNote(rich) ? richNoteRtf(rich) : esc(note);
+  const text = rich && isHtmlNote(rich) ? richNoteRtf(rich) : linkedEsc(note);
   return para(`\\li${indent}\\i\\cf${CF_MUTED}`, (mark ? `${esc(mark)} ` : "") + text);
 }
 
@@ -167,12 +168,12 @@ function notePara(note: string, indent: number, rich?: string, mark?: string): s
  * italics does in print.
  */
 function richNoteRtf(html: string): string {
-  const inline = (kids: NoteInline[]): string =>
+  const inline = (kids: NoteInline[], inLink = false): string =>
     kids.map((kid) =>
-      kid.t === "text" ? esc(kid.text)
+      kid.t === "text" ? (inLink ? esc(kid.text) : linkedEsc(kid.text))
         : kid.t === "br" ? "\\line "
-        : kid.t === "a" ? inline(kid.kids)
-        : `{\\${kid.t === "b" ? "b" : kid.t === "i" ? "i0" : "ul"} ${inline(kid.kids)}}`).join("");
+        : kid.t === "a" ? (inLink ? inline(kid.kids, true) : linkRtf(kid.href, inline(kid.kids, true)))
+        : `{\\${kid.t === "b" ? "b" : kid.t === "i" ? "i0" : "ul"} ${inline(kid.kids, inLink)}}`).join("");
   return parseNoteHtml(html).blocks
     .map((block) =>
       block.t === "p" || block.t === "h" ? inline(block.kids)
@@ -185,10 +186,18 @@ function richNoteRtf(html: string): string {
  *  citation resolved to a URL, with the optional narrative citation mark. */
 function sourcePara(t: Translate, src: SourceLine, indent: number, mark?: string): string {
   const label = esc(`${mark ? `${mark} ` : ""}${sourceLabel(t, src)}`);
-  const text = src.url
-    ? `{\\field{\\*\\fldinst{HYPERLINK "${esc(src.url.replace(/"/g, "%22"))}"}}{\\fldrslt{\\cf${CF_LINK}\\ul ${label}}}}`
-    : label;
+  const text = src.url ? linkRtf(src.url, label) : label;
   return para(`\\li${indent}\\fs20\\cf${CF_SOURCE}`, text);
+}
+
+/** A clickable HYPERLINK field: `label` (already RTF) opens `url`. */
+function linkRtf(url: string, label: string): string {
+  return `{\\field{\\*\\fldinst{HYPERLINK "${esc(url.replace(/"/g, "%22"))}"}}{\\fldrslt{\\cf${CF_LINK}\\ul ${label}}}}`;
+}
+
+/** RTF-escaped text, each web address written in it a clickable link. */
+function linkedEsc(text: string): string {
+  return splitUrls(text).map((p) => (typeof p === "string" ? esc(p) : linkRtf(p.url, esc(p.url)))).join("");
 }
 
 /** RTF-escape a string: `\ { }` escaped, newlines become `\line`, non-ASCII
