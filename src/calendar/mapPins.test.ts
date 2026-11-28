@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { mapFlags, residencePins } from "./mapPins";
+import { framePins, mapFlags, residencePins, type MapPin } from "./mapPins";
 
 const resi = (year: number, place: string, lat?: string, lon?: string) => [
   "1 RESI", `2 DATE ${year}`, `2 PLAC ${place}`,
@@ -47,5 +47,28 @@ describe("mapFlags", () => {
     const flags = mapFlags(pins, [{ x: 0.5, y: 0.5 }, { x: 0.52, y: 0.51 }, { x: 0.1, y: 0.8 }], 1.5);
     expect(flags).toHaveLength(2);
     expect(flags[0]).toMatchObject({ place: "Ljubljana", ids: ["@I1@", "@I2@", pins[1].ids[0]] });
+  });
+});
+
+describe("framePins", () => {
+  const pin = (place: string, lat: number, lon: number, people: number): MapPin =>
+    ({ place, coord: { lat, lon }, ids: Array.from({ length: people }, (_, i) => `${place}${i}`) });
+  const home = [pin("Kranj", 46.24, 14.36, 40), pin("Ljubljana", 46.05, 14.51, 30), pin("Maribor", 46.55, 15.65, 10)];
+
+  it("leaves a lone place overseas off the map", () => {
+    const { on, away } = framePins([...home, pin("Windsor", 42.3, -83.0, 1)]);
+    expect(on.map((p) => p.place)).toEqual(["Kranj", "Ljubljana", "Maribor"]);
+    expect(away.map((p) => p.place)).toEqual(["Windsor"]);
+  });
+
+  it("keeps a place that lies about as near as the rest", () => {
+    const { on, away } = framePins([...home, pin("Koper", 45.55, 13.73, 1)]);
+    expect(on).toHaveLength(4);
+    expect(away).toEqual([]);
+  });
+
+  it("holds a family split between two countries whole", () => {
+    const { away } = framePins([pin("Kranj", 46.24, 14.36, 6), pin("Windsor", 42.3, -83.0, 5)]);
+    expect(away).toEqual([]);
   });
 });

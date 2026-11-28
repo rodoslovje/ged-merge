@@ -61,3 +61,54 @@ export function mapFlags(pins: MapPin[], spots: MapSpot[], aspect: number, reach
   });
   return flags;
 }
+
+/** The share of the people a map must hold before a far-off place may fall off it. */
+const FRAME_SHARE = 0.6;
+/** A place just outside the frame still joins it when it is no further out
+ *  than this many times the frame's own reach. */
+const FRAME_STRETCH = 3;
+
+/** Distance between two coordinates, in kilometres — near enough for ranking. */
+function km(a: GeoCoord, b: GeoCoord): number {
+  const dy = (a.lat - b.lat) * 111;
+  const dx = (a.lon - b.lon) * 111 * Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180));
+  return Math.hypot(dx, dy);
+}
+
+/** The value half of the people lie at or below. */
+function weightedMedian(pins: MapPin[], of: (p: MapPin) => number): number {
+  const sorted = [...pins].sort((a, b) => of(a) - of(b));
+  const half = pins.reduce((n, p) => n + p.ids.length, 0) / 2;
+  let seen = 0;
+  for (const p of sorted) {
+    seen += p.ids.length;
+    if (seen >= half) return of(p);
+  }
+  return of(sorted[0]);
+}
+
+/**
+ * The pins a map is framed on, and the ones left off it. One cousin overseas
+ * would shrink the whole family's home to a dot, so the map holds where most
+ * of them live: the places nearest the family's middle until they hold
+ * {@link FRAME_SHARE} of the people, and any further place that is still
+ * about as near. The rest are `away` — named beside the map, not drawn on it.
+ */
+export function framePins(pins: MapPin[]): { on: MapPin[]; away: MapPin[] } {
+  if (pins.length < 2) return { on: pins, away: [] };
+  const middle = { lat: weightedMedian(pins, (p) => p.coord.lat), lon: weightedMedian(pins, (p) => p.coord.lon) };
+  const byReach = pins.map((pin) => ({ pin, far: km(pin.coord, middle) })).sort((a, b) => a.far - b.far);
+  const need = pins.reduce((n, p) => n + p.ids.length, 0) * FRAME_SHARE;
+  const on = new Set<MapPin>();
+  let held = 0;
+  let reach = 0;
+  for (const { pin, far } of byReach) {
+    // A frame of one town has no reach to stretch: fifty kilometres stand in.
+    if (held >= need && far > Math.max(reach, 50) * FRAME_STRETCH) break;
+    on.add(pin);
+    held += pin.ids.length;
+    reach = far;
+  }
+  // Both in the order given: the fullest place first.
+  return { on: pins.filter((p) => on.has(p)), away: pins.filter((p) => !on.has(p)) };
+}

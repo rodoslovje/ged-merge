@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { mapFlags, type MapPin } from "../../calendar/mapPins";
+import { framePins, mapFlags, type MapPin } from "../../calendar/mapPins";
 import { BASEMAP_CREDIT, renderBasemap, type Basemap } from "./basemap";
 
 // The calendar's map: a base map of the places the family lives at, and over
@@ -10,6 +10,8 @@ import { BASEMAP_CREDIT, renderBasemap, type Basemap } from "./basemap";
 
 /** How many names a flag writes out before it counts the rest. */
 const FLAG_NAMES = 4;
+/** How many far-off places the note beside the map names. */
+const AWAY_PLACES = 4;
 
 interface Props {
   pins: MapPin[];
@@ -26,7 +28,16 @@ export function MapPicture({ pins, nameOf }: Props) {
     const el = ref.current;
     if (el && el.clientWidth && el.clientHeight) setAspect(Math.round((el.clientWidth / el.clientHeight) * 20) / 20);
   }, []);
-  const coords = useMemo(() => pins.map((p) => p.coord), [pins]);
+  // The map is framed on where most of the family lives; a far-off place is
+  // named in a note instead of shrinking everyone else to a dot.
+  const { on, away } = useMemo(() => framePins(pins), [pins]);
+  const coords = useMemo(() => on.map((p) => p.coord), [on]);
+  const names = (ids: string[]) => (
+    <>
+      {ids.slice(0, FLAG_NAMES).map((id) => <span key={id}>{nameOf(id)}</span>)}
+      {ids.length > FLAG_NAMES && <span>+{ids.length - FLAG_NAMES}</span>}
+    </>
+  );
   const [state, setState] = useState<{ of?: Promise<Basemap>; map?: Basemap; failed?: boolean }>({});
   useEffect(() => {
     if (!aspect || !coords.length || !renderBasemap) return;
@@ -46,16 +57,26 @@ export function MapPicture({ pins, nameOf }: Props) {
     body = (
       <>
         <img src={state.map.url} alt="" />
-        {mapFlags(pins, state.map.spots, aspect).map((f, i) => (
+        {mapFlags(on, state.map.spots, aspect).map((f, i) => (
           // Near the right edge a flag flies to the left, to stay on the map.
           <div key={i} className={`cal-flag${f.x > 0.72 ? " cal-flag-left" : ""}`} style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%` }}>
             <div className="cal-flag-body">
               <b>{f.place}</b>
-              {f.ids.slice(0, FLAG_NAMES).map((id) => <span key={id}>{nameOf(id)}</span>)}
-              {f.ids.length > FLAG_NAMES && <span>+{f.ids.length - FLAG_NAMES}</span>}
+              {names(f.ids)}
             </div>
           </div>
         ))}
+        {away.length > 0 && (
+          <div className="cal-map-away">
+            <i>{t("calendar.map.elsewhere")}</i>
+            {away.slice(0, AWAY_PLACES).map((p, i) => (
+              <div key={i} className="cal-flag-body">
+                <b>{p.place}</b>
+                {names(p.ids)}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="cal-map-credit">{BASEMAP_CREDIT}</div>
       </>
     );

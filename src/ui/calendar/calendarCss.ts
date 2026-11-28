@@ -162,6 +162,10 @@ export const CALENDAR_CSS = `
 .cal-flag.cal-flag-left { transform: translate(-100%, -100%); border-left: 0; border-right: 0.12em solid var(--accent); }
 .cal-flag.cal-flag-left::after { left: auto; right: -0.3em; }
 .cal-flag-left .cal-flag-body { border-left: 0.1em solid var(--accent); border-right: 0; text-align: right; }
+/* The far-off places the map is not stretched to: a note in its corner. */
+.cal-map-away { position: absolute; left: 0.6em; bottom: 0.6em; display: flex; flex-direction: column; gap: 0.25em; align-items: flex-start; }
+.cal-map-away > i { font-size: 0.6em; color: var(--muted); background: color-mix(in srgb, var(--paper) 80%, transparent); padding: 0 0.3em; }
+.cal-map-away .cal-flag-body { border-left: 0.1em solid var(--accent); }
 .cal-map-credit { position: absolute; right: 0; bottom: 0; padding: 0.1em 0.5em; font-family: "IBM Plex Sans", system-ui, sans-serif;
   font-size: 0.42em; color: var(--muted); background: color-mix(in srgb, var(--paper) 75%, transparent); }
 .cal-back-body > .cal-map { flex: 1 1 auto; }

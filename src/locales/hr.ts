@@ -4333,6 +4333,7 @@ export const hr = {
   "calendar.picture.fanAnc": "Lepeza predaka",
   "calendar.picture.fanDesc": "Lepeza potomaka",
   "calendar.picture.map": "Karta prebivališta",
+  "calendar.map.elsewhere": "Drugdje",
   "calendar.map.empty": "Nitko od srodnika u kalendaru nema prebivalište s koordinatama.",
   "calendar.map.failed": "Kartu nije bilo moguće učitati. Provjerite internetsku vezu.",
   "calendar.map.loading": "Učitavam kartu…",
