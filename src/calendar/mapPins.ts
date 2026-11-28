@@ -1,5 +1,5 @@
 // The family calendar's map: where the people it celebrates live — each one's
-// last residence that carries coordinates. Pure; the map and its flags are the
+// last residence that carries coordinates, or for want of one their birth place. Pure; the map and its flags are the
 // view's.
 
 import type { Dataset, GeoCoord } from "../gedcom/types";
@@ -43,15 +43,17 @@ export function nearestFirst(ds: Dataset, rootId: string, ids: Iterable<string>)
 /** Two residences closer than this (about a hundred metres) are one pin. */
 const SAME_PLACE = 3;
 
-/** One pin per place the given people live at, the fullest first. A person
- *  with no residence that carries coordinates has none. */
+/** One pin per place the given people live at, the fullest first: the last
+ *  residence that carries coordinates, else the birth place that does. A
+ *  person with neither has no pin. */
 export function residencePins(ds: Dataset, ids: Iterable<string>): MapPin[] {
   const pins = new Map<string, MapPin>();
   let rank = 0;
   for (const id of new Set(ids)) {
     rank++;
     const indi = ds.individuals.get(id);
-    const place = indi && lastResidence(indi, (e) => e.place?.coord)?.place;
+    // Someone with no residence on record is taken to live where they were born.
+    const place = indi && (lastResidence(indi, (e) => e.place?.coord) ?? indi.events.find((e) => e.tag === "BIRT" && e.place?.coord))?.place;
     if (!place?.coord) continue;
     const key = `${place.coord.lat.toFixed(SAME_PLACE)},${place.coord.lon.toFixed(SAME_PLACE)}`;
     const pin = pins.get(key) ?? { coord: place.coord, place: place.parts[0] || place.raw, ids: [], ranks: [] };

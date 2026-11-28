@@ -20,25 +20,28 @@ const ds = buildDataset(parseGedcom(new TextEncoder().encode([
   "0 @I4@ INDI", "1 NAME Tim /Novak/", ...resi(2012, "Koper, Slovenija", "N45.5481", "E13.7302"), ...resi(2022, "Nekje"),
   // Born into a dated home, living at an undated one: the undated is the present.
   "0 @I6@ INDI", "1 NAME Danaja /Novak/", ...resi(1996, "Radovljica, Slovenija", "N46.3444", "E14.1744"), ...resi(undefined, "Mlaka pri Kranju, Slovenija", "N46.2700", "E14.3400"),
-  // No residence with coordinates at all.
+  // No residence with coordinates: the birth place stands in.
   "0 @I5@ INDI", "1 NAME Eva /Horvat/", "1 BIRT", "2 PLAC Celje, Slovenija", "3 MAP", "4 LATI N46.2309", "4 LONG E15.2604",
+  // Neither a residence nor a birth place with coordinates.
+  "0 @I7@ INDI", "1 NAME Rok /Horvat/", "1 BIRT", "2 PLAC Nekje",
   "0 TRLR", "",
 ].join("\n")).buffer));
 
 describe("residencePins", () => {
-  const pins = residencePins(ds, ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@", "@I1@"]);
+  const pins = residencePins(ds, ["@I1@", "@I2@", "@I3@", "@I4@", "@I5@", "@I7@", "@I1@"]);
 
   it("gathers the people of one place under one pin, the fullest first", () => {
     expect(pins[0]).toMatchObject({ place: "Ljubljana", ids: ["@I1@", "@I2@"] });
-    expect(pins.map((p) => p.place).sort()).toEqual(["Koper", "Ljubljana", "Maribor"]);
+    expect(pins.map((p) => p.place).sort()).toEqual(["Celje", "Koper", "Ljubljana", "Maribor"]);
   });
 
   it("takes the residence without a date for the present one", () => {
     expect(residencePins(ds, ["@I6@"]).map((p) => p.place)).toEqual(["Mlaka pri Kranju"]);
   });
 
-  it("goes by a residence alone, and by the last that carries coordinates", () => {
-    expect(pins.some((p) => p.ids.includes("@I5@"))).toBe(false);
+  it("goes by the last residence that carries coordinates, else by the birth place", () => {
+    expect(pins.find((p) => p.ids.includes("@I5@"))?.place).toBe("Celje");
+    expect(pins.some((p) => p.ids.includes("@I7@"))).toBe(false);
     expect(pins.find((p) => p.ids.includes("@I4@"))?.place).toBe("Koper");
   });
 });

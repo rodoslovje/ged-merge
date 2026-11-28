@@ -4610,7 +4610,7 @@ export const sl = {
   "calendar.picture.fanDesc": "Pahljača potomcev",
   "calendar.picture.map": "Zemljevid prebivališč",
   "calendar.map.elsewhere": "Drugje",
-  "calendar.map.empty": "Nihče od sorodnikov v koledarju nima prebivališča s koordinatami.",
+  "calendar.map.empty": "Nihče od sorodnikov v koledarju nima prebivališča ali kraja rojstva s koordinatami.",
   "calendar.map.failed": "Zemljevida ni bilo mogoče naložiti. Preverite internetno povezavo.",
   "calendar.map.loading": "Nalagam zemljevid…",
   "calendar.picture.stats": "Družina v številkah",

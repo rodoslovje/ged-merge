@@ -132,7 +132,7 @@ test("without a kept workspace the wizard says how to keep the work", async ({ p
 });
 
 // The map of where the family lives is one of the pictures. This family's file
-// places no residence, so the page says so — and asks the network for no map.
+// carries no coordinates, so the page says so — and asks the network for no map.
 test("the map of residences is offered as a picture and says when no one is placed", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FAMILY);
@@ -143,7 +143,7 @@ test("the map of residences is offered as a picture and says when no one is plac
   await page.getByRole("button", { name: "Next page", exact: true }).click();
   await page.locator(".cal-field", { hasText: "What the picture shows" }).locator(".select-menu").click();
   await page.locator('.dd-menu .dd-item[data-value="map"]').click();
-  await expect(page.locator(".cal-preview .cal-map")).toHaveText("None of the relatives on the calendar has a residence with coordinates.");
+  await expect(page.locator(".cal-preview .cal-map")).toHaveText("None of the relatives on the calendar has a residence or a birth place with coordinates.");
 });
 
 // A day with more names than its cell holds says how many it leaves out, and

@@ -4119,7 +4119,7 @@ export const en = {
   "calendar.picture.fanDesc": "Fan of descendants",
   "calendar.picture.map": "Map of where the family lives",
   "calendar.map.elsewhere": "Elsewhere",
-  "calendar.map.empty": "None of the relatives on the calendar has a residence with coordinates.",
+  "calendar.map.empty": "None of the relatives on the calendar has a residence or a birth place with coordinates.",
   "calendar.map.failed": "The map could not be loaded. Check your internet connection.",
   "calendar.map.loading": "Loading the map…",
   "calendar.picture.stats": "The family in numbers",
