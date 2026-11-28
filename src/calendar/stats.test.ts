@@ -29,6 +29,12 @@ describe("familyStats", () => {
     // Of them alive: Marija, Peter, Luka, Tim, Eva.
     expect(s.livingBloodRelatives).toBe(5);
     expect(s.oldestAncestor).toEqual({ id: "@I4@", year: 1900 });
-    expect(s.commonSurname).toEqual({ name: "Novak", count: 6 });
+    expect(s.ancestorsByGen).toEqual([2, 2]);
+    expect(s.topSurnames[0]).toEqual({ name: "Novak", count: 6 });
+    expect(s.topSurnames.length).toBeLessThanOrEqual(5);
+    // Every century from the first to the last, none skipped.
+    const centuries = s.birthsByCentury.map((c) => c.century);
+    expect(centuries).toEqual(centuries.map((_, i) => centuries[0] + i * 100));
+    expect(centuries[0]).toBe(1900);
   });
 });

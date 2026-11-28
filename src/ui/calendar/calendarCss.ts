@@ -114,11 +114,27 @@ export const CALENDAR_CSS = `
 .cal-stats { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 0.8em;
   padding: 1.2em 1.6em; background: color-mix(in srgb, var(--accent) 7%, var(--paper)); border-radius: 0.3em; text-align: center; }
 .cal-stats-title { font-size: 1.5em; color: var(--accent); }
-.cal-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(8em, 1fr)); gap: 0.6em 1em; }
+.cal-stats-grid { display: flex; flex-wrap: wrap; gap: 0.6em 1em; }
+.cal-stat { flex: 1 1 8em; }
 .cal-stat-label { font-size: 0.72em; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .cal-stat-num { font-size: 2.2em; color: var(--accent); line-height: 1.1; }
 .cal-cover .cal-stats { font-size: 1.6em; gap: 1.4em; }
-.cal-stats-lines { font-size: 0.85em; color: var(--ink); display: flex; flex-direction: column; gap: 0.2em; }
+.cal-stats-lines { font-size: 0.85em; color: var(--ink); }
+/* The charts take the height the numbers leave, side by side where they fit. */
+.cal-stats-charts { flex: 1 1 0; min-height: 0; display: flex; flex-wrap: wrap; gap: 0.8em 1.2em; }
+.cal-stats-chart { flex: 1 1 12em; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 0.5em;
+  padding: 0.7em 0.9em; background: var(--paper); border-radius: 0.3em; }
+.cal-bars { flex: 1 1 0; min-height: 0; display: flex; gap: 0.3em; }
+.cal-bar-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.cal-bar { width: 100%; max-width: 2.6em; min-height: 0.1em; background: var(--accent); border-radius: 0.15em 0.15em 0 0; }
+.cal-bar-num, .cal-bar-tick { font-size: 0.62em; line-height: 1.5; color: var(--muted); white-space: nowrap; }
+.cal-bar-tick { width: 100%; border-top: 0.1em solid var(--rule); color: var(--ink); }
+.cal-rows { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: auto 1fr auto; grid-auto-rows: minmax(0, 1fr);
+  align-items: center; gap: 0.2em 0.6em; }
+.cal-row { display: contents; }
+.cal-row-name { font-size: 0.8em; text-align: right; max-width: 9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-row-track { height: 60%; max-height: 1.4em; min-height: 0.3em; }
+.cal-row-bar { height: 100%; background: var(--accent); border-radius: 0 0.15em 0.15em 0; }
 .cal-cover { align-items: center; text-align: center; }
 .cal-back-title { font-size: 2em; color: var(--accent); text-align: center; margin-bottom: 0.6em; }
 .cal-back-body { flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }

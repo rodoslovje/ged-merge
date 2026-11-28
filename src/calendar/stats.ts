@@ -1,6 +1,7 @@
 // "The family in numbers", seen from one person: descendants generation by
 // generation, the known ancestors, every blood relative and how many of them
-// live, the oldest known ancestor and the most common surname. Pure.
+// live, the oldest known ancestor, the most common surnames and the centuries
+// the family was born in. Pure.
 
 import type { Dataset } from "../gedcom/types";
 import { birthYear, isPresumedLiving } from "../gedcom/lifespan";
@@ -11,6 +12,8 @@ export interface FamilyStats {
   descendantsByGen: number[];
   descendants: number;
   ancestors: number;
+  /** Known ancestors per generation: parents, grandparents… */
+  ancestorsByGen: number[];
   /** Generations above the person that hold at least one known ancestor. */
   ancestorGens: number;
   /** Everyone sharing an ancestor with the person (themselves left out). */
@@ -18,9 +21,14 @@ export interface FamilyStats {
   livingBloodRelatives: number;
   /** The known ancestor born earliest. */
   oldestAncestor?: { id: string; year: number };
-  /** The surname most blood relatives (and the person) carry. */
-  commonSurname?: { name: string; count: number };
+  /** The surnames most blood relatives (and the person) carry, commonest first. */
+  topSurnames: { name: string; count: number }[];
+  /** The person and their blood relatives by century of birth (1800 = born
+   *  1800–1899), every century from the first to the last. */
+  birthsByCentury: { century: number; count: number }[];
 }
+
+const TOP_SURNAMES = 5;
 
 function childrenOf(ds: Dataset, id: string): string[] {
   const out: string[] = [];
@@ -60,14 +68,29 @@ export function familyStats(ds: Dataset, rootId: string, nowYear: number): Famil
 
   let living = 0;
   const surnames = new Map<string, number>();
+  const centuries = new Map<number, number>();
   for (const id of [rootId, ...blood]) {
     const indi = ds.individuals.get(id);
+    const born = birthYear(indi);
+    if (born !== undefined) {
+      const c = Math.floor(born / 100) * 100;
+      centuries.set(c, (centuries.get(c) ?? 0) + 1);
+    }
     if (id !== rootId && isPresumedLiving(indi, ds, nowYear)) living++;
     const s = indi && primaryName(indi)?.surname?.trim();
     if (s) surnames.set(s, (surnames.get(s) ?? 0) + 1);
   }
-  let commonSurname: FamilyStats["commonSurname"];
-  for (const [name, count] of surnames) if (!commonSurname || count > commonSurname.count) commonSurname = { name, count };
+  const topSurnames = [...surnames]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, TOP_SURNAMES);
+  const birthsByCentury: FamilyStats["birthsByCentury"] = [];
+  if (centuries.size) {
+    let first = Infinity;
+    let last = -Infinity;
+    for (const c of centuries.keys()) { if (c < first) first = c; if (c > last) last = c; }
+    for (let c = first; c <= last; c += 100) birthsByCentury.push({ century: c, count: centuries.get(c) ?? 0 });
+  }
 
   let oldestAncestor: FamilyStats["oldestAncestor"];
   for (const id of ancGen.keys()) {
@@ -78,17 +101,19 @@ export function familyStats(ds: Dataset, rootId: string, nowYear: number): Famil
 
   // Not `Math.max(...values)`: a very large file's root can have more
   // ancestors than a call takes arguments.
-  let ancestorGens = 0;
-  for (const gen of ancGen.values()) if (gen > ancestorGens) ancestorGens = gen;
+  const ancestorsByGen: number[] = [];
+  for (const gen of ancGen.values()) if (gen > 0) ancestorsByGen[gen - 1] = (ancestorsByGen[gen - 1] ?? 0) + 1;
 
   return {
     descendantsByGen,
     descendants: seenDown.size - 1,
     ancestors: ancGen.size - 1,
-    ancestorGens,
+    ancestorsByGen,
+    ancestorGens: ancestorsByGen.length,
     bloodRelatives: blood.size,
     livingBloodRelatives: living,
     oldestAncestor,
-    commonSurname,
+    topSurnames,
+    birthsByCentury,
   };
 }
