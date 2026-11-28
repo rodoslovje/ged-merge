@@ -3,14 +3,36 @@ import type { FamilyStats } from "../../calendar/stats";
 import type { Sex } from "../../gedcom/types";
 
 // "The family in numbers" as a page's picture: big numbers under their labels,
-// then the oldest known ancestor and the most common surname. Labels sit above
-// their number, so no word has to agree with it.
+// then small charts that take the room that is left — the known ancestors of
+// every generation, the most common surnames, the centuries the family was
+// born in — and the oldest known ancestor. Labels sit above their number, so
+// no word has to agree with it.
 
 interface Props {
   stats: FamilyStats;
   /** How to name the oldest ancestor, and their sex for the wording. */
   nameOf: (id: string) => string;
   sexOf: (id: string) => Sex | undefined;
+}
+
+/** Upright bars, one per generation or century: the count above, the tick below. */
+function Columns({ title, bars }: { title: string; bars: [tick: string, n: number][] }) {
+  const max = Math.max(1, ...bars.map(([, n]) => n));
+  return (
+    <div className="cal-stats-chart">
+      <div className="cal-stat-label">{title}</div>
+      <div className="cal-bars">
+        {bars.map(([tick, n], i) => (
+          <div key={i} className="cal-bar-col">
+            <div style={{ flex: `${1 - n / max} 1 0` }} />
+            <div className="cal-bar-num">{n.toLocaleString()}</div>
+            <div className="cal-bar" style={{ flex: `${n / max} 1 0` }} />
+            <div className="cal-bar-tick">{tick}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function StatsCard({ stats, nameOf, sexOf }: Props) {
@@ -28,6 +50,11 @@ export function StatsCard({ stats, nameOf, sexOf }: Props) {
   tiles.push([t("calendar.stats.living"), stats.livingBloodRelatives]);
   const oldest = stats.oldestAncestor;
   const sex = oldest && sexOf(oldest.id);
+  // A chart of one bar says nothing its number has not said.
+  const byGen = stats.ancestorsByGen.length > 1;
+  const surnames = stats.topSurnames.length > 1;
+  const byCentury = stats.birthsByCentury.length > 1;
+  const topCount = stats.topSurnames[0]?.count ?? 1;
   return (
     <div className="cal-stats">
       <div className="cal-stats-title">{t("calendar.stats.title")}</div>
@@ -39,10 +66,29 @@ export function StatsCard({ stats, nameOf, sexOf }: Props) {
           </div>
         ))}
       </div>
-      {(oldest || stats.commonSurname) && (
+      {(byGen || surnames || byCentury) && (
+        <div className="cal-stats-charts">
+          {byGen && <Columns title={t("calendar.stats.byGen")} bars={stats.ancestorsByGen.map((n, i) => [String(i + 1), n])} />}
+          {surnames && (
+            <div className="cal-stats-chart">
+              <div className="cal-stat-label">{t("calendar.stats.surnames")}</div>
+              <div className="cal-rows">
+                {stats.topSurnames.map((s) => (
+                  <div key={s.name} className="cal-row">
+                    <div className="cal-row-name">{s.name}</div>
+                    <div className="cal-row-track"><div className="cal-row-bar" style={{ width: `${(100 * s.count) / topCount}%` }} /></div>
+                    <div className="cal-bar-num">{s.count.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {byCentury && <Columns title={t("calendar.stats.byCentury")} bars={stats.birthsByCentury.map((c) => [String(c.century), c.count])} />}
+        </div>
+      )}
+      {oldest && (
         <div className="cal-stats-lines">
-          {oldest && <div>{t("calendar.stats.oldest", { name: nameOf(oldest.id), year: oldest.year, context: sex === "M" || sex === "F" ? sex : undefined })}</div>}
-          {stats.commonSurname && <div>{t("calendar.stats.surname", { name: stats.commonSurname.name })}</div>}
+          {t("calendar.stats.oldest", { name: nameOf(oldest.id), year: oldest.year, context: sex === "M" || sex === "F" ? sex : undefined })}
         </div>
       )}
     </div>
