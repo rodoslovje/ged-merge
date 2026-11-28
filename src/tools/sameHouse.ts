@@ -22,7 +22,7 @@ import type { AddressRow } from "./addresses";
 export type SameHouseKind =
   /** One is the other plus the researcher's own note: "26" ⊂ "26 (pd Mlinar)". */
   | "note"
-  /** One names fewer of the house's names: "Labore 4" ⊂ "Labore 4 / Škofjeloška 4". */
+  /** One names fewer of the house's names: "Škofjeloška 4" ⊂ "Škofjeloška 4 / Labore 4". */
   | "variant"
   /** The same house number on the same street, spelt more fully or in another
    *  case: "Kidričeva 38" against "Kidričeva cesta 38", "breg" against "Breg". */

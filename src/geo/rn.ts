@@ -136,10 +136,10 @@ const OWN_STREET = /^\D+\s\d/;
 /**
  * The whole addresses a value lists, when a slash separates more than numbers.
  *
- * A house whose *street* was renamed is recorded with both names — "Labore 4 /
- * Škofjeloška 4" is one building on a street Kranj renamed — and each half is a
+ * A house whose *street* was renamed is recorded with both names — "Škofjeloška 4 /
+ * Labore 4" is one building on a street Kranj renamed — and each half is a
  * complete address the register can answer. Read as one string it is neither:
- * the street becomes "Labore 4 / Škofjeloška", which no register knows.
+ * the street becomes "Škofjeloška 4 / Labore", which no register knows.
  *
  * Only a segment naming its own street starts a new variant, so the far more
  * common lists of numbers alone ("16 / 26", the suffix in "38/a") stay one
@@ -216,7 +216,7 @@ export function abbreviates(host: string | undefined, settlement: string | undef
  * neither register covers — asking either would be pointless traffic.
  */
 export function rnQueriesFrom(place: string | undefined, address: string | undefined): RnQuery[] {
-  // A house recorded under both its old and its new street name is two whole
+  // A house recorded under both its new and its old street name is two whole
   // addresses in one value; each is looked up on its own, since the register
   // knows them as different streets (see {@link splitAddressVariants}).
   const variants = address?.trim() ? splitAddressVariants(address) : [];

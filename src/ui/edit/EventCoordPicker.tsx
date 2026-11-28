@@ -369,7 +369,7 @@ export function EventCoordPicker({
 
   const runOnline = () => {
     // Address first, then the place, which is how Nominatim reads best. A house
-    // under both its old and new street name ("Labore 4 / Škofjeloška 4") is
+    // under both its new and old street name ("Škofjeloška 4 / Labore 4") is
     // two whole addresses and each is asked on its own — read as one string it
     // is an address no service knows (the register splits it the same way).
     const variants = address.trim() ? splitAddressVariants(address) : [""];

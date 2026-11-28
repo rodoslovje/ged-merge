@@ -655,7 +655,7 @@ export function AddressCoordsSection({
       const wider = await searchNominatim(compose(named), lang);
       return wider.length ? wider : results;
     };
-    // A house under both its old and new street name ("Labore 4 / Škofjeloška
+    // A house under both its new and old street name ("Škofjeloška 4 / Labore
     // 4") is two whole addresses; each is asked on its own — read as one string
     // it is an address no service knows — and the answers stand in one list,
     // minus any hit another variant already placed at the same point.
