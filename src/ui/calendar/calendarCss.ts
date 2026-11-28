@@ -64,18 +64,23 @@ export const CALENDAR_CSS = `
 .cal-day { font-size: 1.05em; font-weight: 700; }
 .cal-sun .cal-day, .cal-hol .cal-day { color: var(--holiday); }
 .cal-holname { font-size: 0.6em; color: var(--holiday); line-height: 1.1; margin-top: 0.1em; }
+/* The saints of the day, beside its number: one line, cut short where the cell is narrow. */
+.cal-dayrow { display: flex; align-items: baseline; gap: 0.4em; }
+.cal-saint { flex: 1 1 0; min-width: 0; text-align: right; font-size: 0.6em; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-entry { font-size: 0.62em; line-height: 1.2; margin-top: 0.15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-glyph { font-weight: 700; margin-right: 0.2em; }
 /* The living in the scheme's colour, the memorial days below them in dark grey. */
-.cal-entry.cal-birthday, .cal-entry.cal-anniversary { color: var(--accent); }
+.cal-entry.cal-birthday, .cal-entry.cal-anniversary, .cal-entry.cal-nameday { color: var(--accent); }
 .cal-entry.cal-memorial, .cal-list .cal-memorial { color: var(--remembrance); }
-.cal-birthday .cal-glyph { color: var(--glyph-birthday); }
+.cal-birthday .cal-glyph, .cal-nameday .cal-glyph { color: var(--glyph-birthday); }
 .cal-anniversary .cal-glyph { color: var(--glyph-anniversary); }
 .cal-memorial .cal-glyph { color: var(--glyph-memorial); }
 /* Large print, for an older reader: bigger day numbers and names, wrapped. */
 .cal-large .cal-day { font-size: 1.5em; }
 .cal-large .cal-entry { font-size: 0.95em; font-weight: 600; white-space: normal; line-height: 1.15; }
 .cal-large .cal-holname { font-size: 0.75em; }
+.cal-large .cal-saint { font-size: 0.7em; }
 .cal-large .cal-facts { font-size: 1em; }
 /* A round birthday or a jubilee: bold, on a tint of the scheme's colour. */
 .cal-entry.cal-round { font-weight: 700; background: color-mix(in srgb, var(--accent) 16%, var(--paper));
@@ -133,7 +138,11 @@ export const CALENDAR_CSS = `
 .cal-cover-title { font-size: 3em; color: var(--accent); margin: 0.4em 0 0.1em; }
 .cal-cover-year { font-size: 2em; color: var(--muted); }
 .cal-cover-name { font-size: 1.4em; margin: 0.6em 0 0.8em; }
-.cal-dedication { font-size: 1.15em; font-style: italic; color: var(--muted); margin: -0.3em 0 1em; white-space: pre-line; max-width: 80%; }
+.cal-dedication { font-size: 1.15em; color: var(--muted); margin: -0.3em 0 1em; white-space: pre-line; max-width: 80%; }
+/* The givers' formatted words: their paragraphs and lists sit as plain lines. */
+.cal-cover-title p, .cal-dedication p { margin: 0; }
+.cal-cover-title ul, .cal-cover-title ol, .cal-dedication ul, .cal-dedication ol { margin: 0; padding: 0; list-style-position: inside; }
+.cal-cover-title a, .cal-dedication a { color: inherit; }
 .cal-cover .cal-picture { flex: 1 1 auto; width: 100%; }
 .cal-chart { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .cal-chart svg { width: 100%; height: 100%; }

@@ -2,12 +2,14 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode }
 import { useTranslation } from "react-i18next";
 import { factKey, isRoundAnniversary, monthWeeks, type CalendarMonth, type DayEntry, type Fact } from "../../calendar/model";
 import type { Holiday } from "../../calendar/holidays";
+import { saintsOf, type NameCalendar } from "../../calendar/nameDays";
+import { noteToDoc, noteToText, serializeNoteHtml } from "../../gedcom/noteHtml";
 import { schemeVars, type CalendarScheme } from "./schemes";
 import { BADGE_BG, LOGO_BADGE_MARKUP } from "../exportSvg";
 import { paperMm, type Orientation, type PaperName, type PaperSize } from "../../chart/sheets";
 
 export type { PagePhoto } from "./PhotoArea";
-import { ROUND_GLYPH, entryCell, entryGlyph, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
+import { NAME_DAY_GLYPH, ROUND_GLYPH, entryCell, entryGlyph, entryLine, factDate, factSentence, monthName, weekdayNames, yearsAgo, type EntryOptions, type PersonWords } from "../../calendar/text";
 
 // The family calendar's printed pages, drawn the same for the wizard's preview
 // and the print document (see calendarCss). One component per page kind; the
@@ -66,27 +68,31 @@ function livingFirst(entries: DayEntry[]): DayEntry[] {
   return [...entries.filter((e) => e.kind !== "memorial"), ...entries.filter((e) => e.kind === "memorial")];
 }
 
+/** The givers' own words — plain, or formatted as a note is — as clean markup. */
+const noteMarkup = (text: string) => serializeNoteHtml(noteToDoc(text));
+
 interface CoverProps {
   format: CalendarFormat;
   scheme: CalendarScheme;
   year: number;
+  /** The calendar's name, as the givers call it — plain or formatted. */
+  title: string;
   name: string;
   /** The picture: photos, a collage or a chart (the view builds it). */
   picture: ReactNode;
   /** The family website's address, for the footer. */
   site?: string;
-  /** A few words from the givers, under the name. */
+  /** A few words from the givers, under the name — plain or formatted. */
   dedication?: string;
 }
 
-export function CoverPage({ format, scheme, year, name, picture, site, dedication }: CoverProps) {
-  const { t } = useTranslation();
+export function CoverPage({ format, scheme, year, title, name, picture, site, dedication }: CoverProps) {
   return (
     <div className="cal-page cal-cover" style={pageStyle(format, scheme, { "--cal-pad-top": "3.4em" })}>
-      <div className="cal-cover-title">{t("calendar.cover.title")}</div>
+      <div className="cal-cover-title" dangerouslySetInnerHTML={{ __html: noteMarkup(title) }} />
       <div className="cal-cover-year">{year}</div>
       <div className="cal-cover-name">{name}</div>
-      {dedication?.trim() && <div className="cal-dedication">{dedication.trim()}</div>}
+      {dedication && noteToText(dedication).trim() && <div className="cal-dedication" dangerouslySetInnerHTML={{ __html: noteMarkup(dedication) }} />}
       <div className="cal-picture">{picture}</div>
       <PageFooter site={site} />
     </div>
@@ -109,7 +115,12 @@ interface MonthProps {
   showList: boolean;
   /** Show the moments from the family's past. */
   showFacts: boolean;
+  /** Write the day's saints beside its number, from this calendar of names. */
+  saints?: NameCalendar;
 }
+
+/** How many saints' names a day cell carries. */
+const SAINTS_PER_DAY = 2;
 
 /** One month: one page, or two for the wall calendar bound in the middle. */
 export function MonthPages(props: MonthProps) {
@@ -129,7 +140,7 @@ export function MonthPages(props: MonthProps) {
             {!large && props.showList && <DayList {...props} />}
             {props.showFacts && <Facts {...props} />}
           </div>
-          <Legend />
+          <Legend {...props} />
           <PageFooter site={props.site} />
         </div>
       </>
@@ -159,7 +170,7 @@ export function MonthPages(props: MonthProps) {
         {!large && props.showList && <DayList {...props} />}
         {props.showFacts && <Facts {...props} />}
       </div>
-      <Legend />
+      <Legend {...props} />
       <PageFooter site={props.site} />
     </div>
   );
@@ -210,7 +221,7 @@ function useCellFit(sig: string) {
   return [ref, days] as const;
 }
 
-function Grid({ format, year, month, holidays, words, entryOpts, facts, showList, showFacts }: MonthProps) {
+function Grid({ format, year, month, holidays, words, entryOpts, facts, showList, showFacts, saints }: MonthProps) {
   const { t, i18n } = useTranslation();
   // The living first, the memorial days after them — the order a busy day is cut in.
   const byDay = new Map<number, { e: DayEntry; text: string }[]>();
@@ -219,8 +230,9 @@ function Grid({ format, year, month, holidays, words, entryOpts, facts, showList
   for (const h of holidays) if (h.month === month.month) hol.set(h.day, [...(hol.get(h.day) ?? []), t(`calendar.holiday.${h.key}`)]);
   const [ref, fitOf] = useCellFit(JSON.stringify([
     format, year, month.month, !!entryOpts.large, showList, showFacts, facts.map(factKey),
-    [...byDay].map(([day, list]) => [day, list.map((x) => x.text)]), [...hol],
+    [...byDay].map(([day, list]) => [day, list.map((x) => x.text)]), [...hol], saints,
   ]));
+  const saintsOn = (day: number) => (saints ? saintsOf(saints, month.month, day).slice(0, SAINTS_PER_DAY).join(", ") : "");
   const entry = ({ e, text }: { e: DayEntry; text: string }, i: number) => (
     <div key={i} className={`cal-entry cal-${e.kind}${isRoundAnniversary(e) ? " cal-round" : ""}`}>
       <Glyph e={e} />
@@ -255,7 +267,14 @@ function Grid({ format, year, month, holidays, words, entryOpts, facts, showList
                       never stretches its week: every row stays as tall as
                       the others. */}
                   <div className="cal-cell" data-day={day} data-shown={fits.length} data-birthdays={all.filter((x) => x.e.kind === "birthday").length}>
-                    <div className="cal-day">{day}</div>
+                    {/* The day's saints share the number's line, so they
+                        take no room from the family's names. */}
+                    {saints ? (
+                      <div className="cal-dayrow">
+                        <div className="cal-day">{day}</div>
+                        <div className="cal-saint">{saintsOn(day)}</div>
+                      </div>
+                    ) : <div className="cal-day">{day}</div>}
                     {names && <div className="cal-holname">{[...new Set(names)].join(", ")}</div>}
                     {/* A busy day's birthdays run together: the names alone,
                         a round one in bold. */}
@@ -331,10 +350,11 @@ export function Glyph({ e }: { e: DayEntry }) {
   return glyph ? <span className="cal-glyph">{glyph}</span> : null;
 }
 
-function Legend() {
+function Legend({ month }: MonthProps) {
   const { t } = useTranslation();
   return (
     <div className="cal-legend">
+      {month.entries.some((e) => e.kind === "nameday") && <span>{NAME_DAY_GLYPH} {t("calendar.legend.nameday")}</span>}
       <span>⚭ {t("calendar.legend.anniversary")}</span>
       <span>† {t("calendar.legend.memorial")}</span>
       <span>{ROUND_GLYPH} {t("calendar.legend.round")}</span>

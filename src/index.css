@@ -12799,12 +12799,21 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .cal-steps { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cal-step-label { font-weight: 600; flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
 .cal-step-label .select-menu { flex: 1 1 auto; padding: 5px 8px; font-size: 0.9rem; }
-.cal-panel-body { display: flex; flex-direction: column; gap: 12px; }
+.cal-panel-body, .cal-picture-picker { display: flex; flex-direction: column; gap: 12px; }
 .cal-panel-head { margin: 4px 0 0; font-size: 0.95rem; }
 .cal-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
 .cal-field > span { color: var(--muted); }
 .cal-field .select-menu, .cal-field .settings-text-input { width: 100%; margin-left: 0; box-sizing: border-box; }
 .cal-field .select-menu { padding: 5px 8px; font-size: 0.9rem; }
+/* The cover's formatted fields: a note's box, framed as the panel's other fields are. */
+.cal-field .note-rich:not(:focus) { border-color: var(--border); background: var(--bg); }
+/* Room for a dedication of six or seven lines. */
+.cal-field .cal-dedication-input { min-height: 9.8em; }
+/* The recipient's search: its list is as wide as the field and a long line
+   wraps — the panel is narrow and clips whatever reaches past its edge. */
+.cal-field .start-options,
+.cal-field .start-options.align-right { left: 0; right: auto; width: 100%; min-width: 0; max-width: 100%; }
+.cal-field .start-option .person-label { flex-wrap: wrap; }
 .cal-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.9rem; cursor: pointer; }
 .cal-check input { margin-top: 3px; flex: none; }
 .cal-fact-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -12817,7 +12826,7 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .cal-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cal-thumb.active { border-color: var(--accent); }
 .cal-tight { color: var(--danger); }
-.cal-to-review { align-self: flex-start; font-size: 0.85rem; }
+.cal-to-review { align-self: flex-start; padding: 6px 14px; }
 /* The review step's paper rows: the print dialog's, at the panel's width. */
 .cal-print-panel { display: flex; flex-direction: column; }
 .cal-print-panel .sheet-dialog-count { margin: 4px 0 14px; }
