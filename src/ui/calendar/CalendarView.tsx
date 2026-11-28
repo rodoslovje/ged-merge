@@ -996,7 +996,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           </div>
           <div className="cal-panel-body">{panel}</div>
           {step !== REVIEW_STEP && (
-            <button type="button" className="link-button cal-to-review" disabled={opening} onClick={openReview}>{t("calendar.toReview")}</button>
+            <button type="button" className="nav-btn cal-to-review" disabled={opening} onClick={openReview}>{t("calendar.toReview")}</button>
           )}
           {tight.days && <p className="settings-hint cal-tight" role="status">{t("calendar.overflow.days")}</p>}
           {tight.page && <p className="settings-hint cal-tight" role="status">{t("calendar.overflow.page")}</p>}

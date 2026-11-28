@@ -12817,7 +12817,7 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .cal-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .cal-thumb.active { border-color: var(--accent); }
 .cal-tight { color: var(--danger); }
-.cal-to-review { align-self: flex-start; font-size: 0.85rem; }
+.cal-to-review { align-self: flex-start; padding: 6px 14px; }
 /* The review step's paper rows: the print dialog's, at the panel's width. */
 .cal-print-panel { display: flex; flex-direction: column; }
 .cal-print-panel .sheet-dialog-count { margin: 4px 0 14px; }
