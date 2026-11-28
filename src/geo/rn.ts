@@ -643,6 +643,8 @@ export interface StreetResult {
   /** The street as the register spells it. */
   street: string;
   settlement: string;
+  /** The municipality the register files the street under, when it says. */
+  municipality?: string;
   /** How many distinct houses the position is the mean of. */
   houses: number;
   /** The former name the street was found under — see {@link RnResult.former}. */
@@ -708,13 +710,13 @@ export async function searchStreet(query: StreetQuery, signal?: AbortSignal): Pr
   }
   const streets = new Map<
     string,
-    { street: string; settlement: string; lat: number; lon: number; seen: Set<string>; former?: FormerName }
+    { street: string; settlement: string; municipality?: string; lat: number; lon: number; seen: Set<string>; former?: FormerName }
   >();
   for (const h of houses) {
     const key = `${h.settlement}\0${h.street ?? ""}\0${h.former?.name ?? ""}`;
     let sum = streets.get(key);
     if (!sum) {
-      sum = { street: h.street ?? "", settlement: h.settlement, lat: 0, lon: 0, seen: new Set(), former: h.former };
+      sum = { street: h.street ?? "", settlement: h.settlement, municipality: h.municipality, lat: 0, lon: 0, seen: new Set(), former: h.former };
       streets.set(key, sum);
     }
     // One building, however many entrances and flats the register lists at it.
@@ -729,6 +731,7 @@ export async function searchStreet(query: StreetQuery, signal?: AbortSignal): Pr
     coord: { lat: Number((s.lat / s.seen.size).toFixed(6)), lon: Number((s.lon / s.seen.size).toFixed(6)) },
     street: s.street,
     settlement: s.settlement,
+    ...(s.municipality ? { municipality: s.municipality } : {}),
     houses: s.seen.size,
     ...(s.former ? { former: s.former } : {}),
   }));

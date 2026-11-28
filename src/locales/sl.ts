@@ -1411,7 +1411,7 @@ export const sl = {
   "tools.geocode.sourceGeoNames2": " — .zip ali razpakirana datoteka .txt. ",
   "tools.geocode.formerStreetsName": "Nekdanja imena ulic",
   "tools.geocode.formerStreetsChip": "Ulice",
-  "tools.geocode.formerStreetsMeta": "nekdanjih imen ulic: {{count}} · uvoženo {{date}}",
+  "tools.geocode.formerStreetsMeta": "{{places}} — nekdanjih imen ulic: {{count}} · uvoženo {{date}}",
   "tools.geocode.deleteFormerStreets": "Odstrani nekdanja imena ulic",
   "tools.geocode.sourceFormerStreets":
     "Tabela CSV z imeni, ki so jih ulice imele nekoč. Z njo se hiša v registru naslovov najde tudi takrat, ko je naslov zapisan s starim imenom ulice; ob predlagani hiši je izpisano staro ime z letnico. Tabelo za Ljubljano dobite v skupnosti Slovenskega rodoslovnega društva.",

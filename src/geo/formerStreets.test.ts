@@ -13,7 +13,7 @@ vi.mock("./formerStreets", async (original) => ({
   storedFormerStreets: async () => TABLE,
 }));
 
-const { searchAddress, searchAddressBatch, resultsForQuery, searchStreet, rnQueriesFrom } = await import("./rn");
+const { searchAddress, searchAddressBatch, resultsForQuery, searchStreet, streetQueryFrom, rnQueriesFrom } = await import("./rn");
 
 describe("parseFormerStreets", () => {
   it("reads the table, whichever separator the file uses", () => {
@@ -143,6 +143,13 @@ describe("an address written under a former street name", () => {
       address: "Cankarjeva cesta 7",
       former: { name: "Aleksandrova cesta" },
     });
+  });
+
+  it("finds a former street written short, with no house and under the town's own občina", async () => {
+    const query = streetQueryFrom("Ljubljana, Ljubljana, Slovenija", "Aleksandrova");
+    const streets = await searchStreet(query!);
+    expect(streets).toHaveLength(1);
+    expect(streets[0]).toMatchObject({ street: "Cankarjeva cesta", municipality: "Ljubljana" });
   });
 
   it("places a former street that is named without a house", async () => {

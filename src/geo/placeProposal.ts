@@ -8,7 +8,8 @@ import type { GazEntry } from "./gazetteer";
 import { namesUnitKind, stripUnitWords, type PlaceParentLevels } from "./placeLevels";
 import type { GovResult } from "./gov";
 import type { NominatimResult } from "./nominatim";
-import type { RnResult } from "./rn";
+import type { RnResult, StreetResult } from "./rn";
+import { formerNameLabel } from "./formerStreets";
 import { addressRegisterId } from "./addressRegister";
 
 // Turning a register hit into a place the *file* would have written.
@@ -341,6 +342,28 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
   );
   if (!shaped) return undefined;
   return { ...shaped, coord: result.coord, source: addressRegisterId("SI"), official: true, detail: result.label };
+}
+
+/**
+ * A street of the address register, for an address that names no house on it:
+ * the place, the street as its address, and the middle of the street as the
+ * coordinate. A street found under a former name keeps that name, as a house
+ * does ({@link proposalFromRn}) — spelled as the table has it.
+ */
+export function proposalFromStreet(result: StreetResult, style: PlaceStyle): PlaceProposal | undefined {
+  const shaped = shape(
+    {
+      locality: result.settlement,
+      admins: [result.municipality],
+      country: countryNameOf("SI", style.language),
+    },
+    result.former?.name ?? result.street,
+    style,
+  );
+  if (!shaped) return undefined;
+  const detail =
+    `${result.street}, ${result.settlement}` + (result.former ? ` ← ${formerNameLabel(result.former)}` : "");
+  return { ...shaped, coord: result.coord, source: addressRegisterId("SI"), official: true, detail };
 }
 
 /** A GOV object. GOV names no country, so the chain stops at the parent — for

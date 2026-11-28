@@ -1217,7 +1217,7 @@ export const en = {
   "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. ",
   "tools.geocode.formerStreetsName": "Former street names",
   "tools.geocode.formerStreetsChip": "Streets",
-  "tools.geocode.formerStreetsMeta": "former street names: {{count}} · imported {{date}}",
+  "tools.geocode.formerStreetsMeta": "{{places}} — former street names: {{count}} · imported {{date}}",
   "tools.geocode.deleteFormerStreets": "Remove the former street names",
   "tools.geocode.sourceFormerStreets":
     "A CSV table of the names streets used to bear. With it an address register finds the house even when the address is written under an old street name; the house is offered with that name and its year beside it. A table for Ljubljana is available in the community of the Slovenian Genealogical Society.",

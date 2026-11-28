@@ -11,6 +11,7 @@ import {
   proposalFromGov,
   proposalFromNominatim,
   proposalFromRn,
+  proposalFromStreet,
   proposalKey,
   splitPlaceQuery,
   type PlaceStyle,
@@ -308,6 +309,18 @@ describe("an address-register house as a place", () => {
     )!;
     expect(p.addr).toBe("Aleksandrova cesta 5");
     expect(p.coord).toEqual(house.coord);
+  });
+
+  it("proposes a street named without a house, a former one under its old name", () => {
+    const street = { coord: house.coord, street: "Cankarjeva cesta", settlement: "Ljubljana", municipality: "Ljubljana", houses: 12 };
+    const today = proposalFromStreet(street, style())!;
+    expect(today.plac).toBe("Ljubljana,Ljubljana,Slovenija");
+    expect(today.addr).toBe("Cankarjeva cesta");
+    expect(today.detail).toBe("Cankarjeva cesta, Ljubljana");
+    const former = proposalFromStreet({ ...street, former: { name: "Aleksandrova cesta", from: 1919 } }, style())!;
+    expect(former.addr).toBe("Aleksandrova cesta");
+    expect(former.detail).toBe("Cankarjeva cesta, Ljubljana ← Aleksandrova cesta (1919–)");
+    expect(former.coord).toEqual(house.coord);
   });
 });
 

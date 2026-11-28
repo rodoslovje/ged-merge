@@ -111,6 +111,13 @@ export function formerStreetsOf(
   );
 }
 
+/** The settlements a table covers, for saying what was loaded: "Ljubljana", or
+ *  the first few of a longer list. */
+export function formerStreetPlaces(table: readonly FormerStreet[]): string {
+  const names = [...new Set(table.map((e) => e.settlement))];
+  return names.length > 3 ? `${names.slice(0, 3).join(", ")}…` : names.join(", ");
+}
+
 /** "Aleksandrova cesta (1919–1941)" — the name and the years it was borne, as
  *  far as the table knows them. Wordless, so it reads the same in every
  *  language. */

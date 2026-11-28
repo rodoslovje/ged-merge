@@ -62,7 +62,7 @@ test("a loaded table of former street names finds the house under today's name",
     .locator(".tools-geo-source", { hasText: "Former street names" })
     .locator("input[type=file]")
     .setInputFiles(TABLE);
-  await expect(page.locator(".tools-geo-countries li", { hasText: "former street names: 1" })).toBeVisible();
+  await expect(page.locator(".tools-geo-countries li", { hasText: "Ljubljana — former street names: 1" })).toBeVisible();
   await page.locator(".modal-close").click();
 
   // Now the house is offered, under the name the record wrote.

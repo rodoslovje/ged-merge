@@ -40,7 +40,7 @@ import {
   putFormerStreets,
   type CountryMeta,
 } from "../../persist/geoDb";
-import { parseFormerStreets } from "../../geo/formerStreets";
+import { formerStreetPlaces, parseFormerStreets } from "../../geo/formerStreets";
 import type { GeoFailure } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
 import { SelectMenu } from "../DropdownMenu";
@@ -123,7 +123,7 @@ export interface Gazetteer {
   removeAddressRegister: (country: string) => Promise<void>;
   /** The loaded table of former street names (geo/formerStreets.ts), if any.
    *  Null until IndexedDB has answered, and when nothing is loaded. */
-  formerStreets: { count: number; importedAt: number } | null;
+  formerStreets: { count: number; importedAt: number; places: string } | null;
   /** Why the last former-street-names file was not taken, in the reader's
    *  language; null once one loads. */
   formerStreetsError: string | null;
@@ -171,7 +171,11 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     }
     setAddressRegisters(registers);
     const former = await getFormerStreets();
-    setFormerStreets(former ? { count: former.entries.length, importedAt: former.importedAt } : null);
+    setFormerStreets(
+      former
+        ? { count: former.entries.length, importedAt: former.importedAt, places: formerStreetPlaces(former.entries) }
+        : null,
+    );
     if (withIndex)
       setIndex(stored.length ? buildGazetteerIndex(storedEntries(stored), mergeDivisions(stored)) : undefined);
   };
@@ -363,6 +367,7 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
           </span>
           <span className="tools-geo-count">
             {t("tools.geocode.formerStreetsMeta", {
+              places: gaz.formerStreets.places,
               count: gaz.formerStreets.count,
               date: dateFmt.format(gaz.formerStreets.importedAt),
             })}
