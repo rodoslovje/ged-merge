@@ -66,7 +66,7 @@ export const CALENDAR_CSS = `
 .cal-holname { font-size: 0.6em; color: var(--holiday); line-height: 1.1; margin-top: 0.1em; }
 /* The saints of the day, beside its number: one line, cut short where the cell is narrow. */
 .cal-dayrow { display: flex; align-items: baseline; gap: 0.4em; }
-.cal-saint { flex: 1 1 0; min-width: 0; text-align: right; font-size: 0.55em; color: var(--muted);
+.cal-saint { flex: 1 1 0; min-width: 0; text-align: right; font-size: 0.6em; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-entry { font-size: 0.62em; line-height: 1.2; margin-top: 0.15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-glyph { font-weight: 700; margin-right: 0.2em; }
