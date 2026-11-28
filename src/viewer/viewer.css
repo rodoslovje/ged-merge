@@ -1116,7 +1116,7 @@
    are spans, laid out as lines here. The first paragraph stays in the line it
    starts on, so a footnote's mark and its text read as one. */
 .note-text b { font-weight: 700; }
-.note-text a { color: var(--accent); text-decoration: underline; }
+.note-text a { color: var(--accent); text-decoration: underline; overflow-wrap: anywhere; }
 .note-block { display: inline; }
 .note-block + .note-block,
 .note-list + .note-block,

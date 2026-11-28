@@ -95,3 +95,21 @@ export function stripTrailingPunct(url: string): string {
   }
   return out;
 }
+
+/**
+ * A run of prose cut at the web addresses written in it: the text between them
+ * as strings, each address as `{ url }` — what a view needs to show a typed
+ * address as a link. Punctuation that only follows an address stays text.
+ */
+export function splitUrls(text: string): (string | { url: string })[] {
+  const out: (string | { url: string })[] = [];
+  let last = 0;
+  for (const m of text.matchAll(URL_RE)) {
+    const url = stripTrailingPunct(m[0]);
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push({ url });
+    last = m.index + url.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
