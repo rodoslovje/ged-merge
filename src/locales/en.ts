@@ -991,6 +991,7 @@ export const en = {
   "tools.batch.crit.line": "Family line",
   "tools.batch.crit.tag": "Custom tag",
   "tools.batch.tag.valuePlaceholder": "Value contains… (empty: any value)",
+  "tools.batch.tag.anyValue": "any value",
   "tools.batch.needStart": "The kinship and family-line filters need a start person (family lines also need known parents) — pick one in Edit mode first.",
   "tools.batch.textPlaceholder": "Text…",
   "tools.batch.nameField.given.has": "has a given name",

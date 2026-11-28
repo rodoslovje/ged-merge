@@ -103,17 +103,22 @@ test("batch panel: a custom tag filter, and its lines converted into tasks", asy
   await page.locator(".dd-menu [role=option]", { hasText: /^Custom tag$/ }).click();
   await expect(page.locator(".batch-crit .batch-select").nth(1)).toHaveText(/_LABL/);
   await expect(page.locator(".batch-row")).toHaveCount(2);
-  await page.locator(".batch-crit .batch-input").fill("y-dna");
+  // The tag's values are a pick list.
+  const valuePick = page.locator(".batch-crit .batch-select").nth(2);
+  await expect(valuePick).toHaveText(/any value/);
+  await valuePick.click();
+  await expect(page.locator(".dd-menu [role=option]")).toHaveText(["any value", "Incomplete", "Y-DNA"]);
+  await page.locator(".dd-menu [role=option]", { hasText: "Y-DNA" }).click();
   await expect(page.locator(".batch-row")).toHaveCount(1);
-  await page.locator(".batch-crit .batch-input").fill("incomplete");
+  await valuePick.click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Incomplete" }).click();
   await expect(page.locator(".batch-row")).toHaveCount(2);
 
   // The action opens on the filter's tag and value, described by the label's title.
   await page.locator(".batch-action .batch-select").first().click();
   await page.locator(".dd-menu [role=option]", { hasText: "Convert custom tag to a task" }).click();
-  const inputs = page.locator(".batch-action .batch-input");
-  await expect(inputs.nth(0)).toHaveValue("incomplete");
-  await expect(inputs.nth(1)).toHaveValue("Incomplete");
+  await expect(page.locator(".batch-action .batch-select").nth(2)).toHaveText(/Incomplete/);
+  await expect(page.locator(".batch-action .batch-input")).toHaveValue("Incomplete");
   await expect(page.locator(".batch-action input[type=checkbox]")).toBeChecked();
 
   await page.locator(".batch-action .tools-run").click();

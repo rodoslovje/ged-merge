@@ -21,6 +21,7 @@ import {
   type BatchRow,
   computeKinship,
   computeLineSides,
+  customTagValueLists,
   customTagValues,
   matchesBatch,
   previewBirthEstimateDates,
@@ -122,6 +123,55 @@ function nameTypeMenuLabel(type: string, t: (key: string) => string): string {
 /** Stable empty rows for the renders before the build has finished. */
 const NO_ROWS: BatchRow[] = [];
 const NO_MEDIA: MediaOption[] = [];
+
+/** The most values a custom tag may have for them to be offered as a list;
+ *  past that the value is typed. */
+const TAG_VALUE_LIST_MAX = 60;
+
+/**
+ * The value a custom tag's lines are narrowed by: a pick from the tag's own
+ * values where they make a short list (a label's titles), else free text (an
+ * id). A tag whose lines carry no value (a bare flag) has nothing to pick.
+ */
+function TagValueField({
+  values,
+  text,
+  value,
+  onChange,
+}: {
+  /** The tag's distinct values; null when too many to list. */
+  values: string[] | null | undefined;
+  text?: string;
+  value?: string;
+  onChange: (next: { text?: string; value?: string }) => void;
+}) {
+  const { t } = useTranslation();
+  if (values && values.every((v) => v === "")) return null;
+  if (!values) {
+    return (
+      <input
+        className="batch-input"
+        value={text ?? ""}
+        placeholder={t("tools.batch.tag.valuePlaceholder")}
+        aria-label={t("tools.batch.tag.valuePlaceholder")}
+        onChange={(e) => onChange({ text: e.target.value || undefined })}
+      />
+    );
+  }
+  const ANY = "\u0000any";
+  const listed = value !== undefined && !values.includes(value) ? [value, ...values] : values;
+  return (
+    <SelectMenu
+      className="batch-select"
+      value={value ?? ANY}
+      onChange={(v) => onChange({ value: v === ANY ? undefined : v })}
+      options={[
+        { value: ANY, label: t("tools.batch.tag.anyValue") },
+        ...listed.filter((v) => v !== "").map((v) => ({ value: v, label: v })),
+      ]}
+    />
+  );
+}
 
 /** A custom tag as a menu shows it: the tag, and what it means where the
  *  registry of programs' tags knows it. */
@@ -230,6 +280,9 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
     for (const r of rows) for (const l of r.customTags) present.add(l.tag);
     return [...present].sort();
   }, [rows]);
+
+  /** Per custom tag, its values as a pick list (null: too many to list). */
+  const tagValueLists = useMemo(() => customTagValueLists(rows, TAG_VALUE_LIST_MAX), [rows]);
 
   const [action, setAction] = useState<BatchActionSpec | null>(null);
   /** Unchecked match ids — everyone matching is selected by default. */
@@ -599,6 +652,7 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
               familyEventOptions={familyEventOptions}
               nameTypeOptions={nameTypeOptions}
               tagOptions={tagOptions}
+              tagValueLists={tagValueLists}
               onChange={(next) => changeCriteria(criteria.map((x, j) => (j === i ? next : x)))}
               onRemove={() => changeCriteria(criteria.filter((_, j) => j !== i))}
             />
@@ -626,7 +680,8 @@ export function BatchSection({ dataset, editVersionRef, active, onNavigate, onAp
           filteredNameType={criteria.flatMap((c) => (c.kind === "nameType" && c.mode === "has" ? [c.type] : []))[0]}
           tagOptions={tagOptions}
           filteredTag={criteria.flatMap((c) => (c.kind === "tag" && c.mode === "has" ? [c] : []))[0]}
-          tagValuesOf={(tag, match) => customTagValues(targets, tag, match)}
+          tagValueLists={tagValueLists}
+          tagValuesOf={(tag, match, value) => customTagValues(targets, tag, match, value)}
           onChange={changeAction}
         />
         {done && <p className="batch-done">{t("tools.batch.done", done)}</p>}
@@ -735,6 +790,7 @@ function CriterionRow({
   familyEventOptions,
   nameTypeOptions,
   tagOptions,
+  tagValueLists,
   onChange,
   onRemove,
 }: {
@@ -744,6 +800,7 @@ function CriterionRow({
   familyEventOptions: string[];
   nameTypeOptions: string[];
   tagOptions: string[];
+  tagValueLists: Map<string, string[] | null>;
   onChange: (next: BatchCriterion) => void;
   onRemove: () => void;
 }) {
@@ -817,18 +874,18 @@ function CriterionRow({
           <SelectMenu
             className="batch-select"
             value={c.tag}
-            onChange={(v) => onChange({ ...c, tag: v })}
+            // Another tag's values are not this one's.
+            onChange={(v) => onChange({ kind: "tag", mode: c.mode, tag: v })}
             options={(tagOptions.includes(c.tag) || !c.tag ? tagOptions : [c.tag, ...tagOptions]).map((tag) => ({
               value: tag,
               label: tagMenuLabel(tag, i18n.language),
             }))}
           />
-          <input
-            className="batch-input"
-            value={c.text ?? ""}
-            placeholder={t("tools.batch.tag.valuePlaceholder")}
-            aria-label={t("tools.batch.tag.valuePlaceholder")}
-            onChange={(e) => onChange({ ...c, text: e.target.value || undefined })}
+          <TagValueField
+            values={tagValueLists.get(c.tag)}
+            text={c.text}
+            value={c.value}
+            onChange={(next) => onChange({ kind: "tag", mode: c.mode, tag: c.tag, ...next })}
           />
         </>
       )}
@@ -1165,6 +1222,7 @@ function ActionEditor({
   nameTypeOptions,
   filteredNameType,
   tagOptions,
+  tagValueLists,
   filteredTag,
   tagValuesOf,
   onChange,
@@ -1187,20 +1245,23 @@ function ActionEditor({
   tagOptions: string[];
   /** The tag (and value) a "has" tag filter selects people by — the lines
    *  they are picked to have converted. */
-  filteredTag?: { tag: string; text?: string };
-  /** The values the picked people's `tag` lines read as, narrowed by `match`. */
-  tagValuesOf: (tag: string, match?: string) => string[];
+  filteredTag?: { tag: string; text?: string; value?: string };
+  tagValueLists: Map<string, string[] | null>;
+  /** The values the picked people's `tag` lines read as, narrowed by `match`
+   *  and `value`. */
+  tagValuesOf: (tag: string, match?: string, value?: string) => string[];
   onChange: (next: BatchActionSpec | null) => void;
 }) {
   const { t, i18n } = useTranslation();
   /** The description a task conversion opens on: the one value its lines
    *  share. Lines of several values each keep their own (an empty field). */
-  const taskTextFor = (tag: string, match?: string) => {
-    const values = tagValuesOf(tag, match);
-    return values.length === 1 ? values[0] : undefined;
+  const taskTextFor = (tag: string, match?: string, value?: string) => {
+    const values = tagValuesOf(tag, match, value);
+    return values.length === 1 ? values[0] || undefined : undefined;
   };
-  /** What picking `tag` (narrowed by `match`) proposes. */
-  const taskConversionFor = (tag: string, match?: string) => ({ tag, match, text: taskTextFor(tag, match) });
+  /** What picking `tag` (narrowed by `match` and `value`) proposes. */
+  const taskConversionFor = (tag: string, match?: string, value?: string) =>
+    ({ tag, match, value, text: taskTextFor(tag, match, value) });
   /** The type conversion's targets: the types the written version defines. */
   const nameTypeTargets = additionalNameTypes(writeVersionOf(useFormatOverrides()));
   /** What picking `fromType` proposes: an alternate name, unless it is one already. */
@@ -1241,7 +1302,7 @@ function ActionEditor({
     tagToTask: {
       kind: "tagToTask",
       ...(filteredTag && tagOptions.includes(filteredTag.tag)
-        ? taskConversionFor(filteredTag.tag, filteredTag.text)
+        ? taskConversionFor(filteredTag.tag, filteredTag.text, filteredTag.value)
         : taskConversionFor(tagOptions[0] ?? "")),
       noteKind: "TASK",
       remove: true,
@@ -1435,16 +1496,19 @@ function ActionEditor({
               label: tagMenuLabel(tag, i18n.language),
             }))}
           />
-          <input
-            className="batch-input"
-            placeholder={t("tools.batch.tag.valuePlaceholder")}
-            aria-label={t("tools.batch.tag.valuePlaceholder")}
-            value={action.match ?? ""}
-            onChange={(e) => {
-              const match = e.target.value || undefined;
+          <TagValueField
+            values={tagValueLists.get(action.tag)}
+            text={action.match}
+            value={action.value}
+            onChange={(next) => {
               // The description follows the lines picked, until the reader words it.
-              const untouched = (action.text ?? "") === (taskTextFor(action.tag, action.match) ?? "");
-              onChange({ ...action, match, text: untouched ? taskTextFor(action.tag, match) : action.text });
+              const untouched = (action.text ?? "") === (taskTextFor(action.tag, action.match, action.value) ?? "");
+              onChange({
+                ...action,
+                match: next.text,
+                value: next.value,
+                text: untouched ? taskTextFor(action.tag, next.text, next.value) : action.text,
+              });
             }}
           />
           <span className="batch-sep">→</span>

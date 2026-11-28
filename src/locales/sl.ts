@@ -1162,6 +1162,7 @@ export const sl = {
   "tools.batch.crit.line": "Rodovna linija",
   "tools.batch.crit.tag": "Oznaka po meri",
   "tools.batch.tag.valuePlaceholder": "Vrednost vsebuje… (prazno: katera koli)",
+  "tools.batch.tag.anyValue": "katera koli vrednost",
   "tools.batch.needStart": "Filtra sorodstva in rodovne linije potrebujeta izhodiščno osebo (rodovna linija tudi znane starše) — najprej jo izberite v načinu urejanja.",
   "tools.batch.textPlaceholder": "Besedilo…",
   "tools.batch.nameField.given.has": "ima ime",

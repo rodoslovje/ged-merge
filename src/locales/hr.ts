@@ -1082,6 +1082,7 @@ export const hr = {
   "tools.batch.crit.line": "Obiteljska loza",
   "tools.batch.crit.tag": "Prilagođena oznaka",
   "tools.batch.tag.valuePlaceholder": "Vrijednost sadrži… (prazno: bilo koja)",
+  "tools.batch.tag.anyValue": "bilo koja vrijednost",
   "tools.batch.needStart": "Filtri srodstva i obiteljske loze trebaju polaznu osobu (obiteljska loza i poznate roditelje) — najprije je odaberite u načinu Uređivanja.",
   "tools.batch.textPlaceholder": "Tekst…",
   "tools.batch.nameField.given.has": "ima ime",

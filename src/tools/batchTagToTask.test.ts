@@ -10,8 +10,9 @@ import { validateConformance } from "./conformance/conformance";
 import {
   applyBatchAction,
   buildBatchRows,
+  customTagValueLists,
   customTagValues,
-  isCustomPersonTag,
+  isCustomTag,
   matchesBatch,
   type BatchCriterion,
 } from "./batch";
@@ -22,7 +23,8 @@ function dataset(text: string) {
 
 const nameOf = (indi: { names: { full: string }[] }) => indi.names[0]?.full ?? "?";
 
-/** Two people labelled the MacFamilyTree way, a third with another custom line. */
+/** Two people labelled the MacFamilyTree way, a third with another custom
+ *  line and a note flagged private the way MacFamilyTree and MyHeritage do. */
 const file = (vers: "5.5.1" | "7.0") => {
   const head = vers === "7.0"
     ? "0 HEAD\n1 GEDC\n2 VERS 7.0\n"
@@ -37,6 +39,11 @@ const file = (vers: "5.5.1" | "7.0") => {
 0 @I3@ INDI
 1 NAME Miha /Rakar/
 1 _FSFTID KW12-345
+1 BIRT
+2 DATE 1 JAN 1900
+2 _PRIV Y
+1 NOTE A remark
+2 PRIV
 0 @L1@ _LABL
 1 TITL Important
 0 @L2@ _LABL
@@ -60,11 +67,30 @@ describe("custom tag criterion", () => {
     expect(pick({ kind: "tag", tag: "_LABL", mode: "has", text: "y-dna" })).toEqual(["@I1@"]);
     expect(pick({ kind: "tag", tag: "_FSFTID", mode: "has", text: "kw12" })).toEqual(["@I3@"]);
     // A standard line is not a custom tag.
-    expect(rows.flatMap((r) => r.customTags.map((l) => l.tag))).toEqual(["_LABL", "_LABL", "_LABL", "_FSFTID"]);
-    expect(isCustomPersonTag("NAME")).toBe(false);
-    expect(isCustomPersonTag("_RESEARCH")).toBe(false);
+    expect(rows.flatMap((r) => r.customTags.map((l) => l.tag))).toEqual(["_LABL", "_LABL", "_LABL", "_FSFTID", "_PRIV", "PRIV"]);
+    // A custom line below the person's own level: on an event, on a note.
+    expect(pick({ kind: "tag", tag: "_PRIV", mode: "has" })).toEqual(["@I3@"]);
+    expect(pick({ kind: "tag", tag: "PRIV", mode: "has" })).toEqual(["@I3@"]);
+    expect(isCustomTag("NAME")).toBe(false);
+    expect(isCustomTag("_RESEARCH")).toBe(false);
     expect(customTagValues(rows, "_LABL")).toEqual(["Incomplete", "Y-DNA"]);
     expect(customTagValues(rows, "_LABL", "incompl")).toEqual(["Incomplete"]);
+    // A value picked from the tag's own: that one exactly.
+    expect(pick({ kind: "tag", tag: "_LABL", mode: "has", value: "Y-DNA" })).toEqual(["@I1@"]);
+    expect(pick({ kind: "tag", tag: "_LABL", mode: "has", value: "Y" })).toEqual([]);
+    expect(customTagValues(rows, "_LABL", undefined, "Y-DNA")).toEqual(["Y-DNA"]);
+    // The values a pick list offers; a tag with too many of them has none.
+    const lists = customTagValueLists(rows, 1);
+    expect(lists.get("_FSFTID")).toEqual(["KW12-345"]);
+    expect(lists.get("_LABL")).toBeNull();
+    expect(customTagValueLists(rows, 60).get("_LABL")).toEqual(["Incomplete", "Y-DNA"]);
+  });
+
+  it("converts only the lines of the value picked", () => {
+    const ds = dataset(file("5.5.1"));
+    applyBatchAction(ds, ["@I1@"], { kind: "tagToTask", tag: "_LABL", value: "Y-DNA", noteKind: "TASK", remove: true }, "5.5.1");
+    expect(tasksOf(ds, "@I1@").map((n) => n.text)).toEqual(["Y-DNA"]);
+    expect(ds.individuals.get("@I1@")!.raw.children.filter((c) => c.tag === "_LABL").map((c) => c.value)).toEqual(["@L2@"]);
   });
 });
 
@@ -113,10 +139,14 @@ describe("tagToTask action", () => {
 
   it("writes one task per distinct value, and names the tag where a flag has none", () => {
     const ds = dataset(file("5.5.1").replace("1 _FSFTID KW12-345", "1 _FLAG"));
+    // A flag on a note: the task is the person's, and the line goes from the note.
+    applyBatchAction(ds, ["@I3@"], { kind: "tagToTask", tag: "PRIV", noteKind: "FIND", remove: true }, "5.5.1");
+    expect(tasksOf(ds, "@I3@").map((n) => [n.kind, n.text])).toEqual([["FIND", "PRIV"]]);
+    expect(ds.individuals.get("@I3@")!.raw.children.find((c) => c.tag === "NOTE")!.children).toEqual([]);
     applyBatchAction(ds, ["@I1@"], { kind: "tagToTask", tag: "_LABL", noteKind: "TASK", remove: false }, "5.5.1");
     expect(tasksOf(ds, "@I1@").map((n) => n.text)).toEqual(["Incomplete", "Y-DNA"]);
     applyBatchAction(ds, ["@I3@"], { kind: "tagToTask", tag: "_FLAG", noteKind: "IDEA", remove: true }, "5.5.1");
-    expect(tasksOf(ds, "@I3@").map((n) => n.text)).toEqual(["_FLAG"]);
+    expect(tasksOf(ds, "@I3@").map((n) => n.text)).toEqual(["PRIV", "_FLAG"]);
     expect(ds.individuals.get("@I3@")!.raw.children.some((c) => c.tag === "_FLAG")).toBe(false);
     // A standard line is never converted away.
     expect(applyBatchAction(ds, ["@I3@"], { kind: "tagToTask", tag: "NAME", noteKind: "IDEA", remove: true }, "5.5.1").changed).toBe(0);
