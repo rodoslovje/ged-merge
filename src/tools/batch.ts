@@ -11,11 +11,14 @@ import { familiesByMarriage } from "../gedcom/familySort";
 import { inferNameVariants } from "../normalize/nameVariants";
 import type { FormatOverrides } from "../normalize/formatOverrides";
 import { allowsChild } from "./conformance/allows";
+import { KNOWN_TAGS } from "./structure";
 import { rebuildFamily, rebuildIndividual } from "../gedcom/edit/cache";
 import { collectMediaRefs, detectMediaMode } from "../gedcom/media";
 import { clearObjeNodeCache, isPointer, objeNodesFor } from "../gedcom/source";
-import { bumpSourceCacheVersion } from "../gedcom/edit/cache";
-import { cloneNode, firstChild, childrenByTag } from "../gedcom/node";
+import { bumpContentVersion, bumpSourceCacheVersion } from "../gedcom/edit/cache";
+import { cloneNode, firstChild, childrenByTag, childText } from "../gedcom/node";
+import { RESEARCH_TAG, isResearchPointer, readResearchNote, researchText, type ResearchKind } from "../gedcom/research";
+import { createResearchNote, fileResearchNote, researchRecords } from "../gedcom/edit/research";
 import { unionMarriage, type UnionMarriage } from "../gedcom/union";
 import { previewBirthEstimateDates, previewMarriageEstimates } from "./estimates";
 import { isPrivateNode } from "../gedcom/private";
@@ -26,7 +29,7 @@ import {
   createMediaRecord,
   findSharedMediaByFile,
 } from "../gedcom/edit/media";
-import { INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref, removeRecordsByXref, retagEvent } from "../gedcom/edit/shared";
+import { INDI_CHILD_ORDER, insertOrdered, insertRecord, markEventTouched, nextXref, recordPosition, removeRecordsByXref, retagEvent } from "../gedcom/edit/shared";
 import { isNonStandardTag } from "../gedcom/eventTags";
 import { marriedSurnamesOf } from "../match/relatives";
 import { foldSearch, matchesTerms, queryTerms, startSearchIndex, type SearchRow } from "../ui/globalSearch";
@@ -121,7 +124,13 @@ export type BatchCriterion =
    *  unions' (a marriage) — cites a source: `eventLacks BIRT` finds the
    *  births still to document, whether or not the birth is recorded at all. */
   | { kind: "sources"; mode: "none" | "any" | "eventHas" | "eventLacks"; tag?: string }
-  | { kind: "line"; side: LineSide };
+  | { kind: "line"; side: LineSide }
+  /** A custom line anywhere in the person record (see {@link isCustomTag}) —
+   *  a program's label, flag or id, on the person, an event or a note. `text`
+   *  narrows it to lines whose value holds every word; a pointer's value is
+   *  the title of the record it names (`_LABL @L2@` reads "Incomplete").
+   *  `value` asks for that value exactly — a pick from the tag's own values. */
+  | { kind: "tag"; tag: string; mode: "has" | "lacks"; text?: string; value?: string };
 
 /** How the family-event criterion tests a union's event. */
 export type FamilyEventMode = "has" | "lacks" | "undated" | "estimated";
@@ -134,7 +143,7 @@ export const ANY_EVENT = "*";
 /** Every criterion kind, for the panel's "add filter" picker. */
 export const BATCH_CRITERION_KINDS: BatchCriterion["kind"][] = [
   "name", "nameField", "nameType", "sex", "birthYear", "age", "living", "event", "deathCause", "familyEvent", "place", "note", "anyField", "media",
-  "sources", "relation", "kinship", "line", "private", "privateNote",
+  "sources", "relation", "kinship", "line", "private", "privateNote", "tag",
 ];
 
 /**
@@ -186,6 +195,62 @@ export interface BatchRow extends SearchRow {
   /** Lower-cased `FILE` values of the tray's media (inline and resolved shared). */
   mediaFiles: string[];
   mediaCount: number;
+  /** The custom lines anywhere in the record, each with the value it reads
+   *  as (see {@link customTagLines}). */
+  customTags: { tag: string; value: string }[];
+}
+
+/** Shared by every person with no such line — nearly all of them. */
+const NO_CUSTOM_TAGS: BatchRow["customTags"] = [];
+
+/**
+ * Whether `tag` is a custom one, as the health check's inventory counts them:
+ * an extension (`_LABL`, `_PRIV`) or a program's bare tag no GEDCOM version
+ * has (`PRIV`, `RACE`). The app's own research-note pointer is not one of
+ * them — it is what such a line can be converted into.
+ */
+export function isCustomTag(tag: string): boolean {
+  if (tag === RESEARCH_TAG) return false;
+  return tag.startsWith("_") || !KNOWN_TAGS.has(tag);
+}
+
+/** Reads a line's value as text: a pointer as the title of the record it
+ *  names. The record index is built on the first pointer met, once. */
+function lineValueReader(records: readonly GedNode[]): (node: GedNode) => string {
+  let byXref: Map<string, GedNode> | undefined;
+  return (node) => {
+    const value = node.value?.trim() ?? "";
+    if (!value || !isPointer(value)) return value;
+    if (!byXref) {
+      byXref = new Map();
+      for (const r of records) if (r.xref) byXref.set(r.xref, r);
+    }
+    const target = byXref.get(value);
+    if (!target) return value;
+    return (childText(target, "TITL") ?? childText(target, "NAME") ?? target.value ?? "").trim() || value;
+  };
+}
+
+/**
+ * The custom lines ({@link isCustomTag}) of a person record, at any depth —
+ * on the person, an event, a note — with the value each reads as. What stands
+ * beneath an extension is that extension's own and is not looked into, as in
+ * the health check's inventory. `valueOf` is the caller's, made once per file.
+ */
+function customTagLines(
+  raw: GedNode,
+  isCustom: (tag: string) => boolean,
+  valueOf: (node: GedNode) => string,
+  out: { node: GedNode; value: string }[] = [],
+): { node: GedNode; value: string }[] {
+  for (const child of raw.children) {
+    if (isCustom(child.tag)) {
+      out.push({ node: child, value: valueOf(child) });
+      if (child.tag.startsWith("_")) continue;
+    }
+    if (child.children.length) customTagLines(child, isCustom, valueOf, out);
+  }
+  return out;
 }
 
 /** Whole years lived — to the structured death date for the deceased, to
@@ -254,6 +319,7 @@ function* batchRowSteps(
     }
     return false;
   };
+  const valueOf = lineValueReader(dataset.records);
   const index = startSearchIndex(dataset.individuals, nameOf);
   while (!index.step(SEARCH_SLICE_MS)) yield index.progress * SEARCH_SHARE;
   const searchRows = index.rows;
@@ -265,6 +331,7 @@ function* batchRowSteps(
     const refs = collectMediaRefs(indi.raw, dataset.records);
     const d = deathDateOf(indi);
     const unions = indi.spouseOf.map((id) => dataset.families.get(id)).filter((f) => f !== undefined);
+    const custom = customTagLines(indi.raw, isCustomTag, valueOf);
     rows.push({
       ...row,
       deathYear: d?.year,
@@ -302,6 +369,7 @@ function* batchRowSteps(
       mediaXrefs: refs.filter((r) => r.xref).map((r) => r.xref!),
       mediaFiles: refs.map((r) => r.file.toLowerCase()),
       mediaCount: refs.length,
+      customTags: custom.length ? custom.map((l) => ({ tag: l.node.tag, value: l.value })) : NO_CUSTOM_TAGS,
     });
   }
   return rows;
@@ -402,6 +470,48 @@ function eventText(e: { type?: string; value?: string }): string {
 /** A criterion's optional text as folded search terms — every one must appear. */
 function textTerms(text: string | undefined): string[] {
   return foldSearch(text ?? "").split(/\s+/).filter(Boolean);
+}
+
+/** Whether a custom line's value is `exact` (unset: any) and holds every one
+ *  of `terms` (none: any value). */
+function valueFits(value: string, terms: string[], exact?: string): boolean {
+  if (exact !== undefined && value !== exact) return false;
+  if (!terms.length) return true;
+  const hay = foldSearch(value);
+  return terms.every((t) => hay.includes(t));
+}
+
+/**
+ * Per custom tag, the distinct values its lines read as across `rows`, sorted
+ * — for a pick list. A tag with more than `limit` of them (an id, unique to
+ * each person) has no list worth showing and maps to null.
+ */
+export function customTagValueLists(rows: readonly BatchRow[], limit: number): Map<string, string[] | null> {
+  const sets = new Map<string, Set<string> | null>();
+  for (const row of rows) {
+    for (const l of row.customTags) {
+      let set = sets.get(l.tag);
+      if (set === null) continue;
+      if (!set) sets.set(l.tag, (set = new Set()));
+      set.add(l.value);
+      if (set.size > limit) sets.set(l.tag, null);
+    }
+  }
+  return new Map([...sets].map(([tag, set]) => [tag, set && [...set].sort((a, b) => a.localeCompare(b))]));
+}
+
+/**
+ * The values the `tag` lines of `rows` read as, narrowed by `match` and
+ * `value` like the tag criterion's — each once, in the order met. What a
+ * conversion of those lines into tasks would write.
+ */
+export function customTagValues(rows: readonly BatchRow[], tag: string, match?: string, value?: string): string[] {
+  const terms = textTerms(match);
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const l of row.customTags) if (l.tag === tag && valueFits(l.value, terms, value)) seen.add(l.value);
+  }
+  return [...seen];
 }
 
 /** True when the person passes every criterion (empty list matches everyone). */
@@ -521,6 +631,12 @@ export function matchesBatch(row: BatchRow, criteria: BatchCriterion[], ctx: Bat
       case "line":
         if (ctx.lineSides?.get(row.id) !== c.side) return false;
         break;
+      case "tag": {
+        const terms = textTerms(c.text);
+        const has = row.customTags.some((l) => l.tag === c.tag && valueFits(l.value, terms, c.value));
+        if (c.mode === "has" ? !has : has) return false;
+        break;
+      }
     }
   }
   return true;
@@ -655,11 +771,20 @@ export type BatchActionSpec =
    *  name are skipped. `phrase` words an `other` target: 7.0's `OTHER` says
    *  only "none of the six", and the word under it (`PHRASE house name`) is
    *  what keeps one kind of other name apart from the next. */
-  | { kind: "convertNameType"; fromType: string; toType: string; phrase?: string };
+  | { kind: "convertNameType"; fromType: string; toType: string; phrase?: string }
+  /** Turn each `tag` line anywhere in the person record (a custom one, see
+   *  {@link isCustomTag}; narrowed by `match` and `value` like the tag
+   *  criterion's text and value) into a research note of `noteKind` filed under the person — one
+   *  note per person and distinct value. The note's text is `text` when one
+   *  is given, else the value the line reads as. `remove` takes the line off
+   *  the person, and the record it pointed at (`0 @L2@ _LABL`) once no line
+   *  in the file names it. People without such a line, and people already
+   *  carrying the same note, are skipped. */
+  | { kind: "tagToTask"; tag: string; match?: string; value?: string; noteKind: ResearchKind; text?: string; remove: boolean };
 
 export const BATCH_ACTION_KINDS: BatchActionSpec["kind"][] = [
   "addMedia", "addSource", "removeMedia", "markDeceased", "estimateBirth", "estimateMarriage", "addMarriedName", "convertEvent",
-  "convertNameType",
+  "convertNameType", "tagToTask",
 ];
 
 export interface BatchApplyResult {
@@ -706,6 +831,8 @@ export function applyBatchAction(
       return convertEventBatch(ds, ids, action, version);
     case "convertNameType":
       return convertNameTypeBatch(ds, ids, action, version);
+    case "tagToTask":
+      return tagToTaskBatch(ds, ids, action);
   }
 }
 
@@ -802,6 +929,107 @@ function convertEventBatch(
     else skipped++;
   }
   return { patches: changed > 0 ? patchesFromSnapshots(ds, snap) : [], changed, skipped };
+}
+
+/**
+ * Turn custom lines into research notes (see the `tagToTask` action). The
+ * note record is the same in both GEDCOM versions, so no target is asked for.
+ */
+function tagToTaskBatch(
+  ds: Dataset,
+  ids: string[],
+  action: { tag: string; match?: string; value?: string; noteKind: ResearchKind; text?: string; remove: boolean },
+): BatchApplyResult {
+  const { tag } = action;
+  if (!tag || !isCustomTag(tag)) return { patches: [], changed: 0, skipped: ids.length };
+  const records = ds.records;
+  const terms = textTerms(action.match);
+  const override = action.text?.trim();
+  const valueOf = lineValueReader(records);
+  const isTag = (t: string) => t === tag;
+  // The notes the file had before this run, read once: a note made here is
+  // another person's, never one to compare against.
+  let notes: Map<string, GedNode> | undefined;
+  const filedTexts = (raw: GedNode): Set<string> => {
+    const out = new Set<string>();
+    for (const child of raw.children) {
+      if (!isResearchPointer(child)) continue;
+      const record = (notes ??= researchRecords(records)).get(child.value!.trim());
+      const note = record && readResearchNote(record);
+      if (note && note.kind === action.noteKind) out.add(researchText(note));
+    }
+    return out;
+  };
+  const snap = snapshotRecords(ds, ids, []);
+  const created: RecordPatch[] = [];
+  /** Records the removed lines pointed at: gone with their last pointer. */
+  const orphaned = new Set<string>();
+  let changed = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    const indi = ds.individuals.get(id);
+    if (!indi) continue;
+    const lines = customTagLines(indi.raw, isTag, valueOf).filter((l) => valueFits(l.value, terms, action.value));
+    if (lines.length === 0) {
+      skipped++;
+      continue;
+    }
+    // A bare flag (`1 PRIV`) has no value to quote: the note names the tag.
+    const texts = override ? [override] : [...new Set(lines.map((l) => l.value || tag))];
+    const filed = filedTexts(indi.raw);
+    let touched = false;
+    for (const text of texts) {
+      if (filed.has(text)) continue;
+      const note = createResearchNote(records, { kind: action.noteKind, done: false, text, links: [], media: [] });
+      created.push({ type: "record", id: note.xref!, before: null, after: cloneNode(note) });
+      fileResearchNote(indi.raw, note.xref!);
+      touched = true;
+    }
+    if (action.remove) {
+      const gone = new Set(lines.map((l) => l.node));
+      for (const node of gone) {
+        const value = node.value?.trim();
+        if (value && isPointer(value)) orphaned.add(value);
+      }
+      // The lines stand at any depth: on the person, an event, a note.
+      const strip = (node: GedNode): void => {
+        if (node.children.some((c) => gone.has(c))) node.children = node.children.filter((c) => !gone.has(c));
+        for (const c of node.children) strip(c);
+      };
+      strip(indi.raw);
+      touched = true;
+    }
+    if (touched) {
+      rebuildIndividual(ds, indi);
+      changed++;
+    } else skipped++;
+  }
+  const removed: RecordPatch[] = [];
+  if (orphaned.size) {
+    // One walk of the file for whatever still names one of them. Only a record
+    // of the line's own tag goes: a label is the labels' alone, a person or a
+    // source a custom line happened to point at is not.
+    const visit = (node: GedNode): void => {
+      const value = node.value?.trim();
+      if (value && orphaned.has(value)) orphaned.delete(value);
+      for (const child of node.children) visit(child);
+    };
+    for (const rec of records) {
+      if (!orphaned.size) break;
+      for (const child of rec.children) visit(child);
+    }
+    for (const rec of records) {
+      if (rec.tag !== tag || !rec.xref || !orphaned.has(rec.xref)) continue;
+      const index = recordPosition(records, rec);
+      removed.push({ type: "record", id: rec.xref, before: cloneNode(rec), after: null, ...(index !== undefined ? { index } : {}) });
+    }
+    if (removed.length) {
+      removeRecordsByXref(records, removed.map((p) => p.id), (r) => r.tag === tag);
+      bumpContentVersion(records);
+    }
+  }
+  if (changed === 0) return { patches: [], changed, skipped };
+  return { patches: [...created, ...patchesFromSnapshots(ds, snap), ...removed], changed, skipped };
 }
 
 /** Add `1 DEAT Y` in canonical position to everyone without death evidence;

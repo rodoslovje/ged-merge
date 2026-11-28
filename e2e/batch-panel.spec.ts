@@ -67,3 +67,63 @@ test("batch panel: searchable source picker, confirm dialog, Clear all", async (
   await expect(page.locator(".batch-row")).toHaveCount(2);
   await expect(page.locator(".batch-action .batch-select").first()).toHaveText(/Choose an action/);
 });
+
+const LABELS = `0 HEAD
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @I1@ INDI
+1 NAME Ana /Novak/
+1 _LABL @L1@
+0 @I2@ INDI
+1 NAME Janez /Novak/
+1 _LABL @L1@
+1 _LABL @L2@
+0 @I3@ INDI
+1 NAME Miha /Kos/
+0 @L1@ _LABL
+1 TITL Incomplete
+0 @L2@ _LABL
+1 TITL Y-DNA
+0 TRLR
+`;
+
+test("batch panel: a custom tag filter, and its lines converted into tasks", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles({ name: "labels.ged", mimeType: "text/plain", buffer: Buffer.from(LABELS) });
+  await expect(page.locator(".edit-person").first()).toBeVisible();
+  await page.getByRole("button", { name: "Tools", exact: true }).click();
+  await page.getByText("Normalize & batch", { exact: true }).first().click();
+  await expect(page.locator(".batch-row")).toHaveCount(3);
+
+  // The filter offers the file's custom tags; its text reads a pointer as the
+  // title of the record it names.
+  await page.locator(".batch-add-filter").click();
+  await page.locator(".dd-menu [role=option]", { hasText: /^Custom tag$/ }).click();
+  await expect(page.locator(".batch-crit .batch-select").nth(1)).toHaveText(/_LABL/);
+  await expect(page.locator(".batch-row")).toHaveCount(2);
+  // The tag's values are a pick list.
+  const valuePick = page.locator(".batch-crit .batch-select").nth(2);
+  await expect(valuePick).toHaveText(/any value/);
+  await valuePick.click();
+  await expect(page.locator(".dd-menu [role=option]")).toHaveText(["any value", "Incomplete", "Y-DNA"]);
+  await page.locator(".dd-menu [role=option]", { hasText: "Y-DNA" }).click();
+  await expect(page.locator(".batch-row")).toHaveCount(1);
+  await valuePick.click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Incomplete" }).click();
+  await expect(page.locator(".batch-row")).toHaveCount(2);
+
+  // The action opens on the filter's tag and value, described by the label's title.
+  await page.locator(".batch-action .batch-select").first().click();
+  await page.locator(".dd-menu [role=option]", { hasText: "Convert custom tag to a task" }).click();
+  await expect(page.locator(".batch-action .batch-select").nth(2)).toHaveText(/Incomplete/);
+  await expect(page.locator(".batch-action .batch-input")).toHaveValue("Incomplete");
+  await expect(page.locator(".batch-action input[type=checkbox]")).toBeChecked();
+
+  await page.locator(".batch-action .tools-run").click();
+  await page.locator(".confirm-dialog .confirm-dialog-confirm").click();
+  await expect(page.locator(".batch-done")).toContainText("2 changed");
+  // The label is off both people, so the filter finds nobody.
+  await expect(page.locator(".batch-row")).toHaveCount(0);
+});
