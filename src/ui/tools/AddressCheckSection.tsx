@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { searchLocalAddress } from "../../geo/addressLookup";
+import { searchAddress } from "../../geo/rn";
 import type { AddressHit } from "../../geo/addressRegister";
 import { isOfflineQuery } from "../../geo/rn";
 import { matchesQuery } from "../globalSearch";
@@ -182,8 +182,11 @@ export function AddressCheckSection({
       for (const row of askable.slice(at, at + CHUNK)) {
         const hits: AddressHit[] = [];
         for (const q of row.queries) {
-          for (const h of await searchLocalAddress(q.country ?? "SI", q)) {
-            if (!hits.some((o) => o.coord.lat === h.coord.lat && o.coord.lon === h.coord.lon)) hits.push(h);
+          // The register's whole answer, a former street name's house included
+          // — still no request: only stored registers are asked (`askable`).
+          for (const h of await searchAddress(q)) {
+            if (!hits.some((o) => o.coord.lat === h.coord.lat && o.coord.lon === h.coord.lon))
+              hits.push({ ...h, street: h.street ?? "" });
           }
         }
         answers.set(row.key, hits);

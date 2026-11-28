@@ -333,7 +333,10 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
       admins: [result.municipality],
       country: countryNameOf("SI", style.language),
     },
-    result.address,
+    // A house found under a former street name keeps that name: the proposal
+    // is for the place as the record knew it, and only the coordinate is
+    // today's.
+    result.former && result.street ? result.address.replace(result.street, result.former.name) : result.address,
     style,
   );
   if (!shaped) return undefined;

@@ -6,6 +6,7 @@ import { sameStreet, tryAlternates } from "./addressRegister";
 import { foldToken } from "../match/text";
 import { d96ToWgs84 } from "./d96";
 import { hasLocalRegister, localRegisters, searchLocalAddress, searchLocalStreet } from "./addressLookup";
+import { formerNameLabel, formerStreetsOf, storedFormerStreets, type FormerName, type FormerStreet } from "./formerStreets";
 
 // RN — the GURS register of addresses (Register naslovov) — is the official
 // Slovenian address gazetteer: every house number in the country with its exact
@@ -94,6 +95,10 @@ export interface RnResult {
   number: number;
   /** Its letter suffix, lowercased; absent when the register records none. */
   suffix?: string;
+  /** The former name this house was found under: the file names a street the
+   *  town has since renamed, and the register was asked for today's name
+   *  ({@link searchFormerNames}). The {@link label} says so too. */
+  former?: FormerName;
 }
 
 /** Leading house number plus an optional letter suffix: "23", "12a", "38/a". */
@@ -535,11 +540,85 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  * manual pick.
  */
 export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
+  const hits = await searchAsWritten(query, signal);
+  // One house once: found as written it needs no former name, and a street
+  // that bore the name twice answers with the same houses both times.
+  for (const former of await searchFormerNames(query, signal)) {
+    if (!hits.some((h) => h.coord.lat === former.coord.lat && h.coord.lon === former.coord.lon)) hits.push(former);
+  }
+  return hits;
+}
+
+/** Whether a country's queries are answered by a register in this browser —
+ *  always for Croatia, which has no service to ask instead. */
+async function answersLocally(country: "SI" | "HR"): Promise<boolean> {
+  return country === "HR" || (await hasLocalRegister(country));
+}
+
+/**
+ * The streets a query's street is today, where the loaded former-names table
+ * knows it as a name a street once bore. The settlement is looked for among
+ * every place the address may sit in — the one it names, the wider ones, and
+ * its parents — since a file names the suburb as often as the town.
+ */
+async function formerNamesOf(
+  query: Pick<RnQuery, "settlement" | "street" | "altSettlements" | "parents">,
+): Promise<FormerStreet[]> {
+  if (!query.street) return [];
+  return formerStreetsOf(await storedFormerStreets(), query.street, [
+    query.settlement,
+    ...(query.altSettlements ?? []),
+    ...(query.parents ?? []),
+  ]);
+}
+
+/** Mark the houses found on a street's current name as answers to its former
+ *  one. Held to that street, so no widening rung can pass off another house. */
+function underFormerName<T extends { label: string; street?: string }>(
+  hits: readonly T[],
+  entry: FormerStreet,
+): (T & { former: FormerName })[] {
+  const former: FormerName = {
+    name: entry.former,
+    ...(entry.from ? { from: entry.from } : {}),
+    ...(entry.to ? { to: entry.to } : {}),
+  };
+  return hits
+    .filter((h) => sameStreet(entry.current, h.street ?? ""))
+    .map((h) => ({ ...h, former, label: `${h.label} ← ${formerNameLabel(former)}` }));
+}
+
+/**
+ * The same house asked for under the name its street bears today, for an
+ * address written under a name the town has since changed — "Aleksandrova
+ * cesta 5" is a house on Ljubljana's Cankarjeva cesta. Asked in addition to the
+ * address as written, never instead of it: an old name is quite often the name
+ * of a different street today, and both houses are then offered, the renamed
+ * one marked with the name and years it was found under. Which of them a record
+ * means depends on its date, and that is the researcher's to read.
+ *
+ * Empty unless a former-names table is loaded and knows the street.
+ */
+async function searchFormerNames(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
+  const out: RnResult[] = [];
+  for (const entry of await formerNamesOf(query)) {
+    const { altSettlements: _alt, ...rest } = query;
+    const asked: RnQuery = { ...rest, settlement: entry.settlement, street: entry.current };
+    const hits = (await answersLocally(query.country ?? "SI"))
+      ? await searchLocalAddress(query.country ?? "SI", asked)
+      : await searchInSettlement(asked, signal);
+    out.push(...underFormerName(hits, entry));
+  }
+  return out;
+}
+
+/** {@link searchAddress} for the address exactly as the file writes it. */
+async function searchAsWritten(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
   // A downloaded register answers instead, walking the same ladder offline.
   // Croatia has no alternative — there is no service to ask — so its query goes
   // there whether or not anything is stored, and an empty answer is the honest
   // one. Slovenia falls through to the ladder below when nothing is stored.
-  if (query.country === "HR" || (await hasLocalRegister("SI"))) {
+  if (await answersLocally(query.country ?? "SI")) {
     return searchLocalAddress(query.country ?? "SI", query);
   }
   const own = await searchInSettlement(query, signal);
@@ -566,6 +645,8 @@ export interface StreetResult {
   settlement: string;
   /** How many distinct houses the position is the mean of. */
   houses: number;
+  /** The former name the street was found under — see {@link RnResult.former}. */
+  former?: FormerName;
 }
 
 /** Rows asked for when a whole street is fetched. A long city street is a few
@@ -603,25 +684,37 @@ export function streetQueryFrom(place: string | undefined, address: string | und
  * in the settlements asked stay two answers rather than a point between them.
  */
 export async function searchStreet(query: StreetQuery, signal?: AbortSignal): Promise<StreetResult[]> {
-  let houses: RnResult[] = [];
-  if (query.country === "HR" || (await hasLocalRegister("SI"))) {
-    houses = await searchLocalStreet(query.country ?? "SI", query);
-  } else {
-    for (const settlement of [query.settlement, ...(query.altSettlements ?? [])]) {
-      const filter = `NASELJE_NAZIV=${cqlString(settlement)} AND ULICA_NAZIV LIKE ${cqlString(`${query.street}%`)}`;
-      const found = rnFeaturesToResults(await rnFetch(filter, signal, STREET_FETCH_LIMIT), Infinity).filter(
-        (r) => !!r.street && sameStreet(query.street, r.street),
-      );
-      houses = await requireParentMunicipality(found, query.parents, signal);
-      if (houses.length) break;
+  const local = await answersLocally(query.country ?? "SI");
+  /** Every house of one street, in the first of these settlements that has it. */
+  const housesOn = async (street: string, settlements: readonly string[]): Promise<RnResult[]> => {
+    if (local) {
+      const [settlement, ...altSettlements] = settlements;
+      return searchLocalStreet(query.country ?? "SI", { settlement, street, altSettlements, parents: query.parents });
     }
+    for (const settlement of settlements) {
+      const filter = `NASELJE_NAZIV=${cqlString(settlement)} AND ULICA_NAZIV LIKE ${cqlString(`${street}%`)}`;
+      const found = rnFeaturesToResults(await rnFetch(filter, signal, STREET_FETCH_LIMIT), Infinity).filter(
+        (r) => !!r.street && sameStreet(street, r.street),
+      );
+      const scoped = await requireParentMunicipality(found, query.parents, signal);
+      if (scoped.length) return scoped;
+    }
+    return [];
+  };
+  const houses: RnResult[] = await housesOn(query.street, [query.settlement, ...(query.altSettlements ?? [])]);
+  // And the street under today's name, where the file's is a former one.
+  for (const entry of await formerNamesOf(query)) {
+    houses.push(...underFormerName(await housesOn(entry.current, [entry.settlement]), entry));
   }
-  const streets = new Map<string, { street: string; settlement: string; lat: number; lon: number; seen: Set<string> }>();
+  const streets = new Map<
+    string,
+    { street: string; settlement: string; lat: number; lon: number; seen: Set<string>; former?: FormerName }
+  >();
   for (const h of houses) {
-    const key = `${h.settlement}\0${h.street ?? ""}`;
+    const key = `${h.settlement}\0${h.street ?? ""}\0${h.former?.name ?? ""}`;
     let sum = streets.get(key);
     if (!sum) {
-      sum = { street: h.street ?? "", settlement: h.settlement, lat: 0, lon: 0, seen: new Set() };
+      sum = { street: h.street ?? "", settlement: h.settlement, lat: 0, lon: 0, seen: new Set(), former: h.former };
       streets.set(key, sum);
     }
     // One building, however many entrances and flats the register lists at it.
@@ -637,6 +730,7 @@ export async function searchStreet(query: StreetQuery, signal?: AbortSignal): Pr
     street: s.street,
     settlement: s.settlement,
     houses: s.seen.size,
+    ...(s.former ? { former: s.former } : {}),
   }));
 }
 
@@ -831,10 +925,11 @@ export async function searchAddressBatch(
     // downloaded, and only a click on a row — which took the local path — ever
     // got an answer.
     const country = g.country ?? "SI";
-    if (country === "HR" || (await hasLocalRegister(country))) {
+    if (await answersLocally(country)) {
       const hits: RnResult[] = [];
       for (const q of g.queries) {
-        for (const hit of await searchLocalAddress(country, q)) {
+        // The whole per-address answer, former street names included.
+        for (const hit of await searchAddress(q, signal)) {
           if (hits.some((h) => h.coord.lat === hit.coord.lat && h.coord.lon === hit.coord.lon)) continue;
           hits.push(hit);
         }
@@ -879,6 +974,12 @@ export async function searchAddressBatch(
             signal,
           );
         }
+      }
+      // The same numbers on the street's current name, where the file writes
+      // a former one — added to the group's own answers, never in their place
+      // (see searchFormerNames).
+      for (const entry of await formerNamesOf(g)) {
+        hits = [...hits, ...underFormerName(await own(entry.settlement, entry.current, numbers), entry)];
       }
       pool.set(key, hits);
     } catch {

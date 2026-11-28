@@ -1316,6 +1316,14 @@ export const hr = {
   "tools.geocode.importBtn": "Učitaj…",
   "tools.geocode.sourceGeoNames": "Izvadak države koji sami preuzimate sa stranice",
   "tools.geocode.sourceGeoNames2": " — .zip ili raspakirana datoteka .txt. ",
+  "tools.geocode.formerStreetsName": "Nekadašnji nazivi ulica",
+  "tools.geocode.formerStreetsChip": "Ulice",
+  "tools.geocode.formerStreetsMeta": "nekadašnji nazivi ulica: {{count}} · uvezeno {{date}}",
+  "tools.geocode.deleteFormerStreets": "Ukloni nekadašnje nazive ulica",
+  "tools.geocode.sourceFormerStreets":
+    "CSV tablica s nazivima koje su ulice nekad imale. Uz nju se kuća u registru adresa pronalazi i kad je adresa zapisana starim nazivom ulice; uz predloženu kuću ispisan je stari naziv s godinom. Tablicu za Ljubljanu možete dobiti u zajednici Slovenskoga rodoslovnog društva.",
+  "tools.geocode.formerStreetsUnreadable":
+    "Ova datoteka nije tablica nekadašnjih naziva ulica — u prvom retku moraju biti stupci settlement, former_name i current_name.",
   "tools.geocode.progress": "{{covered}}/{{total}} mjesta ima koordinate · {{pct}} % spomena",
   "tools.geocode.filter.all": "Sva",
   "tools.geocode.filter.confident": "Pouzdana",

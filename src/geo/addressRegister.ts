@@ -1,4 +1,5 @@
 import { foldToken } from "../match/text";
+import type { FormerName } from "./formerStreets";
 
 // A downloaded national address register, as this app keeps and reads one.
 //
@@ -112,6 +113,9 @@ export interface AddressHit {
   municipality?: string;
   number: number;
   suffix?: string;
+  /** Set by the lookup when the house was found under a former street name —
+   *  see {@link import("./rn").RnResult.former}. */
+  former?: FormerName;
 }
 
 /** The bucket store key for one settlement. */

@@ -172,12 +172,22 @@ export function checkAddressesAgainstRegister(
   let skipped = 0;
 
   for (const row of rows) {
-    const hits = answers.get(row.key);
-    if (!hits) {
+    const all = answers.get(row.key);
+    if (!all) {
       skipped++;
       continue;
     }
     checked++;
+
+    // A house found under a former street name is the register agreeing with
+    // the file about a street the town has since renamed — the old name is what
+    // the record says and is not a spelling to correct. Such answers are set
+    // aside; when they are all there is, the address stands as written.
+    const hits = all.filter((h) => !h.former);
+    if (all.length && !hits.length) {
+      ok++;
+      continue;
+    }
 
     const add = (verdict: AddressVerdict, extra: Partial<AddressFinding>) =>
       findings.push({

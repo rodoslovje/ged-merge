@@ -5,6 +5,7 @@ import { countryCodeOfName } from "../../geo/placeCountry";
 import { decomposePlace, parseCoordInput } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
 import { addressRegisterId } from "../../geo/addressRegister";
+import { formerNameLabel } from "../../geo/formerStreets";
 import { isOfflineQuery, rnQueriesFrom, searchAddresses, searchStreet, splitAddressVariants, streetQueryFrom, type RnResult } from "../../geo/rn";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
@@ -325,7 +326,9 @@ export function EventCoordPicker({
             results: streets.map((s) => ({
               coord: s.coord,
               address: s.street,
-              label: t("event.coord.streetMiddle", { street: `${s.street}, ${s.settlement}`, n: s.houses }),
+              label:
+                t("event.coord.streetMiddle", { street: `${s.street}, ${s.settlement}`, n: s.houses }) +
+                (s.former ? ` ← ${formerNameLabel(s.former)}` : ""),
             })),
           });
         },

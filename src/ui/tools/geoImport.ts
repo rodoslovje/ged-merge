@@ -1,5 +1,6 @@
 import type { Subdivision } from "../../geo/gazetteer";
 import { invalidateAddressRegisters } from "../../geo/addressLookup";
+import { invalidateFormerStreets } from "../../geo/formerStreets";
 import { invalidateGazetteerIndex } from "../edit/PlaceLookupContext";
 import type { GeoFailure, GeoJob, GeoStage, GeoWorkerRequest, GeoWorkerResponse } from "../../worker/geoMessages";
 
@@ -172,6 +173,7 @@ export function geoDataChanged(): void {
   // own index and buckets for the same reason and needs the same clearing.
   invalidateGazetteerIndex();
   invalidateAddressRegisters();
+  invalidateFormerStreets();
   for (const fn of changeWatchers) fn();
 }
 

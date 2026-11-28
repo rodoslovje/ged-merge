@@ -294,6 +294,21 @@ describe("an address-register house as a place", () => {
     expect(p.plac).toBe("Kranj (Slovenija), Hafnarjeva pot 21");
     expect(p.addr).toBeUndefined();
   });
+
+  it("keeps the street name the record wrote for a house found under a former name", () => {
+    const p = proposalFromRn(
+      {
+        ...house,
+        address: "Cankarjeva cesta 5",
+        street: "Cankarjeva cesta",
+        number: 5,
+        former: { name: "Aleksandrova cesta", from: 1919, to: 1941 },
+      },
+      style(),
+    )!;
+    expect(p.addr).toBe("Aleksandrova cesta 5");
+    expect(p.coord).toEqual(house.coord);
+  });
 });
 
 describe("GOV and OpenStreetMap as places", () => {

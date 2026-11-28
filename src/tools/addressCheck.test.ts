@@ -28,6 +28,29 @@ function hit(over: Partial<AddressHit> & Pick<AddressHit, "address" | "settlemen
 const NO_DECISIONS = new Map<string, GeocodeDecision>();
 
 describe("checkAddressesAgainstRegister", () => {
+  it("lets an address under a former street name stand as written", () => {
+    const r = row({ key: "ljubljana|aleksandrova cesta 5", place: "Ljubljana, Slovenija", address: "Aleksandrova cesta 5" });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([
+        [
+          r.key,
+          [
+            hit({
+              address: "Cankarjeva cesta 5",
+              street: "Cankarjeva cesta",
+              settlement: "Ljubljana",
+              former: { name: "Aleksandrova cesta", from: 1919, to: 1941 },
+            }),
+          ],
+        ],
+      ]),
+      NO_DECISIONS,
+    );
+    expect(report.findings).toEqual([]);
+    expect(report).toMatchObject({ checked: 1, ok: 1, skipped: 0 });
+  });
+
   it("reports a street the register spells differently", () => {
     const r = row({ key: "kranj|kidriceva 38", place: "Kranj, Slovenija", address: "Kidričeva 38" });
     const report = checkAddressesAgainstRegister(
