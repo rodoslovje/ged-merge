@@ -1,7 +1,7 @@
 import type { Dataset, Family, GedEvent, GeoCoord, Individual } from "../../gedcom/types";
 import type { ChangeJournal, SyncMark } from "../../state/mainSync";
 import { placeCollator } from "../../gedcom/place";
-import { matchesTerms, queryTerms } from "../globalSearch";
+import { foldSearch, matchesTerms, queryTerms } from "../globalSearch";
 
 /** One field's completion list: the values themselves, and the canonical
  *  casing per {@link placeKey}, so a retyped value snaps to the spelling the
@@ -492,6 +492,63 @@ export function placeCombosOf(
   }
   combosCache.set(placeToAddrs, out);
   return out;
+}
+
+/** A suggestion with its search text folded once, not per keystroke. */
+export interface FoldedRow {
+  place: string;
+  fold: string;
+}
+
+/** A known place+address pair with its search text folded once. */
+export interface FoldedCombo {
+  place: string;
+  addr: string;
+  placeFold: string;
+  addrFold: string;
+}
+
+/**
+ * A suggestion list with every text folded for the dropdown's search — once
+ * per list, however many fields show it.
+ *
+ * Every event row of a person hands its place field the same list, and each
+ * field used to fold a copy of its own: thirty rows on screen held thirty
+ * copies of every place the file writes, folded strings and all.
+ */
+const foldedRowsCache = new WeakMap<readonly string[], FoldedRow[]>();
+export function foldedRows(suggestions: readonly string[]): FoldedRow[] {
+  let rows = foldedRowsCache.get(suggestions);
+  if (!rows) {
+    rows = suggestions.map((place) => ({ place, fold: foldSearch(place) }));
+    foldedRowsCache.set(suggestions, rows);
+  }
+  return rows;
+}
+
+/**
+ * The pair list folded the same way. Cached per pair as well as per list: an
+ * address field is handed its own filtered list — the pairs at *other* places —
+ * which is a different array in every row but made of the same pair objects
+ * ({@link placeCombosOf} builds them once), so the folded pairs are still
+ * shared and a row's own list costs only its pointers.
+ */
+const foldedComboCache = new WeakMap<{ place: string; addr: string }, FoldedCombo>();
+const foldedCombosCache = new WeakMap<readonly { place: string; addr: string }[], FoldedCombo[]>();
+export function foldedCombos(combos: readonly { place: string; addr: string }[]): FoldedCombo[] {
+  let rows = foldedCombosCache.get(combos);
+  if (!rows) {
+    rows = combos.map((cb) => {
+      let row = foldedComboCache.get(cb);
+      if (!row) {
+        row = { place: cb.place, addr: cb.addr, placeFold: foldSearch(cb.place), addrFold: foldSearch(cb.addr) };
+        foldedComboCache.set(cb, row);
+      }
+      return row;
+    });
+    foldedCombosCache.set(combos, rows);
+  }
+  return rows;
 }
 
 /**

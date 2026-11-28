@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClearableInput } from "./ClearableInput";
-import { applyCanonical, suggestQuery } from "./fieldSuggestions";
+import { applyCanonical, foldedCombos, foldedRows, suggestQuery, type FoldedCombo } from "./fieldSuggestions";
 import { foldSearch } from "../globalSearch";
 import { placeCollator } from "../../gedcom/place";
 import { proposalKey, type PlaceProposal } from "../../geo/placeProposal";
@@ -21,8 +21,7 @@ interface Item {
   movesPlace?: boolean;
 }
 
-/** A known place+address pair with its search text folded once, not per keystroke. */
-type ComboRow = { place: string; addr: string; placeFold: string; addrFold: string };
+type ComboRow = FoldedCombo;
 
 type SearchState = { state: "idle" | "loading" | "error" | "done"; query: string; results: PlaceProposal[] };
 
@@ -129,14 +128,11 @@ export function SuggestInput({
    *  — the register's coordinate, its municipality, its official spelling. */
   const canSearch = !!onPickProposal && (!!onLookup || !!lookupNote) && value.trim().length >= 2;
 
-  // Folded once per list rather than per keystroke: a large file's pair list
-  // runs to tens of thousands of houses.
-  const plainRows = useMemo(() => suggestions.map((place) => ({ place, fold: foldSearch(place) })), [suggestions]);
-  const comboRows = useMemo(
-    (): ComboRow[] =>
-      (combos ?? []).map((cb) => ({ place: cb.place, addr: cb.addr, placeFold: foldSearch(cb.place), addrFold: foldSearch(cb.addr) })),
-    [combos],
-  );
+  // Folded once per list rather than per keystroke — and once for every field
+  // showing that list, not once each: a large file's pair list runs to tens of
+  // thousands of houses.
+  const plainRows = useMemo(() => foldedRows(suggestions), [suggestions]);
+  const comboRows = useMemo(() => (combos ? foldedCombos(combos) : []), [combos]);
 
   const filtered = useMemo((): Item[] => {
     // The query is read like a name: each typed part matches on its own, in
