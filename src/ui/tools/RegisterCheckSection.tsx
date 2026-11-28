@@ -1107,7 +1107,11 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
     return [...(f.alternatives ?? []).map((entry) => ({ entry, ...composedAnswer(entry, style) })), ...widened];
   }
   if ((f.verdict === "spelling" || f.verdict === "admin") && f.entry) {
-    return [{ entry: f.entry, ...answerPlace(f, f.entry, style) }, ...widened];
+    // An `admin` row whose named parent is a settlement far from the register's
+    // place leads with that reading — the name as a level inside the parent,
+    // the way a `site` row answers — and keeps the register's place second.
+    const inside = f.inside ? [levelUnder(f.inside.entry, f.inside.place, f.inside.lead, f.inside.addr, style)] : [];
+    return [...inside, { entry: f.entry, ...answerPlace(f, f.entry, style) }, ...widened];
   }
   // A cemetery, a township or a precinct standing in front of the place: the
   // place under it, qualified like every other answer here, and the level
@@ -1117,17 +1121,7 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
   // neighbourhood the register holds, written above its settlement — takes
   // the same answer for the same reason.
   if ((f.verdict === "site" || f.verdict === "deep") && f.entry && f.official) {
-    const under = qualified(f.entry, f.official, { place: f.official }, style);
-    return [
-      {
-        entry: f.entry,
-        ...under,
-        ...(f.officialAddr
-          ? { addr: f.officialAddr }
-          : { place: withAside(under.place, f.written) }),
-      },
-      ...widened,
-    ];
+    return [levelUnder(f.entry, f.official, f.written, f.officialAddr, style), ...widened];
   }
   // A name the directory knows as a county, and an unknown one carrying a level
   // that says nothing, both answer with the value one level shorter. There is
@@ -1150,6 +1144,20 @@ function optionsOf(f: RegisterFinding, style: PlaceStyle, wider?: readonly GazEn
     return [{ ...qualified(f.entry, f.official, { place: f.official }, style), addr: f.officialAddr }];
   }
   return [];
+}
+
+/** A level standing in front of a place the register holds: the place under
+ *  it, qualified like every other answer, and the level itself on the ADDR
+ *  line (`addr`) — or kept beside the place where the file has no such line. */
+function levelUnder(
+  entry: GazEntry,
+  place: string,
+  lead: string,
+  addr: string | undefined,
+  style: PlaceStyle,
+): RegisterOption {
+  const under = qualified(entry, place, { place }, style);
+  return { entry, ...under, ...(addr ? { addr } : { place: withAside(under.place, lead) }) };
 }
 
 /**
@@ -1175,7 +1183,9 @@ function chosenIndex(f: RegisterFinding, options: RegisterOption[], own: number 
   //
   // A wider lead is never that answer: it is a name that merely resembles or
   // contains the written one, and a row must not arrive already claiming one.
-  if (f.verdict === "ambiguous" || f.verdict === "site" || f.verdict === "deep") return -1;
+  // An `admin` row with two readings waits the same way: nothing here chooses
+  // between a street of the named parent and the register's far-off namesake.
+  if (f.verdict === "ambiguous" || f.verdict === "site" || f.verdict === "deep" || f.inside) return -1;
   return options.length > 0 && !options[0].wide ? 0 : -1;
 }
 

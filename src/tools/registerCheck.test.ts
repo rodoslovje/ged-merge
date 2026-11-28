@@ -181,6 +181,29 @@ describe("checkPlacesAgainstRegister", () => {
     expect(findings[0].entry?.admin).toBe("Šmartno pri Litiji");
   });
 
+  it("offers the named parent as the place when the register's namesake is far from it", () => {
+    // The register's only Vrh is by Litija; the file files one under Koper, a
+    // settlement at the other end of the country — a street or hamlet of Koper
+    // as likely as a misfiled Vrh.
+    const fmt: PlaceTargetFormat = { layout: "structured-addr", separator: ", " };
+    const ds = fileWith(place("Vrh, Koper, Slovenija"));
+    const { findings } = checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS, fmt);
+    expect(findings).toHaveLength(1);
+    expect(findings[0].verdict).toBe("admin");
+    expect(findings[0].entry?.admin).toBe("Šmartno pri Litiji");
+    expect(findings[0].inside).toEqual({
+      entry: expect.objectContaining({ name: "Koper" }),
+      lead: "Vrh",
+      place: "Koper, Slovenija",
+      addr: "Vrh",
+    });
+  });
+
+  it("keeps a village filed under the neighbouring municipality a plain filing slip", () => {
+    const ds = fileWith(place("Vrh, Litija, Slovenija"));
+    expect(checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS).findings[0].inside).toBeUndefined();
+  });
+
   it("passes a place whose municipality the register agrees with", () => {
     const ds = fileWith(place("Vrh, Šmartno pri Litiji, Slovenija"));
     expect(checkPlacesAgainstRegister(ds, REGISTER, NO_DECISIONS).findings).toEqual([]);
