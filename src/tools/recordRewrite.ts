@@ -28,6 +28,14 @@ function patchType(dataset: Dataset, rec: GedNode): RecordPatch["type"] {
   return "record";
 }
 
+/** How many lines tagged `tag` stand, anywhere in `node`, directly under a
+ *  line `under` accepts. */
+function tagLinesUnder(node: GedNode, tag: string, under: (owner: GedNode) => boolean): number {
+  let n = under(node) ? node.children.filter((c) => c.tag === tag).length : 0;
+  for (const c of node.children) n += tagLinesUnder(c, tag, under);
+  return n;
+}
+
 /** Whether a line anywhere beneath `node` meets `hit`. */
 function anyBeneath(node: GedNode, hit: (line: GedNode) => boolean): boolean {
   return node.children.some((c) => hit(c) || anyBeneath(c, hit));
@@ -82,9 +90,24 @@ export function renameXref(dataset: Dataset, xref: string, is70: boolean): Recor
 }
 
 /** Remove every line tagged `tag` (and a record of that tag, with the lines
- *  pointing at it); returns the patches applied. */
-export function removeCustomTag(dataset: Dataset, tag: string): RecordPatch[] {
+ *  pointing at it); returns the patches applied. With `under`, only the lines
+ *  whose owner it accepts go, and no record does. */
+export function removeCustomTag(dataset: Dataset, tag: string, under?: (owner: GedNode) => boolean): RecordPatch[] {
   const patches: RecordPatch[] = [];
+  if (under) {
+    for (const rec of dataset.records) {
+      if (!rec.xref || !tagLinesUnder(rec, tag, under)) continue;
+      const after = cloneNode(rec);
+      const strip = (node: GedNode): void => {
+        if (under(node)) node.children = node.children.filter((c) => c.tag !== tag);
+        for (const c of node.children) strip(c);
+      };
+      strip(after);
+      patches.push({ type: patchType(dataset, rec), id: rec.xref, before: cloneNode(rec), after });
+    }
+    if (patches.length) applyRecordPatches(dataset, patches, "redo");
+    return patches;
+  }
   const gone = new Set<string>();
   dataset.records.forEach((rec, index) => {
     if (rec.tag !== tag || !rec.xref) return;
@@ -129,21 +152,27 @@ export function removeMisplacedTag(dataset: Dataset, tag: string, parent: string
  * The records behind a finding that names a tag: each one holding a line
  * tagged `tag`, with how many — directly under `parent` (the dotted path a
  * misplaced-tag finding names, `SOUR`, `REPO.WWW`) when one is given, anywhere
- * in the record otherwise (an extension tag). File order; records without an
- * xref (HEAD) are left out, as nothing can open them.
+ * in the record otherwise (an extension tag), or anywhere under a line `under`
+ * accepts. File order; records without an xref (HEAD) are left out, as nothing
+ * can open them.
  */
-export function recordsWithTag(records: readonly GedNode[], tag: string, parent?: string): { id: string; count: number }[] {
+export function recordsWithTag(
+  records: readonly GedNode[],
+  tag: string,
+  parent?: string,
+  under?: (owner: GedNode) => boolean,
+): { id: string; count: number }[] {
   const [root, ...chain] = parent ? parent.split(".") : [];
-  const under = (node: GedNode, depth: number): number =>
+  const beneath = (node: GedNode, depth: number): number =>
     depth === chain.length
       ? node.children.filter((c) => c.tag === tag).length
-      : node.children.reduce((n, c) => n + (c.tag === chain[depth] ? under(c, depth + 1) : 0), 0);
+      : node.children.reduce((n, c) => n + (c.tag === chain[depth] ? beneath(c, depth + 1) : 0), 0);
   const anywhere = (node: GedNode): number =>
     node.children.reduce((n, c) => n + (c.tag === tag ? 1 : 0) + anywhere(c), 0);
   const out: { id: string; count: number }[] = [];
   for (const rec of records) {
     if (!rec.xref || (parent && rec.tag !== root)) continue;
-    const count = parent ? under(rec, 0) : anywhere(rec);
+    const count = parent ? beneath(rec, 0) : under ? tagLinesUnder(rec, tag, under) : anywhere(rec);
     if (count > 0) out.push({ id: rec.xref, count });
   }
   return out;

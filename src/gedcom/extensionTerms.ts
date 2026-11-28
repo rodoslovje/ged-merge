@@ -79,6 +79,9 @@ export interface StandardForm {
   converted: boolean;
   /** The same content's GEDCOM 5.5.1 form, where 5.5.1 has one too. */
   v551?: string;
+  /** The form exists only on a line the version lets carry this tag: a
+   *  privacy marker on a note has no `RESN` to become (see `takesResn`). */
+  where?: "RESN";
 }
 
 const FS_EXID = "EXID with TYPE https://www.familysearch.org/tree/person/";
@@ -98,7 +101,7 @@ export const STANDARD_FORMS: Record<string, StandardForm> = {
   _TRAN: { form: "NOTE.TRAN", converted: true },
   _SEX: { form: "SEX X", converted: true },
   _CREA: { form: "CREA with a DATE", converted: false },
-  _PRIV: { form: "RESN PRIVACY", converted: false, v551: "RESN privacy" },
+  _PRIV: { form: "RESN PRIVACY", converted: false, v551: "RESN privacy", where: "RESN" },
   _AKA: { form: "a NAME of its own with TYPE AKA", converted: false, v551: "a NAME of its own with TYPE aka" },
   _AKAN: { form: "a NAME of its own with TYPE AKA", converted: false, v551: "a NAME of its own with TYPE aka" },
   _BIRN: { form: "a NAME of its own with TYPE BIRTH", converted: false, v551: "a NAME of its own with TYPE birth" },
@@ -120,6 +123,12 @@ export function standardFormIn(tag: string, version: "5.5.1" | "7.0"): { form: s
   if (!s) return undefined;
   if (version === "7.0") return { form: s.form, fixable: s.converted };
   return s.v551 ? { form: s.v551, fixable: false } : undefined;
+}
+
+/** Whether an extension tag's standard form depends on the line it stands
+ *  under (see {@link StandardForm.where}). */
+export function standardFormIsPlaced(tag: string): boolean {
+  return STANDARD_FORMS[tag.toUpperCase()]?.where !== undefined;
 }
 
 /** One of the app's own extension tags: what it writes where a version has

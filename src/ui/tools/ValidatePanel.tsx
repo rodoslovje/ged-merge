@@ -25,6 +25,7 @@ import { countDanglingRefs, type DanglingRef } from "../../tools/fixDanglingRefs
 import { countFixableConformance, countVendorToStandard, type ConformanceFixKind, type ConformanceRef } from "../../tools/fixConformance";
 import { eventNameTag, standardHomeOf, standardTargetTag } from "../../tools/vendorToStandard";
 import { recordsWithTag } from "../../tools/recordRewrite";
+import { privacyPlaceTest } from "../../gedcom/private";
 import { TEMPLATE_STANDARD_TAGS } from "../../tools/sourceReshape/apply";
 import { CATEGORY_ORDER, type StructureReport, type StructCategory, type StructIssue } from "../../tools/structure";
 import { collectLocalMediaFiles, type MediaFileUse } from "../../tools/mediaFiles";
@@ -136,7 +137,7 @@ function brokenTarget(issue: ValidationIssue): string | undefined {
 function rowKey(issue: ValidationIssue | StructIssue): string {
   return "id" in issue
     ? `${issue.category}\0${issue.id}\0${brokenTarget(issue) ?? ""}`
-    : `${issue.category}\0${issue.recordId ?? ""}\0${issue.sample ?? ""}\0${issue.path ?? ""}`;
+    : `${issue.category}\0${issue.recordId ?? ""}\0${issue.sample ?? ""}\0${issue.path ?? ""}\0${issue.tagPlace ?? ""}`;
 }
 
 /** One row's own repair: what its button says, and what clicking it does. A row
@@ -1212,10 +1213,11 @@ export function ValidatePanel({
     if (issue.category === "customTag" && issue.sample) {
       return {
         label: t("tools.validate.fixOneRemoveTag"),
-        hint: t("tools.validate.fixOneRemoveTagHint", { tag: issue.sample, count: Number(issue.messageVars?.count) || 1 }),
+        // A finding that counts the tag in one kind of place removes it there only.
+        hint: t(issue.tagPlace ? "tools.validate.fixOneRemoveTagPlacedHint" : "tools.validate.fixOneRemoveTagHint", { tag: issue.sample, count: Number(issue.messageVars?.count) || 1 }),
         removes: true,
         kind: "customTags",
-        run: () => onFixConformance("customTags", { value: issue.sample }),
+        run: () => onFixConformance("customTags", { value: issue.sample, place: issue.tagPlace }),
       };
     }
     // A standard tag where the version has no place for it, and no repair
@@ -1916,7 +1918,8 @@ function canDrill(i: StructIssue): boolean {
 
 function drillRecords(dataset: Dataset, i: StructIssue): { id: string; count: number }[] {
   if (!canDrill(i)) return [];
-  return recordsWithTag(dataset.records, i.sample!, i.category === "misplacedTag" ? String(i.messageVars!.parent) : undefined);
+  const under = i.tagPlace ? privacyPlaceTest(i.tagPlace, dataset.version === "7.0" ? "7.0" : "5.5.1") : undefined;
+  return recordsWithTag(dataset.records, i.sample!, i.category === "misplacedTag" ? String(i.messageVars!.parent) : undefined, under);
 }
 
 /** A value the fix rewrites in place: a mis-spelt enumeration value, or a
