@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { placeLookupLanguage } from "./lookupLanguage";
+import { describe, expect, it, vi } from "vitest";
+import { placeLookupLanguage, searchInAnswerLanguage } from "./lookupLanguage";
 
 describe("placeLookupLanguage", () => {
   it("asks in English for a file that writes its countries in English", () => {
@@ -41,5 +41,43 @@ describe("placeLookupLanguage", () => {
     expect(placeLookupLanguage("Stone Lake, Wisconsin, ZDA", "sl", preferred)).toBe("en");
     // Without that evidence the reader's language stays the best guess.
     expect(placeLookupLanguage("Stone Lake, Wisconsin, USA", "sl")).toBe("sl");
+  });
+});
+
+describe("searchInAnswerLanguage", () => {
+  // What OpenStreetMap answers "Kansas City, Missouri" with, per language.
+  const answers: Record<string, { state: string; country: string }[]> = {
+    sl: [{ state: "Misuri", country: "Združene države Amerike" }],
+    en: [{ state: "Missouri", country: "United States" }],
+  };
+  const search = () => vi.fn((lang: string) => Promise.resolve(answers[lang] ?? []));
+  const countryOf = (r: { country: string }) => r.country;
+
+  it("asks again in the language the file writes the answer's country in", async () => {
+    // The query named no country, so it went out in the reader's Slovenian —
+    // but the file writes the United States in English.
+    const preferred = new Map([["unitedstates", "United States"]]);
+    const run = search();
+    expect(await searchInAnswerLanguage(run, countryOf, "sl", preferred)).toEqual(answers.en);
+    expect(run.mock.calls.map((c) => c[0])).toEqual(["sl", "en"]);
+  });
+
+  it("asks once when the answer is already in the file's language", async () => {
+    const preferred = new Map([["unitedstates", "United States"]]);
+    const run = search();
+    expect(await searchInAnswerLanguage(run, countryOf, "en", preferred)).toEqual(answers.en);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks once when the file does not write that country at all", async () => {
+    const run = search();
+    expect(await searchInAnswerLanguage(run, countryOf, "sl", new Map())).toEqual(answers.sl);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks once when nothing was found", async () => {
+    const run = vi.fn(() => Promise.resolve([] as { country: string }[]));
+    expect(await searchInAnswerLanguage(run, countryOf, "sl")).toEqual([]);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

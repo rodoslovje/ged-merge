@@ -12,7 +12,7 @@ import {
 import { searchGov } from "../../geo/gov";
 import { decomposePlace } from "../../gedcom/place";
 import { canonicalPlaceToken } from "../../match/place";
-import { placeLookupLanguage } from "../../geo/lookupLanguage";
+import { placeLookupLanguage, searchInAnswerLanguage } from "../../geo/lookupLanguage";
 import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeLevels";
 import { searchNominatim } from "../../geo/nominatim";
 import { rnQueriesFrom, searchAddresses } from "../../geo/rn";
@@ -216,7 +216,7 @@ export function usePlaceLookupValue(
         const [rn, gov, osm] = await Promise.allSettled([
           rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
           searchGov(text, answerLang),
-          searchNominatim(text, answerLang),
+          osmSearch(text, answerLang),
         ]);
         if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
         if (gov.status === "fulfilled") for (const r of gov.value) add(proposalFromGov(r, style));
@@ -230,6 +230,17 @@ export function usePlaceLookupValue(
 
       return out.slice(0, MAX_RESULTS);
     };
+
+    // A query that names no country can only be asked in the reader's language;
+    // the answer names the country, and with it the language the file writes
+    // that country's places in (see searchInAnswerLanguage).
+    const osmSearch = (query: string, language: string) =>
+      searchInAnswerLanguage(
+        (lang) => searchNominatim(query, lang),
+        (r) => r.parts?.country,
+        language,
+        style.fmt.countryPreferred,
+      );
 
     const searchAddress = async (place: string, address: string): Promise<PlaceProposal[]> => {
       const text = address.trim();
@@ -252,7 +263,7 @@ export function usePlaceLookupValue(
         rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
         // Address first, then the place — the order Nominatim reads best, in
         // the language the event's place is written in.
-        searchNominatim(
+        osmSearch(
           [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
           placeLookupLanguage(langSource, style.language, style.fmt.countryPreferred),
         ),

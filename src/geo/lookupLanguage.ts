@@ -51,3 +51,32 @@ export function placeLookupLanguage(
   }
   return uiLang;
 }
+
+/**
+ * Run an online place search in the language the file writes the *answer's*
+ * country in.
+ *
+ * `placeLookupLanguage` reads the language off the country the query names —
+ * and a query typed as "Kansas City, Missouri" names none, so it is asked in
+ * the reader's language. Under a Slovenian interface that comes back "Misuri,
+ * Združene države Amerike": the country is put right from the file's own
+ * spelling afterwards, but nothing can do that for a state, and it lands in a
+ * file that writes every other state in English. Only the answer says which
+ * country was meant, so when the file writes that country in another language
+ * than the one asked in, the search is asked once more in that one.
+ *
+ * `countryOf` reads the country name off a result; the first result that names
+ * one decides.
+ */
+export async function searchInAnswerLanguage<R>(
+  search: (language: string) => Promise<R[]>,
+  countryOf: (result: R) => string | undefined,
+  language: string,
+  countryPreferred?: ReadonlyMap<string, string>,
+): Promise<R[]> {
+  const results = await search(language);
+  const country = results.map(countryOf).find(Boolean);
+  if (!country) return results;
+  const written = placeLookupLanguage(country, language, countryPreferred);
+  return written === language ? results : search(written);
+}
