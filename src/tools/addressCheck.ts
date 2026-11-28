@@ -172,12 +172,22 @@ export function checkAddressesAgainstRegister(
   let skipped = 0;
 
   for (const row of rows) {
-    const hits = answers.get(row.key);
-    if (!hits) {
+    const all = answers.get(row.key);
+    if (!all) {
       skipped++;
       continue;
     }
     checked++;
+
+    // A house found under a former street name is the register agreeing with
+    // the file about a street the town has since renamed — the old name is what
+    // the record says and is not a spelling to correct. Such answers are set
+    // aside; when they are all there is, the address stands as written.
+    const hits = all.filter((h) => !h.former);
+    if (all.length && !hits.length) {
+      ok++;
+      continue;
+    }
 
     const add = (verdict: AddressVerdict, extra: Partial<AddressFinding>) =>
       findings.push({
@@ -197,8 +207,8 @@ export function checkAddressesAgainstRegister(
       continue;
     }
 
-    // A value naming both the old and the new name of one house — "Labore 4 /
-    // Škofjeloška 4", a street Kranj renamed — is two whole addresses, looked up
+    // A value naming both the new and the old name of one house — "Škofjeloška 4 /
+    // Labore 4", a street Kranj renamed — is two whole addresses, looked up
     // as two ({@link splitAddressVariants}), and their answers arrive in one
     // bag. Each half is judged on its own and only the half the register knows
     // is rewritten, so taking the official spelling keeps the historical name
@@ -279,7 +289,7 @@ export function checkAddressesAgainstRegister(
       });
     } else if (unknown && !answered) {
       // Only when *no* half was answered. A value naming a house under both its
-      // old and its new street — "Moša Pijade 3 / Zoisova ulica 3", renamed by
+      // new and its old street — "Zoisova ulica 3 / Moša Pijade 3", renamed by
       // Kranj — can never have both halves in the register: the old name is
       // gone, which is precisely why the researcher wrote them both down. Judged
       // half by half, that value reported "no such house" for a house the

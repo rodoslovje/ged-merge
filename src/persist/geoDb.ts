@@ -28,9 +28,12 @@
 //    The index is one record per country; the buckets are one record per
 //    settlement, so a lookup reads exactly the village it is about. Public
 //    reference data like the countries above, and kept on the same terms.
+//    The index store also holds the former-street-names table, as one record
+//    of its own (see FORMER_STREETS_KEY).
 
 import type { DivisionNames, GazEntry } from "../geo/gazetteer";
 import type { AddressBucket, AddressIndex } from "../geo/addressRegister";
+import type { FormerStreetTable } from "../geo/formerStreets";
 
 const DB_NAME = "gedmerge-geo";
 const DB_VERSION = 2;
@@ -294,6 +297,49 @@ export async function getAddressIndex(country: string): Promise<AddressIndex | u
         AddressIndex | undefined
       >,
     ),
+  );
+}
+
+/** Where the former-street-names table is kept: one record in the address
+ *  index store, under a key no country code can be. It is the same kind of
+ *  thing the store already holds — a small description read whole — and a
+ *  store of its own would mean a database upgrade, which a second window of
+ *  the app sitting on the old version blocks. */
+const FORMER_STREETS_KEY = "former-streets";
+
+/** The former street names loaded into this browser, if any. */
+export async function getFormerStreets(): Promise<FormerStreetTable | undefined> {
+  return await withGeoDb((db) =>
+    requestDone(
+      db.transaction(ADDR_INDEX_STORE).objectStore(ADDR_INDEX_STORE).get(FORMER_STREETS_KEY) as IDBRequest<
+        FormerStreetTable | undefined
+      >,
+    ),
+  );
+}
+
+/** Store (replace) the former street names. Rejects when the browser will not
+ *  keep them, so the load can say so instead of looking as though it worked. */
+export async function putFormerStreets(table: FormerStreetTable): Promise<void> {
+  const db = await openGeoDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(ADDR_INDEX_STORE, "readwrite");
+      tx.objectStore(ADDR_INDEX_STORE).put({ country: FORMER_STREETS_KEY, ...table });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } catch (e) {
+    throw storeFailure(e);
+  } finally {
+    db.close();
+  }
+}
+
+export async function deleteFormerStreets(): Promise<void> {
+  await withGeoDb((db) =>
+    requestDone(db.transaction(ADDR_INDEX_STORE, "readwrite").objectStore(ADDR_INDEX_STORE).delete(FORMER_STREETS_KEY)),
   );
 }
 

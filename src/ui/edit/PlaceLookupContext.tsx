@@ -15,13 +15,14 @@ import { canonicalPlaceToken } from "../../match/place";
 import { placeLookupLanguage, searchInAnswerLanguage } from "../../geo/lookupLanguage";
 import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeLevels";
 import { searchNominatim } from "../../geo/nominatim";
-import { rnQueriesFrom, searchAddresses } from "../../geo/rn";
+import { rnQueriesFrom, searchAddresses, searchStreet, streetQueryFrom } from "../../geo/rn";
 import {
   placeDepthsOf,
   proposalFromGazEntry,
   proposalFromGov,
   proposalFromNominatim,
   proposalFromRn,
+  proposalFromStreet,
   proposalKey,
   splitPlaceQuery,
   type PlaceProposal,
@@ -259,8 +260,11 @@ export function usePlaceLookupValue(
       // typed address's own country ("Stone Lake, USA") answers instead, or
       // half the reply comes back localized to the reader's language.
       const langSource = decomposePlace(place).country ? place : text;
-      const [rn, osm] = await Promise.allSettled([
+      // An address naming a street and no house on it is asked for the street.
+      const streetQuery = rnQueries.length ? undefined : streetQueryFrom(place || undefined, text);
+      const [rn, streets, osm] = await Promise.allSettled([
         rnQueries.length ? searchAddresses(rnQueries) : Promise.resolve([]),
+        streetQuery ? searchStreet(streetQuery) : Promise.resolve([]),
         // Address first, then the place — the order Nominatim reads best, in
         // the language the event's place is written in.
         osmSearch(
@@ -269,6 +273,7 @@ export function usePlaceLookupValue(
         ),
       ]);
       if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
+      if (streets.status === "fulfilled") for (const s of streets.value) add(proposalFromStreet(s, style));
       if (osm.status === "fulfilled") for (const r of osm.value) add(proposalFromNominatim(r, style));
       if (!out.length && rn.status === "rejected" && osm.status === "rejected") {
         throw new Error("address lookup failed");

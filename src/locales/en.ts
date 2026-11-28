@@ -1215,6 +1215,14 @@ export const en = {
   "tools.geocode.importBtn": "Load…",
   "tools.geocode.sourceGeoNames": "Your own country extract, fetched by hand from",
   "tools.geocode.sourceGeoNames2": " — a .zip or unpacked .txt. ",
+  "tools.geocode.formerStreetsName": "Former street names",
+  "tools.geocode.formerStreetsChip": "Streets",
+  "tools.geocode.formerStreetsMeta": "{{places}} — former street names: {{count}} · imported {{date}}",
+  "tools.geocode.deleteFormerStreets": "Remove the former street names",
+  "tools.geocode.sourceFormerStreets":
+    "A CSV table of the names streets used to bear. With it an address written under an old street name is placed on the street that bears another name today — at the middle of the street, since house numbers often changed with the name. A table for Ljubljana is available in the community of the Slovenian Genealogical Society.",
+  "tools.geocode.formerStreetsUnreadable":
+    "This file is not a table of former street names — its first row must name the columns settlement, former_name and current_name.",
   "tools.geocode.progress": "{{covered}}/{{total}} places have coordinates · {{pct}}% of mentions",
   "tools.geocode.filter.all": "All",
   "tools.geocode.filter.confident": "Confident",

@@ -31,7 +31,16 @@ import {
   type GeoSlot,
 } from "./geoImport";
 import { useNow } from "../useNow";
-import { deleteAddressRegister, deleteCountry, loadCountries, type CountryMeta } from "../../persist/geoDb";
+import {
+  deleteAddressRegister,
+  deleteCountry,
+  deleteFormerStreets,
+  getFormerStreets,
+  loadCountries,
+  putFormerStreets,
+  type CountryMeta,
+} from "../../persist/geoDb";
+import { formerStreetPlaces, mergeFormerStreets, parseFormerStreets } from "../../geo/formerStreets";
 import type { GeoFailure } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
 import { SelectMenu } from "../DropdownMenu";
@@ -112,6 +121,14 @@ export interface Gazetteer {
   downloadCroatiaAddresses: () => void;
   downloadSloveniaAddresses: () => void;
   removeAddressRegister: (country: string) => Promise<void>;
+  /** The loaded table of former street names (geo/formerStreets.ts), if any.
+   *  Null until IndexedDB has answered, and when nothing is loaded. */
+  formerStreets: { count: number; importedAt: number; places: string } | null;
+  /** Why the last former-street-names file was not taken, in the reader's
+   *  language; null once one loads. */
+  formerStreetsError: string | null;
+  importFormerStreets: (file: File) => void;
+  removeFormerStreets: () => Promise<void>;
   /** The country whose places are too many for one query, and the subdivisions
    *  offered instead. Null whenever there is no such offer on the table. */
   regions: { country: string; list: Subdivision[] } | null;
@@ -135,6 +152,8 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   const [countries, setCountries] = useState<CountryMeta[] | null>(null);
   const [addressRegisters, setAddressRegisters] = useState<AddressRegisterMeta[] | null>(null);
   const [index, setIndex] = useState<GazetteerIndex | undefined>(undefined);
+  const [formerStreets, setFormerStreets] = useState<Gazetteer["formerStreets"]>(null);
+  const [formerStreetsError, setFormerStreetsError] = useState<string | null>(null);
 
   // Imports run outside this component, so their progress is read rather than
   // held — and a manager mounting halfway through one picks it up.
@@ -151,6 +170,12 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
       if (info) registers.push({ country, ...info });
     }
     setAddressRegisters(registers);
+    const former = await getFormerStreets();
+    setFormerStreets(
+      former
+        ? { count: former.entries.length, importedAt: former.importedAt, places: formerStreetPlaces(former.entries) }
+        : null,
+    );
     if (withIndex)
       setIndex(stored.length ? buildGazetteerIndex(storedEntries(stored), mergeDivisions(stored)) : undefined);
   };
@@ -228,9 +253,39 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
     geoDataChanged();
   };
 
+  // A few hundred rows of text: read and stored right here, with none of the
+  // worker and progress machinery the country-sized imports need.
+  const importFormerStreets = async (file: File) => {
+    const loaded = parseFormerStreets(await file.text());
+    if (!loaded?.length) {
+      setFormerStreetsError(t("tools.geocode.formerStreetsUnreadable"));
+      return;
+    }
+    // A table is one town's, and towns add up: loading Kranj's keeps
+    // Ljubljana's. Only the settlements the new file names are replaced.
+    const entries = mergeFormerStreets((await getFormerStreets())?.entries ?? [], loaded);
+    try {
+      await putFormerStreets({ entries, importedAt: Date.now() });
+    } catch (e) {
+      setFormerStreetsError(t("tools.geocode.storeRefused", { detail: e instanceof Error ? e.message : String(e) }));
+      return;
+    }
+    setFormerStreetsError(null);
+    geoDataChanged();
+  };
+
+  const removeFormerStreets = async () => {
+    await deleteFormerStreets();
+    geoDataChanged();
+  };
+
   return {
     countries,
     addressRegisters,
+    formerStreets,
+    formerStreetsError,
+    importFormerStreets: (file) => void importFormerStreets(file),
+    removeFormerStreets,
     index,
     imports,
     importFile: (file) => startImport({ kind: "file", file }),
@@ -269,7 +324,7 @@ function directoryTitle(code: string, language: string, t: (key: string, opts?: 
 function GazetteerList({ gaz }: { gaz: Gazetteer }) {
   const { t, i18n } = useTranslation();
   const dateFmt = new Intl.DateTimeFormat(i18n.language);
-  if (!gaz.countries?.length && !gaz.addressRegisters?.length) return null;
+  if (!gaz.countries?.length && !gaz.addressRegisters?.length && !gaz.formerStreets) return null;
   return (
     <ul className="tools-geo-countries">
       {gaz.countries?.map((c) => (
@@ -308,6 +363,28 @@ function GazetteerList({ gaz }: { gaz: Gazetteer }) {
           </button>
         </li>
       ))}
+      {gaz.formerStreets && (
+        <li>
+          <span className="tools-geo-country gm-data" title={t("tools.geocode.formerStreetsName")}>
+            {t("tools.geocode.formerStreetsChip")}
+          </span>
+          <span className="tools-geo-count">
+            {t("tools.geocode.formerStreetsMeta", {
+              places: gaz.formerStreets.places,
+              count: gaz.formerStreets.count,
+              date: dateFmt.format(gaz.formerStreets.importedAt),
+            })}
+          </span>
+          <button
+            className="tools-geo-delete"
+            onClick={() => void gaz.removeFormerStreets()}
+            title={t("tools.geocode.deleteFormerStreets")}
+            aria-label={t("tools.geocode.deleteFormerStreets")}
+          >
+            <TrashIcon />
+          </button>
+        </li>
+      )}
     </ul>
   );
 }
@@ -631,6 +708,31 @@ function GazetteerAcquire({ gaz }: { gaz: Gazetteer }) {
           </a>
           {t("tools.geocode.licenseCcBy")}
         </p>
+        {/* Not a directory of places but a key to one: the names streets used
+            to bear, which is what lets the address registers above answer for
+            an address a record wrote under a name since changed. A file like
+            GeoNames, because nobody publishes it where a browser may fetch it. */}
+        <div className="tools-geo-source">
+          <span className="tools-geo-source-name">{t("tools.geocode.formerStreetsName")}</span>
+          <div className="tools-geo-source-actions">
+            <label className="nav-btn tools-geo-import">
+              <span aria-hidden="true">{UPLOAD_GLYPH} </span>
+              {t("tools.geocode.importBtn")}
+              <input
+                type="file"
+                accept=".csv,.txt"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) gaz.importFormerStreets(file);
+                }}
+              />
+            </label>
+          </div>
+          {gaz.formerStreetsError && <span className="tools-geo-source-error">{gaz.formerStreetsError}</span>}
+        </div>
+        <p className="tools-geo-hint">{t("tools.geocode.sourceFormerStreets")}</p>
       </div>
       <p className="tools-geo-hint">{t("tools.geocode.storedLocally")}</p>
     </>

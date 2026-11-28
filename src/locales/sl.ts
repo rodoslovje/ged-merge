@@ -1409,6 +1409,14 @@ export const sl = {
   "tools.geocode.importBtn": "Naloži…",
   "tools.geocode.sourceGeoNames": "Izvleček države, ki ga prenesete sami s strani",
   "tools.geocode.sourceGeoNames2": " — .zip ali razpakirana datoteka .txt. ",
+  "tools.geocode.formerStreetsName": "Nekdanja imena ulic",
+  "tools.geocode.formerStreetsChip": "Ulice",
+  "tools.geocode.formerStreetsMeta": "{{places}} — nekdanjih imen ulic: {{count}} · uvoženo {{date}}",
+  "tools.geocode.deleteFormerStreets": "Odstrani nekdanja imena ulic",
+  "tools.geocode.sourceFormerStreets":
+    "Tabela CSV z imeni, ki so jih ulice imele nekoč. Z njo se naslov, zapisan s starim imenom ulice, postavi na ulico, ki ima danes drugo ime — na sredino ulice, ker so se ob preimenovanju pogosto spremenile tudi hišne številke. Tabelo za Ljubljano dobite v skupnosti Slovenskega rodoslovnega društva.",
+  "tools.geocode.formerStreetsUnreadable":
+    "Ta datoteka ni tabela nekdanjih imen ulic — v prvi vrstici morajo biti stolpci settlement, former_name in current_name.",
   "tools.geocode.progress": "{{covered}}/{{total}} krajev ima koordinate · {{pct}} % omemb",
   "tools.geocode.filter.all": "Vsi",
   "tools.geocode.filter.confident": "Zanesljivi",
