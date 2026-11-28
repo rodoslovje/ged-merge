@@ -132,6 +132,14 @@ export interface RegisterFinding {
    *  writes that level — when the register knows it but does not file this
    *  place under it (`admin`). */
   writtenAdmin?: string;
+  /** The other reading of an `admin` row: the parent the file names is itself
+   *  a settlement the register holds, and the register's place of the written
+   *  name stands nowhere near it — so the name may as well be a street or a
+   *  hamlet *inside* that settlement ("Vrtača, Semič": the register's Vrtača
+   *  is in Kostanjevica na Krki, the one meant a street of Semič). Answered
+   *  like a `site` row: `place` under it, `lead` to the ADDR line (`addr`)
+   *  where the file keeps addresses apart. */
+  inside?: { entry: GazEntry; lead: string; place: string; addr?: string };
   /** The register entries a `ambiguous` name fits equally well. */
   alternatives?: GazEntry[];
   /** The settlement coordinate the file carries for this value, when any. */
@@ -703,6 +711,25 @@ export function checkPlacesAgainstRegister(
     if (disagrees) {
       const swapped = disagrees.to ? replaceSegment(key, disagrees.writtenAdmin, disagrees.to) : undefined;
       const official = swapped && shedBlanks(key, wantCountry) ? blankLevelsDropped(swapped) : swapped;
+      // The named parent as a settlement of its own. Only when the register's
+      // place is out of its reach: most municipalities carry their seat's name,
+      // and a village filed under the neighbouring one ("Mavčiče, Medvode") is
+      // a filing slip, not a street of Medvode. Far apart, the file's parent is
+      // the better witness, and the row offers both readings.
+      const writtenAdmin = disagrees.writtenAdmin;
+      const split = splitLeadingLevel(key);
+      const parent = split
+        ? answersFor(split.rest).find((c) => sameName(writtenAdmin, c.entry))?.entry
+        : undefined;
+      const inside =
+        split && parent && distanceKm(parent, best) > FAR_KM
+          ? {
+              entry: parent,
+              lead: split.lead,
+              place: split.rest,
+              ...(fmt?.layout === "structured-addr" ? { addr: split.lead } : {}),
+            }
+          : undefined;
       findings.push({
         key,
         count: g.count,
@@ -712,6 +739,7 @@ export function checkPlacesAgainstRegister(
         entry: best,
         writtenAdmin: disagrees.writtenAdmin,
         ...(official ? { official } : {}),
+        ...(inside ? { inside } : {}),
         ...(fileCoord ? { fileCoord } : {}),
         dismissed: isDismissed(decisions, key, "admin"),
       });
