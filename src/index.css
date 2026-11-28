@@ -12807,6 +12807,8 @@ span.tools-publish-label:has(> .tools-privacy-legend) { margin-bottom: 8px; }
 .cal-field .select-menu { padding: 5px 8px; font-size: 0.9rem; }
 /* The cover's formatted fields: a note's box, framed as the panel's other fields are. */
 .cal-field .note-rich:not(:focus) { border-color: var(--border); background: var(--bg); }
+/* Room for a dedication of six or seven lines. */
+.cal-field .cal-dedication-input { min-height: 9.8em; }
 .cal-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.9rem; cursor: pointer; }
 .cal-check input { margin-top: 3px; flex: none; }
 .cal-fact-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

@@ -128,6 +128,9 @@ interface CalendarWork {
   /** The calendar of names both go by. */
   nameCalendar: NameCalendar;
   opts: CalendarOptions;
+  /** What the charts write under a name: the years, the place. */
+  chartYears: boolean;
+  chartPlaces: boolean;
   /** The cover's title; empty for the calendar's own ("Family calendar"). */
   title: string;
   cover: Picture;
@@ -157,6 +160,8 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     nameCalendar: lang === "hr" ? "hr" : "si",
     // From September on, the calendar is for the year to come.
     opts: { year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear, scope: 1, partners: true, memorial: "off" },
+    chartYears: true,
+    chartPlaces: false,
     title: "",
     cover: { kind: "fan" },
     dedication: "",
@@ -212,6 +217,8 @@ function mergeWork(base: CalendarWork, saved: Record<string, unknown>, thisYear:
     nameDays: pick("nameDays", bool),
     saints: pick("saints", bool),
     nameCalendar: pick("nameCalendar", one(NAME_CALENDARS)),
+    chartYears: pick("chartYears", bool),
+    chartPlaces: pick("chartPlaces", bool),
     title: typeof saved.title === "string" ? saved.title : "",
     opts: {
       // A calendar kept in an earlier year: its year is no longer on offer.
@@ -247,6 +254,9 @@ function backKindLabel(t: (key: string) => string, kind: Back["kind"]): string {
   return kind === "overview" || kind === "gallery" || kind === "none" ? t(`calendar.back.${kind}`) : t(`calendar.picture.${kind}`);
 }
 const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats"];
+
+/** A picture drawn as a chart — a fan or a tree — rather than photos or numbers. */
+const isChart = (kind: Picture["kind"] | Back["kind"]) => kind.startsWith("fan") || kind.startsWith("tree");
 
 const sameItem = (a: PhotoItem, b: PhotoItem) =>
   a.kind === "person" ? b.kind === "person" && a.id === b.id : b.kind === "file" && a.url === b.url;
@@ -468,7 +478,24 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const trees = useBloodTrees(mainDs, rootId, FAN_GENERATIONS);
   const siblings = useMemo(() => (root ? buildSiblingRow(t, root, mainDs, nameOf) : undefined), [t, root, mainDs, nameOf]);
   const { settings } = useChartSettings();
-  const fanDisplay = useMemo(() => ({ ...settings, ...FAN_DISPLAY_OFF }), [settings]);
+  const { chartYears, chartPlaces } = work;
+  const fanDisplay = useMemo(
+    () => ({ ...settings, ...FAN_DISPLAY_OFF, showLifespan: chartYears, showPlace: chartPlaces }),
+    [settings, chartYears, chartPlaces],
+  );
+  // The same two choices under every chart picked: they hold for all of them.
+  const chartChecks = (
+    <>
+      <label className="cal-check">
+        <input type="checkbox" checked={chartYears} onChange={(e) => patch({ chartYears: e.target.checked })} />
+        <span>{t("calendar.chart.years")}</span>
+      </label>
+      <label className="cal-check">
+        <input type="checkbox" checked={chartPlaces} onChange={(e) => patch({ chartPlaces: e.target.checked })} />
+        <span>{t("calendar.chart.places")}</span>
+      </label>
+    </>
+  );
   const noPhoto = useCallback(() => false, []);
   const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, siblings, hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
   const { fan: fanAnc } = useFanChart(trees.ancestors, "fan", { mode: "ancestors", hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
@@ -889,13 +916,13 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
             onInput={setDedication}
             onBlur={() => {}}
             onClear={() => setDedication("")}
-            className="edit-input"
+            className="edit-input cal-dedication-input"
             placeholder={t("calendar.dedication.placeholder")}
             title={t("calendar.dedication")}
             t={t}
           />
         </div>
-        <PicturePicker people={coverPeople} value={cover} onChange={setCover} personPhoto={personPhoto} words={words} />
+        <PicturePicker people={coverPeople} value={cover} onChange={setCover} personPhoto={personPhoto} words={words} chartChecks={chartChecks} />
       </>
     );
     preview = coverPage;
@@ -930,6 +957,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
             options={BACK_KINDS.map((k) => ({ value: k, label: backKindLabel(t, k) }))}
           />
         </label>
+        {isChart(work.back.kind) && chartChecks}
         {work.back.kind !== "none" && (
           <label className="cal-field">
             <span>{t("calendar.signature")}</span>
@@ -956,6 +984,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
           onChange={(pic) => setMonthPicture(monthIndex, pic)}
           personPhoto={personPhoto}
           words={words}
+          chartChecks={chartChecks}
         />
         <h3 className="cal-panel-head">{t("calendar.facts.title")}</h3>
         {m.candidates.length ? (
@@ -1027,8 +1056,10 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
  *  files of your own, up to {@link MAX_PHOTOS}, laid out as a collage when
  *  there are several — or a chart. */
 function PicturePicker({
-  people, value, onChange, personPhoto, words,
+  people, value, onChange, personPhoto, words, chartChecks,
 }: {
+  /** What the charts write under a name, offered while a chart is picked. */
+  chartChecks: React.ReactNode;
   people: string[];
   value: Picture;
   onChange: (pic: Picture) => void;
@@ -1058,6 +1089,7 @@ function PicturePicker({
           options={PICTURE_KINDS.map((k) => ({ value: k, label: t(`calendar.picture.${k}`) }))}
         />
       </label>
+      {isChart(value.kind) && chartChecks}
       {value.kind === "photos" && (
         <>
           <div className="cal-photo-picker">

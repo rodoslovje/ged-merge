@@ -4157,5 +4157,7 @@ export const en = {
   "calendar.nameDays.hint": "A name day goes by a person's first given name. A name with several days gets the best-known one; a name the calendar does not carry gets none.",
   "calendar.saints": "Saints' names on every day",
   "calendar.nameCalendar": "Calendar of names",
+  "calendar.chart.years": "Years on the charts",
+  "calendar.chart.places": "Places on the charts",
   "calendar.legend.nameday": "name day",
 };

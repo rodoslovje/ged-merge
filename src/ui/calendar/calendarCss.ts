@@ -138,7 +138,7 @@ export const CALENDAR_CSS = `
 .cal-cover-title { font-size: 3em; color: var(--accent); margin: 0.4em 0 0.1em; }
 .cal-cover-year { font-size: 2em; color: var(--muted); }
 .cal-cover-name { font-size: 1.4em; margin: 0.6em 0 0.8em; }
-.cal-dedication { font-size: 1.15em; font-style: italic; color: var(--muted); margin: -0.3em 0 1em; white-space: pre-line; max-width: 80%; }
+.cal-dedication { font-size: 1.15em; color: var(--muted); margin: -0.3em 0 1em; white-space: pre-line; max-width: 80%; }
 /* The givers' formatted words: their paragraphs and lists sit as plain lines. */
 .cal-cover-title p, .cal-dedication p { margin: 0; }
 .cal-cover-title ul, .cal-cover-title ol, .cal-dedication ul, .cal-dedication ol { margin: 0; padding: 0; list-style-position: inside; }
