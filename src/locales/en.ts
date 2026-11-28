@@ -3983,6 +3983,7 @@ export const en = {
   "site.theme.light": "Light theme",
   "site.theme.dark": "Dark theme",
   "site.start": "Or start with",
+  "site.startChange": "change",
   "site.livingPerson": "Living",
   "site.deceasedPerson": "Deceased",
   "site.search.label": "Find a person",

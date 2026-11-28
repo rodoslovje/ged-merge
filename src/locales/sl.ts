@@ -4468,6 +4468,7 @@ export const sl = {
   "site.theme.light": "Svetla tema",
   "site.theme.dark": "Temna tema",
   "site.start": "Ali pa začnite pri osebi",
+  "site.startChange": "zamenjaj",
   "site.livingPerson": "Živ/živa",
   "site.livingPerson_M": "Živ",
   "site.livingPerson_F": "Živa",

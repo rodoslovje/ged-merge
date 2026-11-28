@@ -4193,6 +4193,7 @@ export const hr = {
   "site.theme.light": "Svijetla tema",
   "site.theme.dark": "Tamna tema",
   "site.start": "Ili započnite od osobe",
+  "site.startChange": "promijeni",
   "site.livingPerson": "Živ/živa",
   "site.livingPerson_M": "Živ",
   "site.livingPerson_F": "Živa",

@@ -29,6 +29,7 @@ import { displayDateText } from "../gedcom/dateDisplay";
 import { customEventLabel, eventDisplayLabel, eventGlyph, familyEventLabel } from "../gedcom/eventTags";
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type Language } from "../locales/i18n";
 import { StartPersonChip } from "../ui/edit/StartPersonChip";
+import { RelativePickerCard } from "../ui/edit/RelativePickerCard";
 import { StartPersonSelector } from "../ui/StartPersonSelector";
 import { useDatasetDerivations } from "../ui/DatasetDerivations";
 import { lineageClass, type KinshipResolver } from "../match/kinship";
@@ -505,7 +506,7 @@ export function ViewerApp({ tree, ds }: { tree: PublishedTree; ds: Dataset }) {
       </>
     );
   } else {
-    body = <HomePage tree={tree} ds={ds} startId={startXref} kin={kin} onNavigate={openPerson} />;
+    body = <HomePage tree={tree} ds={ds} startId={startXref} onStartChange={chooseStart} kin={kin} onNavigate={openPerson} />;
   }
 
   return (
@@ -542,10 +543,11 @@ function SiteFooter({ created, home }: { created: string; home?: { label: string
 
 const EMPTY = new Set<string>();
 
-function HomePage({ tree, ds, startId, kin, onNavigate }: {
+function HomePage({ tree, ds, startId, onStartChange, kin, onNavigate }: {
   tree: PublishedTree;
   ds: Dataset;
   startId?: string;
+  onStartChange: (id: string) => void;
   kin?: KinshipResolver;
   onNavigate: (id: string) => void;
 }) {
@@ -553,6 +555,8 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
   const nameOf = useNameOf();
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  // The start person being chosen, in the picker a person's page opens too.
+  const [choosingStart, setChoosingStart] = useState(false);
   // A surname picked among the highlights: search for it, in view.
   const searchSurname = (surname: string) => {
     setQuery(surname);
@@ -600,10 +604,28 @@ function HomePage({ tree, ds, startId, kin, onNavigate }: {
               />
             </span>
             {/* The search first; the start person is the other way in. */}
-            {startId && ds.individuals.has(startId) && (
+            {/* It can be changed here, and set where there is none: the week's
+                anniversaries below list the start person's closest kin first. */}
+            {choosingStart ? (
+              <div className="site-start-picker">
+                <RelativePickerCard
+                  individuals={ds.individuals}
+                  excludeId={startId ?? ""}
+                  onPickExisting={(id) => { setChoosingStart(false); onStartChange(id); }}
+                  onCancel={() => setChoosingStart(false)}
+                  t={t}
+                />
+              </div>
+            ) : startId && ds.individuals.has(startId) ? (
               <p className="site-start">
                 {t("site.start")}{" "}
                 <PersonLink dataset={ds} id={startId} fallback={startId} onNavigate={onNavigate} />
+                {" · "}
+                <button type="button" className="tools-issue-link" onClick={() => setChoosingStart(true)}>{t("site.startChange")}</button>
+              </p>
+            ) : (
+              <p className="site-start">
+                <button type="button" className="tools-issue-link" onClick={() => setChoosingStart(true)}>{t("start.chip.set")}</button>
               </p>
             )}
             {query.trim() && (
