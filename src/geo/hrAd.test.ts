@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   AddressCollector,
+  bearsName,
+  nameForms,
+  parentNameForms,
   readStoredIndex,
   sameStreet,
   scopeToParents,
@@ -229,6 +232,20 @@ describe("searchBucket", () => {
     expect(sameStreet("Mlaka", "Mlakarjeva ulica")).toBe(false);
     expect(sameStreet("Brežna", "Brežna ulica")).toBe(true);
     expect(searchBucket(ANDRASEVEC, { number: 33, street: "Bre" })).toEqual([]);
+  });
+
+  it("knows a bilingual name by either of its halves", () => {
+    // Istria's places stand in the register under both names at once.
+    expect(sameStreet("Ravna dolina", "Ravna dolina - Valdepian")).toBe(true);
+    expect(sameStreet("Valdepian", "Ravna dolina - Valdepian")).toBe(true);
+    expect(sameStreet("Valde", "Ravna dolina - Valdepian")).toBe(false);
+    expect(bearsName("Savudrija", "Savudrija - Salvore")).toBe(true);
+    expect(bearsName("salvore", "Savudrija - Salvore")).toBe(true);
+    expect(bearsName("Savudrija - Salvore", "Savudrija - Salvore")).toBe(true);
+    expect(bearsName("Umag", "Savudrija - Salvore")).toBe(false);
+    // A hyphen inside a name is part of it, not a second name.
+    expect(nameForms("Ivanić-Grad")).toEqual(["ivanic-grad"]);
+    expect(parentNameForms("Savudrija (Salvore)")).toEqual(["savudrija (salvore)", "savudrija", "salvore"]);
   });
 
   it("keeps a street named after nothing but a type word comparable", () => {

@@ -2,6 +2,8 @@ import { foldToken } from "../match/text";
 import { getAddressBucket, getAddressIndex } from "../persist/geoDb";
 import {
   bucketKey,
+  nameForms,
+  parentNameForms,
   readStoredIndex,
   scopeToParents,
   searchBucket,
@@ -132,16 +134,18 @@ function loadIndex(country: RegisterCountry): Promise<LoadedIndex | undefined> {
         if (!index) return undefined;
         const byName = new Map<string, string[]>();
         for (const s of index.settlements) {
-          const key = foldToken(s.name);
-          if (!key) continue;
-          const ids = byName.get(key);
-          if (ids) ids.push(s.id);
-          else byName.set(key, [s.id]);
+          // Under each name it bears: a bilingual settlement is asked for by
+          // one of its two names far more often than by both (see nameForms).
+          for (const key of nameForms(s.name)) {
+            const ids = byName.get(key);
+            if (ids) ids.push(s.id);
+            else byName.set(key, [s.id]);
+          }
         }
         return {
           index,
           byName,
-          parentNames: new Set(index.parentNames.map(foldToken)),
+          parentNames: new Set(index.parentNames.flatMap(parentNameForms)),
           settlementNames: new Set([...byName.keys()]),
         };
       })

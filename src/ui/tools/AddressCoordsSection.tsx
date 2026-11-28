@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import { stripHouseNumber } from "../../gedcom/place";
 import { formatCoord, sameCoord } from "../../geo/points";
-import { addressRegisterId } from "../../geo/addressRegister";
+import { addressRegisterId, bearsName } from "../../geo/addressRegister";
 import { batchAnswered, isOfflineQuery, resultsForQuery, searchAddressBatch, searchAddresses, splitAddressVariants, type BatchPool, type RnQuery } from "../../geo/rn";
 import { useLocalRegisters } from "../useLocalRegisters";
 import { placeLookupLanguage } from "../../geo/lookupLanguage";
@@ -194,7 +194,7 @@ function registerSplits(group: PlaceGroup, searches: ReadonlyMap<string, SearchS
     if (results.length !== 1) continue;
     const hit = results[0];
     const claimed = row.queries[0]?.settlement;
-    if (!hit.settlement || !claimed || foldSearch(hit.settlement) === foldSearch(claimed)) continue;
+    if (!hit.settlement || !claimed || bearsName(claimed, hit.settlement)) continue;
     const split = out.get(hit.settlement);
     if (split) {
       split.keys.push(row.key);
@@ -933,7 +933,7 @@ export function AddressCoordsSection({
     // Nor is a street's middle, which is all a former street name is answered
     // with: it places the event on the street, not at its house.
     if (hit.former) return false;
-    return !(hit.settlement && claimed && foldSearch(hit.settlement) !== foldSearch(claimed));
+    return !(hit.settlement && claimed && !bearsName(claimed, hit.settlement));
   });
   const selectConfident = () =>
     setPicked((prev) => {

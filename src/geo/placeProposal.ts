@@ -10,7 +10,7 @@ import type { GovResult } from "./gov";
 import type { NominatimResult } from "./nominatim";
 import type { RnResult, StreetResult } from "./rn";
 import { formerNameLabel } from "./formerStreets";
-import { addressRegisterId, sameStreet } from "./addressRegister";
+import { addressRegisterId, sameStreet, type RegisterCountry } from "./addressRegister";
 
 // Turning a register hit into a place the *file* would have written.
 //
@@ -327,12 +327,12 @@ export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle, address
 }
 
 /** A GURS address-register house: a full place *and* its address. */
-export function proposalFromRn(result: RnResult, style: PlaceStyle): PlaceProposal | undefined {
+export function proposalFromRn(result: RnResult, style: PlaceStyle, country: RegisterCountry = "SI"): PlaceProposal | undefined {
   const shaped = shape(
     {
       locality: result.settlement,
       admins: [result.municipality],
-      country: countryNameOf("SI", style.language),
+      country: countryNameOf(country, style.language),
     },
     // A house found under a former street name is offered under both names,
     // today's first: "Cankarjeva cesta / Aleksandrova cesta 5" — how a file
@@ -353,7 +353,7 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
   return {
     ...shaped,
     coord: result.coord,
-    source: addressRegisterId("SI"),
+    source: addressRegisterId(country),
     official: true,
     detail: result.label,
   };
@@ -365,12 +365,16 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
  * coordinate. A street found under a former name is offered under both names,
  * as a house is ({@link proposalFromRn}).
  */
-export function proposalFromStreet(result: StreetResult, style: PlaceStyle): PlaceProposal | undefined {
+export function proposalFromStreet(
+  result: StreetResult,
+  style: PlaceStyle,
+  country: RegisterCountry = "SI",
+): PlaceProposal | undefined {
   const shaped = shape(
     {
       locality: result.settlement,
       admins: [result.municipality],
-      country: countryNameOf("SI", style.language),
+      country: countryNameOf(country, style.language),
     },
     result.former ? `${result.street} / ${result.former.name}` : result.street,
     style,
@@ -381,7 +385,7 @@ export function proposalFromStreet(result: StreetResult, style: PlaceStyle): Pla
   return {
     ...shaped,
     coord: result.coord,
-    source: addressRegisterId("SI"),
+    source: addressRegisterId(country),
     official: true,
     detail,
   };

@@ -253,7 +253,7 @@ export function usePlaceLookupValue(
       const rnQueries = rnQueriesFrom(text, undefined);
       if (offlineOnly || !online) {
         if (mayAsk(rnQueries, true)) {
-          for (const r of await searchAddresses(rnQueries).catch(() => [])) add(proposalFromRn(r, style));
+          for (const r of await searchAddresses(rnQueries).catch(() => [])) add(proposalFromRn(r, style, rnQueries[0]?.country));
         }
       } else {
         // The other two take any free text.
@@ -267,7 +267,7 @@ export function usePlaceLookupValue(
           searchGov(text, answerLang),
           osmSearch(text, answerLang),
         ]);
-        if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
+        if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style, rnQueries[0]?.country));
         if (gov.status === "fulfilled") for (const r of gov.value) add(proposalFromGov(r, style));
         if (osm.status === "fulfilled") for (const r of osm.value) add(proposalFromNominatim(r, style));
         // Every register that was asked failed: that is an error to report, not
@@ -322,8 +322,8 @@ export function usePlaceLookupValue(
             )
           : Promise.resolve([]),
       ]);
-      if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
-      if (streets.status === "fulfilled") for (const s of streets.value) add(proposalFromStreet(s, style));
+      if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style, rnQueries[0]?.country));
+      if (streets.status === "fulfilled") for (const s of streets.value) add(proposalFromStreet(s, style, streetQuery?.country));
       if (osm.status === "fulfilled") for (const r of osm.value) add(proposalFromNominatim(r, style));
       if (!out.length && rn.status === "rejected" && osm.status === "rejected") {
         throw new Error("address lookup failed");

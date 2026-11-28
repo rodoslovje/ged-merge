@@ -28,8 +28,8 @@ function row(opts: Partial<AddressRow> & { settlement: string; number: number })
   };
 }
 
-function load(rows: AddressRow[]): void {
-  const collector = new AddressCollector("SI");
+function load(rows: AddressRow[], country: "SI" | "HR" = "SI"): void {
+  const collector = new AddressCollector(country);
   for (const r of rows) collector.add(r);
   store.index = collector.index(0);
   store.buckets = new Map(collector.buckets().map((b) => [b.key, b]));
@@ -190,5 +190,30 @@ describe("searchLocalAddress and the settlements it widens to", () => {
     ]);
     const hits = await searchLocalAddress("SI", { settlement: "Bled", number: 4, parents: ["Bled"] });
     expect(hits.map((h) => h.address)).toEqual(["Bled 4"]);
+  });
+
+  it("finds a bilingual settlement and street by the one name a file writes", async () => {
+    // Croatia's register files bilingual Istria under both names at once, post
+    // office included; "Ravna dolina 88" under "Savudrija, Istria, Croatia"
+    // found nothing, the register knowing no settlement called just Savudrija.
+    const savudrija = { settlement: "Savudrija - Salvore", municipality: "", post: "52475 Savudrija (Salvore)" };
+    load(
+      [
+        row({ ...savudrija, street: "Ravna dolina - Valdepian", number: 88, lat: 45.49, lon: 13.51 }),
+        row({ ...savudrija, street: "Savudrija - Salvore", number: 7, lat: 45.5, lon: 13.5 }),
+      ],
+      "HR",
+    );
+    const ask = (q: Partial<Parameters<typeof searchLocalAddress>[1]>) =>
+      searchLocalAddress("HR", { settlement: "Savudrija", number: 88, street: "Ravna dolina", ...q });
+    const label = ["Ravna dolina - Valdepian 88, Savudrija - Salvore, 52475 Savudrija (Salvore)"];
+    expect((await ask({ altSettlements: ["Istria"], parents: ["Istria"] })).map((h) => h.label)).toEqual(label);
+    expect((await ask({ settlement: "Salvore", street: "Valdepian" })).map((h) => h.label)).toEqual(label);
+    // The post office named as the parent, by either name, scopes rather than contradicts.
+    expect((await ask({ settlement: "Ravna dolina", street: undefined, parents: ["Savudrija"] })).length).toBe(0);
+    expect((await ask({ parents: ["Salvore"] })).length).toBe(1);
+    // Village numbering: the "street" is the settlement's own bilingual name.
+    const village = await searchLocalAddress("HR", { settlement: "Savudrija", number: 7 });
+    expect(village.map((h) => h.address)).toEqual(["Savudrija - Salvore 7"]);
   });
 });

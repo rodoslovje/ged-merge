@@ -1,8 +1,7 @@
 import { addressStreetName, bracketedTail, placeCollator } from "../gedcom/place";
 import type { GeoCoord } from "../gedcom/types";
-import { sameStreet, type AddressHit } from "../geo/addressRegister";
+import { bearsName, sameStreet, type AddressHit } from "../geo/addressRegister";
 import { abbreviates, splitAddressVariants } from "../geo/rn";
-import { foldToken } from "../match/text";
 import type { GeocodeDecision } from "../persist/geoDb";
 import type { AddressRow } from "./addresses";
 import { replaceLocality } from "./addresses";
@@ -242,7 +241,7 @@ export function checkAddressesAgainstRegister(
 
       // A register that files the house elsewhere is the strongest finding
       // here: the events belong to another village.
-      if (claimed && hit.settlement && foldToken(claimed) !== foldToken(hit.settlement)) {
+      if (claimed && hit.settlement && !bearsName(claimed, hit.settlement)) {
         if (namesTheSettlement(written, hit)) {
           elsewhere ??= { hit, variant };
           answered = true;
@@ -254,7 +253,7 @@ export function checkAddressesAgainstRegister(
       // value carrying just a number ("38/a") is not misspelt — it is a
       // different shape, and rewriting it whole is the Addresses tab's
       // business, not a compliance finding.
-      if (written && hit.street && foldToken(written) !== foldToken(hit.street)) {
+      if (written && hit.street && !bearsName(written, hit.street)) {
         if (namesTheStreet(written, hit)) {
           spelled.push({ hit, variant });
           answered = true;

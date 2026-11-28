@@ -28,6 +28,24 @@ function hit(over: Partial<AddressHit> & Pick<AddressHit, "address" | "settlemen
 const NO_DECISIONS = new Map<string, GeocodeDecision>();
 
 describe("checkAddressesAgainstRegister", () => {
+  it("lets one name of a bilingual settlement and street stand as written", () => {
+    // The register writes "Savudrija - Salvore" and "Ravna dolina - Valdepian";
+    // a file writing the Croatian half is neither elsewhere nor misspelt.
+    const r = row({ key: "savudrija|ravna dolina 88", place: "Savudrija, Istria, Croatia", address: "Ravna dolina 88" });
+    const report = checkAddressesAgainstRegister(
+      [r],
+      new Map([
+        [
+          r.key,
+          [hit({ address: "Ravna dolina - Valdepian 88", street: "Ravna dolina - Valdepian", settlement: "Savudrija - Salvore" })],
+        ],
+      ]),
+      NO_DECISIONS,
+    );
+    expect(report.findings).toEqual([]);
+    expect(report.ok).toBe(1);
+  });
+
   it("lets an address under a former street name stand as written", () => {
     const r = row({ key: "ljubljana|aleksandrova cesta 5", place: "Ljubljana, Slovenija", address: "Aleksandrova cesta 5" });
     const report = checkAddressesAgainstRegister(
