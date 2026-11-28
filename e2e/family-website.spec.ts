@@ -60,6 +60,18 @@ test("the family website downloads as one page that works from disk", async ({ p
   await page.goto(pathToFileURL(site).href);
   await expect(page.locator(".site-hero h1")).toHaveText("Rodbina Zorman");
 
+  // The start person is changed from the front page, under the search.
+  await page.locator(".site-start button").last().click();
+  await page.locator(".site-start-picker input").fill("ivana");
+  await page.locator(".site-start-picker .relative-picker-option", { hasText: "Ivana" }).first().click();
+  await expect(page.locator(".site-start")).toContainText("Or start with Ivana");
+  // Back to the author's own, for the rest of the walk.
+  await page.evaluate(() => {
+    for (const k of Object.keys(localStorage)) if (k.startsWith("gedmerge-site.start:")) localStorage.removeItem(k);
+  });
+  await page.reload();
+  await expect(page.locator(".site-hero h1")).toHaveText("Rodbina Zorman");
+
   // Search → person page.
   await page.locator("#site-search").fill("franc");
   await page.locator(".site-person-list .person-ref").first().click();

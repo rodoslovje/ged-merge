@@ -336,6 +336,8 @@
   background: var(--panel-2);
   font-size: 0.875rem;
 }
+/* The picker that changes it takes the pill's place. */
+.site-search .site-start-picker { margin-top: 12px; }
 
 /* The header's search, opened under the header row on any page: over the gap
    between the header and the page, which it does not push down. */
