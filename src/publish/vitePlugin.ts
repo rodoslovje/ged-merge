@@ -67,6 +67,22 @@ function noFaceModels(): Plugin {
   };
 }
 
+/** The viewer shows no calendar, so it draws no calendar map: the module that
+ *  would bring the vector-map library along resolves to one that draws none. */
+function noCalendarMap(): Plugin {
+  const NONE = "\0site-viewer-no-basemap";
+  return {
+    name: "gedmerge-site-viewer-no-calendar-map",
+    enforce: "pre",
+    resolveId(id) {
+      return /(^|\/)basemap$/.test(id) ? NONE : undefined;
+    },
+    load(id) {
+      return id === NONE ? 'export const renderBasemap = undefined; export const BASEMAP_CREDIT = "";' : undefined;
+    },
+  };
+}
+
 async function buildViewer(root: string, define: Record<string, string>): Promise<ViewerBundle> {
   const { build } = await import("vite");
   const react = (await import("@vitejs/plugin-react")).default;
@@ -79,7 +95,7 @@ async function buildViewer(root: string, define: Record<string, string>): Promis
     // site is what relatives get, never a development React.
     mode: "production",
     define,
-    plugins: [react(), noFaceModels()],
+    plugins: [react(), noFaceModels(), noCalendarMap()],
     build: {
       write: false,
       emptyOutDir: false,

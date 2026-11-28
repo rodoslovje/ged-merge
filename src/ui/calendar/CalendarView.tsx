@@ -6,6 +6,9 @@ import { buildCalendar, byDay, factKey, type CalendarOptions, type CalendarScope
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
 import { NAME_CALENDARS, type NameCalendar } from "../../calendar/nameDays";
 import { noteToText } from "../../gedcom/noteHtml";
+import { nearestFirst, residencePins } from "../../calendar/mapPins";
+import { MapPicture } from "./MapPicture";
+import { renderBasemap } from "./basemap";
 import { RichNoteInput } from "../edit/RichNoteInput";
 import { LIVING_NAMES, nameAndKinship, factDate, factSentence, monthName, yearsAgo, type LivingNames, type PersonWords } from "../../calendar/text";
 import { createKinshipResolver } from "../../match/kinship";
@@ -254,17 +257,19 @@ type PhotoItem = { kind: "person"; id: string } | { kind: "file"; url: string; n
 /** What fills a page's picture area: photos (one, or a collage), or a chart. */
 type Picture =
   | { kind: "photos"; items: PhotoItem[]; collage: CollageStyle }
-  | { kind: "fan" | "fanAnc" | "fanDesc" | "treeDesc" | "treeAnc" | "stats" };
+  | { kind: "fan" | "fanAnc" | "fanDesc" | "treeDesc" | "treeAnc" | "stats" | "map" };
 /** What the back page shows: the year at a glance, who is who, nothing, or a
  *  chart or the numbers, as a month's picture can. */
 type Back = { kind: "overview" } | { kind: "gallery" } | { kind: "none" } | Exclude<Picture, { kind: "photos" }>;
-const BACK_KINDS: Back["kind"][] = ["overview", "gallery", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats", "none"];
+/** The map of where the family lives, where this build can draw one. */
+const MAP_KINDS: "map"[] = renderBasemap ? ["map"] : [];
+const BACK_KINDS: Back["kind"][] = ["overview", "gallery", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats", ...MAP_KINDS, "none"];
 /** A back-page choice's name: its own for the year, the gallery and none,
  *  the picture's for a chart or the numbers. */
 function backKindLabel(t: (key: string) => string, kind: Back["kind"]): string {
   return kind === "overview" || kind === "gallery" || kind === "none" ? t(`calendar.back.${kind}`) : t(`calendar.picture.${kind}`);
 }
-const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats"];
+const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats", ...MAP_KINDS];
 
 /** What a calendar's chart can be coloured by: the axes that read without a
  *  legend, which a printed page does not carry. */
@@ -604,8 +609,15 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   };
   const stats = useMemo(() => familyStats(mainDs, rootId, thisYear), [mainDs, rootId, thisYear]);
 
+  // The map: where the living whom the calendar celebrates last lived, the
+  // recipient's nearest first — they are the names a crowded box writes out.
+  const mapPins = useMemo(
+    () => residencePins(mainDs, nearestFirst(mainDs, rootId, data.months.flatMap((m) => m.entries.filter((e) => e.kind !== "memorial").flatMap((e) => e.ids)))),
+    [mainDs, rootId, data.months],
+  );
   const renderPicture = (pic: Picture): React.ReactNode => {
     if (pic.kind === "stats") return <StatsCard stats={stats} nameOf={words.name} sexOf={words.sex} />;
+    if (pic.kind === "map") return <MapPicture pins={mapPins} nameOf={words.name} />;
     if (pic.kind !== "photos") return <div className="cal-chart">{charts[pic.kind]}</div>;
     const photos = pic.items
       .map((it): PagePhoto | undefined => (it.kind === "file" ? { url: it.url } : personPhoto(it.id)))

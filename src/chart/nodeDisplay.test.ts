@@ -151,13 +151,15 @@ describe("homePlaceOf", () => {
     expect(homePlaceOf(person([]))).toBeUndefined();
   });
 
-  it("takes the latest dated residence, else the last one written", () => {
-    const dated = person([
+  it("takes the residence without a date for the last one, else the latest dated", () => {
+    const dated = [
       { tag: "RESI", place: "Ptuj", year: 1890 },
       { tag: "RESI", place: "Maribor", year: 1870 },
-      { tag: "RESI", place: "Lendava" },
-    ]);
-    expect(homePlaceOf(dated)?.label).toBe("Ptuj");
+    ];
+    expect(homePlaceOf(person(dated))?.label).toBe("Ptuj");
+    // The home a file leaves undated is the one not yet left — wherever it is written.
+    expect(homePlaceOf(person([...dated, { tag: "RESI", place: "Lendava" }]))?.label).toBe("Lendava");
+    expect(homePlaceOf(person([{ tag: "RESI", place: "Lendava" }, ...dated]))?.label).toBe("Lendava");
     expect(homePlaceOf(person([{ tag: "RESI", place: "Ptuj" }, { tag: "RESI", place: "Maribor" }]))?.label).toBe("Maribor");
   });
 
