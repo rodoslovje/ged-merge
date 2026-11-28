@@ -151,6 +151,14 @@ export const CALENDAR_CSS = `
    page's own flags over it — a pole from the place up to a label. */
 .cal-map { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 0.3em; background: var(--tint); }
 .cal-map > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* A family of several regions: a map of each, side by side or one above the other. */
+.cal-maps { display: flex; gap: 0.5em; width: 100%; height: 100%; }
+.cal-maps.cal-maps-stacked { flex-direction: column; }
+.cal-maps > .cal-map { flex: 1 1 0; min-width: 0; min-height: 0; width: auto; height: auto; }
+/* A further region's map keeps the room its column of boxes needs. */
+.cal-maps:not(.cal-maps-stacked) > .cal-map + .cal-map { min-width: 20em; }
+.cal-maps-stacked > .cal-map + .cal-map { min-height: 9em; }
+.cal-back-body > .cal-maps { flex: 1 1 auto; }
 /* A place's dot, the line from it, and its box in the column at the map's edge. */
 .cal-map-lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .cal-map-lines line { stroke: var(--accent); stroke-width: 0.07em; vector-effect: non-scaling-stroke; }

@@ -1,13 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CALLOUT, framePins, layoutCallouts, mapFlags, type MapPin } from "../../calendar/mapPins";
-import { BASEMAP_CREDIT, renderBasemap, type Basemap } from "./basemap";
+import { CALLOUT, layoutCallouts, mapFlags, mapRegions, type MapPin } from "../../calendar/mapPins";
+import { BASEMAP_CREDIT, renderBasemap, type Basemap, type MapShape } from "./basemap";
 
 // The calendar's map: a base map of the places the family lives at, a dot on
-// each, and a box in a column down each side of the map — the place and the
-// names — tied to its dot by a line. The base map is a picture; the dots,
-// lines and boxes are the page's own, so they print as sharp as the rest of
-// it and follow its colours.
+// each, and a box in a column at the side of the map — the place and the
+// names — tied to its dot by a line. A family that lives in several regions
+// far apart gets a map of each. The base map is a picture; the dots, lines
+// and boxes are the page's own, so they print as sharp as the rest of it and
+// follow its colours.
 
 /** How many far-off places the line at the map's foot names. */
 const AWAY_PLACES = 6;
@@ -15,6 +16,17 @@ const AWAY_PLACES = 6;
 const FOOT_EM = { credit: 1, away: 3.4 };
 /** A box's distance from the map's edge, in em (the stylesheet's). */
 const EDGE_EM = 0.5;
+/** What a column of boxes takes of a map's width, in em, a little air included. */
+const COLUMN_EM = EDGE_EM + CALLOUT.width + 1.5;
+/** A map narrower than this has one column of boxes, not two. */
+const TWO_COLUMNS_EM = 30;
+/** What a further region's map needs beside the first, in em: its width in a
+ *  wide picture, or its height — and the first one's — in a tall one. */
+const BRANCH_WIDTH_EM = 20;
+const BRANCH_HEIGHT_EM = 9;
+const HOME_HEIGHT_EM = 24;
+/** The least share of the picture a region's map gets, however few live there. */
+const MIN_SHARE = 0.3;
 
 interface Props {
   pins: MapPin[];
@@ -25,6 +37,45 @@ interface Props {
 export function MapPicture({ pins, nameOf }: Props) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
+  // Several maps stand side by side in a wide picture, one above the other in a tall one.
+  // Known only once the picture's room is measured; the maps wait for it, as
+  // each measures its own share of that room.
+  const [room, setRoom] = useState<{ wide: boolean; maps: number }>();
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const em = el ? parseFloat(getComputedStyle(el).fontSize) : 0;
+    if (!el || !em || !el.clientHeight) return;
+    const wide = el.clientWidth / el.clientHeight > 1.2;
+    // The first map keeps what its two columns of boxes need; every further
+    // one needs a column and some map beside it, or a few lines of height.
+    const spare = wide ? (el.clientWidth / em - TWO_COLUMNS_EM) / BRANCH_WIDTH_EM : (el.clientHeight / em - HOME_HEIGHT_EM) / BRANCH_HEIGHT_EM;
+    setRoom({ wide, maps: 1 + Math.max(0, Math.floor(spare)) });
+  }, []);
+  // A map of each region the family lives in, the most peopled first and
+  // largest; whoever lives beyond them is named at the first map's foot.
+  const { regions, away } = useMemo(() => mapRegions(pins, room?.maps ?? 1), [pins, room]);
+  if (!pins.length) return <div className="cal-map" ref={ref}><div className="cal-photo-empty">{t("calendar.map.empty")}</div></div>;
+  const people = regions.map((r) => r.reduce((n, p) => n + p.ids.length, 0));
+  const total = people.reduce((a, b) => a + b, 0);
+  return (
+    <div className={`cal-maps${room?.wide === false ? " cal-maps-stacked" : ""}`} ref={ref}>
+      {room && regions.map((region, i) => (
+        <MapPanel
+          key={region.map((p) => p.place).join("|")}
+          pins={region}
+          away={i === 0 ? away : []}
+          nameOf={nameOf}
+          grow={Math.max(MIN_SHARE, people[i] / total)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One region's map, with its boxes. */
+function MapPanel({ pins, away, nameOf, grow }: Props & { away: MapPin[]; grow: number }) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
   // The picture is drawn in the shape of the room the page gives it, and the
   // boxes laid out in the page's em.
   const [size, setSize] = useState<{ aspect: number; w: number; h: number }>();
@@ -32,30 +83,34 @@ export function MapPicture({ pins, nameOf }: Props) {
     const el = ref.current;
     const em = el ? parseFloat(getComputedStyle(el).fontSize) : 0;
     if (!el || !em || !el.clientWidth || !el.clientHeight) return;
-    setSize({ aspect: Math.round((el.clientWidth / el.clientHeight) * 20) / 20, w: el.clientWidth / em, h: el.clientHeight / em });
+    setSize({ aspect: Math.round((el.clientWidth / el.clientHeight) * 20) / 20, w: Math.round(el.clientWidth / em), h: el.clientHeight / em });
   }, []);
-  // The map is framed on where most of the family lives; a far-off place is
-  // named at its foot instead of shrinking everyone else to a dot.
-  const { on, away } = useMemo(() => framePins(pins), [pins]);
-  const coords = useMemo(() => on.map((p) => p.coord), [on]);
-  const aspect = size?.aspect;
+  const coords = useMemo(() => pins.map((p) => p.coord), [pins]);
+  const oneSide = !!size && size.w < TWO_COLUMNS_EM;
+  // The places keep clear of the columns of boxes.
+  const shape = useMemo((): MapShape | undefined => {
+    if (!size) return undefined;
+    const column = Math.min(0.6, COLUMN_EM / size.w);
+    return { aspect: size.aspect, widthEm: size.w, clear: oneSide ? [0.08, column] : [column, column] };
+  }, [size, oneSide]);
   const [state, setState] = useState<{ of?: Promise<Basemap>; map?: Basemap; failed?: boolean }>({});
   useEffect(() => {
-    if (!aspect || !coords.length || !renderBasemap) return;
-    const of = renderBasemap(coords, aspect);
+    if (!shape || !coords.length || !renderBasemap) return;
+    const of = renderBasemap(coords, shape);
     setState({ of });
     of.then(
       (map) => setState((s) => (s.of === of ? { of, map } : s)),
       () => setState((s) => (s.of === of ? { of, failed: true } : s)),
     );
-  }, [coords, aspect]);
+  }, [coords, shape]);
 
   let body: React.ReactNode;
-  if (!pins.length) body = <div className="cal-photo-empty">{t("calendar.map.empty")}</div>;
-  else if (state.failed) body = <div className="cal-photo-empty">{t("calendar.map.failed")}</div>;
+  if (state.failed) body = <div className="cal-photo-empty">{t("calendar.map.failed")}</div>;
   else if (!state.map || !size) body = <div className="cal-photo-empty">{t("calendar.map.loading")}</div>;
   else {
-    const callouts = layoutCallouts(mapFlags(on, state.map.spots, size.aspect), size.w, size.h, away.length ? FOOT_EM.away : FOOT_EM.credit, EDGE_EM);
+    const callouts = layoutCallouts(
+      mapFlags(pins, state.map.spots, size.aspect), size.w, size.h, away.length ? FOOT_EM.away : FOOT_EM.credit, EDGE_EM, oneSide,
+    );
     // Where a line meets its box: the box's inner edge.
     const inner = (EDGE_EM + CALLOUT.width) / size.w;
     body = (
@@ -93,5 +148,5 @@ export function MapPicture({ pins, nameOf }: Props) {
       </>
     );
   }
-  return <div className="cal-map" ref={ref}>{body}</div>;
+  return <div className="cal-map" ref={ref} style={{ flexGrow: grow }}>{body}</div>;
 }

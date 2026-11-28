@@ -96,11 +96,14 @@ export function mapFlags(pins: MapPin[], spots: MapSpot[], aspect: number, reach
   return flags.map(({ people, ...flag }) => ({ ...flag, ids: people.sort((a, b) => a[0] - b[0]).map(([, id]) => id) }));
 }
 
-/** The share of the people a map must hold before a far-off place may fall off it. */
-const FRAME_SHARE = 0.6;
-/** A place just outside the frame still joins it when it is no further out
- *  than this many times the frame's own reach. */
+/** A place joins a map when it is no further from the map's middle than this
+ *  many times the furthest place already on it. */
 const FRAME_STRETCH = 1.5;
+/** A map of a town or two has little reach to stretch: so many kilometres
+ *  stand in — fewer for the family's home region, which is drawn close, than
+ *  for a branch abroad, whose few places lie further apart. */
+const HOME_REACH_KM = 100;
+const BRANCH_REACH_KM = 250;
 
 /** Distance between two coordinates, in kilometres — near enough for ranking. */
 function km(a: GeoCoord, b: GeoCoord): number {
@@ -123,24 +126,20 @@ function weightedMedian(pins: MapPin[], of: (p: MapPin) => number): number {
 
 /**
  * The pins a map is framed on, and the ones left off it. One cousin overseas
- * would shrink the whole family's home to a dot, so the map holds where most
- * of them live: the places nearest the family's middle until they hold
- * {@link FRAME_SHARE} of the people, and any further place that is still
- * about as near. The rest are `away` — named beside the map, not drawn on it.
+ * would shrink the whole family's home to a dot, so the map holds one region:
+ * the places around the middle of where the people live, outwards until the
+ * next one lies a leap further than the rest ({@link FRAME_STRETCH}). The
+ * others are `away` — for a map of their own, or a line beside this one.
  */
-export function framePins(pins: MapPin[]): { on: MapPin[]; away: MapPin[] } {
+export function framePins(pins: MapPin[], minReachKm = HOME_REACH_KM): { on: MapPin[]; away: MapPin[] } {
   if (pins.length < 2) return { on: pins, away: [] };
   const middle = { lat: weightedMedian(pins, (p) => p.coord.lat), lon: weightedMedian(pins, (p) => p.coord.lon) };
   const byReach = pins.map((pin) => ({ pin, far: km(pin.coord, middle) })).sort((a, b) => a.far - b.far);
-  const need = pins.reduce((n, p) => n + p.ids.length, 0) * FRAME_SHARE;
   const on = new Set<MapPin>();
-  let held = 0;
   let reach = 0;
   for (const { pin, far } of byReach) {
-    // A frame of a town or two has little reach to stretch: a hundred kilometres stand in.
-    if (held >= need && far > Math.max(reach, 100) * FRAME_STRETCH) break;
+    if (on.size && far > Math.max(reach, minReachKm) * FRAME_STRETCH) break;
     on.add(pin);
-    held += pin.ids.length;
     reach = far;
   }
   // Both in the order given: the fullest place first.
@@ -192,15 +191,16 @@ const boxHeight = (count: number, names: number) => boxLines(count, names) * CAL
  * every box writes out fewer names — down to the place alone, with a count.
  * Two neighbours whose lines would cross change places, so no line crosses
  * another of its side. `widthEm` is the map's width, `edgeEm` a box's
- * distance from its edge.
+ * distance from its edge; `oneSide` keeps every box in the right-hand column.
  */
-export function layoutCallouts(flags: MapFlag[], widthEm: number, heightEm: number, footEm = 0, edgeEm = 0.5): Callout[] {
+export function layoutCallouts(flags: MapFlag[], widthEm: number, heightEm: number, footEm = 0, edgeEm = 0.5, oneSide = false): Callout[] {
   const room = heightEm - footEm - CALLOUT.gap;
   const sides = { left: [] as MapFlag[], right: [] as MapFlag[] };
-  for (const f of flags) sides[f.x < 0.5 ? "left" : "right"].push(f);
+  // A narrow map has room for one column: every box stands on the right.
+  for (const f of flags) sides[!oneSide && f.x < 0.5 ? "left" : "right"].push(f);
   const tall = (list: MapFlag[], names: number) => list.reduce((h, f) => h + boxHeight(f.ids.length, names) + CALLOUT.gap, CALLOUT.gap);
   // A crowded side hands the places nearest the middle to the other one.
-  for (const [from, to] of [["left", "right"], ["right", "left"]] as const) {
+  for (const [from, to] of oneSide ? [] : ([["left", "right"], ["right", "left"]] as const)) {
     sides[from].sort((a, b) => Math.abs(b.x - 0.5) - Math.abs(a.x - 0.5));
     while (sides[from].length > 1 && tall(sides[from], 0) > room && tall(sides[to], 0) + CALLOUT.line * 2 < room) sides[to].push(sides[from].pop()!);
   }
@@ -254,4 +254,29 @@ export function layoutCallouts(flags: MapFlag[], widthEm: number, heightEm: numb
     for (const { f, top, tie } of column) out.push({ ...f, side, names, top: top / heightEm, tie: tie / heightEm });
   }
   return out;
+}
+
+/** The most maps one picture is split into. */
+export const MAX_REGIONS = 3;
+
+/**
+ * The regions a family lives in, each to be drawn as a map of its own, the
+ * most peopled first: a family with a branch overseas gets a map of each
+ * country rather than one of the ocean between them. The first region is
+ * where most live ({@link framePins}); the ones left off it are framed again,
+ * and so on up to `max` (the picture has room for so many, {@link MAX_REGIONS}
+ * at most). Whoever is left after that is `away`.
+ */
+export function mapRegions(pins: MapPin[], max = MAX_REGIONS): { regions: MapPin[][]; away: MapPin[] } {
+  // Every region there is, then the most peopled of them as far as the room goes.
+  const all: MapPin[][] = [];
+  for (let rest = pins; rest.length; ) {
+    const { on, away } = framePins(rest, all.length ? BRANCH_REACH_KM : HOME_REACH_KM);
+    all.push(on);
+    rest = away;
+  }
+  const people = (r: MapPin[]) => r.reduce((n, p) => n + p.ids.length, 0);
+  all.sort((a, b) => people(b) - people(a));
+  const shown = Math.max(1, Math.min(max, MAX_REGIONS));
+  return { regions: all.slice(0, shown), away: all.slice(shown).flat() };
 }

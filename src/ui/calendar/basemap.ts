@@ -11,6 +11,17 @@ import type { GeoCoord } from "../../gedcom/types";
 import type { MapSpot } from "../../calendar/mapPins";
 import { CARTO_KEY } from "../map/basemapPresets";
 
+/** The shape a map is drawn in. */
+export interface MapShape {
+  /** Width over height. */
+  aspect: number;
+  /** The picture's width on the page, in the page's em. */
+  widthEm: number;
+  /** The share of the width kept clear of places at the left and at the right,
+   *  where the boxes stand. */
+  clear: [number, number];
+}
+
 export interface Basemap {
   /** The picture, as an object URL kept for the visit. */
   url: string;
@@ -22,17 +33,16 @@ const STYLE = `https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json?key=
 /** The credit CARTO and OpenStreetMap ask for, written on the picture's edge. */
 export const BASEMAP_CREDIT = "© OpenStreetMap contributors © CARTO";
 
-/** The picture's width in CSS pixels — small, so the base map's own place names
- *  are of a size with the page's text — and how many device pixels each is drawn
- *  with: 2800 across, some 240 dpi on an A3 page's picture. */
-const WIDTH = 800;
+/** The picture's width in CSS pixels to the page's em, and its bounds; and how
+ *  many device pixels each is drawn with — some 240 dpi on an A3 page's picture. */
+const PX_PER_EM = 15;
+const MIN_WIDTH = 240;
+const MAX_WIDTH = 900;
 const PIXEL_RATIO = 3.5;
 /** The longest side a drawing may have, in device pixels. */
 const MAX_PIXELS = 4000;
-/** The share of the width each side keeps clear of places, for the boxes. */
-const SIDE = 0.24;
 /** The closest a map of one town zooms in. */
-const MAX_ZOOM = 11;
+const MAX_ZOOM = 9;
 /** How long the tiles may take before the map is given up on. */
 const TIMEOUT_MS = 30_000;
 
@@ -44,18 +54,21 @@ const drawn = new Map<string, Promise<Basemap>>();
  * wizard's preview, the review and the print. A failed drawing is forgotten,
  * so the next ask tries again.
  */
-export const renderBasemap: ((coords: GeoCoord[], aspect: number) => Promise<Basemap>) | undefined = (coords, aspect) => {
-  const key = `${aspect.toFixed(2)} ${coords.map((c) => `${c.lat},${c.lon}`).join(" ")}`;
+export const renderBasemap: ((coords: GeoCoord[], shape: MapShape) => Promise<Basemap>) | undefined = (coords, shape) => {
+  const key = `${JSON.stringify(shape)} ${coords.map((c) => `${c.lat},${c.lon}`).join(" ")}`;
   let map = drawn.get(key);
   if (!map) {
-    map = draw(coords, aspect);
+    map = draw(coords, shape);
     drawn.set(key, map);
     map.catch(() => drawn.delete(key));
   }
   return map;
 };
 
-async function draw(coords: GeoCoord[], aspect: number): Promise<Basemap> {
+async function draw(coords: GeoCoord[], { aspect, widthEm, clear }: MapShape): Promise<Basemap> {
+  // Drawn at so many pixels to the page's em, so the base map's own place
+  // names are of a size with the page's text whatever the picture's width.
+  const WIDTH = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, widthEm * PX_PER_EM)));
   const [{ Map: GlMap, setWorkerUrl }, { default: workerUrl }] = await Promise.all([
     import("maplibre-gl"),
     import("maplibre-gl/dist/maplibre-gl-worker.mjs?url"),
@@ -82,7 +95,7 @@ async function draw(coords: GeoCoord[], aspect: number): Promise<Basemap> {
     bounds: [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
     // The places keep to the middle: a column of boxes stands down each side.
     fitBoundsOptions: {
-      padding: { top: height * 0.1, bottom: height * 0.12, left: WIDTH * SIDE, right: WIDTH * SIDE },
+      padding: { top: height * 0.1, bottom: height * 0.12, left: WIDTH * clear[0], right: WIDTH * clear[1] },
       maxZoom: MAX_ZOOM,
     },
   });

@@ -3,7 +3,7 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 /// <reference types="node" />
 import { readFileSync } from "node:fs";
-import { CALLOUT, framePins, layoutCallouts, mapFlags, nearestFirst, residencePins, type MapPin } from "./mapPins";
+import { CALLOUT, framePins, layoutCallouts, mapFlags, mapRegions, nearestFirst, residencePins, type MapPin } from "./mapPins";
 
 const resi = (year: number | undefined, place: string, lat?: string, lon?: string) => [
   "1 RESI", ...(year ? [`2 DATE ${year}`] : []), `2 PLAC ${place}`,
@@ -81,9 +81,10 @@ describe("framePins", () => {
     expect(away).toEqual([]);
   });
 
-  it("holds a family split between two countries whole", () => {
-    const { away } = framePins([pin("Kranj", 46.24, 14.36, 6), pin("Windsor", 42.3, -83.0, 5)]);
-    expect(away).toEqual([]);
+  it("frames the larger half of a family split between two countries", () => {
+    const { on, away } = framePins([pin("Kranj", 46.24, 14.36, 6), pin("Windsor", 42.3, -83.0, 5)]);
+    expect(on.map((p) => p.place)).toEqual(["Kranj"]);
+    expect(away.map((p) => p.place)).toEqual(["Windsor"]);
   });
 });
 
@@ -141,5 +142,27 @@ describe("nearestFirst", () => {
   it("orders people by the steps of kinship to the recipient, a partner after their relative", () => {
     const order = nearestFirst(family, "@I1@", ["@I10@", "@I7@", "@I11@", "@I6@", "@I8@", "@I9@", "@I3@", "@I1@"]);
     expect(order).toEqual(["@I1@", "@I9@", "@I8@", "@I3@", "@I6@", "@I11@", "@I7@", "@I10@"]);
+  });
+});
+
+describe("mapRegions", () => {
+  const pin = (place: string, lat: number, lon: number, people: number): MapPin =>
+    ({ place, coord: { lat, lon }, ids: Array.from({ length: people }, (_, i) => `${place}${i}`), ranks: [] });
+
+  it("gives a branch overseas a map of its own, the most peopled region first", () => {
+    const { regions, away } = mapRegions([
+      pin("Windsor", 42.3, -83.0, 3), pin("Toronto", 43.65, -79.38, 2),
+      pin("Kranj", 46.24, 14.36, 40), pin("Ljubljana", 46.05, 14.51, 30),
+    ]);
+    expect(regions.map((r) => r.map((p) => p.place))).toEqual([["Kranj", "Ljubljana"], ["Windsor", "Toronto"]]);
+    expect(away).toEqual([]);
+  });
+
+  it("names whoever lives beyond the third region", () => {
+    const { regions, away } = mapRegions([
+      pin("Kranj", 46.24, 14.36, 40), pin("Windsor", 42.3, -83.0, 3), pin("Melbourne", -37.8, 144.96, 2), pin("Altea", 38.6, -0.05, 1),
+    ]);
+    expect(regions).toHaveLength(3);
+    expect(away.map((p) => p.place)).toHaveLength(1);
   });
 });
