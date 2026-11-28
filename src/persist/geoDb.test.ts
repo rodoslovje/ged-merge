@@ -136,6 +136,31 @@ describe("address registers", () => {
   });
 });
 
+describe("former street names", () => {
+  const table = {
+    entries: [{ settlement: "Ljubljana", former: "Aleksandrova cesta", from: 1919, current: "Cankarjeva cesta" }],
+    importedAt: 1,
+  };
+
+  it("keeps the table beside an address register without either touching the other", async () => {
+    expect(await geoDb.getFormerStreets()).toBeUndefined();
+    await geoDb.putAddressRegister(index("SI", ["a"]), [bucket("SI", "a")]);
+    await geoDb.putFormerStreets(table);
+    expect(await geoDb.getFormerStreets()).toMatchObject(table);
+    expect(await geoDb.getAddressIndex("SI")).toBeDefined();
+    await geoDb.deleteAddressRegister("SI");
+    expect(await geoDb.getFormerStreets()).toMatchObject(table);
+  });
+
+  it("replaces the table on a second load and removes it on request", async () => {
+    await geoDb.putFormerStreets(table);
+    await geoDb.putFormerStreets({ entries: [], importedAt: 2 });
+    expect(await geoDb.getFormerStreets()).toMatchObject({ entries: [], importedAt: 2 });
+    await geoDb.deleteFormerStreets();
+    expect(await geoDb.getFormerStreets()).toBeUndefined();
+  });
+});
+
 describe("failures", () => {
   it("reads degrade to empty without IndexedDB, while imports reject with GeoStoreError", async () => {
     // @ts-expect-error — simulating an environment without IndexedDB
