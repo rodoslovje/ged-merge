@@ -296,7 +296,7 @@ describe("an address-register house as a place", () => {
     expect(p.addr).toBeUndefined();
   });
 
-  it("offers a house found under a former street name under both names", () => {
+  it("offers a house found under a former street name under both names, the number on the one written", () => {
     const p = proposalFromRn(
       {
         ...house,
@@ -307,7 +307,7 @@ describe("an address-register house as a place", () => {
       },
       style(),
     )!;
-    expect(p.addr).toBe("Cankarjeva cesta 5 / Aleksandrova cesta 5");
+    expect(p.addr).toBe("Cankarjeva cesta / Aleksandrova cesta 5");
     expect(p.coord).toEqual(house.coord);
   });
 

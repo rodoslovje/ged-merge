@@ -334,12 +334,14 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
       admins: [result.municipality],
       country: countryNameOf("SI", style.language),
     },
-    // A house found under a former street name is offered under both, today's
-    // first: "Cankarjeva cesta 5 / Aleksandrova cesta 5". That is how a file
-    // records a renamed street, the lookups read it as two whole addresses
-    // (splitAddressVariants), and whoever wants one name only deletes the other.
+    // A house found under a former street name is offered under both names,
+    // today's first: "Cankarjeva cesta / Aleksandrova cesta 5" — how a file
+    // records a renamed street, and whoever wants one name only deletes the
+    // other. The number stays with the name the record gave it: streets were
+    // often renumbered when they were renamed, so the record's 5 is not known
+    // to be today's 5, and writing it there would state what nobody recorded.
     result.former && result.street
-      ? `${result.address} / ${result.address.replace(result.street, result.former.name)}`
+      ? `${result.street} / ${result.address.replace(result.street, result.former.name)}`
       : result.address,
     style,
   );

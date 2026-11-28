@@ -152,6 +152,12 @@ describe("an address written under a former street name", () => {
     expect(streets[0]).toMatchObject({ street: "Cankarjeva cesta", municipality: "Ljubljana" });
   });
 
+  it("still finds the house once the address names both streets, the number on the former one", async () => {
+    const queries = rnQueriesFrom("Ljubljana, Slovenija", "Cankarjeva cesta / Aleksandrova cesta 5");
+    expect(queries).toMatchObject([{ settlement: "Ljubljana", street: "Aleksandrova cesta", number: 5 }]);
+    expect((await searchAddress(queries[0])).map((h) => h.address)).toEqual(["Cankarjeva cesta 5"]);
+  });
+
   it("reads a street written under both its names by the first of them", async () => {
     const query = streetQueryFrom("Ljubljana, Slovenija", "Cankarjeva cesta / Aleksandrova cesta");
     expect(query).toMatchObject({ settlement: "Ljubljana", street: "Cankarjeva cesta" });
