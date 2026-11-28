@@ -4727,8 +4727,6 @@ button:focus-visible {
 /* An address beside the place it belongs to — the address part of a
    place+address suggestion, and the same line on the map's hover card. */
 .addr-muted { color: var(--muted); }
-/* What a register offer under a former street name is called today. */
-.suggest-item-today { color: var(--accent); margin-left: 0.4em; }
 /* A register's offer for a place the file doesn't have: separated from the
    file's own values above it, and carrying its source badge. */
 .suggest-item--register {

@@ -421,8 +421,8 @@ export function EventFieldsRow({
    * it survives being placed, and so does a place that is already written.
    * Text is filled only where the field is empty, replaced where the two
    * differ by nothing but spelling (the register's diacritics are worth
-   * having), or completed where the offer begins with what was typed. The
-   * coordinate always comes along: it is what the offer was
+   * having), or completed where the offer — or one of the two names it gives
+   * a renamed street — begins with what was typed. The coordinate always comes along: it is what the offer was
    * picked for. A place kept as the file writes it keeps its own id and FORM
    * too — those describe the chain that stayed, not the one that was offered.
    */
@@ -431,10 +431,17 @@ export function EventFieldsRow({
     const adopt = (own: string, offered: string | undefined) =>
       !own.trim() || (offered && placeCollator.compare(own.trim(), offered) === 0) ? offered : undefined;
     const place = adopt(placeField.value, proposal.plac);
-    // An offer that merely completes what was typed — "Zrinjskega" picked as
-    // "Zrinjskega cesta" — is the user's own wording finished, not replaced.
+    // An offer that merely completes what was typed is the user's own wording
+    // finished, not replaced — "Zrinjskega" picked as "Zrinjskega cesta". A
+    // renamed street is offered under both its names ("Ulica Janeza Pavla II. /
+    // Zrinjskega cesta"), and completing either of them takes the pair.
     const typed = addrField.value.trim().toLowerCase();
-    const completes = !!typed && !!proposal.addr?.toLowerCase().startsWith(`${typed} `);
+    const completes =
+      !!typed &&
+      !!proposal.addr
+        ?.toLowerCase()
+        .split(" / ")
+        .some((name) => name === typed || name.startsWith(`${typed} `));
     const addr = completes ? proposal.addr : adopt(addrField.value, proposal.addr);
     if (place) placeField.set(place);
     if (addr) addrField.set(addr);

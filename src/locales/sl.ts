@@ -3754,7 +3754,6 @@ export const sl = {
   "event.coord": "Ima koordinate: {{coords}}",
   "event.coord.placeOnly": "Koordinate kraja, ne naslova: {{coords}} — kliknite, da naslov poiščete",
   "event.coord.streetMiddle": "{{street}} — sredina ulice (hiš: {{n}})",
-  "event.place.proposalToday": "→ danes {{name}}",
   "event.coord.none": "Še brez koordinat — kliknite, da naslov poiščete ali koordinate vnesete sami",
   "event.coord.open": "Koordinate za {{event}}",
   "event.coord.clear": "Odstrani",

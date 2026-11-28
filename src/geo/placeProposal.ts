@@ -47,10 +47,6 @@ export interface PlaceProposal {
   detail?: string;
   /** GOV id of the place, written back as `PLAC._GOV` when it has one. */
   govId?: string;
-  /** For an offer found under a former street name: what the register calls
-   *  that address today ("Cankarjeva cesta 5"). The offer's own text keeps the
-   *  former name, so this is shown beside it. */
-  today?: string;
 }
 
 /** How this file writes places, plus what the UI language can name. */
@@ -338,10 +334,13 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
       admins: [result.municipality],
       country: countryNameOf("SI", style.language),
     },
-    // A house found under a former street name keeps that name: the proposal
-    // is for the place as the record knew it, and only the coordinate is
-    // today's.
-    result.former && result.street ? result.address.replace(result.street, result.former.name) : result.address,
+    // A house found under a former street name is offered under both, today's
+    // first: "Cankarjeva cesta 5 / Aleksandrova cesta 5". That is how a file
+    // records a renamed street, the lookups read it as two whole addresses
+    // (splitAddressVariants), and whoever wants one name only deletes the other.
+    result.former && result.street
+      ? `${result.address} / ${result.address.replace(result.street, result.former.name)}`
+      : result.address,
     style,
   );
   if (!shaped) return undefined;
@@ -351,15 +350,14 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
     source: addressRegisterId("SI"),
     official: true,
     detail: result.label,
-    ...(result.former ? { today: result.address } : {}),
   };
 }
 
 /**
  * A street of the address register, for an address that names no house on it:
  * the place, the street as its address, and the middle of the street as the
- * coordinate. A street found under a former name keeps that name, as a house
- * does ({@link proposalFromRn}) — spelled as the table has it.
+ * coordinate. A street found under a former name is offered under both names,
+ * as a house is ({@link proposalFromRn}).
  */
 export function proposalFromStreet(result: StreetResult, style: PlaceStyle): PlaceProposal | undefined {
   const shaped = shape(
@@ -368,7 +366,7 @@ export function proposalFromStreet(result: StreetResult, style: PlaceStyle): Pla
       admins: [result.municipality],
       country: countryNameOf("SI", style.language),
     },
-    result.former?.name ?? result.street,
+    result.former ? `${result.street} / ${result.former.name}` : result.street,
     style,
   );
   if (!shaped) return undefined;
@@ -380,7 +378,6 @@ export function proposalFromStreet(result: StreetResult, style: PlaceStyle): Pla
     source: addressRegisterId("SI"),
     official: true,
     detail,
-    ...(result.former ? { today: result.street } : {}),
   };
 }
 

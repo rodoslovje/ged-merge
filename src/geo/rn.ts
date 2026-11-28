@@ -666,8 +666,13 @@ const STREET_FETCH_LIMIT = 5000;
  */
 export function streetQueryFrom(place: string | undefined, address: string | undefined): StreetQuery | undefined {
   if (!address?.trim() || rnQueriesFrom(place, address).length) return undefined;
-  const [head, ...rest] = address.split(",");
-  if (!head.trim() || /\d/.test(head)) return undefined;
+  const [named, ...rest] = address.split(",");
+  // A street written under both its names ("Ulica Janeza Pavla II. /
+  // Zrinjskega cesta") is asked by the first: with no house number neither
+  // half is a whole address to split off (splitAddressVariants), and the pair
+  // read as one name is a street no register has.
+  const head = named.split(" / ")[0];
+  if (!head.trim() || /\d/.test(named)) return undefined;
   const [query] = rnQueriesFrom(place, [`${head.trim()} 1`, ...rest].join(","));
   if (!query?.street) return undefined;
   return {

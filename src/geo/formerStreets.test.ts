@@ -152,6 +152,13 @@ describe("an address written under a former street name", () => {
     expect(streets[0]).toMatchObject({ street: "Cankarjeva cesta", municipality: "Ljubljana" });
   });
 
+  it("reads a street written under both its names by the first of them", async () => {
+    const query = streetQueryFrom("Ljubljana, Slovenija", "Cankarjeva cesta / Aleksandrova cesta");
+    expect(query).toMatchObject({ settlement: "Ljubljana", street: "Cankarjeva cesta" });
+    const streets = await searchStreet(query!);
+    expect(streets.map((s) => [s.street, s.former])).toEqual([["Cankarjeva cesta", undefined]]);
+  });
+
   it("places a former street that is named without a house", async () => {
     const streets = await searchStreet({ settlement: "Ljubljana", street: "Aleksandrova cesta" });
     expect(streets).toHaveLength(1);

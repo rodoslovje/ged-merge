@@ -84,7 +84,7 @@ test("a loaded table of former street names finds the house under today's name",
   await expect(page.locator(".tools-geo-source-error")).toContainText("not a table of former street names");
 });
 
-test("the address field proposes a former street typed short, and picking it writes the name out", async ({ page }) => {
+test("the address field proposes a former street typed short under both its names", async ({ page }) => {
   const file = path.join(tmpdir(), "former-street-names-field.ged");
   writeFileSync(
     file,
@@ -133,14 +133,13 @@ test("the address field proposes a former street typed short, and picking it wri
   await address.click();
   await page.getByRole("button", { name: "Look this place up in the directories" }).click();
 
-  // The offer keeps the old name and says, in the row itself, what it is today.
+  // The offer names the street both ways, today's name first.
   const offer = page.locator(".suggest-item--register");
   await expect(offer).toHaveCount(1);
-  await expect(offer).toContainText("Aleksandrova cesta");
-  await expect(offer.locator(".suggest-item-today")).toHaveText("→ today Cankarjeva cesta");
+  await expect(offer).toContainText("Cankarjeva cesta / Aleksandrova cesta");
 
-  // Picked, it finishes what was typed and places the event.
+  // Picked, it replaces the start that was typed and places the event.
   await offer.dispatchEvent("mousedown");
-  await expect(address).toHaveValue("Aleksandrova cesta");
+  await expect(address).toHaveValue("Cankarjeva cesta / Aleksandrova cesta");
   await expect(page.getByRole("button", { name: "Coordinates for Residence" })).not.toHaveClass(/edit-event-coord--empty/);
 });

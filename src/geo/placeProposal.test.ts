@@ -296,7 +296,7 @@ describe("an address-register house as a place", () => {
     expect(p.addr).toBeUndefined();
   });
 
-  it("keeps the street name the record wrote for a house found under a former name", () => {
+  it("offers a house found under a former street name under both names", () => {
     const p = proposalFromRn(
       {
         ...house,
@@ -307,18 +307,18 @@ describe("an address-register house as a place", () => {
       },
       style(),
     )!;
-    expect(p.addr).toBe("Aleksandrova cesta 5");
+    expect(p.addr).toBe("Cankarjeva cesta 5 / Aleksandrova cesta 5");
     expect(p.coord).toEqual(house.coord);
   });
 
-  it("proposes a street named without a house, a former one under its old name", () => {
+  it("proposes a street named without a house, a former one under both names", () => {
     const street = { coord: house.coord, street: "Cankarjeva cesta", settlement: "Ljubljana", municipality: "Ljubljana", houses: 12 };
     const today = proposalFromStreet(street, style())!;
     expect(today.plac).toBe("Ljubljana,Ljubljana,Slovenija");
     expect(today.addr).toBe("Cankarjeva cesta");
     expect(today.detail).toBe("Cankarjeva cesta, Ljubljana");
     const former = proposalFromStreet({ ...street, former: { name: "Aleksandrova cesta", from: 1919 } }, style())!;
-    expect(former.addr).toBe("Aleksandrova cesta");
+    expect(former.addr).toBe("Cankarjeva cesta / Aleksandrova cesta");
     expect(former.detail).toBe("Cankarjeva cesta, Ljubljana ← Aleksandrova cesta (1919–)");
     expect(former.coord).toEqual(house.coord);
   });
