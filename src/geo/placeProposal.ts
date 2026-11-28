@@ -31,6 +31,13 @@ export interface PlaceProposal {
   /** ADDR text, when the source named a house and the layout keeps it apart. */
   addr?: string;
   /**
+   * The one house this offer stands on, where the text it writes names more
+   * than that — a value listing several numbers of a renumbered house keeps
+   * them all ({@link proposalFromRn}). What the offer's row shows, and what
+   * tells two such offers apart, since they write the same text.
+   */
+  house?: string;
+  /**
    * `PLAC`.`FORM` naming what each part of `plac` is, in this file's own
    * wording — written because the chain was composed here (settlement, then
    * administrative parent, then country), so the levels are known rather than
@@ -326,8 +333,20 @@ export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle, address
   };
 }
 
-/** A GURS address-register house: a full place *and* its address. */
-export function proposalFromRn(result: RnResult, style: PlaceStyle): PlaceProposal | undefined {
+/**
+ * A GURS address-register house: a full place *and* its address.
+ *
+ * `numbers` is the list of house numbers the looked-up value writes, when it
+ * writes several ("11 / 82 / 63" — see `writtenHouseNumbers` in rn.ts). The
+ * register answers each with a house of one number, and the pick says where
+ * the house stands, not which of its numbers to forget: the address offered
+ * keeps the whole list on the register's spelling of the street, and
+ * {@link PlaceProposal.house} names the house that answered.
+ */
+export function proposalFromRn(result: RnResult, style: PlaceStyle, numbers?: string): PlaceProposal | undefined {
+  // The register's line without its own number — the name the list hangs off.
+  const host = numbers && !result.former ? result.address.replace(new RegExp(`\\s+${result.number}\\S*$`), "") : "";
+  const listed = host && host !== result.address ? `${host} ${numbers}` : undefined;
   const shaped = shape(
     {
       locality: result.settlement,
@@ -346,12 +365,13 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
     // house back, and then its address carries the number it was written with.)
     result.former && result.street
       ? `${result.address} / ${result.former.name} ${result.number}${result.suffix ?? ""}`
-      : result.address,
+      : (listed ?? result.address),
     style,
   );
   if (!shaped) return undefined;
   return {
     ...shaped,
+    ...(listed ? { house: result.address } : {}),
     coord: result.coord,
     source: addressRegisterId("SI"),
     official: true,
@@ -448,7 +468,7 @@ function adminsOf(admins: readonly (string | undefined)[], country: string | und
 /** Stable identity of a proposal, for de-duplicating across registers — the
  *  same village answered by GURS and by OpenStreetMap is one offer. */
 export function proposalKey(p: PlaceProposal): string {
-  return `${placeCompareKey(p.plac)} ${(p.addr ?? "").trim().toLowerCase()}`;
+  return `${placeCompareKey(p.plac)} ${(p.addr ?? "").trim().toLowerCase()}${p.house ? ` @${p.house.toLowerCase()}` : ""}`;
 }
 
 /** An address line as the street (or settlement) it names and whatever follows
