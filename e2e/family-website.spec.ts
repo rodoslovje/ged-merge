@@ -11,7 +11,7 @@ const FILE = path.join(tmpdir(), "family-website.ged");
 
 writeFileSync(FILE, [
   "0 HEAD", "1 GEDC", "2 VERS 5.5.1", "1 CHAR UTF-8",
-  "0 @I1@ INDI", "1 NAME Petra /Zorman/", "1 SEX F",
+  "0 @I1@ INDI", "1 NAME Primula /Zorman/", "1 SEX F",
   "1 BIRT", "2 DATE 12 MAR 1990", "2 PLAC Kranj,Slovenia",
   "1 FAMC @F1@",
   "0 @I2@ INDI", "1 NAME Franc /Zorman/", "1 SEX M",
@@ -50,7 +50,9 @@ test("the family website downloads as one page that works from disk", async ({ p
   // The note's own words — none the app's interface says, which the page carries.
   expect(html).not.toContain("kept bees");
   expect(html).not.toContain("@I1@");
-  expect(html).not.toContain("Petra");
+  // The living daughter's given name: one the calendar's table of name days, which the
+  // page carries with the app, does not hold.
+  expect(html).not.toContain("Primula");
 
   // The page, opened from disk like a relative would.
   const site = path.join(tmpdir(), "rodbina-zorman.html");
