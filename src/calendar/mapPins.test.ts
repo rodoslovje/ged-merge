@@ -3,8 +3,8 @@ import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
 import { CALLOUT, framePins, layoutCallouts, mapFlags, residencePins, type MapPin } from "./mapPins";
 
-const resi = (year: number, place: string, lat?: string, lon?: string) => [
-  "1 RESI", `2 DATE ${year}`, `2 PLAC ${place}`,
+const resi = (year: number | undefined, place: string, lat?: string, lon?: string) => [
+  "1 RESI", ...(year ? [`2 DATE ${year}`] : []), `2 PLAC ${place}`,
   ...(lat && lon ? ["3 MAP", `4 LATI ${lat}`, `4 LONG ${lon}`] : []),
 ];
 
@@ -16,6 +16,8 @@ const ds = buildDataset(parseGedcom(new TextEncoder().encode([
   "0 @I3@ INDI", "1 NAME Luka /Novak/", ...resi(2015, "Maribor, Slovenija", "N46.5547", "E15.6459"),
   // The last residence has no coordinates: the one before it that has stands.
   "0 @I4@ INDI", "1 NAME Tim /Novak/", ...resi(2012, "Koper, Slovenija", "N45.5481", "E13.7302"), ...resi(2022, "Nekje"),
+  // Born into a dated home, living at an undated one: the undated is the present.
+  "0 @I6@ INDI", "1 NAME Danaja /Novak/", ...resi(1996, "Radovljica, Slovenija", "N46.3444", "E14.1744"), ...resi(undefined, "Mlaka pri Kranju, Slovenija", "N46.2700", "E14.3400"),
   // No residence with coordinates at all.
   "0 @I5@ INDI", "1 NAME Eva /Horvat/", "1 BIRT", "2 PLAC Celje, Slovenija", "3 MAP", "4 LATI N46.2309", "4 LONG E15.2604",
   "0 TRLR", "",
@@ -27,6 +29,10 @@ describe("residencePins", () => {
   it("gathers the people of one place under one pin, the fullest first", () => {
     expect(pins[0]).toMatchObject({ place: "Ljubljana", ids: ["@I1@", "@I2@"] });
     expect(pins.map((p) => p.place).sort()).toEqual(["Koper", "Ljubljana", "Maribor"]);
+  });
+
+  it("takes the residence without a date for the present one", () => {
+    expect(residencePins(ds, ["@I6@"]).map((p) => p.place)).toEqual(["Mlaka pri Kranju"]);
   });
 
   it("goes by a residence alone, and by the last that carries coordinates", () => {
