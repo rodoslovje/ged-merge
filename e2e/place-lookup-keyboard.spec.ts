@@ -59,7 +59,7 @@ test("the place lookup runs from the keyboard with Tab and Enter", async ({ page
   await page.keyboard.type("Shoreline, Washington");
 
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Search the online directories too" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Search the online directories" })).toBeFocused();
   await page.keyboard.press("Enter");
 
   // The answer arrives in a dropdown that is still open, highlighted, with the

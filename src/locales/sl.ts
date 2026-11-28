@@ -3836,7 +3836,7 @@ export const sl = {
   "event.dateEntry.swap": "ali {{value}}",
   "event.dateEntry.swapTitle": "Zamenjaj dan in mesec",
   "event.place": "Kraj ({{event}})",
-  "event.place.lookup.search": "Poišči še v spletnih imenikih",
+  "event.place.lookup.search": "Poišči v spletnih imenikih",
   "event.place.lookup.searching": "Iskanje po imenikih…",
   "event.place.lookup.none": "Kraja s tem imenom ni bilo mogoče najti.",
   "event.place.lookup.error": "Iskanje ni uspelo.",

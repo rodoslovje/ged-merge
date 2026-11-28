@@ -139,7 +139,7 @@ test("the address field proposes a former street typed short under both its name
   await openWithStoredRegister(page, true);
   const address = page.getByRole("textbox", { name: "Residence address" });
   await address.click();
-  await page.getByRole("button", { name: "Search the online directories too" }).click();
+  await page.getByRole("button", { name: "Search the online directories" }).click();
 
   // The offer names the street both ways, today's name first.
   const offer = page.locator(".suggest-item--register");
@@ -161,7 +161,7 @@ test("a stored register answers the address field as it is typed, with online lo
   const offer = page.locator(".suggest-item--register");
   await expect(offer).toHaveCount(1);
   await expect(offer).toContainText("Cankarjeva cesta / Aleksandrova cesta");
-  await expect(page.getByRole("button", { name: "Search the online directories too" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Search the online directories" })).toHaveCount(0);
 
   // The number written on today's name as well is answered with that house.
   await address.fill("Cankarjeva cesta 5 / Aleksandrova cesta 5");

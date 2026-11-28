@@ -3357,7 +3357,7 @@ export const en = {
   "event.dateEntry.swap": "or {{value}}",
   "event.dateEntry.swapTitle": "Swap the day and the month",
   "event.place": "{{event}} place",
-  "event.place.lookup.search": "Search the online directories too",
+  "event.place.lookup.search": "Search the online directories",
   "event.place.lookup.searching": "Searching the directories…",
   "event.place.lookup.none": "No place found under that name.",
   "event.place.lookup.error": "The lookup failed.",
