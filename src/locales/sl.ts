@@ -4643,4 +4643,10 @@ export const sl = {
   "calendar.back.galleryEmpty": "Nihče od oseb, ki jih koledar praznuje, še nima fotografije.",
   "calendar.signature": "Podpis",
   "calendar.signature.placeholder": "Zate so ga pripravili tvoji vnuki",
+  "calendar.title": "Naslov",
+  "calendar.nameDays": "Godovi sorodnikov",
+  "calendar.nameDays.hint": "God se določi po prvem imenu osebe. Ime z več godovi dobi najbolj znanega, ime, ki ga v koledarju ni, pa ostane brez godu.",
+  "calendar.saints": "Imena svetnikov ob vsakem dnevu",
+  "calendar.nameCalendar": "Koledar godov",
+  "calendar.legend.nameday": "god",
 };

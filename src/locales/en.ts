@@ -4152,4 +4152,10 @@ export const en = {
   "calendar.back.galleryEmpty": "None of the people the calendar celebrates has a photo yet.",
   "calendar.signature": "Signature",
   "calendar.signature.placeholder": "Made for you by your grandchildren",
+  "calendar.title": "Title",
+  "calendar.nameDays": "Relatives' name days",
+  "calendar.nameDays.hint": "A name day goes by a person's first given name. A name with several days gets the best-known one; a name the calendar does not carry gets none.",
+  "calendar.saints": "Saints' names on every day",
+  "calendar.nameCalendar": "Calendar of names",
+  "calendar.legend.nameday": "name day",
 };

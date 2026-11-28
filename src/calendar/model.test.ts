@@ -94,6 +94,16 @@ describe("buildCalendar", () => {
     expect(mem(deg2)).toEqual(["@I2@", "@I4@", "@I5@"]);
   });
 
+  it("adds the name days of the living when a calendar of names is given", () => {
+    const named = buildCalendar(ds, "@I1@", { ...base, nameDays: "si" }, NOW);
+    const days = named.months.flatMap((m) => m.entries.filter((e) => e.kind === "nameday").map((e) => `${e.ids[0]} ${e.day}.${m.month}.`));
+    // Ana on St Anne's, her mother Marija on the Assumption, cousin Luka on St Luke's.
+    expect(days).toEqual(expect.arrayContaining(["@I1@ 26.7.", "@I3@ 15.8.", "@I7@ 18.10."]));
+    // The dead keep none: the grandfather Jože.
+    expect(days.some((d) => d.startsWith("@I4@ "))).toBe(false);
+    expect(cal.months.flatMap((m) => m.entries).some((e) => e.kind === "nameday")).toBe(false);
+  });
+
   it("tells a round anniversary from the family's past", () => {
     const june = cal.months[5].facts;
     // The 1927 death is a centenary in 2027; the 1925 wedding shares a person with it.

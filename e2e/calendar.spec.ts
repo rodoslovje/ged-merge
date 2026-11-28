@@ -21,6 +21,10 @@ test("the family calendar walks from settings to a review of every page", async 
   await expect(page.locator(".cal-preview .cal-list")).toHaveCount(0);
   await page.getByLabel("List of the month's people under the month").check();
   await expect(page.locator(".cal-preview .cal-grid")).toHaveCount(1);
+  // Name days are asked for: the relatives' own, and the saints of every day.
+  await expect(page.locator(".cal-preview .cal-saint")).toHaveCount(0);
+  await page.getByLabel("Relatives' name days").check();
+  await page.getByLabel("Saints' names on every day").check();
 
   // The cover draws the recipient's fan by default.
   const next = page.getByRole("button", { name: "Next page", exact: true });
@@ -28,11 +32,17 @@ test("the family calendar walks from settings to a review of every page", async 
   await expect(page.locator(".cal-preview .cal-chart svg")).toHaveCount(1);
   await page.getByLabel("Dedication").fill("For Ana, with love");
   await expect(page.locator(".cal-preview .cal-dedication")).toHaveText("For Ana, with love");
+  // The cover carries the calendar's own name until the givers type theirs.
+  await expect(page.locator(".cal-preview .cal-cover-title")).toHaveText("Family calendar");
+  await page.getByLabel("Title", { exact: true }).fill("The Novak year");
+  await expect(page.locator(".cal-preview .cal-cover-title")).toHaveText("The Novak year");
 
   // March: the recipient's own birthday, and her mother's as a relative's line.
   for (let i = 0; i < 3; i++) await next.click();
   await expect(page.locator(".cal-step-label .select-menu-value")).toHaveText(/^March/);
   await expect(page.locator(".cal-preview .cal-list")).toContainText("Marija K., mother (65)"); // the living by the default "Given name and surname initial"
+  // St Joseph's stands beside the 19th.
+  await expect(page.locator('.cal-preview .cal-cell[data-day="19"] .cal-saint')).toHaveText("Jožef");
   // Every week is as tall as the others, however busy its days.
   const heights = await page.locator(".cal-preview .cal-grid tbody tr").evaluateAll((rows) => rows.map((r) => r.getBoundingClientRect().height));
   expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(1);
@@ -41,6 +51,8 @@ test("the family calendar walks from settings to a review of every page", async 
   // his death is picked, and the wedding can be added beside it.
   for (let i = 0; i < 3; i++) await next.click();
   await expect(page.locator(".cal-fact-list input")).toHaveCount(3);
+  // Uncle Peter keeps his name day on Sts Peter and Paul's.
+  await expect(page.locator('.cal-preview .cal-cell[data-day="29"] .cal-nameday')).toContainText("Peter");
   await expect(page.locator(".cal-preview .cal-fact")).toHaveCount(1);
   await expect(page.locator(".cal-preview .cal-fact")).toContainText("100 years ago");
   await page.getByRole("checkbox", { name: /were married/ }).check();

@@ -4367,4 +4367,10 @@ export const hr = {
   "calendar.back.galleryEmpty": "Nitko od osoba koje kalendar slavi još nema fotografiju.",
   "calendar.signature": "Potpis",
   "calendar.signature.placeholder": "Za tebe su ga pripremili tvoji unuci",
+  "calendar.title": "Naslov",
+  "calendar.nameDays": "Imendani srodnika",
+  "calendar.nameDays.hint": "Imendan se određuje prema prvom imenu osobe. Ime s više imendana dobiva najpoznatiji, a ime kojeg u kalendaru nema ostaje bez imendana.",
+  "calendar.saints": "Imena svetaca uz svaki dan",
+  "calendar.nameCalendar": "Kalendar imendana",
+  "calendar.legend.nameday": "imendan",
 };

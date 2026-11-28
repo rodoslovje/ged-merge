@@ -4,6 +4,7 @@ import type { Dataset, Individual } from "../../gedcom/types";
 import { reducedName } from "../../gedcom/nameDisplay";
 import { buildCalendar, byDay, factKey, type CalendarOptions, type CalendarScope, type Fact, type MemorialMode } from "../../calendar/model";
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
+import { NAME_CALENDARS, type NameCalendar } from "../../calendar/nameDays";
 import { LIVING_NAMES, nameAndKinship, factDate, factSentence, monthName, yearsAgo, type LivingNames, type PersonWords } from "../../calendar/text";
 import { createKinshipResolver } from "../../match/kinship";
 import { primaryName } from "../../match/relatives";
@@ -118,7 +119,15 @@ interface CalendarWork {
   showList: boolean;
   showFacts: boolean;
   country: CountryChoice;
+  /** The relatives' name days, as entries of their own. */
+  nameDays: boolean;
+  /** The saints of each day, beside its number. */
+  saints: boolean;
+  /** The calendar of names both go by. */
+  nameCalendar: NameCalendar;
   opts: CalendarOptions;
+  /** The cover's title; empty for the calendar's own ("Family calendar"). */
+  title: string;
   cover: Picture;
   dedication: string;
   back: Back;
@@ -141,8 +150,12 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     showList: false,
     showFacts: true,
     country: lang === "hr" ? "hr" : lang === "sl" ? "si" : "none",
+    nameDays: false,
+    saints: false,
+    nameCalendar: lang === "hr" ? "hr" : "si",
     // From September on, the calendar is for the year to come.
     opts: { year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear, scope: 1, partners: true, memorial: "off" },
+    title: "",
     cover: { kind: "fan" },
     dedication: "",
     back: { kind: "overview" },
@@ -194,6 +207,10 @@ function mergeWork(base: CalendarWork, saved: Record<string, unknown>, thisYear:
     showList: pick("showList", bool),
     showFacts: pick("showFacts", bool),
     country: pick("country", one(["none", ...HOLIDAY_COUNTRIES])),
+    nameDays: pick("nameDays", bool),
+    saints: pick("saints", bool),
+    nameCalendar: pick("nameCalendar", one(NAME_CALENDARS)),
+    title: typeof saved.title === "string" ? saved.title : "",
     opts: {
       // A calendar kept in an earlier year: its year is no longer on offer.
       year: yearChoices(thisYear).includes(o.year as number) ? (o.year as number) : base.opts.year,
@@ -248,7 +265,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       // A recipient with nothing kept keeps the settings, not the choices.
       return saved
         ? mergeWork(base, saved, thisYear)
-        : { ...base, cover: defaults.cover, dedication: "", back: defaults.back, signature: "", monthPictures: [], monthFacts: [] };
+        : { ...base, title: "", cover: defaults.cover, dedication: "", back: defaults.back, signature: "", monthPictures: [], monthFacts: [] };
     },
     [persistWorkspace, mainFileName, rootId, defaults, thisYear],
   );
@@ -295,7 +312,12 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
     const address = mainFileName ? storedSiteAddress(mainFileName) : undefined;
     return address ? siteLinkOf(address).label : undefined;
   }, [mainFileName]);
-  const data = useMemo(() => buildCalendar(mainDs, rootId, opts, thisYear), [mainDs, rootId, opts, thisYear]);
+  const { nameDays, saints, nameCalendar } = work;
+  const data = useMemo(
+    () => buildCalendar(mainDs, rootId, { ...opts, nameDays: nameDays ? nameCalendar : undefined }, thisYear),
+    [mainDs, rootId, opts, nameDays, nameCalendar, thisYear],
+  );
+  const title = work.title.trim() || t("calendar.cover.title");
   const holidays = useMemo(() => (country === "none" ? [] : holidaysFor(country, opts.year)), [country, opts.year]);
 
 
@@ -506,7 +528,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   };
 
   const coverPage = (
-    <CoverPage format={format} scheme={scheme} year={opts.year} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} dedication={dedication} />
+    <CoverPage format={format} scheme={scheme} year={opts.year} title={title} name={root ? nameOf(root) : ""} picture={renderPicture(cover)} site={site} dedication={dedication} />
   );
   // Who is who: everyone the calendar celebrates who has a portrait, in the
   // order of the year, one picture each.
@@ -557,6 +579,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       entryOpts={entryOpts}
       showList={work.showList}
       showFacts={work.showFacts}
+      saints={saints ? nameCalendar : undefined}
     />
   );
 
@@ -670,8 +693,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       await embedImages(clone, images);
       return `<div class="cal-leaf">${clone.outerHTML}</div>`;
     }));
-    const title = `${t("calendar.cover.title")} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
-    return (`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+    const docTitle = `${title} ${opts.year}${root ? ` — ${nameOf(root)}` : ""}`;
+    return (`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title>
 <style>${CALENDAR_CSS}${calendarPrintCss(printGeometry(format, paper))}</style></head><body><div class="cal-sheet">${pages.join("")}</div></body></html>`);
   };
   // The review draws every page at once: the spinner is painted before it does.
@@ -817,6 +840,25 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
             ]}
           />
         </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={nameDays} onChange={(e) => patch({ nameDays: e.target.checked })} />
+          <span>{t("calendar.nameDays")}</span>
+        </label>
+        <label className="cal-check">
+          <input type="checkbox" checked={saints} onChange={(e) => patch({ saints: e.target.checked })} />
+          <span>{t("calendar.saints")}</span>
+        </label>
+        {(nameDays || saints) && (
+          <label className="cal-field">
+            <span>{t("calendar.nameCalendar")}</span>
+            <SelectMenu
+              value={nameCalendar}
+              onChange={(v) => patch({ nameCalendar: v as NameCalendar })}
+              options={NAME_CALENDARS.map((c) => ({ value: c, label: t(`calendar.holidays.${c}`) }))}
+            />
+          </label>
+        )}
+        {nameDays && <p className="settings-hint">{t("calendar.nameDays.hint")}</p>}
         <p className="settings-hint">{t("calendar.summary", { n: data.months.reduce((n, m) => n + m.entries.length, 0) })}</p>
       </>
     );
@@ -824,6 +866,15 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   } else if (step === 1) {
     panel = (
       <>
+        <label className="cal-field">
+          <span>{t("calendar.title")}</span>
+          <input
+            className="settings-text-input"
+            value={work.title}
+            placeholder={t("calendar.cover.title")}
+            onChange={(e) => patch({ title: e.target.value })}
+          />
+        </label>
         <label className="cal-field">
           <span>{t("calendar.dedication")}</span>
           <textarea

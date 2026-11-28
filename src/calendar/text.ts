@@ -66,11 +66,14 @@ export function yearsAgo(t: Translate, n: number): string {
 /** A round birthday's or a jubilee's mark. */
 export const ROUND_GLYPH = "★";
 
+/** A name day's mark. */
+export const NAME_DAY_GLYPH = "✿";
+
 /** The mark before an entry. A plain birthday carries none: it is what a name
  *  on a day means unless a mark says otherwise. */
 export function entryGlyph(e: DayEntry, round: boolean): string | undefined {
   if (round) return ROUND_GLYPH;
-  return e.kind === "anniversary" ? "⚭" : e.kind === "memorial" ? "†" : undefined;
+  return e.kind === "anniversary" ? "⚭" : e.kind === "memorial" ? "†" : e.kind === "nameday" ? NAME_DAY_GLYPH : undefined;
 }
 
 /** How the calendar names the living — on the day cells, in the lines, the

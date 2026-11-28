@@ -6,6 +6,8 @@
 import type { Dataset, GedDate, GedEvent, Individual } from "../gedcom/types";
 import { isDeceased, isPresumedLiving } from "../gedcom/lifespan";
 import { unionMark } from "../gedcom/union";
+import { primaryName } from "../match/relatives";
+import { nameDayOf, type NameCalendar } from "./nameDays";
 
 /** Whose birthdays the calendar shows: the recipient's descendants only, or
  *  every blood relative up to cousins of the given degree (0 — parents,
@@ -23,9 +25,12 @@ export interface CalendarOptions {
   /** Include the partners of the relatives shown (a son's wife, an aunt's husband). */
   partners: boolean;
   memorial: MemorialMode;
+  /** The name days of the living whose birthdays are shown, by this calendar
+   *  of names; none when left out. */
+  nameDays?: NameCalendar;
 }
 
-export type DayEntryKind = "birthday" | "anniversary" | "memorial";
+export type DayEntryKind = "birthday" | "anniversary" | "nameday" | "memorial";
 
 export interface DayEntry {
   kind: DayEntryKind;
@@ -189,6 +194,18 @@ export function buildCalendar(ds: Dataset, startId: string, opts: CalendarOption
     people.add(id);
   }
 
+  // Name days of the living, by the first given name. One kept on 29 February
+  // has no day in a common year.
+  if (opts.nameDays) {
+    for (const id of circle) {
+      const indi = ds.individuals.get(id);
+      const at = indi && living(indi) ? nameDayOf(opts.nameDays, primaryName(indi)?.given) : undefined;
+      if (!at || at.day > daysIn(year, at.month)) continue;
+      add(at.month, { kind: "nameday", day: at.day, ids: [id] });
+      people.add(id);
+    }
+  }
+
   // Wedding anniversaries of living couples still together.
   const seenFam = new Set<string>();
   for (const id of circle) {
@@ -288,7 +305,7 @@ export const factKey = (f: Fact) => `${f.kind}|${f.ids.join(",")}|${f.date.raw}`
 /** Day order within a month; an undated day first. */
 export const byDay = (a: Fact, b: Fact) => (a.date.day ?? 0) - (b.date.day ?? 0);
 
-const KIND_ORDER: Record<DayEntryKind, number> = { birthday: 0, anniversary: 1, memorial: 2 };
+const KIND_ORDER: Record<DayEntryKind, number> = { birthday: 0, anniversary: 1, nameday: 2, memorial: 3 };
 
 /** The wedding anniversaries a family marks: the 10th, every tenth after it,
  *  and the silver, sixty-fifth (iron) and seventy-fifth (crown) jubilees. */
