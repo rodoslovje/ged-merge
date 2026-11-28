@@ -3603,7 +3603,7 @@ export const hr = {
   "event.dateEntry.swap": "ili {{value}}",
   "event.dateEntry.swapTitle": "Zamijeni dan i mjesec",
   "event.place": "Mjesto ({{event}})",
-  "event.place.lookup.search": "Potraži ovo mjesto u imenicima",
+  "event.place.lookup.search": "Potraži i u mrežnim imenicima",
   "event.place.lookup.searching": "Pretraživanje imenika…",
   "event.place.lookup.none": "Mjesto s tim imenom nije pronađeno.",
   "event.place.lookup.error": "Pretraga nije uspjela.",
