@@ -133,9 +133,11 @@ export function MergeView({
   const showKinship = settings.showKinship;
 
   const compareBodyRef = useRef<HTMLDivElement>(null);
+  // Keyed by the pair, not the candidate object: a decision recounts the
+  // candidate (a new object for the same pair), which must not scroll.
   useEffect(() => {
     compareBodyRef.current?.scrollTo({ top: 0 });
-  }, [current]);
+  }, [current?.mainId, current?.compareId]);
 
   // Incoming-only people the current candidate could graft via the Compare Tree,
   // shown on the tree button so the user knows whether opening it is worthwhile.

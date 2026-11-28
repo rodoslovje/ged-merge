@@ -200,3 +200,25 @@ test("an added child's name opens his new record even when a namesake is a candi
   // His own record: born 1883 into Janez's family, not the 1884 stranger.
   await expect(page.locator(".edit-parents")).toContainText("Janez");
 });
+
+test("adding a child keeps the comparison scrolled where it was", async ({ page }) => {
+  // Short enough that the children sit below the fold of the comparison.
+  await page.setViewportSize({ width: 1280, height: 420 });
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(MAIN);
+  await page.locator(".edit-person").first().waitFor();
+  await page.getByRole("button", { name: "Merge", exact: true }).click();
+  await page.locator("input.file-input").last().setInputFiles(COMPARE);
+  await page.locator(".candidate", { hasText: "Janez" }).first().locator(".candidate-main").click();
+  await page.locator(".decision-bar button").first().click();
+
+  const body = page.locator(".section-body", { has: page.locator(".compare-panel") });
+  const take = page.locator(".compare-panel button.choice.take");
+  await take.scrollIntoViewIfNeeded();
+  await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  await take.click();
+  // The add recounts the candidate; the panel must not jump back to the top.
+  await expect(take).toHaveClass(/active/);
+  await expect(page.locator(".candidate", { hasText: "Janez" }).first()).toBeVisible();
+  await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+});
