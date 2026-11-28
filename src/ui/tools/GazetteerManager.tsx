@@ -40,7 +40,7 @@ import {
   putFormerStreets,
   type CountryMeta,
 } from "../../persist/geoDb";
-import { formerStreetPlaces, parseFormerStreets } from "../../geo/formerStreets";
+import { formerStreetPlaces, mergeFormerStreets, parseFormerStreets } from "../../geo/formerStreets";
 import type { GeoFailure } from "../../worker/geoMessages";
 import { requestSettings } from "../settingsBus";
 import { SelectMenu } from "../DropdownMenu";
@@ -256,11 +256,14 @@ export function useGazetteer({ withIndex = false }: { withIndex?: boolean } = {}
   // A few hundred rows of text: read and stored right here, with none of the
   // worker and progress machinery the country-sized imports need.
   const importFormerStreets = async (file: File) => {
-    const entries = parseFormerStreets(await file.text());
-    if (!entries?.length) {
+    const loaded = parseFormerStreets(await file.text());
+    if (!loaded?.length) {
       setFormerStreetsError(t("tools.geocode.formerStreetsUnreadable"));
       return;
     }
+    // A table is one town's, and towns add up: loading Kranj's keeps
+    // Ljubljana's. Only the settlements the new file names are replaced.
+    const entries = mergeFormerStreets((await getFormerStreets())?.entries ?? [], loaded);
     try {
       await putFormerStreets({ entries, importedAt: Date.now() });
     } catch (e) {

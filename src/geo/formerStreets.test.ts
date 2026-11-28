@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { formerNameLabel, formerStreetsOf, parseFormerStreets, type FormerStreet } from "./formerStreets";
+import {
+  formerNameLabel,
+  formerStreetPlaces,
+  formerStreetsOf,
+  mergeFormerStreets,
+  parseFormerStreets,
+  type FormerStreet,
+} from "./formerStreets";
 
 const TABLE: FormerStreet[] = [
   { settlement: "Ljubljana", former: "Aleksandrova cesta", from: 1919, to: 1941, current: "Cankarjeva cesta" },
@@ -63,6 +70,17 @@ describe("formerStreetsOf", () => {
   it("leaves out the street the written name is today", () => {
     expect(formerStreetsOf(TABLE, "Cankarjeva cesta", ["Ljubljana"])).toEqual([]);
     expect(formerStreetsOf(TABLE, "Slovenska cesta", ["Ljubljana"])).toEqual([]);
+  });
+});
+
+describe("mergeFormerStreets", () => {
+  it("adds another town's table and replaces a town loaded again", () => {
+    const kranj: FormerStreet[] = [{ settlement: "Kranj", former: "Titov trg", from: 1945, to: 1993, current: "Glavni trg" }];
+    const both = mergeFormerStreets(TABLE, kranj);
+    expect(both).toHaveLength(TABLE.length + 1);
+    expect(formerStreetPlaces(both)).toBe("Ljubljana, Kranj");
+    const corrected: FormerStreet[] = [{ settlement: "kranj", former: "Mestni trg", to: 1941, current: "Glavni trg" }];
+    expect(mergeFormerStreets(both, corrected).filter((e) => e.current === "Glavni trg")).toEqual(corrected);
   });
 });
 

@@ -111,6 +111,16 @@ export function formerStreetsOf(
   );
 }
 
+/**
+ * A newly loaded table added to the stored one. The settlements the new table
+ * names are replaced whole — loading a town's table again is how it is
+ * corrected — and every other settlement's rows stay.
+ */
+export function mergeFormerStreets(stored: readonly FormerStreet[], loaded: readonly FormerStreet[]): FormerStreet[] {
+  const replaced = new Set(loaded.map((e) => foldToken(e.settlement)));
+  return [...stored.filter((e) => !replaced.has(foldToken(e.settlement))), ...loaded];
+}
+
 /** The settlements a table covers, for saying what was loaded: "Ljubljana", or
  *  the first few of a longer list. */
 export function formerStreetPlaces(table: readonly FormerStreet[]): string {
