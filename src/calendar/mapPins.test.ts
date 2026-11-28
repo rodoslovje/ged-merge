@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildDataset } from "../gedcom/builder";
 import { parseGedcom } from "../gedcom/parser";
-import { CALLOUT, framePins, layoutCallouts, mapFlags, residencePins, type MapPin } from "./mapPins";
+/// <reference types="node" />
+import { readFileSync } from "node:fs";
+import { CALLOUT, framePins, layoutCallouts, mapFlags, nearestFirst, residencePins, type MapPin } from "./mapPins";
 
 const resi = (year: number | undefined, place: string, lat?: string, lon?: string) => [
   "1 RESI", ...(year ? [`2 DATE ${year}`] : []), `2 PLAC ${place}`,
@@ -52,13 +54,16 @@ describe("mapFlags", () => {
   it("lets places that would stand on each other share the larger one's flag", () => {
     const flags = mapFlags(pins, [{ x: 0.5, y: 0.5 }, { x: 0.52, y: 0.51 }, { x: 0.1, y: 0.8 }], 1.5);
     expect(flags).toHaveLength(2);
+    // The people of both, in the order they were given in: I3 before I4.
     expect(flags[0]).toMatchObject({ place: "Ljubljana", ids: ["@I1@", "@I2@", pins[1].ids[0]] });
+    const mixed = residencePins(ds, ["@I3@", "@I1@", "@I2@"]);
+    expect(mapFlags(mixed, [{ x: 0.5, y: 0.5 }, { x: 0.51, y: 0.5 }], 1.5)[0].ids).toEqual(["@I3@", "@I1@", "@I2@"]);
   });
 });
 
 describe("framePins", () => {
   const pin = (place: string, lat: number, lon: number, people: number): MapPin =>
-    ({ place, coord: { lat, lon }, ids: Array.from({ length: people }, (_, i) => `${place}${i}`) });
+    ({ place, coord: { lat, lon }, ids: Array.from({ length: people }, (_, i) => `${place}${i}`), ranks: [] });
   const home = [pin("Kranj", 46.24, 14.36, 40), pin("Ljubljana", 46.05, 14.51, 30), pin("Maribor", 46.55, 15.65, 10)];
 
   it("leaves a lone place overseas off the map", () => {
@@ -121,5 +126,17 @@ describe("layoutCallouts", () => {
         expect(turn(p, q, r) !== turn(p, q, s) && turn(r, s, p) !== turn(r, s, q), `${a.place} × ${b.place}`).toBe(false);
       }
     }
+  });
+});
+
+describe("nearestFirst", () => {
+  // I4 ⚭ I5 (grandparents) → I2 ⚭ I3 → I1 (recipient) ⚭ I9 → I8; I6 (uncle) ⚭ I11 → I7 (cousin) → I10.
+  const family = buildDataset(parseGedcom(new TextEncoder().encode(
+    readFileSync(new URL("../__fixtures__/calendar-family.ged", import.meta.url), "utf-8"),
+  ).buffer));
+
+  it("orders people by the steps of kinship to the recipient, a partner after their relative", () => {
+    const order = nearestFirst(family, "@I1@", ["@I10@", "@I7@", "@I11@", "@I6@", "@I8@", "@I9@", "@I3@", "@I1@"]);
+    expect(order).toEqual(["@I1@", "@I9@", "@I8@", "@I3@", "@I6@", "@I11@", "@I7@", "@I10@"]);
   });
 });

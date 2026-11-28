@@ -6,7 +6,7 @@ import { buildCalendar, byDay, factKey, type CalendarOptions, type CalendarScope
 import { HOLIDAY_COUNTRIES, holidaysFor, type HolidayCountry } from "../../calendar/holidays";
 import { NAME_CALENDARS, type NameCalendar } from "../../calendar/nameDays";
 import { noteToText } from "../../gedcom/noteHtml";
-import { residencePins } from "../../calendar/mapPins";
+import { nearestFirst, residencePins } from "../../calendar/mapPins";
 import { MapPicture } from "./MapPicture";
 import { renderBasemap } from "./basemap";
 import { RichNoteInput } from "../edit/RichNoteInput";
@@ -609,10 +609,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   };
   const stats = useMemo(() => familyStats(mainDs, rootId, thisYear), [mainDs, rootId, thisYear]);
 
-  // The map: where the living whom the calendar celebrates last lived.
+  // The map: where the living whom the calendar celebrates last lived, the
+  // recipient's nearest first — they are the names a crowded box writes out.
   const mapPins = useMemo(
-    () => residencePins(mainDs, data.months.flatMap((m) => m.entries.filter((e) => e.kind !== "memorial").flatMap((e) => e.ids))),
-    [mainDs, data.months],
+    () => residencePins(mainDs, nearestFirst(mainDs, rootId, data.months.flatMap((m) => m.entries.filter((e) => e.kind !== "memorial").flatMap((e) => e.ids)))),
+    [mainDs, rootId, data.months],
   );
   const renderPicture = (pic: Picture): React.ReactNode => {
     if (pic.kind === "stats") return <StatsCard stats={stats} nameOf={words.name} sexOf={words.sex} />;

@@ -4,6 +4,7 @@
 
 import type { Dataset, GeoCoord } from "../gedcom/types";
 import { lastResidence } from "../chart/nodeDisplay";
+import { relativesInScope } from "./model";
 
 export interface MapPin {
   coord: GeoCoord;
@@ -11,6 +12,32 @@ export interface MapPin {
   place: string;
   /** Everyone living there, in the order given. */
   ids: string[];
+  /** Each one's place in that order, so pins that share a flag keep it. */
+  ranks: number[];
+}
+
+/**
+ * The people nearest the recipient first: a box has room for a few names, and
+ * those should be the ones the recipient knows best — themselves, then their
+ * children and parents, then grandchildren and siblings, and so on outwards by
+ * the steps of kinship between them. A partner stands right after the relative
+ * they are with. Among equals the order given is kept.
+ */
+export function nearestFirst(ds: Dataset, rootId: string, ids: Iterable<string>): string[] {
+  const blood = relativesInScope(ds, rootId, 3);
+  const steps = (id: string): number => {
+    const own = blood.get(id);
+    if (own) return own.up + own.down;
+    let nearest = Infinity;
+    for (const famId of ds.individuals.get(id)?.spouseOf ?? []) {
+      const fam = ds.families.get(famId);
+      const partner = fam && blood.get(fam.husband === id ? fam.wife ?? "" : fam.husband ?? "");
+      if (partner) nearest = Math.min(nearest, partner.up + partner.down + 0.5);
+    }
+    return nearest;
+  };
+  const list = [...new Set(ids)].map((id, i) => ({ id, i, far: steps(id) }));
+  return list.sort((a, b) => a.far - b.far || a.i - b.i).map((x) => x.id);
 }
 
 /** Two residences closer than this (about a hundred metres) are one pin. */
@@ -20,13 +47,16 @@ const SAME_PLACE = 3;
  *  with no residence that carries coordinates has none. */
 export function residencePins(ds: Dataset, ids: Iterable<string>): MapPin[] {
   const pins = new Map<string, MapPin>();
+  let rank = 0;
   for (const id of new Set(ids)) {
+    rank++;
     const indi = ds.individuals.get(id);
     const place = indi && lastResidence(indi, (e) => e.place?.coord)?.place;
     if (!place?.coord) continue;
     const key = `${place.coord.lat.toFixed(SAME_PLACE)},${place.coord.lon.toFixed(SAME_PLACE)}`;
-    const pin = pins.get(key) ?? { coord: place.coord, place: place.parts[0] || place.raw, ids: [] };
+    const pin = pins.get(key) ?? { coord: place.coord, place: place.parts[0] || place.raw, ids: [], ranks: [] };
     pin.ids.push(id);
+    pin.ranks.push(rank);
     pins.set(key, pin);
   }
   return [...pins.values()].sort((a, b) => b.ids.length - a.ids.length);
@@ -50,16 +80,18 @@ export interface MapFlag extends MapSpot {
  * `aspect` its width over its height.
  */
 export function mapFlags(pins: MapPin[], spots: MapSpot[], aspect: number, reach = 0.025): MapFlag[] {
-  const flags: MapFlag[] = [];
+  const flags: (MapFlag & { people: [number, string][] })[] = [];
   pins.forEach((pin, i) => {
     const at = spots[i];
     if (!at) return;
+    const people = pin.ids.map((id, k): [number, string] => [pin.ranks[k] ?? k, id]);
     // Distances in widths, so the reach is the same in both directions.
     const near = flags.find((f) => Math.hypot(f.x - at.x, (f.y - at.y) / aspect) < reach);
-    if (near) near.ids.push(...pin.ids);
-    else flags.push({ ...at, place: pin.place, ids: [...pin.ids] });
+    if (near) near.people.push(...people);
+    else flags.push({ ...at, place: pin.place, ids: [], people });
   });
-  return flags;
+  // The people of the pins a flag gathers, back in the order they were given in.
+  return flags.map(({ people, ...flag }) => ({ ...flag, ids: people.sort((a, b) => a[0] - b[0]).map(([, id]) => id) }));
 }
 
 /** The share of the people a map must hold before a far-off place may fall off it. */
