@@ -4,7 +4,15 @@ import { parseGedcom } from "../../gedcom/parser";
 import { rebuildFamily, rebuildIndividual } from "../../gedcom/edit/cache";
 import type { GedNode } from "../../gedcom/types";
 import { ChangeJournal } from "../../state/mainSync";
-import { buildFieldSuggestions, FieldSuggestionIndex, placeAddrCoordKey, placeKey, suggestQuery } from "./fieldSuggestions";
+import {
+  buildFieldSuggestions,
+  FieldSuggestionIndex,
+  foldedCombos,
+  foldedRows,
+  placeAddrCoordKey,
+  placeKey,
+  suggestQuery,
+} from "./fieldSuggestions";
 import { foldSearch } from "../globalSearch";
 
 function build(text: string) {
@@ -433,5 +441,31 @@ describe("FieldSuggestionIndex", () => {
     ds.individuals.get("@I1@")!.events[0].place!.raw = "Postojna";
     journal.record(1, ["@I1@"]);
     expect(index.get(ds, journal, 1).placeSuggestions).toContain("Postojna");
+  });
+});
+
+describe("folded suggestion rows", () => {
+  it("folds a list once for every field that shows it", () => {
+    const places = ["Škofja Loka", "Žiri"];
+    const rows = foldedRows(places);
+    expect(rows).toEqual([
+      { place: "Škofja Loka", fold: "skofja loka" },
+      { place: "Žiri", fold: "ziri" },
+    ]);
+    expect(foldedRows(places)).toBe(rows);
+  });
+
+  it("shares the folded pairs between a list and a filtered copy of it", () => {
+    const combos = [
+      { place: "Škofja Loka", addr: "Mestni trg 1" },
+      { place: "Žiri", addr: "Loška cesta 2" },
+    ];
+    const all = foldedCombos(combos);
+    expect(all[0]).toEqual({ place: "Škofja Loka", addr: "Mestni trg 1", placeFold: "skofja loka", addrFold: "mestni trg 1" });
+    expect(foldedCombos(combos)).toBe(all);
+    // An address field's own list: other places' pairs, a new array per row.
+    const others = foldedCombos(combos.filter((cb) => cb.place !== "Škofja Loka"));
+    expect(others).toHaveLength(1);
+    expect(others[0]).toBe(all[1]);
   });
 });
