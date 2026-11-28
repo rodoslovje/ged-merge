@@ -296,11 +296,11 @@ describe("an address-register house as a place", () => {
     expect(p.addr).toBeUndefined();
   });
 
-  it("offers a house found under a former street name under both names, the number on the one written", () => {
+  it("offers an address under a former street name under both names, the number on the one written", () => {
     const p = proposalFromRn(
       {
         ...house,
-        address: "Cankarjeva cesta 5",
+        address: "Cankarjeva cesta",
         street: "Cankarjeva cesta",
         number: 5,
         former: { name: "Aleksandrova cesta", from: 1919, to: 1941 },

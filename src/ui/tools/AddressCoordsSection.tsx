@@ -930,6 +930,9 @@ export function AddressCoordsSection({
     if (results.length !== 1) return false;
     const claimed = row.queries[0]?.settlement;
     const hit = results[0];
+    // Nor is a street's middle, which is all a former street name is answered
+    // with: it places the event on the street, not at its house.
+    if (hit.former) return false;
     return !(hit.settlement && claimed && foldSearch(hit.settlement) !== foldSearch(claimed));
   });
   const selectConfident = () =>

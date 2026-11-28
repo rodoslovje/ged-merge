@@ -104,28 +104,33 @@ describe("an address written under a former street name", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("finds the house on the street's current name and says under which name", async () => {
+  it("answers with the middle of the street's current name, and says under which name", async () => {
     const hits = await searchAddress({ settlement: "Ljubljana", street: "Aleksandrova cesta", number: 5 });
     expect(hits).toHaveLength(1);
+    // The street, not its number 5: the street may have been renumbered since.
     expect(hits[0]).toMatchObject({
-      address: "Cankarjeva cesta 5",
+      address: "Cankarjeva cesta",
       street: "Cankarjeva cesta",
+      number: 5,
       former: { name: "Aleksandrova cesta", from: 1919, to: 1941 },
     });
-    expect(hits[0].label).toBe("Cankarjeva cesta 5, Ljubljana ← Aleksandrova cesta (1919–1941)");
+    expect(hits[0].label).toBe("Cankarjeva cesta, Ljubljana ← Aleksandrova cesta (1919–1941)");
+    const [street] = await searchStreet({ settlement: "Ljubljana", street: "Cankarjeva cesta" });
+    expect(street.houses).toBe(2);
+    expect(hits[0].coord).toEqual(street.coord);
   });
 
-  it("offers both houses when the old name is another street's name today", async () => {
+  it("offers the house as written and the renamed street when the old name is another street's today", async () => {
     const hits = await searchAddress({ settlement: "Ljubljana", street: "Šmartinska cesta", number: 5 });
     expect(hits.map((h) => [h.address, h.former?.name])).toEqual([
       ["Šmartinska cesta 5", undefined],
-      ["Njegoševa cesta 5", "Šmartinska cesta"],
+      ["Njegoševa cesta", "Šmartinska cesta"],
     ]);
   });
 
   it("finds it for a suburb the file names under the town", async () => {
     const [query] = rnQueriesFrom("Šiška, Ljubljana, Slovenija", "Aleksandrova cesta 5");
-    expect((await searchAddress(query)).map((h) => h.address)).toEqual(["Cankarjeva cesta 5"]);
+    expect((await searchAddress(query)).map((h) => h.address)).toEqual(["Cankarjeva cesta"]);
   });
 
   it("answers a current street name exactly as before", async () => {
@@ -134,15 +139,15 @@ describe("an address written under a former street name", () => {
     expect(hits[0].former).toBeUndefined();
   });
 
-  it("answers a whole batch the same way, each row with its own number", async () => {
+  it("answers a whole batch the same way, every row of the street with its middle", async () => {
     const q5 = { settlement: "Ljubljana", street: "Aleksandrova cesta", number: 5 };
-    const q7 = { settlement: "Ljubljana", street: "Aleksandrova cesta", number: 7 };
-    const pool = await searchAddressBatch([q5, q7]);
-    expect(resultsForQuery([q5], pool).map((h) => h.address)).toEqual(["Cankarjeva cesta 5"]);
-    expect(resultsForQuery([q7], pool)[0]).toMatchObject({
-      address: "Cankarjeva cesta 7",
-      former: { name: "Aleksandrova cesta" },
-    });
+    const q9 = { settlement: "Ljubljana", street: "Aleksandrova cesta", number: 9, suffix: "a" };
+    const pool = await searchAddressBatch([q5, q9]);
+    expect(resultsForQuery([q5], pool).map((h) => h.address)).toEqual(["Cankarjeva cesta"]);
+    // A number today's street does not have is on the street all the same.
+    expect(resultsForQuery([q9], pool)).toMatchObject([
+      { address: "Cankarjeva cesta", former: { name: "Aleksandrova cesta" } },
+    ]);
   });
 
   it("finds a former street written short, with no house and under the town's own občina", async () => {
@@ -152,10 +157,10 @@ describe("an address written under a former street name", () => {
     expect(streets[0]).toMatchObject({ street: "Cankarjeva cesta", municipality: "Ljubljana" });
   });
 
-  it("still finds the house once the address names both streets, the number on the former one", async () => {
+  it("still finds the street once the address names both, the number on the former one", async () => {
     const queries = rnQueriesFrom("Ljubljana, Slovenija", "Cankarjeva cesta / Aleksandrova cesta 5");
     expect(queries).toMatchObject([{ settlement: "Ljubljana", street: "Aleksandrova cesta", number: 5 }]);
-    expect((await searchAddress(queries[0])).map((h) => h.address)).toEqual(["Cankarjeva cesta 5"]);
+    expect((await searchAddress(queries[0])).map((h) => h.address)).toEqual(["Cankarjeva cesta"]);
   });
 
   it("reads a street written under both its names by the first of them", async () => {

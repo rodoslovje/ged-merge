@@ -95,9 +95,10 @@ export interface RnResult {
   number: number;
   /** Its letter suffix, lowercased; absent when the register records none. */
   suffix?: string;
-  /** The former name this house was found under: the file names a street the
-   *  town has since renamed, and the register was asked for today's name
-   *  ({@link searchFormerNames}). The {@link label} says so too. */
+  /** Set when the file names a street the town has since renamed: this answer
+   *  is then the middle of the street under today's name, not a house — its
+   *  {@link address} carries no number, and {@link number} is the query's
+   *  ({@link searchFormerNames}). The {@link label} names the former name too. */
   former?: FormerName;
 }
 
@@ -589,27 +590,44 @@ function underFormerName<T extends { label: string; street?: string }>(
 }
 
 /**
- * The same house asked for under the name its street bears today, for an
- * address written under a name the town has since changed — "Aleksandrova
- * cesta 5" is a house on Ljubljana's Cankarjeva cesta. Asked in addition to the
- * address as written, never instead of it: an old name is quite often the name
- * of a different street today, and both houses are then offered, the renamed
- * one marked with the name and years it was found under. Which of them a record
- * means depends on its date, and that is the researcher's to read.
+ * Where an address written under a former street name is, as far as that can
+ * be said: on the street that bears another name today — "Aleksandrova cesta
+ * 5" is somewhere on Ljubljana's Cankarjeva cesta. The answer is the middle of
+ * that street and never a house on it, because streets were very often
+ * renumbered when they were renamed: today's number 5 is a house the record
+ * may never have meant, and a wrong house looks exactly as certain as a right
+ * one.
+ *
+ * Asked in addition to the address as written, never instead of it: an old
+ * name is quite often the name of a different street today, and both answers
+ * are then offered, the renamed street marked with the name and year it was
+ * found under. Which of them a record means depends on its date, and that is
+ * the researcher's to read.
  *
  * Empty unless a former-names table is loaded and knows the street.
  */
 async function searchFormerNames(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
-  const out: RnResult[] = [];
-  for (const entry of await formerNamesOf(query)) {
-    const { altSettlements: _alt, ...rest } = query;
-    const asked: RnQuery = { ...rest, settlement: entry.settlement, street: entry.current };
-    const hits = (await answersLocally(query.country ?? "SI"))
-      ? await searchLocalAddress(query.country ?? "SI", asked)
-      : await searchInSettlement(asked, signal);
-    out.push(...underFormerName(hits, entry));
-  }
-  return out;
+  if (!query.street) return [];
+  const streets = await streetsOf({ ...query, street: query.street }, signal, true);
+  return streets.map((s) => streetAsAnswer(s, query));
+}
+
+/** A former street's middle as the answer to one address on it. The number is
+ *  the query's own, which is what hands a batch's answer back to its row
+ *  ({@link resultsForQuery}); the address line carries none, since the house
+ *  itself was not found. */
+function streetAsAnswer(street: StreetResult, query: Pick<RnQuery, "number" | "suffix">): RnResult {
+  return {
+    coord: street.coord,
+    address: street.street,
+    label: `${street.street}, ${street.settlement}${street.former ? ` ← ${formerNameLabel(street.former)}` : ""}`,
+    settlement: street.settlement,
+    street: street.street,
+    ...(street.municipality ? { municipality: street.municipality } : {}),
+    number: query.number,
+    ...(query.suffix ? { suffix: query.suffix } : {}),
+    ...(street.former ? { former: street.former } : {}),
+  };
 }
 
 /** {@link searchAddress} for the address exactly as the file writes it. */
@@ -691,6 +709,15 @@ export function streetQueryFrom(place: string | undefined, address: string | und
  * in the settlements asked stay two answers rather than a point between them.
  */
 export async function searchStreet(query: StreetQuery, signal?: AbortSignal): Promise<StreetResult[]> {
+  return streetsOf(query, signal, false);
+}
+
+/** {@link searchStreet}, or — `formerOnly` — just the streets the name is a
+ *  former name of, which is all an address with a house number wants from it
+ *  ({@link searchFormerNames}). */
+async function streetsOf(query: StreetQuery, signal: AbortSignal | undefined, formerOnly: boolean): Promise<StreetResult[]> {
+  const formerNames = await formerNamesOf(query);
+  if (formerOnly && !formerNames.length) return [];
   const local = await answersLocally(query.country ?? "SI");
   /** Every house of one street, in the first of these settlements that has it. */
   const housesOn = async (street: string, settlements: readonly string[]): Promise<RnResult[]> => {
@@ -708,9 +735,11 @@ export async function searchStreet(query: StreetQuery, signal?: AbortSignal): Pr
     }
     return [];
   };
-  const houses: RnResult[] = await housesOn(query.street, [query.settlement, ...(query.altSettlements ?? [])]);
+  const houses: RnResult[] = formerOnly
+    ? []
+    : await housesOn(query.street, [query.settlement, ...(query.altSettlements ?? [])]);
   // And the street under today's name, where the file's is a former one.
-  for (const entry of await formerNamesOf(query)) {
+  for (const entry of formerNames) {
     houses.push(...underFormerName(await housesOn(entry.current, [entry.settlement]), entry));
   }
   const streets = new Map<
@@ -983,11 +1012,14 @@ export async function searchAddressBatch(
           );
         }
       }
-      // The same numbers on the street's current name, where the file writes
-      // a former one — added to the group's own answers, never in their place
-      // (see searchFormerNames).
-      for (const entry of await formerNamesOf(g)) {
-        hits = [...hits, ...underFormerName(await own(entry.settlement, entry.current, numbers), entry)];
+      // The middle of the street the file's name is a former name of, for
+      // every address of the group — added to the group's own answers, never
+      // in their place (see searchFormerNames).
+      if (g.street) {
+        const { numbers: _numbers, queries, ...place } = g;
+        for (const street of await streetsOf({ ...place, street: g.street }, signal, true)) {
+          hits = [...hits, ...queries.map((q) => streetAsAnswer(street, q))];
+        }
       }
       pool.set(key, hits);
     } catch {

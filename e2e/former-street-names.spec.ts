@@ -4,8 +4,8 @@ import path from "path";
 import { tmpdir } from "./tmpdir";
 
 // An address written under a street name the town has since changed. The
-// register knows the street only by today's name, so on its own it has no
-// answer; with a table of former street names loaded, the house is offered —
+// answer; with a table of former street names loaded, the street is offered —
+// marked with the old name it was found under — and the address in the file
 // marked with the old name it was found under — and the address in the file
 // stays as the record wrote it.
 
@@ -32,7 +32,7 @@ writeFileSync(
   "utf-8",
 );
 
-test("a loaded table of former street names finds the house under today's name", async ({ page }) => {
+test("a loaded table of former street names finds the street under today's name", async ({ page }) => {
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(FILE);
   await page.locator(".edit-person").first().waitFor({ timeout: 15000 });
@@ -53,7 +53,7 @@ test("a loaded table of former street names finds the house under today's name",
   });
 
   const pin = page.getByRole("button", { name: "Coordinates for Residence" });
-  const house = page.getByRole("button", { name: /Cankarjeva cesta 5/ });
+  const house = page.getByRole("button", { name: /Cankarjeva cesta, Ljubljana/ });
 
   // Load the table in Settings → Map; it is listed with what it holds.
   await page.getByRole("button", { name: "Settings" }).first().click();
@@ -65,7 +65,8 @@ test("a loaded table of former street names finds the house under today's name",
   await expect(page.locator(".tools-geo-countries li", { hasText: "Ljubljana — former street names: 1" })).toBeVisible();
   await page.locator(".modal-close").click();
 
-  // Now the house is offered, under the name the record wrote.
+  // Now the street is offered — its middle, since the number may have changed
+  // with the name — marked with the name the record wrote.
   await pin.click();
   await expect(house).toBeVisible();
   await expect(house).toContainText("← Aleksandrova cesta (1919–)");

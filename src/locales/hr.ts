@@ -1321,7 +1321,7 @@ export const hr = {
   "tools.geocode.formerStreetsMeta": "{{places}} — nekadašnji nazivi ulica: {{count}} · uvezeno {{date}}",
   "tools.geocode.deleteFormerStreets": "Ukloni nekadašnje nazive ulica",
   "tools.geocode.sourceFormerStreets":
-    "CSV tablica s nazivima koje su ulice nekad imale. Uz nju se kuća u registru adresa pronalazi i kad je adresa zapisana starim nazivom ulice; uz predloženu kuću ispisan je stari naziv s godinom. Tablicu za Ljubljanu možete dobiti u zajednici Slovenskoga rodoslovnog društva.",
+    "CSV tablica s nazivima koje su ulice nekad imale. Uz nju se adresa zapisana starim nazivom ulice smješta na ulicu koja danas ima drugi naziv — na sredinu ulice, jer su se pri preimenovanju često mijenjali i kućni brojevi. Tablicu za Ljubljanu možete dobiti u zajednici Slovenskoga rodoslovnog društva.",
   "tools.geocode.formerStreetsUnreadable":
     "Ova datoteka nije tablica nekadašnjih naziva ulica — u prvom retku moraju biti stupci settlement, former_name i current_name.",
   "tools.geocode.progress": "{{covered}}/{{total}} mjesta ima koordinate · {{pct}} % spomena",

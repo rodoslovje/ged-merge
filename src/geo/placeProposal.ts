@@ -340,8 +340,10 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
     // other. The number stays with the name the record gave it: streets were
     // often renumbered when they were renamed, so the record's 5 is not known
     // to be today's 5, and writing it there would state what nobody recorded.
+    // (The register's answer is the street for the same reason — see
+    // searchFormerNames in rn.ts — so the number is the query's, kept on it.)
     result.former && result.street
-      ? `${result.street} / ${result.address.replace(result.street, result.former.name)}`
+      ? `${result.street} / ${result.former.name} ${result.number}${result.suffix ?? ""}`
       : result.address,
     style,
   );
