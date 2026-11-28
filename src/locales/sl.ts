@@ -4648,6 +4648,7 @@ export const sl = {
   "calendar.nameDays.hint": "God se določi po prvem imenu osebe. Ime z več godovi dobi najbolj znanega, ime, ki ga v koledarju ni, pa ostane brez godu.",
   "calendar.saints": "Imena svetnikov ob vsakem dnevu",
   "calendar.nameCalendar": "Koledar godov",
+  "calendar.chart.color": "Kaj kažejo barve na diagramih",
   "calendar.chart.years": "Letnice na diagramih",
   "calendar.chart.places": "Kraji na diagramih",
   "calendar.legend.nameday": "god",

@@ -43,7 +43,8 @@ import { PhotoArea } from "./PhotoArea";
 import { StatsCard } from "./StatsCard";
 import { BackPage, WhoIsWho, YearOverview } from "./BackPage";
 import { familyStats } from "../../calendar/stats";
-import type { FanChart } from "../../chart/fanLayout";
+import type { FanChart, FanSegment } from "../../chart/fanLayout";
+import { AXIS_TINT, CHART_AXES, createNodeColorer, fanPosition, indexPositions, type ColorAxis } from "../../chart/nodeColor";
 import { Segmented } from "../Segmented";
 import { SelectMenu } from "../DropdownMenu";
 import { afterPaint } from "../busyCursor";
@@ -131,6 +132,8 @@ interface CalendarWork {
   /** What the charts write under a name: the years, the place. */
   chartYears: boolean;
   chartPlaces: boolean;
+  /** What a person's fill on a chart says. */
+  chartColor: ColorAxis;
   /** The cover's title; empty for the calendar's own ("Family calendar"). */
   title: string;
   cover: Picture;
@@ -162,6 +165,7 @@ function defaultWork(lang: string, thisYear: number): CalendarWork {
     opts: { year: new Date().getMonth() >= 8 ? thisYear + 1 : thisYear, scope: 1, partners: true, memorial: "off" },
     chartYears: true,
     chartPlaces: false,
+    chartColor: "plain",
     title: "",
     cover: { kind: "fan" },
     dedication: "",
@@ -219,6 +223,7 @@ function mergeWork(base: CalendarWork, saved: Record<string, unknown>, thisYear:
     nameCalendar: pick("nameCalendar", one(NAME_CALENDARS)),
     chartYears: pick("chartYears", bool),
     chartPlaces: pick("chartPlaces", bool),
+    chartColor: pick("chartColor", one(CHART_COLORS)),
     title: typeof saved.title === "string" ? saved.title : "",
     opts: {
       // A calendar kept in an earlier year: its year is no longer on offer.
@@ -254,6 +259,10 @@ function backKindLabel(t: (key: string) => string, kind: Back["kind"]): string {
   return kind === "overview" || kind === "gallery" || kind === "none" ? t(`calendar.back.${kind}`) : t(`calendar.picture.${kind}`);
 }
 const PICTURE_KINDS: Picture["kind"][] = ["photos", "fan", "fanAnc", "fanDesc", "treeDesc", "treeAnc", "stats"];
+
+/** What a calendar's chart can be coloured by: the axes that read without a
+ *  legend, which a printed page does not carry. */
+const CHART_COLORS: ColorAxis[] = ["plain", "generation", "branch", "sex"];
 
 /** A picture drawn as a chart — a fan or a tree — rather than photos or numbers. */
 const isChart = (kind: Picture["kind"] | Back["kind"]) => kind.startsWith("fan") || kind.startsWith("tree");
@@ -478,7 +487,7 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const trees = useBloodTrees(mainDs, rootId, FAN_GENERATIONS);
   const siblings = useMemo(() => (root ? buildSiblingRow(t, root, mainDs, nameOf) : undefined), [t, root, mainDs, nameOf]);
   const { settings } = useChartSettings();
-  const { chartYears, chartPlaces } = work;
+  const { chartYears, chartPlaces, chartColor } = work;
   const fanDisplay = useMemo(
     () => ({ ...settings, ...FAN_DISPLAY_OFF, showLifespan: chartYears, showPlace: chartPlaces }),
     [settings, chartYears, chartPlaces],
@@ -486,6 +495,14 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   // The same two choices under every chart picked: they hold for all of them.
   const chartChecks = (
     <>
+      <label className="cal-field">
+        <span>{t("calendar.chart.color")}</span>
+        <SelectMenu
+          value={chartColor}
+          onChange={(v) => patch({ chartColor: v as ColorAxis })}
+          options={CHART_COLORS.map((a) => ({ value: a, label: t(`chartColor.axis.${a}`) }))}
+        />
+      </label>
       <label className="cal-check">
         <input type="checkbox" checked={chartYears} onChange={(e) => patch({ chartYears: e.target.checked })} />
         <span>{t("calendar.chart.years")}</span>
@@ -500,24 +517,50 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
   const { fan } = useFanChart(trees.ancestors, "circle", { mode: "both", other: trees.descendants, siblings, hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
   const { fan: fanAnc } = useFanChart(trees.ancestors, "fan", { mode: "ancestors", hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
   const { fan: fanDesc } = useFanChart(trees.descendants, "fan", { mode: "descendants", hasPhoto: noPhoto, display: fanDisplay, livingNameOf });
-  const fanBody = (chart: FanChart | undefined, desc: (key: string, gen: number) => boolean) =>
-    chart ? (
+  // A chart coloured by something: each chart's own colours, from the people
+  // it draws. Undefined on the plain choice — the two halves' own colours —
+  // and for a spouse riding beside a line, of whom a chart-reading axis says nothing.
+  const painter = useCallback(
+    (anc: TreeNode | undefined, desc: TreeNode | undefined, drawn: { n: Pick<TreeNode, "key" | "main">; seg?: FanSegment }[]) => {
+      if (chartColor === "plain") return undefined;
+      const up = indexPositions(anc, "ancestors");
+      const { positions, branches } = indexPositions(desc, "descendants", "", up.positions, up.branches);
+      const posOf = (n: Pick<TreeNode, "key">, seg?: FanSegment) =>
+        seg ? fanPosition(seg, anc ? "ancestors" : "descendants", positions) : positions.get(n.key);
+      const colorer = createNodeColorer(
+        chartColor,
+        { ds: mainDs, t, lang: i18n.language, home: "", branches },
+        drawn.map(({ n, seg }) => ({ indi: n.main, pos: posOf(n, seg) })),
+      );
+      return (n: Pick<TreeNode, "key" | "main">, seg?: FanSegment) =>
+        seg?.band && CHART_AXES.has(chartColor) ? undefined : colorer.colorFor(n.main, posOf(n, seg));
+    },
+    [chartColor, mainDs, t, i18n.language],
+  );
+  const segs = (chart: FanChart | undefined) => (chart?.segments ?? []).map((seg) => ({ n: seg.node, seg }));
+  const tint = chartColor === "plain" ? undefined : AXIS_TINT;
+  const fanBody = (chart: FanChart | undefined, desc: (key: string, gen: number) => boolean, anc?: TreeNode, down?: TreeNode) => {
+    const paint = painter(anc, down, segs(chart));
+    return chart ? (
       <FanChartBody
         chart={chart}
-        colorOf={(_n, seg) => (desc(seg.key, seg.gen) ? "var(--node-desc)" : "var(--node-main)")}
+        colorOf={(n, seg) => paint?.(n, seg) ?? (desc(seg.key, seg.gen) ? "var(--node-desc)" : "var(--node-main)")}
+        tint={tint}
         selectedKey={null}
         onSelect={() => {}}
         mainRecords={mainDs.records}
         nativeTooltip={false}
       />
     ) : undefined;
+  };
   // The trees: descendants top-down, the root above them; ancestors as the
   // classic pedigree, the root on the left and each generation to its right.
   const treeNodeH = nodeHeight(fanDisplay);
   const treeDesc = useMemo(() => laidTree(trees.descendants, false, treeNodeH), [trees.descendants, treeNodeH]);
   const treeAnc = useMemo(() => laidTree(trees.ancestors, true, treeNodeH), [trees.ancestors, treeNodeH]);
-  const treeBody = (t: ReturnType<typeof laidTree>, desc: boolean) =>
-    t ? (
+  const treeBody = (t: ReturnType<typeof laidTree>, desc: boolean) => {
+    const paint = t && painter(desc ? undefined : trees.ancestors, desc ? trees.descendants : undefined, t.flat.nodes.map((n) => ({ n })));
+    return t ? (
       // A small tree keeps its boxes at a reading size instead of blowing a
       // lone box up across the whole picture.
       <div className="cal-tree" style={{ maxWidth: `${t.width * TREE_EM_PER_PX}em`, maxHeight: `${t.height * TREE_EM_PER_PX}em` }}>
@@ -527,7 +570,8 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
         height={t.height}
         selectedKey={null}
         onSelect={() => {}}
-        colorOf={(n) => (desc && n.key !== t.root.key ? "var(--node-desc)" : "var(--node-main)")}
+        colorOf={(n) => (paint || undefined)?.(n) ?? (desc && n.key !== t.root.key ? "var(--node-desc)" : "var(--node-main)")}
+        tint={tint}
         mainRecords={mainDs.records}
         display={fanDisplay}
         livingNameOf={livingNameOf}
@@ -536,10 +580,11 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       />
       </div>
     ) : undefined;
+  };
   const charts = {
-    fan: fanBody(fan, (key, gen) => gen > 0 && !key.startsWith(ANCESTOR_KEY_PREFIX)),
-    fanAnc: fanBody(fanAnc, () => false),
-    fanDesc: fanBody(fanDesc, (_key, gen) => gen > 0),
+    fan: fanBody(fan, (key, gen) => gen > 0 && !key.startsWith(ANCESTOR_KEY_PREFIX), trees.ancestors, trees.descendants),
+    fanAnc: fanBody(fanAnc, () => false, trees.ancestors),
+    fanDesc: fanBody(fanDesc, (_key, gen) => gen > 0, undefined, trees.descendants),
     treeDesc: treeBody(treeDesc, true),
     treeAnc: treeBody(treeAnc, false),
   };

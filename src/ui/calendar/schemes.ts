@@ -72,6 +72,12 @@ export function schemeVars(scheme: CalendarScheme): Record<string, string> {
     "--glyph-birthday": p.birthday, "--glyph-anniversary": p.anniversary, "--glyph-memorial": p.memorial,
     // The app tokens the fan draws with.
     "--node-main": p.fanAnc, "--node-desc": p.fanDesc, "--panel": p.paper, "--text": p.ink,
-    "--border": p.rule, "--sex-male": p.male, "--sex-female": p.female,
+    "--border": p.rule, "--sex-male": p.male, "--sex-female": p.female, "--sex-other": p.muted,
+    // What a chart coloured by generation or by family line draws with: the
+    // generations run between the scheme's own colours, the lines take the
+    // paper's lightness whatever the app's theme.
+    "--kin-gen-0": p.muted, "--kin-anc-near": p.anniversary, "--kin-anc-far": p.fanAnc,
+    "--kin-desc-near": `color-mix(in oklch, ${p.fanDesc} 45%, ${p.paper})`, "--kin-desc-far": p.fanDesc,
+    "--fan-branch-l": "0.56", "--fan-branch-c": "0.16",
   };
 }

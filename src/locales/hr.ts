@@ -4372,6 +4372,7 @@ export const hr = {
   "calendar.nameDays.hint": "Imendan se određuje prema prvom imenu osobe. Ime s više imendana dobiva najpoznatiji, a ime kojeg u kalendaru nema ostaje bez imendana.",
   "calendar.saints": "Imena svetaca uz svaki dan",
   "calendar.nameCalendar": "Kalendar imendana",
+  "calendar.chart.color": "Što pokazuju boje na dijagramima",
   "calendar.chart.years": "Godine na dijagramima",
   "calendar.chart.places": "Mjesta na dijagramima",
   "calendar.legend.nameday": "imendan",
