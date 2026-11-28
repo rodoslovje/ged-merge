@@ -40,6 +40,7 @@
     "@mediapipe/tasks-vision": "^0.10.21",
     "i18next": "^26.5.6",
     "leaflet": "^1.9.4",
+    "maplibre-gl": "^6.20.0",
     "pbf": "^5.1.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

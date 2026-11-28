@@ -147,6 +147,24 @@ export const CALENDAR_CSS = `
 .cal-chart { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .cal-chart svg { width: 100%; height: 100%; }
 .cal-tree { width: 100%; height: 100%; }
+/* The map of where the family lives: a picture of the base map, and the
+   page's own flags over it — a pole from the place up to a label. */
+.cal-map { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 0.3em; background: var(--tint); }
+.cal-map > img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cal-flag { position: absolute; height: 2.4em; transform: translateY(-100%); border-left: 0.12em solid var(--accent); }
+.cal-flag::after { content: ""; position: absolute; left: -0.3em; bottom: -0.24em; width: 0.48em; height: 0.48em;
+  border-radius: 50%; background: var(--accent); border: 0.08em solid var(--paper); box-sizing: border-box; }
+.cal-flag-body { display: flex; flex-direction: column; width: max-content; max-width: 13em; padding: 0.2em 0.5em;
+  font-size: 0.7em; line-height: 1.25; text-align: left; color: var(--ink); background: var(--paper);
+  border: 0.1em solid var(--accent); border-left: 0; box-shadow: 0 0.1em 0.4em rgba(0,0,0,0.25); }
+.cal-flag-body b { color: var(--accent); }
+.cal-flag-body span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-flag.cal-flag-left { transform: translate(-100%, -100%); border-left: 0; border-right: 0.12em solid var(--accent); }
+.cal-flag.cal-flag-left::after { left: auto; right: -0.3em; }
+.cal-flag-left .cal-flag-body { border-left: 0.1em solid var(--accent); border-right: 0; text-align: right; }
+.cal-map-credit { position: absolute; right: 0; bottom: 0; padding: 0.1em 0.5em; font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 0.42em; color: var(--muted); background: color-mix(in srgb, var(--paper) 75%, transparent); }
+.cal-back-body > .cal-map { flex: 1 1 auto; }
 .cal-desk { flex-direction: row; gap: 1.6em; }
 .cal-desk .cal-picture { width: 38%; height: 100%; }
 .cal-desk .cal-side { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }

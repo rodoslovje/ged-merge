@@ -59,7 +59,9 @@ export default defineConfig({
         // The extension-tag reference pages (hundreds of them) and the
         // not-found page are for visitors following a URI, not for the
         // offline app: keep them out of the precache.
-        globIgnores: ["terms/*/**/*.html", "404.html"],
+        // The vector-map library draws the calendar's map from tiles on the
+        // network, so it is no use offline either.
+        globIgnores: ["terms/*/**/*.html", "404.html", "assets/maplibre-gl-*.js"],
         // The main chunk has outgrown Workbox's 2 MiB default; past the limit it
         // is silently left out of the precache, and the build fails on that.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,

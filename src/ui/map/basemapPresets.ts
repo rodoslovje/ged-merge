@@ -10,7 +10,7 @@ const OSM_CREDIT = '© <a href="https://www.openstreetmap.org/copyright">OpenStr
 
 /** CARTO's tiles are no longer served keyless; this is the app's own public
  *  browser key, sent as `?key=` on every tile request. */
-const CARTO_KEY = "cb1_2f27_1_2f7d4e1ab17690b2a1909577";
+export const CARTO_KEY = "cb1_2f27_1_2f7d4e1ab17690b2a1909577";
 
 /** The id stored when the user supplies their own tile URL instead. */
 export const CUSTOM_BASEMAP = "custom";

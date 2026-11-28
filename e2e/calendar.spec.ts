@@ -131,6 +131,21 @@ test("without a kept workspace the wizard says how to keep the work", async ({ p
   await expect(page.locator(".cal-panel")).toContainText("Remember my work in this browser");
 });
 
+// The map of where the family lives is one of the pictures. This family's file
+// places no residence, so the page says so — and asks the network for no map.
+test("the map of residences is offered as a picture and says when no one is placed", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("input.file-input").first().setInputFiles(FAMILY);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator(".edit-person").waitFor();
+  await page.locator(".charts-open-btn").click();
+  await page.getByRole("tab", { name: "Calendar" }).click();
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
+  await page.locator(".cal-field", { hasText: "What the picture shows" }).locator(".select-menu").click();
+  await page.locator('.dd-menu .dd-item[data-value="map"]').click();
+  await expect(page.locator(".cal-preview .cal-map")).toHaveText("None of the relatives on the calendar has a residence with coordinates.");
+});
+
 // A day with more names than its cell holds says how many it leaves out, and
 // the wizard says so beside the page: nothing is cut off unseen.
 test("a day too busy for its cell marks what it leaves out", async ({ page }) => {

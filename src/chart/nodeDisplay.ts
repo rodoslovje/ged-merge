@@ -130,7 +130,7 @@ export function modeSummary(t: Translate, people: number, generations: number): 
 
 /** The residence the person was last recorded at, among those `has` accepts:
  *  the latest dated one, else the last one written. */
-function lastResidence(indi: Individual, has: (e: GedEvent) => unknown = (e) => e.place || e.address): GedEvent | undefined {
+export function lastResidence(indi: Individual, has: (e: GedEvent) => unknown = (e) => e.place || e.address): GedEvent | undefined {
   let last: GedEvent | undefined;
   for (const e of indi.events) {
     if (e.tag !== "RESI" || !has(e)) continue;
