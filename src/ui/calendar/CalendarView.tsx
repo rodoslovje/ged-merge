@@ -569,10 +569,6 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       .map((id) => personPhoto(id))
       .filter((p): p is PagePhoto => !!p && !seen.has(p.url) && !!seen.add(p.url));
   }, [data.months, personPhoto]);
-  const made = useMemo(
-    () => new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long", year: "numeric" }).format(new Date()),
-    [i18n.language],
-  );
   const back = work.back;
   const backPage = back.kind === "none" ? null : (
     <BackPage
@@ -580,7 +576,6 @@ export function CalendarView({ mainDs, mainFileName, rootId, backLabel, onBack, 
       scheme={scheme}
       title={back.kind === "overview" ? String(opts.year) : backKindLabel(t, back.kind)}
       signature={work.signature}
-      made={made}
       site={site}
     >
       {back.kind === "overview" ? (

@@ -15,19 +15,17 @@ interface Props {
   children: ReactNode;
   /** The givers' own line ("Made by your grandchildren"). */
   signature?: string;
-  /** When the calendar was made, already worded. */
-  made: string;
   site?: string;
 }
 
-export function BackPage({ format, scheme, title, children, signature, made, site }: Props) {
+export function BackPage({ format, scheme, title, children, signature, site }: Props) {
   return (
     <div className="cal-page cal-back" style={pageStyle(format, scheme, { "--cal-pad-top": "3em" })}>
       <div className="cal-back-title">{title}</div>
       <div className="cal-back-body">{children}</div>
       <div className="cal-colophon">
         {signature?.trim() && <div className="cal-signature">{signature.trim()}</div>}
-        <div>{[made, site].filter(Boolean).join(" · ")}</div>
+        {site && <div>{site}</div>}
       </div>
       <PageFooter />
     </div>
