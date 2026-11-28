@@ -4746,6 +4746,9 @@ button:focus-visible {
   border-top: 1px solid var(--border);
   font-size: 0.82rem;
 }
+/* …but the arrow keys reach it, one step past the last option, and Enter there
+   runs the search. */
+.suggest-list-foot--hi { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .suggest-item-note { color: var(--muted); }
 
 /* App-styled dropdown menus (DropdownMenu.tsx) — the themed popup replacing
