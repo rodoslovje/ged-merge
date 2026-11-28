@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { writeFileSync } from "fs";
 import path from "path";
 import { tmpdir } from "./tmpdir";
@@ -85,7 +85,9 @@ test("a loaded table of former street names finds the street under today's name"
   await expect(page.locator(".tools-geo-source-error")).toContainText("not a table of former street names");
 });
 
-test("the address field proposes a former street typed short under both its names", async ({ page }) => {
+/** Open a file whose residence is "Aleksandrova" in Ljubljana, with an address
+ *  register and a table of former street names stored in the browser. */
+async function openWithStoredRegister(page: Page, online: boolean) {
   const file = path.join(tmpdir(), "former-street-names-field.ged");
   writeFileSync(
     file,
@@ -99,12 +101,14 @@ test("the address field proposes a former street typed short under both its name
     ].join("\n"),
     "utf-8",
   );
-  // The lookup is offered with online lookups on; the one service it would
-  // reach beside the stored register answers nothing here.
-  await page.addInitScript(() => {
-    localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: true }));
-  });
-  await page.route("**/nominatim.openstreetmap.org/**", (route) => route.fulfill({ json: [] }));
+  if (online) {
+    // The one service the lookup would reach beside the stored register
+    // answers nothing here.
+    await page.addInitScript(() => {
+      localStorage.setItem("gedmerge.settings", JSON.stringify({ allowLinkFetch: true }));
+    });
+    await page.route("**/nominatim.openstreetmap.org/**", (route) => route.fulfill({ json: [] }));
+  }
 
   await page.goto("/");
   await page.locator("input.file-input").first().setInputFiles(file);
@@ -129,7 +133,10 @@ test("the address field proposes a former street typed short under both its name
     invalidateAddressRegisters();
     invalidateFormerStreets();
   });
+}
 
+test("the address field proposes a former street typed short under both its names", async ({ page }) => {
+  await openWithStoredRegister(page, true);
   const address = page.getByRole("textbox", { name: "Residence address" });
   await address.click();
   await page.getByRole("button", { name: "Look this place up in the directories" }).click();
@@ -142,5 +149,24 @@ test("the address field proposes a former street typed short under both its name
   // Picked, it replaces the start that was typed and places the event.
   await offer.dispatchEvent("mousedown");
   await expect(address).toHaveValue("Cankarjeva cesta / Aleksandrova cesta");
+  await expect(page.getByRole("button", { name: "Coordinates for Residence" })).not.toHaveClass(/edit-event-coord--empty/);
+});
+
+test("a stored register answers the address field as it is typed, with online lookups off", async ({ page }) => {
+  await openWithStoredRegister(page, false);
+  const address = page.getByRole("textbox", { name: "Residence address" });
+  await address.click();
+
+  // No button to press — and none offered, since there is nothing online to ask.
+  const offer = page.locator(".suggest-item--register");
+  await expect(offer).toHaveCount(1);
+  await expect(offer).toContainText("Cankarjeva cesta / Aleksandrova cesta");
+  await expect(page.getByRole("button", { name: "Look this place up in the directories" })).toHaveCount(0);
+
+  // The number written on today's name as well is answered with that house.
+  await address.fill("Cankarjeva cesta 5 / Aleksandrova cesta 5");
+  await expect(offer).toHaveCount(1);
+  await expect(offer).toContainText("Cankarjeva cesta 5 / Aleksandrova cesta 5");
+  await offer.dispatchEvent("mousedown");
   await expect(page.getByRole("button", { name: "Coordinates for Residence" })).not.toHaveClass(/edit-event-coord--empty/);
 });

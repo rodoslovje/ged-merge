@@ -20,7 +20,7 @@ import { useResearch } from "./ResearchContext";
 import { ResearchRefs } from "./ResearchSection";
 import { EventAssociates } from "./EventAssociates";
 import { SuggestInput } from "./SuggestInput";
-import { usePlaceLookup } from "./PlaceLookupContext";
+import { addressLookupProps, placeLookupProps, usePlaceLookup } from "./PlaceLookupContext";
 import { completesAddress, type PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
@@ -1161,10 +1161,9 @@ export function EventFieldsRow({
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
             onPickProposal={pickProposal}
-            // A place is looked up on its own; with online lookups off the
-            // imported gazetteer still answers, so the search stays offered.
-            onLookup={lookup ? (query) => lookup.search(query) : undefined}
-            lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+            // A place is looked up on its own: the directories in this browser
+            // as it is typed, the online registers on request.
+            {...placeLookupProps(lookup, t)}
           />
           {/* This event's own coordinate: a pin showing whether it has one, and
            *  opening the per-event picker. Here rather than only in the Tools
@@ -1197,13 +1196,11 @@ export function EventFieldsRow({
           onPickCombo: pickCombo,
           commit: (val) => commitAll({ address: val, ...coordUpdate(placeField.value, val) }),
           lookup: {
-            // An address is looked up inside the event's place — online, or in
-            // an address register downloaded to this browser: house numbers are
-            // in the address registers, never in an imported gazetteer, so with
-            // the opt-in off and no register here the row says why instead of
-            // offering a search that could not answer.
-            onLookup: lookup?.addressLookup ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
-            lookupNote: lookup && !lookup.addressLookup ? t("tools.geocode.downloadNeedsOptIn") : undefined,
+            // An address is looked up inside the event's place: in an address
+            // register downloaded to this browser as it is typed, online on
+            // request — and with the opt-in off the row says why there is no
+            // such request to make.
+            ...addressLookupProps(lookup, placeField.value, t),
             onPickProposal: pickAddrProposal,
           },
           // The address's labelled lines and contact details, folded away

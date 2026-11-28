@@ -17,7 +17,7 @@ import { MapIcon } from "../icons/MapIcon";
 import { InfoIcon } from "../icons/InfoIcon";
 import { tipProps } from "../IconTip";
 import { SuggestInput } from "../edit/SuggestInput";
-import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { addressLookupProps, usePlaceLookup } from "../edit/PlaceLookupContext";
 import { placeKey, type FieldSuggestions } from "../edit/fieldSuggestions";
 import type { PlaceProposal } from "../../geo/placeProposal";
 
@@ -807,8 +807,7 @@ export function AddressSplitField({
         // House numbers live only in the online registers — an imported
         // gazetteer holds settlements — so with the opt-in off the field says
         // why instead of offering a search that cannot answer.
-        onLookup={lookup?.online ? (query) => lookup.searchAddress(place, query) : undefined}
-        lookupNote={lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined}
+        {...addressLookupProps(lookup, place, t)}
       />
     </span>
   );

@@ -46,7 +46,17 @@ import { useSettingsSlice } from "../SettingsContext";
 // coordinate share does (see CoordShareContext).
 
 export interface PlaceLookup {
-  /** Registers matching the typed text, already written in the file's layout. */
+  /**
+   * What the directories held in this browser know of the typed text — the
+   * imported gazetteers and a downloaded address register. They ask nobody and
+   * answer at once, so a field offers these while it is being typed in, with
+   * no button to press ({@link search} is the button).
+   */
+  suggest: (query: string) => Promise<PlaceProposal[]>;
+  /** {@link suggest} for an address being typed — see {@link searchAddress}. */
+  suggestAddress: (place: string, address: string) => Promise<PlaceProposal[]>;
+  /** Registers matching the typed text, already written in the file's layout:
+   *  {@link suggest}'s answers and, on top, the online registers'. */
   search: (query: string) => Promise<PlaceProposal[]>;
   /**
    * The same for an address being typed, which is looked up *within* the event's
@@ -62,9 +72,30 @@ export interface PlaceLookup {
    *  lookups). When off, only an imported gazetteer answers — and the panel
    *  says so instead of silently returning less. */
   online: boolean;
-  /** Whether an address can be looked up at all: online, or in an address
-   *  register downloaded to this browser. */
-  addressLookup: boolean;
+}
+
+/** The lookup props of a place field's `SuggestInput`: the offline directories
+ *  as it is typed in, and the online registers behind the lookup row — or, with
+ *  online lookups off, the row saying why there is no more to ask. */
+export function placeLookupProps(lookup: PlaceLookup | null, t: (key: string) => string) {
+  if (!lookup) return {};
+  return {
+    onSuggest: (query: string) => lookup.suggest(query),
+    ...(lookup.online
+      ? { onLookup: (query: string) => lookup.search(query) }
+      : { lookupNote: t("event.place.lookup.offlineOnly") }),
+  };
+}
+
+/** {@link placeLookupProps} for an address field, looked up inside `place`. */
+export function addressLookupProps(lookup: PlaceLookup | null, place: string, t: (key: string) => string) {
+  if (!lookup) return {};
+  return {
+    onSuggest: (query: string) => lookup.suggestAddress(place, query),
+    ...(lookup.online
+      ? { onLookup: (query: string) => lookup.searchAddress(place, query) }
+      : { lookupNote: t("tools.geocode.downloadNeedsOptIn") }),
+  };
 }
 
 /** The preferences this file reads — subscribed field by field, so an
@@ -187,7 +218,13 @@ export function usePlaceLookupValue(
       };
     };
 
-    const search = async (query: string): Promise<PlaceProposal[]> => {
+    // With online lookups off — or for the offers made while typing, which
+    // must never reach the network — only a register held in this browser is
+    // asked: nothing leaves the device.
+    const mayAsk = (queries: Parameters<typeof isOfflineQuery>[0], offlineOnly: boolean) =>
+      queries.length > 0 && ((online && !offlineOnly) || isOfflineQuery(queries, registers));
+
+    const searchPlace = async (query: string, offlineOnly: boolean): Promise<PlaceProposal[]> => {
       const text = query.trim();
       if (text.length < 2) return [];
 
@@ -211,10 +248,15 @@ export function usePlaceLookupValue(
         }
       }
 
-      if (online) {
-        // The address register only applies when the text names a house number
-        // in Slovenia; the other two take any free text.
-        const rnQueries = rnQueriesFrom(text, undefined);
+      // The address register only applies when the text names a house number
+      // in Slovenia or Croatia.
+      const rnQueries = rnQueriesFrom(text, undefined);
+      if (offlineOnly || !online) {
+        if (mayAsk(rnQueries, true)) {
+          for (const r of await searchAddresses(rnQueries).catch(() => [])) add(proposalFromRn(r, style));
+        }
+      } else {
+        // The other two take any free text.
         // Answered in the language the query is written in, not the reader's:
         // a file that says "United States" must get "United States" back, or
         // the proposal composed from the answer names the country twice over
@@ -249,12 +291,11 @@ export function usePlaceLookupValue(
         style.fmt.countryPreferred,
       );
 
-    const searchAddress = async (place: string, address: string): Promise<PlaceProposal[]> => {
+    const searchPlaceAddress = async (place: string, address: string, offlineOnly: boolean): Promise<PlaceProposal[]> => {
       const text = address.trim();
       // House numbers live only in the address registers, so with the opt-in
-      // off and none downloaded there is nothing to ask (the caller doesn't
-      // offer the search then).
-      if (!text || (!online && !registers.size)) return [];
+      // off and none downloaded there is nothing to ask.
+      if (!text || ((offlineOnly || !online) && !registers.size)) return [];
 
       const { out, add } = collector();
       // The register reads the number against the event's place: which
@@ -269,15 +310,12 @@ export function usePlaceLookupValue(
       const langSource = decomposePlace(place).country ? place : text;
       // An address naming a street and no house on it is asked for the street.
       const streetQuery = rnQueries.length ? undefined : streetQueryFrom(place || undefined, text);
-      // With online lookups off, only a register held in this browser is
-      // asked: nothing leaves the device.
-      const mayAsk = (queries: Parameters<typeof isOfflineQuery>[0]) => online || isOfflineQuery(queries, registers);
       const [rn, streets, osm] = await Promise.allSettled([
-        rnQueries.length && mayAsk(rnQueries) ? searchAddresses(rnQueries) : Promise.resolve([]),
-        streetQuery && mayAsk([streetQuery]) ? searchStreet(streetQuery) : Promise.resolve([]),
+        mayAsk(rnQueries, offlineOnly) ? searchAddresses(rnQueries) : Promise.resolve([]),
+        streetQuery && mayAsk([streetQuery], offlineOnly) ? searchStreet(streetQuery) : Promise.resolve([]),
         // Address first, then the place — the order Nominatim reads best, in
         // the language the event's place is written in.
-        online
+        online && !offlineOnly
           ? osmSearch(
               [text, place].map((s) => s.trim()).filter(Boolean).join(", "),
               placeLookupLanguage(langSource, style.language, style.fmt.countryPreferred),
@@ -293,7 +331,13 @@ export function usePlaceLookupValue(
       return out.slice(0, MAX_RESULTS);
     };
 
-    return { search, searchAddress, online, addressLookup: online || registers.size > 0 };
+    return {
+      suggest: (query) => searchPlace(query, true),
+      suggestAddress: (place, address) => searchPlaceAddress(place, address, true),
+      search: (query) => searchPlace(query, false),
+      searchAddress: (place, address) => searchPlaceAddress(place, address, false),
+      online,
+    };
   }, [style, placeSuggestions, online, registers]);
 }
 
