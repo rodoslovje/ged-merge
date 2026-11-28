@@ -311,6 +311,14 @@ describe("an address-register house as a place", () => {
     expect(p.coord).toEqual(house.coord);
   });
 
+  it("offers a house the file numbers on today's street name with both numbers", () => {
+    const p = proposalFromRn(
+      { ...house, address: "Cankarjeva cesta 7", street: "Cankarjeva cesta", number: 5, former: { name: "Aleksandrova cesta" } },
+      style(),
+    )!;
+    expect(p.addr).toBe("Cankarjeva cesta 7 / Aleksandrova cesta 5");
+  });
+
   it("proposes a street named without a house, a former one under both names", () => {
     const street = { coord: house.coord, street: "Cankarjeva cesta", settlement: "Ljubljana", municipality: "Ljubljana", houses: 12 };
     const today = proposalFromStreet(street, style())!;

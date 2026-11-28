@@ -98,7 +98,10 @@ export interface RnResult {
   /** Set when the file names a street the town has since renamed: this answer
    *  is then the middle of the street under today's name, not a house — its
    *  {@link address} carries no number, and {@link number} is the query's
-   *  ({@link searchFormerNames}). The {@link label} names the former name too. */
+   *  ({@link searchFormerNames}). Only where the file itself also writes the
+   *  house under today's name is it that house, {@link address} and all; the
+   *  {@link number} stays the query's. The {@link label} names the former name
+   *  too. */
   former?: FormerName;
 }
 
@@ -540,11 +543,15 @@ function rnFetch(filter: string, signal?: AbortSignal, limit = FETCH_LIMIT): Pro
  * which the review UI shows as "no match" so the row can fall back to a
  * manual pick.
  */
-export async function searchAddress(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
+export async function searchAddress(
+  query: RnQuery,
+  signal?: AbortSignal,
+  beside: readonly RnQuery[] = [],
+): Promise<RnResult[]> {
   const hits = await searchAsWritten(query, signal);
   // One house once: found as written it needs no former name, and a street
   // that bore the name twice answers with the same houses both times.
-  for (const former of await searchFormerNames(query, signal)) {
+  for (const former of await searchFormerNames(query, signal, beside)) {
     if (!hits.some((h) => h.coord.lat === former.coord.lat && h.coord.lon === former.coord.lon)) hits.push(former);
   }
   return hits;
@@ -604,12 +611,66 @@ function underFormerName<T extends { label: string; street?: string }>(
  * found under. Which of them a record means depends on its date, and that is
  * the researcher's to read.
  *
+ * The one exception is a house the file itself writes under today's name as
+ * well — "Zoisova ulica 3 / Ulica Moše Pijade 3". `beside` is the other
+ * addresses of the same value, and a number one of them gives on the street's
+ * current name is the researcher's own word for which house it is today: that
+ * house is then the answer, and the middle only where the register has no such
+ * number.
+ *
  * Empty unless a former-names table is loaded and knows the street.
  */
-async function searchFormerNames(query: RnQuery, signal?: AbortSignal): Promise<RnResult[]> {
+async function searchFormerNames(
+  query: RnQuery,
+  signal?: AbortSignal,
+  beside: readonly RnQuery[] = [],
+): Promise<RnResult[]> {
   if (!query.street) return [];
   const streets = await streetsOf({ ...query, street: query.street }, signal, true);
-  return streets.map((s) => streetAsAnswer(s, query));
+  const out: RnResult[] = [];
+  for (const street of streets) {
+    const houses: RnResult[] = [];
+    for (const other of beside) {
+      if (other === query || !other.street || !sameStreet(other.street, street.street)) continue;
+      houses.push(...(await housesAsAnswer(street, other, query, signal)));
+    }
+    out.push(...(houses.length ? houses : [streetAsAnswer(street, query)]));
+  }
+  return out;
+}
+
+/** The house `written` names on a former street's current name, as the answer
+ *  to `query` — the same address under the former name. Held to that street,
+ *  so no widening rung can pass off another house; the number is the query's,
+ *  as a street's middle carries it ({@link streetAsAnswer}). */
+async function housesAsAnswer(
+  street: StreetResult,
+  written: RnQuery,
+  query: RnQuery,
+  signal?: AbortSignal,
+): Promise<RnResult[]> {
+  if (!street.former) return [];
+  const country = query.country ?? "SI";
+  const asked: RnQuery = {
+    ...(query.country ? { country: query.country } : {}),
+    settlement: street.settlement,
+    street: street.street,
+    number: written.number,
+    ...(written.suffix ? { suffix: written.suffix } : {}),
+    ...(query.parents ? { parents: query.parents } : {}),
+  };
+  const hits: RnResult[] = (await answersLocally(country))
+    ? await searchLocalAddress(country, asked)
+    : await searchInSettlement(asked, signal);
+  return hits
+    .filter((h) => sameStreet(street.street, h.street ?? ""))
+    .map(({ suffix: _suffix, ...h }) => ({
+      ...h,
+      label: `${h.label} ← ${formerNameLabel(street.former!)}`,
+      number: query.number,
+      ...(query.suffix ? { suffix: query.suffix } : {}),
+      former: street.former,
+    }));
 }
 
 /** A former street's middle as the answer to one address on it. The number is
@@ -833,15 +894,18 @@ export async function searchAddresses(queries: readonly RnQuery[], signal?: Abor
   for (const query of queries) {
     let hits: RnResult[];
     try {
-      hits = await searchAddress(query, signal);
+      hits = await searchAddress(query, signal, queries);
     } catch (err) {
       failure = err;
       failed = true;
       continue;
     }
     for (const hit of hits) {
-      if (merged.some((m) => m.coord.lat === hit.coord.lat && m.coord.lon === hit.coord.lon)) continue;
-      merged.push(hit);
+      const at = merged.findIndex((m) => m.coord.lat === hit.coord.lat && m.coord.lon === hit.coord.lon);
+      if (at < 0) merged.push(hit);
+      // A house written under both its street names is found twice; the answer
+      // that knows the former name is the one that says both.
+      else if (hit.former && !merged[at].former) merged[at] = hit;
     }
   }
   if (!merged.length && failed) throw failure;

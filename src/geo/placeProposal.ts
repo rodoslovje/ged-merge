@@ -341,9 +341,11 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle): PlacePropos
     // often renumbered when they were renamed, so the record's 5 is not known
     // to be today's 5, and writing it there would state what nobody recorded.
     // (The register's answer is the street for the same reason — see
-    // searchFormerNames in rn.ts — so the number is the query's, kept on it.)
+    // searchFormerNames in rn.ts — so the number is the query's, kept on it.
+    // Only a file that itself writes the house under today's name gets that
+    // house back, and then its address carries the number it was written with.)
     result.former && result.street
-      ? `${result.street} / ${result.former.name} ${result.number}${result.suffix ?? ""}`
+      ? `${result.address} / ${result.former.name} ${result.number}${result.suffix ?? ""}`
       : result.address,
     style,
   );
