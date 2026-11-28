@@ -10,10 +10,10 @@ import { BASEMAP_CREDIT, renderBasemap, type Basemap, type MapShape } from "./ba
 // and boxes are the page's own, so they print as sharp as the rest of it and
 // follow its colours.
 
-/** How many far-off places the line at the map's foot names. */
-const AWAY_PLACES = 6;
-/** The foot kept free of boxes: the credit alone, or the far-off places too. */
-const FOOT_EM = { credit: 1, away: 3.4 };
+/** How many far-off places the line under the maps names. */
+const AWAY_PLACES = 8;
+/** A map's foot kept free of boxes, for the credit. */
+const FOOT_EM = 1;
 /** A box's distance from the map's edge, in em (the stylesheet's). */
 const EDGE_EM = 0.5;
 /** What a column of boxes takes of a map's width, in em, a little air included. */
@@ -52,28 +52,37 @@ export function MapPicture({ pins, nameOf }: Props) {
     setRoom({ wide, maps: 1 + Math.max(0, Math.floor(spare)) });
   }, []);
   // A map of each region the family lives in, the most peopled first and
-  // largest; whoever lives beyond them is named at the first map's foot.
+  // largest; whoever lives beyond them is named in a line under the maps.
   const { regions, away } = useMemo(() => mapRegions(pins, room?.maps ?? 1), [pins, room]);
   if (!pins.length) return <div className="cal-map" ref={ref}><div className="cal-photo-empty">{t("calendar.map.empty")}</div></div>;
   const people = regions.map((r) => r.reduce((n, p) => n + p.ids.length, 0));
   const total = people.reduce((a, b) => a + b, 0);
   return (
-    <div className={`cal-maps${room?.wide === false ? " cal-maps-stacked" : ""}`} ref={ref}>
-      {room && regions.map((region, i) => (
-        <MapPanel
-          key={region.map((p) => p.place).join("|")}
-          pins={region}
-          away={i === 0 ? away : []}
-          nameOf={nameOf}
-          grow={Math.max(MIN_SHARE, people[i] / total)}
-        />
-      ))}
+    <div className="cal-maps-wrap">
+      <div className={`cal-maps${room?.wide === false ? " cal-maps-stacked" : ""}`} ref={ref}>
+        {room && regions.map((region, i) => (
+          <MapPanel key={region.map((p) => p.place).join("|")} pins={region} nameOf={nameOf} grow={Math.max(MIN_SHARE, people[i] / total)} />
+        ))}
+      </div>
+      {room && away.length > 0 && (
+        <div className="cal-map-away">
+          <i>{t("calendar.map.elsewhere")}:</i>{" "}
+          {away.slice(0, AWAY_PLACES).map((p, i) => (
+            <span key={i}>
+              {i > 0 && " · "}
+              <b>{p.place}</b> {p.ids.slice(0, CALLOUT.names).map(nameOf).join(", ")}
+              {p.ids.length > CALLOUT.names && ` +${p.ids.length - CALLOUT.names}`}
+            </span>
+          ))}
+          {away.length > AWAY_PLACES && ` · +${away.length - AWAY_PLACES}`}
+        </div>
+      )}
     </div>
   );
 }
 
 /** One region's map, with its boxes. */
-function MapPanel({ pins, away, nameOf, grow }: Props & { away: MapPin[]; grow: number }) {
+function MapPanel({ pins, nameOf, grow }: Props & { grow: number }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   // The picture is drawn in the shape of the room the page gives it, and the
@@ -109,7 +118,7 @@ function MapPanel({ pins, away, nameOf, grow }: Props & { away: MapPin[]; grow: 
   else if (!state.map || !size) body = <div className="cal-photo-empty">{t("calendar.map.loading")}</div>;
   else {
     const callouts = layoutCallouts(
-      mapFlags(pins, state.map.spots, size.aspect), size.w, size.h, away.length ? FOOT_EM.away : FOOT_EM.credit, EDGE_EM, oneSide,
+      mapFlags(pins, state.map.spots, size.aspect), size.w, size.h, FOOT_EM, EDGE_EM, oneSide,
     );
     // Where a line meets its box: the box's inner edge.
     const inner = (EDGE_EM + CALLOUT.width) / size.w;
@@ -132,18 +141,6 @@ function MapPanel({ pins, away, nameOf, grow }: Props & { away: MapPin[]; grow: 
             </div>
           </div>
         ))}
-        {away.length > 0 && (
-          <div className="cal-map-away">
-            <i>{t("calendar.map.elsewhere")}:</i>{" "}
-            {away.slice(0, AWAY_PLACES).map((p, i) => (
-              <span key={i}>
-                {i > 0 && " · "}
-                <b>{p.place}</b> {p.ids.slice(0, CALLOUT.names).map(nameOf).join(", ")}
-                {p.ids.length > CALLOUT.names && ` +${p.ids.length - CALLOUT.names}`}
-              </span>
-            ))}
-          </div>
-        )}
         <div className="cal-map-credit">{BASEMAP_CREDIT}</div>
       </>
     );
