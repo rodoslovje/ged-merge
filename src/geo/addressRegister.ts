@@ -327,6 +327,42 @@ export function streetKey(name: string): string {
 }
 
 /**
+ * The names a register name answers to, folded: the name whole, and each half
+ * of a bilingual one.
+ *
+ * Croatia's register writes the places of bilingual Istria under both their
+ * names at once — naselje "Savudrija - Salvore", its street "Ravna dolina -
+ * Valdepian", 114 settlements and some two thousand streets in all — and a file
+ * writes one of the two, nearly always. Compared whole, "Savudrija" was a
+ * settlement the register had never heard of, and not one house of Poreč, Umag
+ * or Rovinj could be found.
+ */
+export function nameForms(name: string): string[] {
+  const whole = foldToken(name);
+  if (!whole) return [];
+  const halves = whole.split(" - ").map((h) => h.trim()).filter(Boolean);
+  return halves.length > 1 ? [whole, ...halves] : [whole];
+}
+
+/** Whether a file's name is the register's — as the register writes it, or
+ *  either half of a bilingual name ({@link nameForms}). Spelling apart from
+ *  case and diacritics is not forgiven: this is what tells a name written as
+ *  the register has it from one the compliance check should report. */
+export function bearsName(written: string, registerName: string): boolean {
+  const folded = foldToken(written);
+  return !!folded && nameForms(registerName).includes(folded);
+}
+
+/** {@link nameForms} for a name above a settlement. The same bilingual places
+ *  have post offices written the other way, "Savudrija (Salvore)" — the second
+ *  name in brackets. */
+export function parentNameForms(name: string): string[] {
+  const whole = foldToken(name);
+  const both = /^(.+?)\s*\(([^()]+)\)$/.exec(whole);
+  return both ? [whole, both[1].trim(), both[2].trim()] : nameForms(name);
+}
+
+/**
  * One name written more briefly than the other: the same words, or all of them
  * and then some — "Brežna" for "Brežna ulica".
  *
@@ -350,10 +386,13 @@ function briefer(a: string, b: string): boolean {
  *  bucket folds the written name once. */
 export function sameStreet(written: string, registerName: string, foldedWritten = foldToken(written)): boolean {
   if (!registerName || !foldedWritten) return false;
-  if (briefer(foldToken(registerName), foldedWritten)) return true;
   const a = streetKey(written);
-  const b = streetKey(registerName);
-  return !!a && !!b && briefer(b, a);
+  // A bilingual street is the same street under either of its names.
+  return nameForms(registerName).some((form) => {
+    if (briefer(form, foldedWritten)) return true;
+    const b = streetKey(form);
+    return !!a && !!b && briefer(b, a);
+  });
 }
 
 /** Read one row out of a bucket. */
@@ -513,8 +552,8 @@ export function scopeToParents(
   const kept = hits.filter(
     (h) =>
       (h.municipality && wanted.has(foldToken(h.municipality))) ||
-      wanted.has(foldToken(postNameOf(h.post ?? ""))) ||
-      wanted.has(foldToken(h.settlement)),
+      parentNameForms(postNameOf(h.post ?? "")).some((name) => wanted.has(name)) ||
+      nameForms(h.settlement).some((name) => wanted.has(name)),
   );
   if (kept.length) return kept;
   for (const parent of wanted) {

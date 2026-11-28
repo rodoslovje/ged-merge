@@ -10,7 +10,7 @@ import type { GovResult } from "./gov";
 import type { NominatimResult } from "./nominatim";
 import type { RnResult, StreetResult } from "./rn";
 import { formerNameLabel } from "./formerStreets";
-import { addressRegisterId, sameStreet } from "./addressRegister";
+import { addressRegisterId, sameStreet, type RegisterCountry } from "./addressRegister";
 
 // Turning a register hit into a place the *file* would have written.
 //
@@ -343,7 +343,12 @@ export function proposalFromGazEntry(entry: GazEntry, style: PlaceStyle, address
  * keeps the whole list on the register's spelling of the street, and
  * {@link PlaceProposal.house} names the house that answered.
  */
-export function proposalFromRn(result: RnResult, style: PlaceStyle, numbers?: string): PlaceProposal | undefined {
+export function proposalFromRn(
+  result: RnResult,
+  style: PlaceStyle,
+  numbers?: string,
+  country: RegisterCountry = "SI",
+): PlaceProposal | undefined {
   // The register's line without its own number — the name the list hangs off.
   const host = numbers && !result.former ? result.address.replace(new RegExp(`\\s+${result.number}\\S*$`), "") : "";
   const listed = host && host !== result.address ? `${host} ${numbers}` : undefined;
@@ -351,7 +356,7 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle, numbers?: st
     {
       locality: result.settlement,
       admins: [result.municipality],
-      country: countryNameOf("SI", style.language),
+      country: countryNameOf(country, style.language),
     },
     // A house found under a former street name is offered under both names,
     // today's first: "Cankarjeva cesta / Aleksandrova cesta 5" — how a file
@@ -373,7 +378,7 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle, numbers?: st
     ...shaped,
     ...(listed ? { house: result.address } : {}),
     coord: result.coord,
-    source: addressRegisterId("SI"),
+    source: addressRegisterId(country),
     official: true,
     detail: result.label,
   };
@@ -385,12 +390,16 @@ export function proposalFromRn(result: RnResult, style: PlaceStyle, numbers?: st
  * coordinate. A street found under a former name is offered under both names,
  * as a house is ({@link proposalFromRn}).
  */
-export function proposalFromStreet(result: StreetResult, style: PlaceStyle): PlaceProposal | undefined {
+export function proposalFromStreet(
+  result: StreetResult,
+  style: PlaceStyle,
+  country: RegisterCountry = "SI",
+): PlaceProposal | undefined {
   const shaped = shape(
     {
       locality: result.settlement,
       admins: [result.municipality],
-      country: countryNameOf("SI", style.language),
+      country: countryNameOf(country, style.language),
     },
     result.former ? `${result.street} / ${result.former.name}` : result.street,
     style,
@@ -401,7 +410,7 @@ export function proposalFromStreet(result: StreetResult, style: PlaceStyle): Pla
   return {
     ...shaped,
     coord: result.coord,
-    source: addressRegisterId("SI"),
+    source: addressRegisterId(country),
     official: true,
     detail,
   };
