@@ -18,7 +18,7 @@ import type { MiniMapPin } from "../map/MiniPlaceMap";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import { LookupAction } from "../edit/LookupAction";
 import { IDLE_LOOKUP } from "../../geo/lookup";
-import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { placeLookupProps, usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import { useNameOf, useSettings } from "../SettingsContext";
 import type { KinshipResolver } from "../../match/kinship";
@@ -1227,8 +1227,7 @@ export function AddressCoordsSection({
                   onApply={() => applyPlaceRename(group)}
                   onCancel={() => setPlaceRenameKey(null)}
                   onPickProposal={(proposal) => setPlaceRenameDraft(proposal.plac)}
-                  onLookup={lookup ? (query) => lookup.search(query) : undefined}
-                  lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+                  {...placeLookupProps(lookup, t)}
                 />
               )}
               {/* Under the header rather than inside the group's own list: the

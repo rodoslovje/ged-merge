@@ -859,17 +859,19 @@
               Polje kraja med tipkanjem predlaga kraje, ki so že v vaši datoteki: dovolj je del vsake besede, v
               poljubnem vrstnem redu in brez šumnikov, tako da <em>Zg Bitnj</em> najde Zgornje Bitnje, <em>pok Zg</em>
               pa Pokopališče Zgornje Bitnje, enako kot pri iskanju po imenu (<a href="#workspace">§2</a>), in tako bere
-              svoje hiše tudi polje naslova. Seznam se vedno konča z
-              <strong>Poišči ta kraj v imenikih</strong> — poizvedba steče šele, ko nanj kliknete. Najbolj prav pride
+              svoje hiše tudi polje naslova. Pod njimi seznam med tipkanjem ponudi še zadetke iz imenikov, shranjenih v
+              tem brskalniku: iz imenika krajev, ki ste ga uvozili v <a href="#geocode">Geokodiranju krajev</a>, iz
+              prenesenega registra naslovov in iz tabele nekdanjih imen ulic. Tako iskanje ne zapusti vaše naprave.
+              Seznam se konča z gumbom
+              <strong>Poišči v spletnih imenikih</strong> — spletna poizvedba steče šele, ko nanj kliknete. Najbolj prav pride
               pri vasi, ki jo vnašate prvič, poiščete pa lahko tudi kraj, ki ga datoteka že piše: imenik odgovori s
-              koordinato in celotno verigo kraja. Iskanje vedno pregleda imenik krajev, ki ste ga uvozili v
-              <a href="#geocode">Geokodiranju krajev</a>. Imeniki odgovorijo v jeziku, v katerem je zapisan sam kraj, in ne v
+              koordinato in celotno verigo kraja. Imeniki odgovorijo v jeziku, v katerem je zapisan sam kraj, in ne v
               jeziku vmesnika — datoteki, ki piše <em>United States</em>, odgovorijo <em>United States</em>, tisti, ki
               piše <em>Slovenija</em>, pa <em>Slovenija</em> — tako se ime iz imenika ujema z datoteko, v katero se
               vpiše. Trije spletni imeniki — <strong>OpenStreetMap</strong>,
               slovenski register naslovov (<strong>GURS</strong>) in <strong>Genealoški imenik krajev (GOV)</strong> —
               se vključijo samo, kadar je v <a href="#workspace">Nastavitvah › Napredno</a> vklopljeno <em>Poišči
-              podatke na spletu</em>; brez tega iskanje zajame le uvoženi imenik krajev in vrstica to pove.
+              podatke na spletu</em>; brez tega odgovarjajo le shranjeni imeniki in vrstica to pove.
             </p>
             <p>
               Vsak predlog je že zapisan tako, kot kraje zapisuje <em>vaša</em> datoteka: enaka postavitev, enak vejični
@@ -923,7 +925,8 @@
               Predlagana je <em>sredina te ulice</em>, ker so se ob preimenovanju pogosto spremenile tudi hišne
               številke, ob predlogu pa je izpisano nekdanje ime z letnicami. Če predlog izberete v polju naslova,
               se zapišeta obe imeni, najprej današnje — <em>Cankarjeva cesta / Aleksandrova cesta 5</em> — hišna
-              številka pa ostane pri imenu, s katerim je bila zapisana.
+              številka pa ostane pri imenu, s katerim je bila zapisana. Če hišno številko zapišete tudi pri današnjem
+              imenu — <em>Cankarjeva cesta 5 / Aleksandrova cesta 5</em> — se namesto sredine ulice predlaga ta hiša.
             </p>
             <h3>Zemljevid krajev</h3>
             <p>
@@ -2248,7 +2251,7 @@
               ravni hkrati preimenuje ali združi del kraja po vseh zapisih — odlično za poenotenje različic zapisa.
               Polje najprej predlaga imena sosednjih vnosov pod istim nadrejenim krajem, zato kraja, ki oba številčita <em>Breg 13</em>,
               nikoli ne ponudita naslovov drug drugega, pod njimi pa vse kraje, ki jih vaša datoteka piše drugod, na dnu
-              seznama pa stoji <strong>Poišči ta kraj v imenikih</strong> — enako kot v poljih za preimenovanje pri
+              seznama pa stoji <strong>Poišči v spletnih imenikih</strong> — enako kot v poljih za preimenovanje pri
               geokodiranju in pregledu poimenovanja. Prav to potrebuje vrednost, ki ne imenuje države: kraji pod
               <em>Neznana država</em> imajo za sosede le drug drugega, zapis pa se pod državo premakne šele, ko
               izberete kraj, ki ga datoteka piše pravilno, ali odgovor imenika s celotno verigo. Odgovor imenika prinese
@@ -2706,7 +2709,7 @@
               pisala župnija, raven, o kateri register nima mnenja — čez vse navedbe zapisa, njegovo polje
               <em>Naslov</em> pa hkrati prenese naslov iz zapisa v vrstico <code>ADDR</code> dogodka, kakor to počne
               preimenovanje na seznamu krajev. Dopolnjuje se iz krajev vaše datoteke <em>in</em> iz imenikov —
-              <strong>Poišči ta kraj v imenikih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
+              <strong>Poišči v spletnih imenikih</strong>, saj se pravo ime morda v vaši datoteki ne pojavi nikjer — kar
               zapiše, pa tudi umesti tja, kamor kažejo imeniki: k naslovu, kadar je ta imenovan in ga preneseni register
               pozna, sicer k naselju, ob dvoumnem odgovoru pa nikamor. Popravek se zapiše takoj; odgovorom, ki čakajo nad njim, se ne pridruži: tam je beseda imenika, tu vaša. <strong>Pokaži
               zemljevid</strong> — ali klik na koordinato katerega koli odgovora — odpre isto okno za koordinato, kot ga

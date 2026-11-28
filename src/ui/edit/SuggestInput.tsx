@@ -27,6 +27,9 @@ type SearchState = { state: "idle" | "loading" | "error" | "done"; query: string
 
 const IDLE: SearchState = { state: "idle", query: "", results: [] };
 
+/** How long the typing must pause before the offline directories are asked. */
+const SUGGEST_DELAY_MS = 200;
+
 /** A text input with dropdown autocomplete from a pre-built suggestion list —
  * the one control behind every Edit field that completes from what the file
  * already writes: places and addresses, agencies, causes, an attribute's value,
@@ -62,6 +65,7 @@ export function SuggestInput({
   onClear,
   onPickCombo,
   onPickProposal,
+  onSuggest,
   onLookup,
   lookupNote,
 }: {
@@ -108,6 +112,10 @@ export function SuggestInput({
   /** Called with the register offer the user picked. Required, with `onLookup`
    *  or `lookupNote`, for the lookup row to appear at all. */
   onPickProposal?: (proposal: PlaceProposal) => void;
+  /** The directories held in this browser, asked for the typed text as it is
+   *  typed: they answer at once and ask nobody, so their offers need no button
+   *  — unlike `onLookup`, which is the button. */
+  onSuggest?: (query: string) => Promise<PlaceProposal[]>;
   /** Runs the register search for the typed text. The host supplies it, since
    *  what "look this up" means differs per field: a place is searched on its
    *  own, an address within the event's place. */
@@ -121,11 +129,33 @@ export function SuggestInput({
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
   const [search, setSearch] = useState<SearchState>(IDLE);
+  /** What `onSuggest` answered, and for which text. */
+  const [suggested, setSuggested] = useState<{ query: string; results: PlaceProposal[] }>({ query: "", results: [] });
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // The text now in the field, for an answer that arrives after it was typed.
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
+
+  // The offline directories are asked once the typing pauses; an answer for a
+  // text the field no longer holds is dropped. `onSuggest` is a fresh closure
+  // on every render of the host, so it is read through a ref rather than
+  // restarting the wait.
+  const suggestRef = useRef(onSuggest);
+  useEffect(() => { suggestRef.current = onSuggest; }, [onSuggest]);
+  const canSuggest = !!onSuggest && !!onPickProposal && open;
+  useEffect(() => {
+    const query = value.trim();
+    if (!canSuggest || query.length < 2) return;
+    let stale = false;
+    const timer = setTimeout(() => {
+      suggestRef.current?.(query).then(
+        (results) => { if (!stale) setSuggested({ query, results }); },
+        () => {},
+      );
+    }, SUGGEST_DELAY_MS);
+    return () => { stale = true; clearTimeout(timer); };
+  }, [value, canSuggest]);
 
   /** The lookup stands at the foot of every dropdown, familiar text or not:
    *  even a place the file already writes may want what rides *with* the text
@@ -245,12 +275,17 @@ export function SuggestInput({
     // coordinate and chain. They are shown for the query they were fetched
     // for, so an edited query doesn't leave the previous place's answers
     // standing.
-    const offers: Item[] =
-      search.query === value.trim()
-        ? search.results.map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
-        : [];
+    // The offline directories' offers lead — they were there before the search
+    // was asked — and the search adds what they did not already say.
+    const query = value.trim();
+    const proposals = new Map<string, PlaceProposal>();
+    for (const from of [suggested, search]) {
+      if (from.query !== query) continue;
+      for (const p of from.results) if (!proposals.has(proposalKey(p))) proposals.set(proposalKey(p), p);
+    }
+    const offers: Item[] = [...proposals.values()].map((p) => ({ place: p.plac, addr: p.addr, proposal: p }));
     return [...fromFile, ...offers];
-  }, [value, fromFile, search]);
+  }, [value, fromFile, search, suggested]);
 
   const showDropdown = open && (filtered.length > 0 || canSearch);
   /** The lookup row's place in the arrow-key walk — one step past the last

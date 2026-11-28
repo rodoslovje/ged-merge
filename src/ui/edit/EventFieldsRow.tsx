@@ -20,8 +20,8 @@ import { useResearch } from "./ResearchContext";
 import { ResearchRefs } from "./ResearchSection";
 import { EventAssociates } from "./EventAssociates";
 import { SuggestInput } from "./SuggestInput";
-import { usePlaceLookup } from "./PlaceLookupContext";
-import type { PlaceProposal } from "../../geo/placeProposal";
+import { addressLookupProps, placeLookupProps, usePlaceLookup } from "./PlaceLookupContext";
+import { completesAddress, type PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
 import { DATE_DISPLAY_WORDS } from "../dateDisplayFormat";
 import { useSettingsSlice } from "../SettingsContext";
@@ -434,15 +434,9 @@ export function EventFieldsRow({
     // An offer that merely completes what was typed is the user's own wording
     // finished, not replaced — "Zrinjskega" picked as "Zrinjskega cesta". A
     // renamed street is offered under both its names ("Ulica Janeza Pavla II. /
-    // Zrinjskega cesta"), and completing either of them takes the pair.
-    const typed = addrField.value.trim().toLowerCase();
-    const completes =
-      !!typed &&
-      !!proposal.addr
-        ?.toLowerCase()
-        .split(" / ")
-        .some((name) => name === typed || name.startsWith(`${typed} `));
-    const addr = completes ? proposal.addr : adopt(addrField.value, proposal.addr);
+    // Zrinjskega cesta"), and completing either of them takes the pair
+    // (completesAddress).
+    const addr = completesAddress(addrField.value, proposal.addr) ? proposal.addr : adopt(addrField.value, proposal.addr);
     if (place) placeField.set(place);
     if (addr) addrField.set(addr);
     commitAll({
@@ -1167,10 +1161,9 @@ export function EventFieldsRow({
             onClear={() => { placeField.clear(); commitAll({ place: "" }); }}
             onPickCombo={pickCombo}
             onPickProposal={pickProposal}
-            // A place is looked up on its own; with online lookups off the
-            // imported gazetteer still answers, so the search stays offered.
-            onLookup={lookup ? (query) => lookup.search(query) : undefined}
-            lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+            // A place is looked up on its own: the directories in this browser
+            // as it is typed, the online registers on request.
+            {...placeLookupProps(lookup, t)}
           />
           {/* This event's own coordinate: a pin showing whether it has one, and
            *  opening the per-event picker. Here rather than only in the Tools
@@ -1203,12 +1196,11 @@ export function EventFieldsRow({
           onPickCombo: pickCombo,
           commit: (val) => commitAll({ address: val, ...coordUpdate(placeField.value, val) }),
           lookup: {
-            // An address is looked up inside the event's place — and only online:
-            // house numbers are in the address registers, never in an imported
-            // gazetteer, so with the opt-in off the row says why instead of
-            // offering a search that could not answer.
-            onLookup: lookup?.online ? (query) => lookup.searchAddress(placeField.value, query) : undefined,
-            lookupNote: lookup && !lookup.online ? t("tools.geocode.downloadNeedsOptIn") : undefined,
+            // An address is looked up inside the event's place: in an address
+            // register downloaded to this browser as it is typed, online on
+            // request — and with the opt-in off the row says why there is no
+            // such request to make.
+            ...addressLookupProps(lookup, placeField.value, t),
             onPickProposal: pickAddrProposal,
           },
           // The address's labelled lines and contact details, folded away

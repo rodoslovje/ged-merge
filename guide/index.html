@@ -837,18 +837,19 @@
               The place field suggests places already in your file as you type: a part of each word is enough, in any
               order and without accents, so <em>Zg Bitnj</em> finds Zgornje Bitnje and <em>pok Zg</em> Pokopališče
               Zgornje Bitnje, the way a name is searched (<a href="#workspace">§2</a>), and the address field reads its
-              houses the same way. The list always ends with
-              <strong>Look this place up in the directories</strong> — nothing is asked until you click it. A village
+              houses the same way. Below them the list offers, as you type, what the directories stored in this browser
+              know — the gazetteer you imported in <a href="#geocode">Geocode places</a>, a downloaded address register,
+              a table of former street names: searching them asks nobody. The list ends with
+              <strong>Search the online directories</strong> — nothing is asked online until you click it. A village
               entered for the first time is where it earns its keep, but a place the file already writes can be looked
-              up too: the directory answers with its coordinate and its whole place chain. It always searches the gazetteer you imported in
-              <a href="#geocode">Geocode places</a>. They answer in the language the place itself is written in, not the
+              up too: the directory answers with its coordinate and its whole place chain. The directories answer in the language the place itself is written in, not the
               interface's — a file that says <em>United States</em> is answered <em>United States</em>, one that says
               <em>Slovenija</em> is answered <em>Slovenija</em> — so a name taken from a directory matches the file it
               joins. The three online directories — <strong>OpenStreetMap</strong>,
               Slovenia's address register (<strong>GURS</strong>) and the <strong>Genealogical Gazetteer (GOV)</strong>
               — are only asked when <em>Look up details online</em> is on in
-              <a href="#workspace">Settings › Advanced</a>; with it off the row says so and answers from the imported
-              gazetteer alone.
+              <a href="#workspace">Settings › Advanced</a>; with it off the row says so, and only the stored directories
+              answer.
             </p>
             <p>
               Each offer is already written the way <em>your</em> file writes places: the same layout, the same comma
@@ -905,7 +906,8 @@
               today. The offer is the <em>middle of that street</em>, because house numbers often changed with the
               name, and it shows the former name with its years. Taken in the address field, it writes both names,
               today's first — <em>Cankarjeva cesta / Aleksandrova cesta 5</em> — and the number stays with the name
-              it was recorded under.
+              it was recorded under. Write the number on today's name as well — <em>Cankarjeva cesta 5 / Aleksandrova
+              cesta 5</em> — and the offer is that house instead of the street's middle.
             </p>
             <h3>Place map</h3>
             <p>
@@ -2154,7 +2156,7 @@
               beside a name on any level renames or merges that place segment across every record at once — ideal for
               standardizing spelling variants. What it completes to are the names beside it under the same parent, so
               two towns that both number a <em>Breg 13</em> never offer each other's houses — and, below those, every
-              place your file writes elsewhere, with <strong>Look this place up in the directories</strong> at the foot
+              place your file writes elsewhere, with <strong>Search the online directories</strong> at the foot
               of the list, exactly as the geocoding and naming rename boxes have it. That is what a value naming no
               country at all is renamed with: the places under <em>Unspecified country</em> have only each other for
               neighbours, and picking a place the file writes properly — or a directory's answer, which brings its whole
@@ -2405,7 +2407,7 @@
               <strong>rename</strong> the raw place value (all occurrences at once — with an optional place + address
               split, and the correction is rescanned for matches immediately). That rename box is the same place field
               the <a href="#edit">Edit</a> view uses (<a href="#edit">§8</a>): it completes from the places your file already writes and always
-              ends with <strong>Look this place up in the directories</strong>. Picking a
+              ends with <strong>Search the online directories</strong>. Picking a
               directory's offer fills in the whole place chain — and writes the coordinate it puts the place at — so a
               misspelt or never-resolved value is corrected and placed in a single step. The <strong>Address</strong> box beside it
               is the same kind of field: it completes from the houses your file already writes at that place, from the
@@ -2587,7 +2589,7 @@
               level the register has no opinion about — over every occurrence of the value, and its
               <em>Address</em> box takes the house out of the value onto the event's own <code>ADDR</code> line at the
               same time, as the places list's rename does. It completes from the file's own places <em>and</em> from the
-              directories — <strong>Look this place up in the directories</strong>, since the right name may appear nowhere
+              directories — <strong>Search the online directories</strong>, since the right name may appear nowhere
               in your file — and what it writes is placed where the directories say it is: the house where one is named
               and a stored register holds it, the settlement otherwise, and nothing at all where the answer is
               ambiguous. It writes at once, rather than joining the answers waiting above it: those are the

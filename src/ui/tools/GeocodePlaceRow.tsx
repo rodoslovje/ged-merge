@@ -13,7 +13,7 @@ import { useLocalRegisters } from "../useLocalRegisters";
 import { adminOf, chosenCoordFor, pickLabel, type ChosenCoord, type FileCoord, type GeoAssignment, type GeocodeRow } from "../../tools/geocode";
 import { replaceLocality } from "../../tools/addresses";
 import type { KinshipResolver } from "../../match/kinship";
-import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { placeLookupProps, usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { placeCollator } from "../../gedcom/place";
@@ -548,8 +548,7 @@ export function GeocodePlaceRow({
           }}
           // Online lookups off still leaves the imported gazetteer answering,
           // so the search stays offered and the row says what it can't reach.
-          onLookup={lookup ? (query) => lookup.search(query) : undefined}
-          lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+          {...placeLookupProps(lookup, t)}
         >
           <AddressSplitField
             place={renameDraft}

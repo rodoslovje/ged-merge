@@ -18,7 +18,7 @@ import { AddressSplitField, RenameEditor, ToolsLoading, TreeSearch, UsageList, u
 import { ToolSummary } from "./ToolSummary";
 import { formatCoord } from "../../geo/points";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
-import { PlaceLookupProvider, usePlaceLookup } from "../edit/PlaceLookupContext";
+import { addressLookupProps, PlaceLookupProvider, placeLookupProps, usePlaceLookup } from "../edit/PlaceLookupContext";
 import { usePlaceFields } from "../edit/usePlaceFields";
 import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import { renameInValue } from "../../tools/placeEdit";
@@ -1078,12 +1078,10 @@ function PlaceTreeRow({
           // instead of offering a search that cannot answer.
           {...(node.isAddress && addrValue
             ? {
-                ...(lookup?.online ? { onLookup: (query: string) => lookup.searchAddress(placeValue, query) } : {}),
-                ...(lookup && !lookup.online ? { lookupNote: t("tools.geocode.downloadNeedsOptIn") } : {}),
+                ...addressLookupProps(lookup, placeValue, t),
               }
             : {
-                ...(lookup ? { onLookup: (query: string) => lookup.search(query) } : {}),
-                ...(lookup && !lookup.online ? { lookupNote: t("event.place.lookup.offlineOnly") } : {}),
+                ...placeLookupProps(lookup, t),
               })}
         >
           {/* The house to take out of the value, where the row stands for one

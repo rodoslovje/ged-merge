@@ -34,7 +34,7 @@ import {
   ToolsIntro,
 } from "./shared";
 import { sameCoord } from "../../geo/points";
-import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { placeLookupProps, usePlaceLookup } from "../edit/PlaceLookupContext";
 import { EventCoordPicker } from "../edit/EventCoordPicker";
 import type { Dataset, GeoCoord } from "../../gedcom/types";
 import type { KinshipResolver } from "../../match/kinship";
@@ -536,8 +536,7 @@ export function RegisterCheckSection({
       // the directories are offered as well — one pick fills the
       // whole chain, the house and the coordinate, exactly as in
       // an Edit place field.
-      onLookup={lookup ? (q) => lookup.search(q) : undefined}
-      lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+      {...placeLookupProps(lookup, t)}
       onPickProposal={(proposal) => {
         rename.setDraft(proposal.plac);
         setRenameAddrDraft(proposal.addr ?? "");

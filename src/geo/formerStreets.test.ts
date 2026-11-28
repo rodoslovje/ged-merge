@@ -20,7 +20,7 @@ vi.mock("./formerStreets", async (original) => ({
   storedFormerStreets: async () => TABLE,
 }));
 
-const { searchAddress, searchAddressBatch, resultsForQuery, searchStreet, streetQueryFrom, rnQueriesFrom } = await import("./rn");
+const { searchAddress, searchAddresses, searchAddressBatch, resultsForQuery, searchStreet, streetQueryFrom, rnQueriesFrom } = await import("./rn");
 
 describe("parseFormerStreets", () => {
   it("reads the table, whichever separator the file uses", () => {
@@ -179,6 +179,26 @@ describe("an address written under a former street name", () => {
     const queries = rnQueriesFrom("Ljubljana, Slovenija", "Cankarjeva cesta / Aleksandrova cesta 5");
     expect(queries).toMatchObject([{ settlement: "Ljubljana", street: "Aleksandrova cesta", number: 5 }]);
     expect((await searchAddress(queries[0])).map((h) => h.address)).toEqual(["Cankarjeva cesta"]);
+  });
+
+  it("answers with the house once the file writes its number on today's name too", async () => {
+    const queries = rnQueriesFrom("Ljubljana, Slovenija", "Cankarjeva cesta 7 / Aleksandrova cesta 5");
+    const hits = await searchAddresses(queries);
+    // One answer: today's number 7, known to be the Aleksandrova cesta 5 of the record.
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toMatchObject({
+      address: "Cankarjeva cesta 7",
+      number: 5,
+      former: { name: "Aleksandrova cesta", from: 1919, to: 1941 },
+    });
+    expect(hits[0].label).toContain("← Aleksandrova cesta (1919–1941)");
+    const [asWritten] = await searchAddress({ settlement: "Ljubljana", street: "Cankarjeva cesta", number: 7 });
+    expect(hits[0].coord).toEqual(asWritten.coord);
+  });
+
+  it("keeps to the street's middle for a number today's street does not have", async () => {
+    const queries = rnQueriesFrom("Ljubljana, Slovenija", "Cankarjeva cesta 9 / Aleksandrova cesta 5");
+    expect((await searchAddresses(queries)).map((h) => h.address)).toEqual(["Cankarjeva cesta"]);
   });
 
   it("reads a street written under both its names by the first of them", async () => {

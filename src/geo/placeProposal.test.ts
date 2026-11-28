@@ -4,6 +4,7 @@ import { buildGazetteerIndex, type GazEntry } from "./gazetteer";
 import { inferPlaceParentLevels } from "./placeLevels";
 import type { RnResult } from "./rn";
 import {
+  completesAddress,
   countryNameOf,
   placeDepthOf,
   placeDepthsOf,
@@ -309,6 +310,14 @@ describe("an address-register house as a place", () => {
     )!;
     expect(p.addr).toBe("Cankarjeva cesta / Aleksandrova cesta 5");
     expect(p.coord).toEqual(house.coord);
+  });
+
+  it("offers a house the file numbers on today's street name with both numbers", () => {
+    const p = proposalFromRn(
+      { ...house, address: "Cankarjeva cesta 7", street: "Cankarjeva cesta", number: 5, former: { name: "Aleksandrova cesta" } },
+      style(),
+    )!;
+    expect(p.addr).toBe("Cankarjeva cesta 7 / Aleksandrova cesta 5");
   });
 
   it("proposes a street named without a house, a former one under both names", () => {
@@ -627,5 +636,24 @@ describe("proposalKey", () => {
       style(),
     )!;
     expect(proposalKey(house)).not.toBe(proposalKey(settlement));
+  });
+});
+
+describe("completesAddress", () => {
+  it("takes an offer that finishes what was typed, under either name of a renamed street", () => {
+    expect(completesAddress("Zrinjskega", "Zrinjskega cesta")).toBe(true);
+    expect(completesAddress("Zrinjskega", "Ulica Janeza Pavla II. / Zrinjskega cesta")).toBe(true);
+    expect(completesAddress("Ulica Moše Pijade 3", "Zoisova ulica / Ulica Moše Pijade 3")).toBe(true);
+  });
+
+  it("takes it for a street typed without its kind word", () => {
+    expect(completesAddress("Moše Pijade 3", "Zoisova ulica / Ulica Moše Pijade 3")).toBe(true);
+    expect(completesAddress("Moše Pijade", "Zoisova ulica / Ulica Moše Pijade")).toBe(true);
+  });
+
+  it("leaves the user's own wording where the offer says something else", () => {
+    expect(completesAddress("Moše Pijade 5", "Zoisova ulica / Ulica Moše Pijade 3")).toBe(false);
+    expect(completesAddress("Olševek 1 / 2 (pd Pilar)", "Olševek 1")).toBe(false);
+    expect(completesAddress("", "Olševek 1")).toBe(false);
   });
 });

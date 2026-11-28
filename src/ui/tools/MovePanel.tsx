@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { PlaceProposal } from "../../geo/placeProposal";
 import { SuggestInput } from "../edit/SuggestInput";
-import { usePlaceLookup } from "../edit/PlaceLookupContext";
+import { placeLookupProps, usePlaceLookup } from "../edit/PlaceLookupContext";
 import type { FieldSuggestions } from "../edit/fieldSuggestions";
 import type { PlaceGroup } from "./useAddressCoordRows";
 import { ToolsIntro } from "./shared";
@@ -71,8 +71,7 @@ export function MovePanel({
         onCommit={onTarget}
         onClear={() => onTarget("")}
         onPickProposal={onPickProposal}
-        onLookup={lookup ? (query) => lookup.search(query) : undefined}
-        lookupNote={lookup && !lookup.online ? t("event.place.lookup.offlineOnly") : undefined}
+        {...placeLookupProps(lookup, t)}
       />
       <span className="tools-place-rename-hint">
         {t("tools.geocode.addr.moveCount", { count: selected.size, events })}
