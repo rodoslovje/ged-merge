@@ -297,6 +297,24 @@ describe("an address-register house as a place", () => {
     expect(p.addr).toBeUndefined();
   });
 
+  it("keeps every number a renumbered house is written with, naming the house that answered", () => {
+    const first = proposalFromRn(house, style(), "21 / 53")!;
+    expect(first.addr).toBe("Hafnarjeva pot 21 / 53");
+    expect(first.house).toBe("Hafnarjeva pot 21");
+    expect(first.coord).toEqual(house.coord);
+    // The other number's house writes the same text, and is still its own offer.
+    const second = proposalFromRn({ ...house, address: "Hafnarjeva pot 53a", number: 53, suffix: "a" }, style(), "21 / 53")!;
+    expect(second.addr).toBe("Hafnarjeva pot 21 / 53");
+    expect(second.house).toBe("Hafnarjeva pot 53a");
+    expect(proposalKey(second)).not.toBe(proposalKey(first));
+    // A packed file keeps the list in PLAC, where it keeps its addresses.
+    const packed = proposalFromRn(house, style({}, { layout: "packed-plac" }), "21 / 53")!;
+    expect(packed.plac).toBe("Kranj (Slovenija), Hafnarjeva pot 21 / 53");
+    expect(packed.house).toBe("Hafnarjeva pot 21");
+    // One number written: the register's own line, as before.
+    expect(proposalFromRn(house, style())!.house).toBeUndefined();
+  });
+
   it("offers an address under a former street name under both names, the number on the one written", () => {
     const p = proposalFromRn(
       {

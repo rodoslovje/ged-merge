@@ -404,7 +404,9 @@ export function SuggestInput({
               ) : (
                 s.place
               )}
-              {s.addr && <span className="addr-muted"> · {s.addr}</span>}
+              {/* A renumbered house's offer writes every number the value lists;
+                  the row names the one house the register found. */}
+              {(s.proposal?.house ?? s.addr) && <span className="addr-muted"> · {s.proposal?.house ?? s.addr}</span>}
               {s.proposal && (
                 <span className={`tools-reshape-badge ${s.proposal.official ? "official" : "reuse"}`}>
                   {s.proposal.source}
