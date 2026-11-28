@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ClearableInput } from "./ClearableInput";
 import { applyCanonical, foldedCombos, foldedRows, suggestQuery, type FoldedCombo } from "./fieldSuggestions";
@@ -122,6 +122,10 @@ export function SuggestInput({
   const [highlighted, setHighlighted] = useState(-1);
   const [search, setSearch] = useState<SearchState>(IDLE);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // The text now in the field, for an answer that arrives after it was typed.
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
 
   /** The lookup stands at the foot of every dropdown, familiar text or not:
    *  even a place the file already writes may want what rides *with* the text
@@ -134,7 +138,7 @@ export function SuggestInput({
   const plainRows = useMemo(() => foldedRows(suggestions), [suggestions]);
   const comboRows = useMemo(() => (combos ? foldedCombos(combos) : []), [combos]);
 
-  const filtered = useMemo((): Item[] => {
+  const fromFile = useMemo((): Item[] => {
     // The query is read like a name: each typed part matches on its own, in
     // any order and accent-blind — "Zg Bitnj" reaches Zgornje Bitnje.
     const q = suggestQuery(value);
@@ -230,7 +234,10 @@ export function SuggestInput({
     const comboRoom = matchCombosByPlace ? 0 : Math.min(picked.length, 3);
     const plainPart = plain.slice(0, 8 - comboRoom);
     const room = Math.max(0, 8 - barePlaces.length - plainPart.length);
-    const fromFile = [...barePlaces, ...plainPart, ...shownOrder(picked.slice(0, room))];
+    return [...barePlaces, ...plainPart, ...shownOrder(picked.slice(0, room))];
+  }, [value, plainRows, comboRows, matchCombosByPlace, onPickCombo, offerAllWhenEmpty]);
+
+  const filtered = useMemo((): Item[] => {
     // Register offers sit below the file's own places: what the file already
     // uses is the better answer whenever it fits, and only the rest needs a
     // register. An offer repeating a familiar text still earns its row — the
@@ -243,9 +250,12 @@ export function SuggestInput({
         ? search.results.map((p) => ({ place: p.plac, addr: p.addr, proposal: p }))
         : [];
     return [...fromFile, ...offers];
-  }, [value, plainRows, comboRows, matchCombosByPlace, onPickCombo, offerAllWhenEmpty, search]);
+  }, [value, fromFile, search]);
 
   const showDropdown = open && (filtered.length > 0 || canSearch);
+  /** The lookup row's place in the arrow-key walk — one step past the last
+   *  suggestion — or -1 when there is no search to run. */
+  const lookupIndex = canSearch && onLookup ? filtered.length : -1;
 
   function selectSuggestion(item: Item) {
     // A register offer carries its own place, address and coordinate; a combo
@@ -270,9 +280,21 @@ export function SuggestInput({
   function runSearch() {
     const query = value.trim();
     if (!onLookup || query.length < 2) return;
+    if (search.state === "loading" && search.query === query) return;
+    // The keyboard goes back to the field before the button disables itself:
+    // a button reached with Tab would otherwise lose its focus to nowhere as it
+    // disabled, which reads as leaving the field and closes the dropdown — and
+    // the answers are picked with the field's own arrow keys anyway.
+    inputRef.current?.focus();
+    const firstOffer = fromFile.length;
     setSearch({ state: "loading", query, results: [] });
     onLookup(query).then(
-      (results) => setSearch({ state: "done", query, results }),
+      (results) => {
+        setSearch({ state: "done", query, results });
+        // The first answer is highlighted, so Enter takes it — unless the text
+        // has moved on, and these answers are not shown at all.
+        if (results.length && valueRef.current.trim() === query) setHighlighted(firstOffer);
+      },
       () => setSearch({ state: "error", query, results: [] }),
     );
   }
@@ -290,13 +312,15 @@ export function SuggestInput({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setOpen(true);
-      setHighlighted((h) => Math.min(h + 1, filtered.length - 1));
+      // One step past the last suggestion stands the lookup row.
+      setHighlighted((h) => Math.min(h + 1, lookupIndex >= 0 ? lookupIndex : filtered.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlighted((h) => Math.max(h - 1, 0));
     } else if (e.key === "Enter" && highlighted >= 0 && showDropdown) {
       e.preventDefault();
-      selectSuggestion(filtered[highlighted]);
+      if (highlighted === lookupIndex) runSearch();
+      else if (filtered[highlighted]) selectSuggestion(filtered[highlighted]);
     } else if (e.key === "Escape") {
       // With the dropdown open, Escape only dismisses it — preventDefault
       // tells hosting editors (e.g. the geocode rename row) to stay open,
@@ -313,6 +337,7 @@ export function SuggestInput({
   return (
     <div ref={containerRef} className={`suggest-wrap${wrapClassName ? ` ${wrapClassName}` : ""}`} style={wrapStyle} onBlur={handleBlur}>
       <ClearableInput
+        ref={inputRef}
         data-detail={dataDetail}
         className={`${isMerge ? "edit-input--merge " : isDirty ? "edit-input--dirty " : ""}${className ?? ""}`}
         value={value}
@@ -356,7 +381,7 @@ export function SuggestInput({
               opt-in and rate limited, so they are never queried per
               keystroke. */}
           {canSearch && (
-            <li className="suggest-list-foot">
+            <li className={highlighted === lookupIndex ? "suggest-list-foot suggest-list-foot--hi" : "suggest-list-foot"}>
               {onLookup && (
                 <button
                   type="button"
@@ -365,7 +390,8 @@ export function SuggestInput({
                   // The mousedown is swallowed so the input keeps focus — a
                   // click would blur it first, and the wrapper's blur handler
                   // would have closed the dropdown. The search itself is the
-                  // click, so the row reached with Tab runs it on Enter too.
+                  // click, so the row reached with Tab runs it on Enter too
+                  // (as does Enter in the field, with the row highlighted).
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={runSearch}
                 >
