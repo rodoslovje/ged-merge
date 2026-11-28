@@ -16,7 +16,7 @@ import { placeLookupLanguage, searchInAnswerLanguage } from "../../geo/lookupLan
 import { inferPlaceParentLevels, type PlaceParentLevels } from "../../geo/placeLevels";
 import { searchNominatim } from "../../geo/nominatim";
 import { useLocalRegisters } from "../useLocalRegisters";
-import { isOfflineQuery, rnQueriesFrom, searchAddresses, searchStreet, streetQueryFrom } from "../../geo/rn";
+import { isOfflineQuery, rnQueriesFrom, searchAddresses, searchStreet, streetQueryFrom, writtenHouseNumbers } from "../../geo/rn";
 import {
   placeDepthsOf,
   proposalFromGazEntry,
@@ -251,9 +251,10 @@ export function usePlaceLookupValue(
       // The address register only applies when the text names a house number
       // in Slovenia or Croatia.
       const rnQueries = rnQueriesFrom(text, undefined);
+      const numbers = writtenHouseNumbers(text, undefined);
       if (offlineOnly || !online) {
         if (mayAsk(rnQueries, true)) {
-          for (const r of await searchAddresses(rnQueries).catch(() => [])) add(proposalFromRn(r, style));
+          for (const r of await searchAddresses(rnQueries).catch(() => [])) add(proposalFromRn(r, style, numbers));
         }
       } else {
         // The other two take any free text.
@@ -267,7 +268,7 @@ export function usePlaceLookupValue(
           searchGov(text, answerLang),
           osmSearch(text, answerLang),
         ]);
-        if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
+        if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style, numbers));
         if (gov.status === "fulfilled") for (const r of gov.value) add(proposalFromGov(r, style));
         if (osm.status === "fulfilled") for (const r of osm.value) add(proposalFromNominatim(r, style));
         // Every register that was asked failed: that is an error to report, not
@@ -303,6 +304,7 @@ export function usePlaceLookupValue(
       // village itself. It also tries the wider jurisdictions the place names,
       // since a street is often filed under the town that absorbed the village.
       const rnQueries = rnQueriesFrom(place || undefined, text);
+      const numbers = writtenHouseNumbers(place || undefined, text);
       // The event's place says which language the file writes this address in;
       // where it names no country — an empty place, a bare settlement — the
       // typed address's own country ("Stone Lake, USA") answers instead, or
@@ -322,7 +324,7 @@ export function usePlaceLookupValue(
             )
           : Promise.resolve([]),
       ]);
-      if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style));
+      if (rn.status === "fulfilled") for (const r of rn.value) add(proposalFromRn(r, style, numbers));
       if (streets.status === "fulfilled") for (const s of streets.value) add(proposalFromStreet(s, style));
       if (osm.status === "fulfilled") for (const r of osm.value) add(proposalFromNominatim(r, style));
       if (!out.length && rn.status === "rejected" && osm.status === "rejected") {

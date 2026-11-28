@@ -5,6 +5,7 @@ import {
   hostAsSettlement,
   isOfflineQuery,
   parseHouseNumbers,
+  writtenHouseNumbers,
   requireParentMunicipality,
   searchAddress,
   searchAddressBatch,
@@ -177,6 +178,21 @@ describe("isOfflineQuery", () => {
     // Every query must be answerable here; one abroad keeps it online.
     expect(isOfflineQuery([si, hr], new Set(["SI"]))).toBe(false);
     expect(isOfflineQuery([], new Set(["SI"]))).toBe(false);
+  });
+});
+
+describe("writtenHouseNumbers", () => {
+  it("is the list a value writes when it names several numbers", () => {
+    expect(writtenHouseNumbers("Klošter 11 / 82 / 63", undefined)).toBe("11 / 82 / 63");
+    expect(writtenHouseNumbers("Klošter, Metlika, Slovenia", "Klošter 11/82/63")).toBe("11 / 82 / 63");
+    expect(writtenHouseNumbers("Kranj", "Hafnarjeva pot 21a / 53")).toBe("21a / 53");
+  });
+
+  it("is nothing for one number, none, or two whole addresses", () => {
+    expect(writtenHouseNumbers("Klošter 11", undefined)).toBeUndefined();
+    expect(writtenHouseNumbers("Kranj", "Kidričeva cesta 38/a")).toBeUndefined();
+    expect(writtenHouseNumbers("Klošter, Metlika", undefined)).toBeUndefined();
+    expect(writtenHouseNumbers("Kranj", "Škofjeloška 4 / Labore 4")).toBeUndefined();
   });
 });
 

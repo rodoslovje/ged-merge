@@ -132,6 +132,27 @@ export function parseHouseNumbers(raw: string): { number: number; suffix?: strin
   return out;
 }
 
+/**
+ * The house numbers a value lists, as it writes them — "11 / 82 / 63" — when it
+ * lists more than one; undefined for a single number or none.
+ *
+ * Each of them is looked up ({@link rnQueriesFrom}) and the register answers
+ * with one house at a time, but which of the numbers is today's is the only
+ * thing that answer settles: the others are the house's earlier numbers, and
+ * the record stays the researcher's. This is what a pick writes back in place
+ * of the one number the register returned. Read by the rules `rnQueriesFrom`
+ * reads the number by — ADDR before PLAC — and not at all for a value listing
+ * whole addresses ({@link splitAddressVariants}), whose numbers belong to
+ * different streets.
+ */
+export function writtenHouseNumbers(place: string | undefined, address: string | undefined): string | undefined {
+  if (address?.trim() && splitAddressVariants(address).length > 1) return undefined;
+  const raw =
+    (address?.trim() ? decomposePlace(address).houseNumber : undefined) ??
+    (place?.trim() ? decomposePlace(place).houseNumber : undefined);
+  return raw && parseHouseNumbers(raw).length > 1 ? raw : undefined;
+}
+
 /** A segment that names a street (or settlement) of its own and then a house
  *  number — "Škofjeloška 4", as opposed to the bare "26" or the suffix "a"
  *  that a slash separates from the number before it. */
